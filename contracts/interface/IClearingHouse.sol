@@ -4,7 +4,7 @@ pragma abicoder v2;
 interface IClearingHouse {
 
 	struct Asset {
-		uint available; 
+		uint balance; 
 		uint debt;
 		uint fee;
 	}
@@ -47,8 +47,8 @@ interface IClearingHouse {
 	function liquidate(address _pool, address _taker) external returns(uint base);
 
 	// maker's function
-	function mint(address _pool, uint _base, uint _quote) external;
-	function burn(address _pool, uint _base, uint _quote) external;
+	function mint(address _asset, uint _amount) external;
+	function burn(address _asset, uint _amount) external;
 	function addLiquidity(
 			address _pool, 
 			uint _base, 

@@ -13,8 +13,8 @@ library UniswapBroker {
 	) internal returns (uint base,
             uint quote,
             uint liquidityDelta,
-            uint feeCumulativePerLiquidityBase,
-            uint feeCumulativePerLiquidityQuote){
+            uint feeGrowthInsideLastBase,
+            uint feeGrowthInsideLastQuote){
                 revert(); 
             }
 
@@ -27,8 +27,8 @@ library UniswapBroker {
         uint base,
         uint quote,
         uint liquidityDelta,
-        uint feeCumulativePerLiquidityBase,
-        uint feeCumulativePerLiquidityQuote) {
+        uint feeGrowthInsideLastBase,
+        uint ffeeGrowthInsideLastQuote) {
                 revert(); 
             }
 
