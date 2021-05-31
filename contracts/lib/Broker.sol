@@ -2,7 +2,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 
-library Broker {
+library UniswapBroker {
 
 	function addLiquidity (
         address _pool, 
@@ -35,14 +35,13 @@ library Broker {
 	function swap(
         address _pool,
         bool _baseToQuote,
-        bool _exactInput,
-        uint _amount,
-        uint _exchangedAmountLimit
+        int _amount,
+        uint96 sqrtPriceLimitX96
     ) internal returns (uint256 base, uint256 quote) {
                 revert(); 
             }
 
-	function collectFee(address _pool, int _tickLower, int _tickUpper) internal returns(uint feeBase, uint feeQuote){
+	function collect(address _pool, int _tickLower, int _tickUpper) internal returns(uint feeBase, uint feeQuote){
                 revert(); 
             }
 

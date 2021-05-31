@@ -13,16 +13,10 @@ interface IClearingHouse {
 		uint liquidity;
 		uint24 tickLower;
 		uint24 tickUpper;
-        uint feeCumulativePerLiquidityBase;
-		uint feeCumulativePerLiquidityQuote;
+        uint128 feeGrowthInsideLastBaseX128;
+		uint128 feeGrowthInsideLastQuoteX128;
 	}
-	
-	//naming: MakerOrder?
-	struct MakerPosition {
-		uint[] orderIds;
-		// key: order id
-		mapping(uint => OpenOrder) openOrderMap;
-	}
+
 
     struct Account {
 		uint margin;
@@ -34,13 +28,13 @@ interface IClearingHouse {
 		
 		// maker only
 		address pools[];
-		mapping(address => MakerPosition) makerPositionMap;
+        // key: pool address, value: array of order ids
+		mapping(address => uint[]) makerPositionMap;
     }
 
 	function deposit(uint _amount) external;	
 
 	// trader's function
-	function addMargin(uint _margin) external;
 	function removeMargin(uint _margin) external;
 	function openPosition(
 			address _pool, 
@@ -66,14 +60,6 @@ interface IClearingHouse {
 		) external returns(uint liquidity, uint baseDelta, uint quoteDelta);
 	function removeLiquidity(address _pool, uint _orderId, uint _liquidity) external returns(uint liquidity, uint baseDelta, uint quoteDelta, uint pnl);
 	function cancelOpenOrder(address _pool, address _maker, uint _orderId, uint _liquidity) external;
-	function collectFee(address _pool, uint _orderId) returns(uint feeBase, uint feeQuote) external;
+	function collect(address _pool, uint _orderId) returns(uint feeBase, uint feeQuote) external;
 
-	// view functions
-	function getFreeCollateral(address _trader) external view returns(uint freeCollateral);
-	function getMarginRatio(address _pool, address _trader) external view returns(uint marginRatio);
-	function getPosition(address _pool, address _trader) external view returns(uint positionSize, uint pnl);
-	function getPnl(address _pool, address _trader) external view returns(uint pnl);
-	function getInitMarginRequirement(address _trader) external view returns(uint initMarginRequirement);
-
-	function getOrders(address _pool, address _maker) external view returns(OpenOrder[]);
 }
