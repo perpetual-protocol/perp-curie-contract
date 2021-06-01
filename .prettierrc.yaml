@@ -5,3 +5,13 @@ trailingComma: all
 arrowParens: avoid
 tabWidth: 4
 bracketSpacing: true
+# overrides:
+#   - files: "*.sol"
+#     options:
+#       printWidth: 80
+#       tabWidth: 4
+#       useTabs: false
+#       singleQuote: false
+#       bracketSpacing: false
+#       explicitTypes: "always"
+
