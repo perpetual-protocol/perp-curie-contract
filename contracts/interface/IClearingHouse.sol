@@ -40,7 +40,6 @@ interface IClearingHouse {
 			address _pool, 
 			Side _side, 
 			uint _quote, 
-			uint _leverage, 
 			uint baseLimit
 		) external returns(uint base);
 	function closePosition(address _pool, uint _quoteLimit) external returns(uint quote, uint base);
