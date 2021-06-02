@@ -5,7 +5,9 @@
   "main": "hardhat.config.js",
   "scripts": {
     "test": "hardhat test",
-    "build": "hardhat compile"
+    "build": "hardhat compile",
+    "postinstall": "husky install",
+    "lint-staged": "lint-staged"
   },
   "author": "",
   "license": "ISC",
@@ -33,20 +35,13 @@
     "typechain": "5.0.0",
     "typescript": "4.3.2"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
   "lint-staged": {
     "*.ts": [
-      "prettier --write",
-      "eslint --fix",
-      "git add"
+      "prettier --write"
     ],
     "*.sol": [
       "prettier --write",
-      "git add"
+      "solhint"
     ]
   }
 }
