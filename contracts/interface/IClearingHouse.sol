@@ -58,7 +58,7 @@ interface IClearingHouse {
 			uint _tickUpper
 		) external returns(uint liquidity, uint baseDelta, uint quoteDelta);
 	function removeLiquidity(address _pool, uint _orderId, uint _liquidity) external returns(uint liquidity, uint baseDelta, uint quoteDelta, uint pnl);
-	function cancelOpenOrder(address _pool, address _maker, uint _orderId, uint _liquidity) external;
+	function cancelExcessOpenOrder(address _pool, address _maker, uint _orderId, uint _liquidity) external;
 	function collect(address _pool, uint _orderId) returns(uint feeBase, uint feeQuote) external;
 
 }
