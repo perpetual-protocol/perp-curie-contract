@@ -22,6 +22,8 @@
     "ethereum-waffle": "3.3.0",
     "ethers": "5.2.0",
     "hardhat": "2.3.0",
+    "husky": "6.0.0",
+    "lint-staged": "11.0.0",
     "prettier": "2.3.0",
     "prettier-plugin-solidity": "1.0.0-beta.11",
     "solhint": "3.3.6",
@@ -30,5 +32,21 @@
     "ts-node": "10.0.0",
     "typechain": "5.0.0",
     "typescript": "4.3.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "eslint --fix",
+      "git add"
+    ],
+    "*.sol": [
+      "prettier --write",
+      "git add"
+    ]
   }
 }
