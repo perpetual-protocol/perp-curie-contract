@@ -29,14 +29,14 @@ contract ClearingHouse {
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        Decimal.decimal memory markPrice = getMarkTwapPrice(_market, twapInterval);
+        uint160 sqrtMarkPrice = getSqrtMarkTwapPrice(_market, twapInterval);
         Decimal.decimal memory indexPrice = getIndexTwapPrice(_market, twapInterval);
-        SignedDecimal.signedDecimal memory premium = MixedDecimal.fromDecimal(markPrice).subD(indexPrice);
+        SignedDecimal.signedDecimal memory premium = signedDecimal(uint256(sqrtMarkPrice) * uint256(sqrtMarkPrice)).subD(indexPrice);
         SignedDecimal.signedDecimal memory premiumFraction = premium.mulScalar(fundingPeriod).divScalar(int256(1 days));
 
         // register primitives for funding calculations so we can settle it later
         _market.premiumFractions.push(premiumFraction);
-        _market.markPrices.push(markPrice);
+        _market.sqrtMarkPrices.push(sqrtMarkPrice);
 
         // TODO audit: this is the same logic as in Perp v1
         // update next funding time requirements so we can prevent multiple funding settlement during very short time after network congestion
@@ -84,15 +84,15 @@ contract ClearingHouse {
         // TODO note there is currently no protection on the size of the outer loop. Must analyze the worst case
         //  and see if protection is needed.
         for (uint256 i = position.lastFundingSettlementIndex; i < _market.premiumFractions.length; i++) {
-            Decimal.decimal memory markPrice = _market.markPrices[i];
+            uint160 sqrtMarkPrice = _market.sqrtMarkPrices[i];
             Decimal.decimal memory vBaseAmount = balanceOf(_market.base, _trader); // amount of vBase the trader owns in CH
             for (uint256 j = 0; j < position.ranges.length; j++) { // amount of vBase the trader owns in pool
                 Range range = position.ranges[j];
                 // TODO review needed
-                if (markPrice <= range.upper) {
+                if (sqrtMarkPrice <= range.upper) {
                     vBaseAmount = vBaseAmount.addD(
-                        (markPrice >= range.lower)
-                            ? _market.pool.getAmount0ForLiquidity(range.lower, markPrice, range.liquidity)
+                        (sqrtMarkPrice >= range.lower)
+                            ? _market.pool.getAmount0ForLiquidity(range.lower, sqrtMarkPrice, range.liquidity)
                             : _market.pool.getAmount0ForLiquidity(range.lower, range.upper, range.liquidity)
                     );
                 }
@@ -106,7 +106,7 @@ contract ClearingHouse {
         }
     }
 
-    function getMarkTwapPrice(Market _market, uint256 twapInterval) public view returns (Decimal.decimal memory)  {
+    function getSqrtMarkTwapPrice(Market _market, uint256 twapInterval) public view returns (uint160)  {
         uint256 now = _blockTimestamp();
         uint32[] memory secondsAgos = new uint32[](2);
 
@@ -114,12 +114,10 @@ contract ClearingHouse {
         secondsAgos[1] = uint32(fundingTwapInterval);
         (int56[] memory tickCumulatives, ) = _market.pool.observe(secondsAgos);
 
-        return decimal(uint256(
-            TickMath.getSqrtRatioAtTick(
-                // TODO should we check of negative value?
-                (tickCumulatives[1] - tickCumulatives[0]) / fundingTwapInterval
-            )
-        ));
+        return TickMath.getSqrtRatioAtTick(
+            // TODO should we check of negative value?
+            (tickCumulatives[1] - tickCumulatives[0]) / fundingTwapInterval
+        );
     }
 
     /**
