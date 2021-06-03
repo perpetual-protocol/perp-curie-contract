@@ -116,6 +116,7 @@ contract ClearingHouse {
 
         return TickMath.getSqrtRatioAtTick(
             // TODO should we check of negative value?
+            // TODO may need to find reciprocal of the sqrt ratio depend on token0/token1 mapping
             (tickCumulatives[1] - tickCumulatives[0]) / fundingTwapInterval
         );
     }
