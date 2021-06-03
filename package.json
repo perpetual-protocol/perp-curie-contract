@@ -7,6 +7,7 @@
     "test": "hardhat test",
     "build": "hardhat compile",
     "postinstall": "husky install",
+    "lint": "solhint src/**/*.sol",
     "lint-staged": "lint-staged"
   },
   "author": "",
