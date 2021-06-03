@@ -6,10 +6,6 @@ contract Sample {
     constructor() public {}
 
     function test(int256 a, int256 b) external {
-        c = a +b;
-    }  
- 
-   
- 
-
+        c = a + b;
+    }
 }
