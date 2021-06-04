@@ -29,9 +29,10 @@ contract ClearingHouse {
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        uint160 sqrtMarkPrice = getSqrtMarkTwapPrice(_market, twapInterval);
+        (uint160 sqrtMarkPrice, , , , , , ) = _market.pool.slot0();
+        uint160 sqrtMarkTwapPrice = getSqrtMarkTwapPrice(_market, twapInterval);
         Decimal.decimal memory indexPrice = getIndexTwapPrice(_market, twapInterval);
-        SignedDecimal.signedDecimal memory premium = signedDecimal(uint256(sqrtMarkPrice) * uint256(sqrtMarkPrice)).subD(indexPrice);
+        SignedDecimal.signedDecimal memory premium = signedDecimal(uint256(sqrtMarkTwapPrice) * uint256(sqrtMarkTwapPrice)).subD(indexPrice);
         SignedDecimal.signedDecimal memory premiumFraction = premium.mulScalar(fundingPeriod).divScalar(int256(1 days));
 
         // register primitives for funding calculations so we can settle it later
