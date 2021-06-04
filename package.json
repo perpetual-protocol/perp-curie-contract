@@ -22,6 +22,8 @@
     "@types/chai": "4.2.18",
     "@types/mocha": "8.2.2",
     "@types/node": "15.6.1",
+    "@uniswap/v3-core": "1.0.0",
+    "@uniswap/v3-periphery": "1.0.1",
     "chai": "4.3.4",
     "eslint-config-prettier": "8.3.0",
     "ethereum-waffle": "3.3.0",
