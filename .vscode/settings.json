@@ -1,0 +1,38 @@
+{
+    "solidity.packageDefaultDependenciesDirectory": "node_modules",
+    "solidity.packageDefaultDependenciesContractsDirectory": "",
+    "solidity.enabledAsYouTypeCompilationErrorCheck": true,
+    "solidity.linter": "solhint",
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 4,
+    "[json]": {
+        "editor.formatOnSave": true
+    },
+    "[javascript]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    "[typescript]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    "[typescriptreact]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    "[solidity]": {
+        "editor.formatOnSave": true,
+    },
+    "cSpell.enabled": true,
+    "cSpell.enableFiletypes": ["solidity", "javascript", "typescript"],
+    "cSpell.words": [
+    ],
+    "solidity.defaultCompiler": "localNodeModule",
+}

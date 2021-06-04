@@ -5,7 +5,10 @@
   "main": "hardhat.config.js",
   "scripts": {
     "test": "hardhat test",
-    "build": "hardhat compile"
+    "build": "hardhat compile",
+    "postinstall": "husky install",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "lint-staged": "lint-staged"
   },
   "author": "",
   "license": "ISC",
@@ -18,13 +21,29 @@
     "@types/mocha": "8.2.2",
     "@types/node": "15.6.1",
     "chai": "4.3.4",
+    "eslint-config-prettier": "8.3.0",
     "ethereum-waffle": "3.3.0",
     "ethers": "5.2.0",
     "hardhat": "2.3.0",
+    "husky": "6.0.0",
+    "lint-staged": "11.0.0",
+    "prettier": "2.3.0",
+    "prettier-plugin-solidity": "1.0.0-beta.11",
+    "solc": "0.7.6",
+    "solhint": "3.3.6",
     "solidity-coverage": "0.7.16",
     "ts-generator": "0.1.1",
     "ts-node": "10.0.0",
     "typechain": "5.0.0",
     "typescript": "4.3.2"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write"
+    ],
+    "*.sol": [
+      "prettier --write",
+      "solhint"
+    ]
   }
 }

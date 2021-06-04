@@ -1,0 +1,11 @@
+semi: false
+printWidth: 120
+singleQuote: false
+trailingComma: all
+arrowParens: avoid
+tabWidth: 4
+bracketSpacing: true
+overrides:
+  - files: "*.json"
+    options:
+      tabWidth: 2

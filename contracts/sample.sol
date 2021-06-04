@@ -1,12 +1,11 @@
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 contract Sample {
+    int256 public c;
 
-    int public c;
     constructor() public {}
-    function test(int a, int b) external {
-        c = a+b;
+
+    function test(int256 a, int256 b) external {
+        c = a + b;
     }
-
-
 }
