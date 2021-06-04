@@ -1,6 +1,7 @@
 {
     "solidity.packageDefaultDependenciesDirectory": "node_modules",
     "solidity.packageDefaultDependenciesContractsDirectory": "",
+    "solidity.enabledAsYouTypeCompilationErrorCheck": true,
     "solidity.linter": "solhint",
     "editor.formatOnSave": false,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -33,6 +34,5 @@
     "cSpell.enableFiletypes": ["solidity", "javascript", "typescript"],
     "cSpell.words": [
     ],
-    "solidity.compileUsingRemoteVersion": "v0.7.3+commit.9bfce1f6",
-    "solidity.defaultCompiler": "remote"
+    "solidity.defaultCompiler": "localNodeModule",
 }
