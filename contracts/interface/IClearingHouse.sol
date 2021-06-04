@@ -1,5 +1,5 @@
 pragma solidity 0.7.6;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 interface IClearingHouse {
     enum Side { BUY, SELL }
