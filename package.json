@@ -4,8 +4,9 @@
   "description": "",
   "main": "hardhat.config.js",
   "scripts": {
+    "typechain-uni": "typechain --target ethers-v5 --out-dir ./typechain/external ./node_modules/@uniswap/v3-core/artifacts/contracts/**/*.json",
     "test": "hardhat test",
-    "build": "hardhat compile",
+    "build": "hardhat compile && npm run typechain-uni",
     "postinstall": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged"
