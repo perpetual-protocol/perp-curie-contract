@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { TestERC20 } from "../../typechain"
-import { UniswapV3Pool } from "../../typechain/external"
+import { UniswapV3Pool } from "../../typechain/uniswap"
 import { poolFixture } from "../shared/fixtures"
 
 describe("UniswapV3Pool", () => {

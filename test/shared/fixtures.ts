@@ -2,7 +2,7 @@ import UniswapV3FactoryArtifacts from "@uniswap/v3-core/artifacts/contracts/Unis
 import UniswapV3PoolArtifacts from "@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json"
 import { ethers, waffle } from "hardhat"
 import { TestERC20 } from "../../typechain"
-import { UniswapV3Factory, UniswapV3Pool } from "../../typechain/external"
+import { UniswapV3Factory, UniswapV3Pool } from "../../typechain/uniswap"
 
 interface TokensFixture {
     token0: TestERC20
