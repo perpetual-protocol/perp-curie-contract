@@ -1,4 +1,4 @@
-pragma solidity 0.8.4;
+pragma solidity 0.7.6;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
