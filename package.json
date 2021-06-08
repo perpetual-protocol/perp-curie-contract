@@ -4,9 +4,10 @@
   "description": "",
   "main": "hardhat.config.js",
   "scripts": {
-    "typechain-uni": "typechain --target ethers-v5 --out-dir ./typechain/external ./node_modules/@uniswap/v3-core/artifacts/contracts/**/*.json",
+    "typechain": "npm run typechain-uniswap",
+    "typechain-uniswap": "typechain --target ethers-v5 --out-dir ./typechain/uniswap ./node_modules/@uniswap/v3-core/artifacts/contracts/**/*.json",
     "test": "hardhat test",
-    "build": "hardhat compile && npm run typechain-uni",
+    "build": "npm run typechain && hardhat compile",
     "postinstall": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged"
@@ -30,6 +31,8 @@
     "ethereum-waffle": "3.3.0",
     "ethers": "5.2.0",
     "hardhat": "2.3.0",
+    "hardhat-deploy": "0.7.10",
+    "hardhat-deploy-ethers": "0.3.0-beta.8",
     "husky": "6.0.0",
     "lint-staged": "11.0.0",
     "prettier": "2.3.0",
