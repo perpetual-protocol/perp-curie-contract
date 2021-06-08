@@ -30,7 +30,7 @@ export async function poolFixture(): Promise<PoolFixture> {
 
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
     const factory = (await factoryFactory.deploy()) as UniswapV3Factory
-    const tx = await factory.createPool(token0.address, token1.address, "3000")
+    const tx = await factory.createPool(token0.address, token1.address, "10000")
     const receipt = await tx.wait()
     const poolAddress = receipt.events?.[0].args?.pool as string
 
