@@ -1,22 +1,21 @@
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
-import { TestUniswapBroker, UniswapV3Pool } from "../../typechain"
-import { ERC20PresetMinterPauser } from "../../typechain/openzeppelin"
+import { TestERC20, TestUniswapBroker, UniswapV3Pool } from "../../typechain"
 import { poolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapBroker", () => {
     let pool: UniswapV3Pool
-    let token0: ERC20PresetMinterPauser
-    let token1: ERC20PresetMinterPauser
+    let base: TestERC20
+    let quote: TestERC20
     let uniswapBroker: TestUniswapBroker
 
     beforeEach(async () => {
-        const { pool: _pool, token0: _token0, token1: _token1 } = await waffle.loadFixture(poolFixture)
+        const { pool: _pool, base: _base, quote: _quote } = await waffle.loadFixture(poolFixture)
         pool = _pool
-        token0 = _token0
-        token1 = _token1
+        base = _base
+        quote = _quote
         await pool.initialize(encodePriceSqrt(1, 10))
 
         const uniswapBrokerFactory = await ethers.getContractFactory("TestUniswapBroker")
@@ -28,10 +27,12 @@ describe("UniswapBroker", () => {
             await expect(
                 uniswapBroker.mint({
                     pool: pool.address,
+                    baseToken: base.address,
+                    quoteToken: quote.address,
                     tickLower: "50000",
                     tickUpper: "50200",
-                    base: parseEther("0.000816820841"),
-                    quote: parseEther("0.122414646"),
+                    baseAmount: parseEther("0.000816820841"),
+                    quoteAmount: parseEther("0.122414646"),
                 }),
             )
                 .to.emit(pool, "Mint")

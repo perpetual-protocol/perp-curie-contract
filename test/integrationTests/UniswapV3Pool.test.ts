@@ -1,17 +1,17 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
-import { UniswapV3Pool } from "../../typechain"
-import { ERC20PresetMinterPauser } from "../../typechain/openzeppelin"
+import { TestERC20, UniswapV3Pool } from "../../typechain"
 import { poolFixture } from "../shared/fixtures"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, sortedTokens } from "../shared/utilities"
 
 describe("UniswapV3Pool", () => {
     let pool: UniswapV3Pool
-    let token0: ERC20PresetMinterPauser
-    let token1: ERC20PresetMinterPauser
+    let token0: TestERC20
+    let token1: TestERC20
 
     beforeEach(async () => {
-        const { pool: _pool, token0: _token0, token1: _token1 } = await waffle.loadFixture(poolFixture)
+        const { pool: _pool, base, quote } = await waffle.loadFixture(poolFixture)
+        const { token0: _token0, token1: _token1 } = sortedTokens(base, quote)
         pool = _pool
         token0 = _token0
         token1 = _token1

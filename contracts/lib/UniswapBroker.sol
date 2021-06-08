@@ -9,16 +9,18 @@ import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/Liqu
 library UniswapBroker {
     struct MintParams {
         IUniswapV3Pool pool;
+        address baseToken;
+        address quoteToken;
         int24 tickLower;
         int24 tickUpper;
-        uint256 base;
-        uint256 quote;
+        uint256 baseAmount;
+        uint256 quoteAmount;
     }
 
     struct MintResponse {
-        uint256 addedBase;
-        uint256 addedQuote;
-        uint128 liquidityDelta;
+        uint256 base;
+        uint256 quote;
+        uint128 liquidity;
         uint256 feeGrowthInsideLastBase;
         uint256 feeGrowthInsideLastQuote;
     }
@@ -26,94 +28,95 @@ library UniswapBroker {
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // requirements check
         // zero inputs
-        require(params.base > 0 || params.quote > 0, "ZIs");
+        require(params.baseAmount > 0 || params.quoteAmount > 0, "ZIs");
 
         // make base & quote into the right order
+        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
+
         uint256 amount0;
         uint256 amount1;
-        (address baseAddr, address quoteAddr) = getTokensFromPool(params.pool);
-        if (baseAddr < quoteAddr) {
-            amount0 = params.base;
-            amount1 = params.quote;
+        if (isBase0Quote1) {
+            amount0 = params.baseAmount;
+            amount1 = params.quoteAmount;
         } else {
-            amount0 = params.quote;
-            amount1 = params.base;
+            amount0 = params.quoteAmount;
+            amount1 = params.baseAmount;
         }
 
         // fetch the liquidity of ClearingHouse
-        {
-            uint256 feeGrowthInside0LastX128;
-            uint256 feeGrowthInside1LastX128;
-            // poke the pool to update fees if there's liquidity already
-            // check if this if block is necessary
-            if (getPositionLiquidity(params.pool, address(this), params.tickLower, params.tickUpper) > 0) {
-                params.pool.burn(params.tickLower, params.tickUpper, 0);
+        uint256 feeGrowthInside0LastX128;
+        uint256 feeGrowthInside1LastX128;
+        // poke the pool to update fees if there's liquidity already
+        // check if this if block is necessary
+        if (_getPositionLiquidity(params.pool, address(this), params.tickLower, params.tickUpper) > 0) {
+            params.pool.burn(params.tickLower, params.tickUpper, 0);
 
-                // get positionKey of ClearingHouse
-                bytes32 positionKeyCH = getPoolKeyCH(address(this), params.tickLower, params.tickUpper);
-                // get feeGrowthInside{0,1}LastX128
-                (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKeyCH);
-            }
+            // get positionKey of ClearingHouse
+            bytes32 positionKey = PositionKey.compute(address(this), params.tickLower, params.tickUpper);
 
-            // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-            // get the equivalent amount of liquidity from amount0 & amount1
-            response.liquidityDelta = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(params.tickLower),
-                TickMath.getSqrtRatioAtTick(params.tickUpper),
-                amount0,
-                amount1
+            // get feeGrowthInside{0,1}LastX128
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKey);
+        }
+
+        // get current price
+        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+        // get the equivalent amount of liquidity from amount0 & amount1
+        response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(params.tickLower),
+            TickMath.getSqrtRatioAtTick(params.tickUpper),
+            amount0,
+            amount1
+        );
+
+        // call mint()
+        // verify if this liquidity is necessary
+        uint256 addedAmount0;
+        uint256 addedAmount1;
+        if (response.liquidity > 0) {
+            (addedAmount0, addedAmount1) = params.pool.mint(
+                address(this),
+                params.tickLower,
+                params.tickUpper,
+                response.liquidity,
+                abi.encode(this)
             );
+        }
 
-            // call mint()
-            // verify if this liquidityDelta is necessary
-            uint256 addedAmount0;
-            uint256 addedAmount1;
-            if (response.liquidityDelta > 0) {
-                (addedAmount0, addedAmount1) = params.pool.mint(
-                    address(this),
-                    params.tickLower,
-                    params.tickUpper,
-                    response.liquidityDelta,
-                    abi.encode(this)
-                );
-            }
-
-            // make base & quote into the right order
-            if (baseAddr < quoteAddr) {
-                response.addedBase = addedAmount0;
-                response.addedQuote = addedAmount1;
-                response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-                response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
-            } else {
-                response.addedQuote = addedAmount0;
-                response.addedBase = addedAmount1;
-                response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-                response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
-            }
+        // make base & quote into the right order
+        if (isBase0Quote1) {
+            response.base = addedAmount0;
+            response.quote = addedAmount1;
+            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+        } else {
+            response.quote = addedAmount0;
+            response.base = addedAmount1;
+            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
+            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
         }
     }
 
-    function getTokensFromPool(IUniswapV3Pool pool) internal view returns (address, address) {
-        return (pool.token0(), pool.token1());
+    function _isBase0Quote1(
+        IUniswapV3Pool pool,
+        address base,
+        address quote
+    ) private view returns (bool) {
+        address token0 = pool.token0();
+        address token1 = pool.token1();
+        if (base == token0 && quote == token1) return true;
+        if (base == token1 && quote == token0) return false;
+        // pool token mismatched. should throw from earlier check
+        revert("PTM");
     }
 
-    function getPositionLiquidity(
+    function _getPositionLiquidity(
         IUniswapV3Pool pool,
         address owner,
         int24 tickLower,
         int24 tickUpper
-    ) internal view returns (uint128 liquidity) {
+    ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(owner, tickLower, tickUpper);
         (liquidity, , , , ) = pool.positions(positionKey);
-    }
-
-    function getPoolKeyCH(
-        address _owner,
-        int24 _tickLower,
-        int24 _tickUpper
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_owner, _tickLower, _tickUpper));
     }
 }
