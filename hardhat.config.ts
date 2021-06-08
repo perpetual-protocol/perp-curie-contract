@@ -7,14 +7,12 @@ import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 
 const config: HardhatUserConfig = {
-    solidity: "0.7.6",
-    external: {
-        contracts: [
-            {
-                artifacts: "node_modules/@uniswap/v3-core/artifacts",
-            },
-        ],
+    networks: {
+        hardhat: {
+            allowUnlimitedContractSize: true,
+        },
     },
+    solidity: "0.7.6",
 }
 
 export default config
