@@ -5,10 +5,8 @@
   "main": "hardhat.config.js",
   "scripts": {
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
-    "typechain": "npm run typechain-uniswap",
-    "typechain-uniswap": "typechain --target ethers-v5 --out-dir ./typechain/uniswap ./node_modules/@uniswap/v3-core/artifacts/contracts/**/*.json",
     "test": "hardhat test",
-    "build": "npm run typechain && hardhat compile",
+    "build": "hardhat compile",
     "postinstall": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged"

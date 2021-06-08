@@ -1,6 +1,5 @@
 import { ethers } from "hardhat"
-import { TestERC20 } from "../../typechain"
-import { UniswapV3Factory, UniswapV3Pool } from "../../typechain/uniswap"
+import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
 
 interface TokensFixture {
     token0: TestERC20
