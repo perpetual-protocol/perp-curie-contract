@@ -1,14 +1,15 @@
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
-import { TestERC20, TestUniswapBroker, UniswapV3Pool } from "../../typechain"
+import { TestUniswapBroker, UniswapV3Pool } from "../../typechain"
+import { ERC20PresetMinterPauser } from "../../typechain/openzeppelin"
 import { poolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapBroker", () => {
     let pool: UniswapV3Pool
-    let token0: TestERC20
-    let token1: TestERC20
+    let token0: ERC20PresetMinterPauser
+    let token1: ERC20PresetMinterPauser
     let uniswapBroker: TestUniswapBroker
 
     beforeEach(async () => {

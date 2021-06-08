@@ -12,6 +12,13 @@ const config: HardhatUserConfig = {
             allowUnlimitedContractSize: true,
         },
     },
+    external: {
+        contracts: [
+            {
+                artifacts: "node_modules/@openzeppelin/contracts/build",
+            },
+        ],
+    },
     solidity: "0.7.6",
 }
 

@@ -1,21 +1,22 @@
 import { ethers } from "hardhat"
-import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { ERC20PresetMinterPauser } from "../../typechain/openzeppelin"
 
 interface TokensFixture {
-    token0: TestERC20
-    token1: TestERC20
+    token0: ERC20PresetMinterPauser
+    token1: ERC20PresetMinterPauser
 }
 
 interface PoolFixture {
     pool: UniswapV3Pool
-    token0: TestERC20
-    token1: TestERC20
+    token0: ERC20PresetMinterPauser
+    token1: ERC20PresetMinterPauser
 }
 
 export async function tokensFixture(): Promise<TokensFixture> {
-    const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const tokenA = (await tokenFactory.deploy("TestETH", "tETH")) as TestERC20
-    const tokenB = (await tokenFactory.deploy("TestUSDC", "tUSDC")) as TestERC20
+    const tokenFactory = await ethers.getContractFactory("ERC20PresetMinterPauser")
+    const tokenA = (await tokenFactory.deploy("TestETH", "tETH")) as ERC20PresetMinterPauser
+    const tokenB = (await tokenFactory.deploy("TestUSDC", "tUSDC")) as ERC20PresetMinterPauser
 
     const [token0, token1] = [tokenA, tokenB].sort((tokenA, tokenB) =>
         tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? -1 : 1,
