@@ -82,11 +82,7 @@ library UniswapV3Broker {
         uint256 addedAmount1;
         if (response.liquidity > 0) {
             PoolAddress.PoolKey memory poolKey =
-                PoolAddress.PoolKey({
-                    token0: params.pool.token0(),
-                    token1: params.pool.token1(),
-                    fee: params.pool.fee()
-                });
+                PoolAddress.getPoolKey(params.pool.token0(), params.pool.token1(), params.pool.fee());
 
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
@@ -113,13 +109,13 @@ library UniswapV3Broker {
 
     function _isBase0Quote1(
         IUniswapV3Pool pool,
-        address base,
-        address quote
+        address baseToken,
+        address quoteToken
     ) private view returns (bool) {
         address token0 = pool.token0();
         address token1 = pool.token1();
-        if (base == token0 && quote == token1) return true;
-        if (base == token1 && quote == token0) return false;
+        if (baseToken == token0 && quoteToken == token1) return true;
+        if (base == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
         revert("PTM");
     }
