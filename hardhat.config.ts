@@ -7,14 +7,19 @@ import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 
 const config: HardhatUserConfig = {
-    solidity: "0.8.4",
+    networks: {
+        hardhat: {
+            allowUnlimitedContractSize: true,
+        },
+    },
     external: {
         contracts: [
             {
-                artifacts: "node_modules/@uniswap/v3-core/artifacts",
+                artifacts: "node_modules/@openzeppelin/contracts/build",
             },
         ],
     },
+    solidity: "0.7.6",
 }
 
 export default config
