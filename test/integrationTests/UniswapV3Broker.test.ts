@@ -1,15 +1,15 @@
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
-import { TestERC20, TestUniswapBroker, UniswapV3Pool } from "../../typechain"
+import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
 import { poolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("UniswapBroker", () => {
+describe("UniswapV3Broker", () => {
     let pool: UniswapV3Pool
     let base: TestERC20
     let quote: TestERC20
-    let uniswapBroker: TestUniswapBroker
+    let uniswapV3Broker: TestUniswapV3Broker
 
     beforeEach(async () => {
         const { pool: _pool, base: _base, quote: _quote } = await waffle.loadFixture(poolFixture)
@@ -18,14 +18,14 @@ describe("UniswapBroker", () => {
         quote = _quote
         await pool.initialize(encodePriceSqrt(1, 10))
 
-        const uniswapBrokerFactory = await ethers.getContractFactory("TestUniswapBroker")
-        uniswapBroker = (await uniswapBrokerFactory.deploy()) as TestUniswapBroker
+        const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
+        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy()) as TestUniswapV3Broker
     })
 
     describe("#mint", () => {
         it("mint", async () => {
             await expect(
-                uniswapBroker.mint({
+                uniswapV3Broker.mint({
                     pool: pool.address,
                     baseToken: base.address,
                     quoteToken: quote.address,
@@ -37,8 +37,8 @@ describe("UniswapBroker", () => {
             )
                 .to.emit(pool, "Mint")
                 .withArgs(
-                    uniswapBroker.address,
-                    uniswapBroker.address,
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
                     "50000",
                     "50200",
                     parseEther("1"),

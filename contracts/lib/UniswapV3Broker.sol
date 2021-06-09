@@ -6,7 +6,7 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
-library UniswapBroker {
+library UniswapV3Broker {
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
