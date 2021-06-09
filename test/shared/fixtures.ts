@@ -7,6 +7,7 @@ interface TokensFixture {
 }
 
 interface PoolFixture {
+    factory: UniswapV3Factory
     pool: UniswapV3Pool
     base: TestERC20
     quote: TestERC20
@@ -31,5 +32,8 @@ export async function poolFixture(): Promise<PoolFixture> {
     const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
     const pool = poolFactory.attach(poolAddress) as UniswapV3Pool
 
-    return { pool, base, quote }
+    console.log(`factory: ${factory.address}`)
+    console.log(`pool: ${pool.address}`)
+
+    return { factory, pool, base, quote }
 }

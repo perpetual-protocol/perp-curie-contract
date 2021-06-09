@@ -12,14 +12,17 @@ describe("UniswapV3Broker", () => {
     let uniswapV3Broker: TestUniswapV3Broker
 
     beforeEach(async () => {
-        const { pool: _pool, base: _base, quote: _quote } = await waffle.loadFixture(poolFixture)
+        const { factory, pool: _pool, base: _base, quote: _quote } = await waffle.loadFixture(poolFixture)
         pool = _pool
         base = _base
         quote = _quote
         await pool.initialize(encodePriceSqrt(1, 10))
 
+        const __pool = await factory.getPool(await pool.token0(), await pool.token1(), await pool.fee())
+        console.log(`pool addr: ${__pool}`)
+
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
-        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy()) as TestUniswapV3Broker
+        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
     })
 
     describe("#mint", () => {

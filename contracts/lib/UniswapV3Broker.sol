@@ -2,11 +2,18 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
+import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
 library UniswapV3Broker {
+    struct MintCallbackData {
+        PoolAddress.PoolKey poolKey;
+        address payer;
+    }
+
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
@@ -74,12 +81,19 @@ library UniswapV3Broker {
         uint256 addedAmount0;
         uint256 addedAmount1;
         if (response.liquidity > 0) {
+            PoolAddress.PoolKey memory poolKey =
+                PoolAddress.PoolKey({
+                    token0: params.pool.token0(),
+                    token1: params.pool.token1(),
+                    fee: params.pool.fee()
+                });
+
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
                 params.tickLower,
                 params.tickUpper,
                 response.liquidity,
-                abi.encode(this)
+                abi.encode(MintCallbackData({ poolKey: poolKey, payer: msg.sender }))
             );
         }
 
