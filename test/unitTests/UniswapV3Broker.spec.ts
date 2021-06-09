@@ -14,15 +14,17 @@ describe("UniswapV3Broker UT", () => {
         testUniswapV3Broker = _testUniswapV3BrokerFixture.testUniswapV3Broker
     })
 
-    it("#getTokenOrder: should not re-ordered the returning value", async () => {
-        const [token0, token1] = await testUniswapV3Broker.getTokenOrder(SMALL_ADDRESS, LARGE_ADDRESS)
-        expect(token0).to.eq(SMALL_ADDRESS)
-        expect(token1).to.eq(LARGE_ADDRESS)
-    })
+    describe("# getTokenOrder", () => {
+        it("should not re-ordered the returning value", async () => {
+            const [token0, token1] = await testUniswapV3Broker.getTokenOrder(SMALL_ADDRESS, LARGE_ADDRESS)
+            expect(token0).to.eq(SMALL_ADDRESS)
+            expect(token1).to.eq(LARGE_ADDRESS)
+        })
 
-    it("#getTokenOrder: should re-ordered the returning value", async () => {
-        const [token0, token1] = await testUniswapV3Broker.getTokenOrder(LARGE_ADDRESS, SMALL_ADDRESS)
-        expect(token0).to.eq(SMALL_ADDRESS)
-        expect(token1).to.eq(LARGE_ADDRESS)
+        it("should re-ordered the returning value", async () => {
+            const [token0, token1] = await testUniswapV3Broker.getTokenOrder(LARGE_ADDRESS, SMALL_ADDRESS)
+            expect(token0).to.eq(SMALL_ADDRESS)
+            expect(token1).to.eq(LARGE_ADDRESS)
+        })
     })
 })
