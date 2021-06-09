@@ -2,18 +2,11 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
-import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
 library UniswapV3Broker {
-    struct MintCallbackData {
-        PoolAddress.PoolKey poolKey;
-        address payer;
-    }
-
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
@@ -33,13 +26,11 @@ library UniswapV3Broker {
     }
 
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
-        // requirements check
         // zero inputs
         require(params.baseAmount > 0 || params.quoteAmount > 0, "UB_ZIs");
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-
         uint256 amount0;
         uint256 amount1;
         if (isBase0Quote1) {
@@ -50,15 +41,17 @@ library UniswapV3Broker {
             amount1 = params.baseAmount;
         }
 
-        // fetch the liquidity of ClearingHouse
+        // fetch the fee growth state of this before mint
         uint256 feeGrowthInside0LastX128;
         uint256 feeGrowthInside1LastX128;
-        // poke the pool to update fees if there's liquidity already
-        // check if this if block is necessary
-        if (_getPositionLiquidity(params.pool, address(this), params.tickLower, params.tickUpper) > 0) {
+        // check if this has liquidity
+        if (_getPositionLiquidity(params.pool, params.tickLower, params.tickUpper) > 0) {
+            // poke the pool to update fees if there's liquidity already
             params.pool.burn(params.tickLower, params.tickUpper, 0);
 
-            // get positionKey of ClearingHouse
+            // get this' positionKey
+            // FIXME
+            // check if the case sensitive of address(this) break the PositionKey computing
             bytes32 positionKey = PositionKey.compute(address(this), params.tickLower, params.tickUpper);
 
             // get feeGrowthInside{0,1}LastX128
@@ -67,7 +60,7 @@ library UniswapV3Broker {
 
         // get current price
         (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1
+        // get the equivalent amount of liquidity from amount0 & amount1 in current price
         response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
             sqrtPriceX96,
             TickMath.getSqrtRatioAtTick(params.tickLower),
@@ -81,15 +74,14 @@ library UniswapV3Broker {
         uint256 addedAmount0;
         uint256 addedAmount1;
         if (response.liquidity > 0) {
-            PoolAddress.PoolKey memory poolKey =
-                PoolAddress.getPoolKey(params.pool.token0(), params.pool.token1(), params.pool.fee());
-
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
                 params.tickLower,
                 params.tickUpper,
                 response.liquidity,
-                abi.encode(MintCallbackData({ poolKey: poolKey, payer: msg.sender }))
+                // FIXME
+                // depends on what verification we need to check inside callback
+                abi.encode(msg.sender)
             );
         }
 
@@ -122,11 +114,10 @@ library UniswapV3Broker {
 
     function _getPositionLiquidity(
         IUniswapV3Pool pool,
-        address owner,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint128 liquidity) {
-        bytes32 positionKey = PositionKey.compute(owner, tickLower, tickUpper);
+        bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
         (liquidity, , , , ) = pool.positions(positionKey);
     }
 }

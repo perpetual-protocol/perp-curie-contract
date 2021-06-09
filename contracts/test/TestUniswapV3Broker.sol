@@ -4,19 +4,14 @@ pragma abicoder v2;
 import "../lib/UniswapV3Broker.sol";
 import "../interface/IMintableERC20.sol";
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
-import { CallbackValidation } from "@uniswap/v3-periphery/contracts/libraries/CallbackValidation.sol";
-import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/CallbackValidation.sol";
+import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback {
     address private _factory;
 
-    struct MintCallbackData {
-        PoolAddress.PoolKey poolKey;
-        address payer;
-    }
-
-    constructor(address factory) public {
+    constructor(address factory) {
         _factory = factory;
     }
 
