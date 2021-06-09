@@ -1,14 +1,17 @@
-import { MockContract, smockit } from "@eth-optimism/smock"
+import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse } from "../../typechain"
-import { UniswapV3Pool } from "../../typechain/uniswap"
+import { ClearingHouse, TestERC20 } from "../../typechain"
 import { clearingHouseFixture } from "../shared/fixturesUT"
 
 describe("ClearingHouse UT", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000001"
-    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000a"
-    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
+    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
+    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
+    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
+    const POOL_C_ADDRESS = "0x000000000000000000000000000000000000000C"
+    const DEFAULT_FEE = 3000
+    let baseToken: TestERC20
     let clearingHouse: ClearingHouse
     let uniV3Factory: MockContract
 
@@ -16,56 +19,61 @@ describe("ClearingHouse UT", () => {
         const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         uniV3Factory = _clearingHouseFixture.mockUniV3Factory
+        // NOTICE: can not call waffle.loadFixture twice in beforeEach, it causes an unexpected result.
+        baseToken = await deployERC20()
+
+        // uniV3Factory.getPool always returns POOL_A_ADDRESS
+        uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            return POOL_A_ADDRESS
+        })
     })
 
     // @SAMPLE - addPool
-    it("add a UniswapV3 pool and verify event", async () => {
-        // check the pool has been added into mapping
-        const mockedPool = await createMockedPool(uniV3Factory.address, POOL_A_ADDRESS)
-
+    it("should be able to add a UniswapV3 pool and send an event", async () => {
         // check event has been sent
-        await expect(clearingHouse.addPool(mockedPool.address))
+        await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
             .to.emit(clearingHouse, "PoolAdded")
-            .withArgs(mockedPool.address)
-        expect(await clearingHouse.poolMap(mockedPool.address)).to.eq(true)
+            .withArgs(baseToken.address, DEFAULT_FEE, POOL_A_ADDRESS)
+
+        expect(await clearingHouse.poolMap(POOL_A_ADDRESS)).to.eq(true)
     })
 
-    it("add multiple UniswapV3 pools", async () => {
-        // check the pool has been added into mapping
-        const mockedPool1 = await createMockedPool(uniV3Factory.address, POOL_A_ADDRESS)
-        const mockedPool2 = await createMockedPool(uniV3Factory.address, POOL_B_ADDRESS)
+    it("should be able to add multiple UniswapV3 pools", async () => {
+        const baseToken2 = await deployERC20()
+        await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
 
-        // add pools to clearingHouse
-        await clearingHouse.addPool(mockedPool1.address)
-        await clearingHouse.addPool(mockedPool2.address)
+        // mock the return address of `getPool`
+        uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            return POOL_B_ADDRESS
+        })
+        await clearingHouse.addPool(baseToken.address, "10000")
+
+        // mock the return address of `getPool`
+        uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            return POOL_C_ADDRESS
+        })
+        await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
 
         // verify poolMap
-        expect(await clearingHouse.poolMap(mockedPool1.address)).to.eq(true)
-        expect(await clearingHouse.poolMap(mockedPool2.address)).to.eq(true)
-    })
-
-    it("force error, pool is existent in ClearingHouse", async () => {
-        const mockedPool = await createMockedPool(uniV3Factory.address, POOL_A_ADDRESS)
-        await clearingHouse.addPool(mockedPool.address)
-        await expect(clearingHouse.addPool(mockedPool.address)).to.be.revertedWith("CH_EP")
+        expect(await clearingHouse.poolMap(POOL_A_ADDRESS)).to.eq(true)
+        expect(await clearingHouse.poolMap(POOL_B_ADDRESS)).to.eq(true)
+        expect(await clearingHouse.poolMap(POOL_C_ADDRESS)).to.eq(true)
     })
 
     it("force error, pool is not existent in uniswap v3", async () => {
-        const mockedPool = await createMockedPool(uniV3Factory.address, POOL_A_ADDRESS)
-        // mock pool's factory to another address
-        mockedPool.smocked.factory.will.return.with(EMPTY_ADDRESS)
-        // should revert because pool's factory != uniV3Factory
-        await expect(clearingHouse.addPool(mockedPool.address)).to.be.revertedWith("CH_NEP")
+        uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            return EMPTY_ADDRESS
+        })
+        await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
+    })
+
+    it("force error, pool is existent in ClearingHouse", async () => {
+        await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+        await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
     })
 })
 
-async function createMockedPool(uniV3FactoryAddr: string, poolAddr: string): Promise<MockContract> {
-    const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-    const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
-
-    // mock pool and set factory to uniV3Factory
-    const mockedPool = await smockit(pool)
-    mockedPool.smocked.factory.will.return.with(uniV3FactoryAddr)
-
-    return mockedPool
+async function deployERC20(): Promise<TestERC20> {
+    const tokenFactory = await ethers.getContractFactory("TestERC20")
+    return (await tokenFactory.deploy("Test", "Test")) as TestERC20
 }

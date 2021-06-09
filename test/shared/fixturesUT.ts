@@ -11,6 +11,10 @@ interface ClearingHouseFixture {
 }
 
 export async function clearingHouseFixture(): Promise<ClearingHouseFixture> {
+    return deployClearingHouse()
+}
+
+export async function deployClearingHouse(): Promise<ClearingHouseFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const vUSDC = (await tokenFactory.deploy("vTestUSDC", "vUSDC")) as TestERC20

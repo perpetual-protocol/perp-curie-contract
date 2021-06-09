@@ -9,36 +9,37 @@ contract ClearingHouse is Ownable {
     //
     // events
     //
-    event PoolAdded(address pool);
+    event PoolAdded(address base, uint24 feeRatio, address pool);
 
     //
     // state variables
     //
-    IERC20 public quoteAsset;
-    IERC20 public vQuoteAsset;
-    IUniswapV3Factory public uniV3Factory;
+    IERC20 public immutable quoteToken;
+    IERC20 public immutable vQuoteToken;
+    IUniswapV3Factory public immutable uniV3Factory;
 
-    mapping(IUniswapV3Pool => bool) poolMap;
+    mapping(address => bool) public poolMap;
 
     constructor(
-        IERC20 vQuoteAssetParam,
-        IERC20 quoteAssetParam,
+        IERC20 vQuoteTokenParam,
+        IERC20 quoteTokenParam,
         IUniswapV3Factory uniV3FactoryParam
     ) {
-        vQuoteAsset = vQuoteAssetParam;
-        quoteAsset = quoteAssetParam;
+        vQuoteToken = vQuoteTokenParam;
+        quoteToken = quoteTokenParam;
         uniV3Factory = uniV3FactoryParam;
     }
 
-    function addPool(IUniswapV3Pool pool) external onlyOwner {
-        // CH_EP: existent pool in ClearingHouse
-        require(!poolMap[pool], "CH_EP");
-        // CH_NEP: non-existent pool in uniV3 factory
-        require(UniswapV3Broker.isExistedPool(address(uniV3Factory), address(pool)), "CH_NEP");
+    function addPool(IERC20 baseToken, uint24 feeRatio) external onlyOwner {
+        IUniswapV3Pool pool = UniswapV3Broker.getPool(uniV3Factory, quoteToken, baseToken, feeRatio);
+        // CH_NEP: pool is not existent in uniV3 factory
+        require(address(pool) != address(0), "CH_NEP");
+        // CH_EP: pool is existent in ClearingHouse
+        require(!poolMap[address(pool)], "CH_EP");
 
         // update poolMap
-        poolMap[pool] = true;
+        poolMap[address(pool)] = true;
 
-        emit PoolAdded(address(pool));
+        emit PoolAdded(address(baseToken), feeRatio, address(pool));
     }
 }
