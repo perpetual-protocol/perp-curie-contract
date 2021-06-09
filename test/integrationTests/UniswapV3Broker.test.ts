@@ -20,13 +20,15 @@ describe("UniswapV3Broker", () => {
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
         uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
 
+        // broker has the only permission to mint vToken
         await base.setMinter(uniswapV3Broker.address)
         await quote.setMinter(uniswapV3Broker.address)
     })
 
+    // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
     describe("#mint", () => {
-        it("mint under price", async () => {
-            await pool.initialize(encodePriceSqrt(1, 10))
+        it("mint range order above current price", async () => {
+            await pool.initialize(encodePriceSqrt(1, 1))
 
             await expect(
                 uniswapV3Broker.mint({
@@ -51,7 +53,7 @@ describe("UniswapV3Broker", () => {
                 )
         })
 
-        it("mint above price", async () => {
+        it("mint range order under current price", async () => {
             await pool.initialize(encodePriceSqrt(200, 1))
 
             await expect(

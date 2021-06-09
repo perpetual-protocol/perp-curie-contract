@@ -41,14 +41,10 @@ library UniswapV3Broker {
             amount1 = params.baseAmount;
         }
 
-        // fetch the fee growth state of this before mint
+        // fetch the fee growth state if this has liquidity
         uint256 feeGrowthInside0LastX128;
         uint256 feeGrowthInside1LastX128;
-        // check if this has liquidity
         if (_getPositionLiquidity(params.pool, params.tickLower, params.tickUpper) > 0) {
-            // poke the pool to update fees if there's liquidity already
-            params.pool.burn(params.tickLower, params.tickUpper, 0);
-
             // get this' positionKey
             // FIXME
             // check if the case sensitive of address(this) break the PositionKey computing
