@@ -20,6 +20,9 @@ describe("UniswapV3Broker", () => {
 
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
         uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+
+        await base.setMinter(uniswapV3Broker.address)
+        await quote.setMinter(uniswapV3Broker.address)
     })
 
     describe("#mint", () => {
