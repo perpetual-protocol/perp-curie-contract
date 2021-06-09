@@ -1,13 +1,19 @@
+import { ClearingHouse, TestERC20, TestUniswapV3Broker } from "../../typechain"
 import { MockContract, smockit } from "@eth-optimism/smock"
-import { ethers } from "hardhat"
-import { ClearingHouse, TestERC20 } from "../../typechain"
+
 import { UniswapV3Factory } from "../../typechain/uniswap"
+import { ethers } from "hardhat"
+import { uniswapV3FactoryFixture } from "./fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: ClearingHouse
     mockUniV3Factory: MockContract
     mockVUSDC: MockContract
     mockUSDC: MockContract
+}
+
+interface TestUniswapV3BrokerFixture {
+    testUniswapV3Broker: TestUniswapV3Broker
 }
 
 export async function clearingHouseFixture(): Promise<ClearingHouseFixture> {
@@ -36,4 +42,11 @@ export async function deployClearingHouse(): Promise<ClearingHouseFixture> {
     )
 
     return { clearingHouse, mockUniV3Factory, mockVUSDC, mockUSDC }
+}
+
+export async function testUniswapV3BrokerFixture(): Promise<TestUniswapV3BrokerFixture> {
+    const factory = await uniswapV3FactoryFixture()
+    const testUniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
+    const testUniswapV3Broker = (await testUniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+    return { testUniswapV3Broker }
 }

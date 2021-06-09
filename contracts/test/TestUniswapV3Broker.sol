@@ -42,4 +42,8 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback {
     {
         return UniswapV3Broker.mint(params);
     }
+
+    function getTokenOrder(IERC20 quoteToken, IERC20 baseToken) external pure returns (IERC20 token0, IERC20 token1) {
+        return UniswapV3Broker.getTokenOrder(quoteToken, baseToken);
+    }
 }
