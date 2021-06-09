@@ -35,7 +35,7 @@ library UniswapV3Broker {
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // requirements check
         // zero inputs
-        require(params.baseAmount > 0 || params.quoteAmount > 0, "ZIs");
+        require(params.baseAmount > 0 || params.quoteAmount > 0, "UB_ZIs");
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
@@ -115,9 +115,9 @@ library UniswapV3Broker {
         address token0 = pool.token0();
         address token1 = pool.token1();
         if (baseToken == token0 && quoteToken == token1) return true;
-        if (base == token1 && quoteToken == token0) return false;
+        if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
-        revert("PTM");
+        revert("UB_PTM");
     }
 
     function _getPositionLiquidity(
