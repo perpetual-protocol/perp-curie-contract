@@ -1,11 +1,9 @@
-import { MockContract, smockit } from "@eth-optimism/smock"
+import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { expect } from "chai"
-import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Factory } from "../../typechain"
-import { toWei } from "../helper/number"
-import { clearingHouseFixture, deployERC20 } from "../shared/fixturesUT"
+import { waffle } from "hardhat"
+import { ClearingHouse } from "../../typechain"
+import { deployERC20, mockedClearingHouseFixture } from "../shared/fixturesUT"
 
 describe("ClearingHouse Spec", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -13,32 +11,21 @@ describe("ClearingHouse Spec", () => {
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
     const POOL_C_ADDRESS = "0x000000000000000000000000000000000000000C"
     const DEFAULT_FEE = 3000
-    let baseToken: TestERC20
+
     let clearingHouse: ClearingHouse
-    let uniV3Factory: UniswapV3Factory
-    let collateral: TestERC20
-    let mockUniV3Factory: MockContract
-    let admin: SignerWithAddress
-    let alice: SignerWithAddress
+    let baseToken: MockContract
+    let uniV3Factory: MockContract
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
+        const _clearingHouseFixture = await waffle.loadFixture(mockedClearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
-        uniV3Factory = _clearingHouseFixture.uniV3Factory
-        baseToken = _clearingHouseFixture.baseToken
-        collateral = _clearingHouseFixture.USDC
+        baseToken = _clearingHouseFixture.mockedBaseToken
+        uniV3Factory = _clearingHouseFixture.mockedUniV3Factory
 
-        mockUniV3Factory = await smockit(uniV3Factory)
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
-        mockUniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+        uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
             return POOL_A_ADDRESS
         })
-
-        const accounts = await ethers.getSigners()
-        admin = accounts[0]
-        alice = accounts[1]
-
-        collateral.mint(admin.address, toWei(10000))
     })
 
     describe("# addPool", () => {
@@ -57,13 +44,13 @@ describe("ClearingHouse Spec", () => {
             await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
 
             // mock the return address of `getPool`
-            mockUniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                 return POOL_B_ADDRESS
             })
             await clearingHouse.addPool(baseToken.address, "10000")
 
             // mock the return address of `getPool`
-            mockUniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                 return POOL_C_ADDRESS
             })
             await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
@@ -75,7 +62,7 @@ describe("ClearingHouse Spec", () => {
         })
 
         it("force error, pool is not existent in uniswap v3", async () => {
-            mockUniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                 return EMPTY_ADDRESS
             })
             await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
@@ -85,33 +72,5 @@ describe("ClearingHouse Spec", () => {
             await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
             await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
         })
-    })
-
-    describe.only("# deposit", () => {
-        let aliceInitCollateralBalance = 1000
-
-        beforeEach(async () => {
-            const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
-            await collateral.transfer(alice.address, amount)
-            await collateral.connect(alice).approve(clearingHouse.address, amount)
-        })
-
-        // @SAMPLE - deposit
-        it("alice deposit and sends an event", async () => {
-            const amount = toWei(100, await collateral.decimals())
-
-            // check event has been sent
-            await expect(clearingHouse.connect(alice).deposit(amount))
-                .to.emit(clearingHouse, "Deposited")
-                .withArgs(collateral.address, alice.address, amount)
-
-            // check collateral status
-            expect(await clearingHouse.getCollateral(alice.address)).to.eq(amount)
-
-            // check alice balance
-            expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
-        })
-
-        // TODO should we test against potential attack using EIP777?
     })
 })
