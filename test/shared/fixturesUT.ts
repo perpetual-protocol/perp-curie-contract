@@ -1,7 +1,6 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, TestERC20, TestUniswapV3Broker } from "../../typechain"
-import { UniswapV3Factory } from "../../typechain/UniswapV3Factory"
+import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory } from "../../typechain"
 import { uniswapV3FactoryFixture } from "./fixtures"
 
 interface ClearingHouseFixture {
