@@ -1,18 +1,17 @@
-import { ClearingHouse, TestERC20 } from "../../typechain"
-import { ethers, waffle } from "hardhat"
-
-import { BigNumber } from "@ethersproject/bignumber"
 import { MockContract } from "@eth-optimism/smock"
-import { clearingHouseFixture } from "../shared/fixturesUT"
+import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
+import { waffle } from "hardhat"
+import { ClearingHouse } from "../../typechain"
+import { clearingHouseFixture, deployERC20 } from "../shared/fixturesUT"
 
-describe("ClearingHouse UT", () => {
+describe("ClearingHouse Spec", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
     const POOL_C_ADDRESS = "0x000000000000000000000000000000000000000C"
     const DEFAULT_FEE = 3000
-    let baseToken: TestERC20
+    let baseToken: MockContract
     let clearingHouse: ClearingHouse
     let uniV3Factory: MockContract
 
@@ -20,8 +19,7 @@ describe("ClearingHouse UT", () => {
         const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         uniV3Factory = _clearingHouseFixture.mockUniV3Factory
-        // NOTICE: can not call waffle.loadFixture twice in beforeEach, it causes an unexpected result.
-        baseToken = await deployERC20()
+        baseToken = _clearingHouseFixture.mockBaseToken
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
@@ -31,16 +29,16 @@ describe("ClearingHouse UT", () => {
 
     describe("# addPool", () => {
         // @SAMPLE - addPool
-        it("should be able to add a UniswapV3 pool and send an event", async () => {
+        it("add a UniswapV3 pool and send an event", async () => {
             // check event has been sent
             await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
                 .to.emit(clearingHouse, "PoolAdded")
                 .withArgs(baseToken.address, DEFAULT_FEE, POOL_A_ADDRESS)
 
-            expect(await clearingHouse.poolMap(POOL_A_ADDRESS)).to.eq(true)
+            expect(await clearingHouse.isPoolExisted(POOL_A_ADDRESS)).to.eq(true)
         })
 
-        it("should be able to add multiple UniswapV3 pools", async () => {
+        it("add multiple UniswapV3 pools", async () => {
             const baseToken2 = await deployERC20()
             await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
 
@@ -56,10 +54,10 @@ describe("ClearingHouse UT", () => {
             })
             await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
 
-            // verify poolMap
-            expect(await clearingHouse.poolMap(POOL_A_ADDRESS)).to.eq(true)
-            expect(await clearingHouse.poolMap(POOL_B_ADDRESS)).to.eq(true)
-            expect(await clearingHouse.poolMap(POOL_C_ADDRESS)).to.eq(true)
+            // verify isPoolExisted
+            expect(await clearingHouse.isPoolExisted(POOL_A_ADDRESS)).to.eq(true)
+            expect(await clearingHouse.isPoolExisted(POOL_B_ADDRESS)).to.eq(true)
+            expect(await clearingHouse.isPoolExisted(POOL_C_ADDRESS)).to.eq(true)
         })
 
         it("force error, pool is not existent in uniswap v3", async () => {
@@ -75,8 +73,3 @@ describe("ClearingHouse UT", () => {
         })
     })
 })
-
-async function deployERC20(): Promise<TestERC20> {
-    const tokenFactory = await ethers.getContractFactory("TestERC20")
-    return (await tokenFactory.deploy("Test", "Test")) as TestERC20
-}

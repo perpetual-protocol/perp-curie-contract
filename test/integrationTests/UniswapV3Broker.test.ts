@@ -26,7 +26,7 @@ describe("UniswapV3Broker", () => {
     })
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
-    describe("#mint", () => {
+    describe("# mint", () => {
         it("mint range order above current price", async () => {
             await pool.initialize(encodePriceSqrt(1, 1))
 
