@@ -3,10 +3,10 @@ pragma abicoder v2;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
+import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 
 library UniswapV3Broker {
     struct MintParams {
@@ -97,6 +97,16 @@ library UniswapV3Broker {
         }
     }
 
+    function getPool(
+        address factory,
+        address quoteToken,
+        address baseToken,
+        uint24 feeRatio
+    ) internal view returns (address) {
+        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
+        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
+    }
+
     function _isBase0Quote1(
         IUniswapV3Pool pool,
         address baseToken,
@@ -117,23 +127,5 @@ library UniswapV3Broker {
     ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
         (liquidity, , , , ) = pool.positions(positionKey);
-    }
-
-    function getPool(
-        IUniswapV3Factory factory,
-        IERC20 quoteToken,
-        IERC20 baseToken,
-        uint24 feeRatio
-    ) internal view returns (IUniswapV3Pool) {
-        (IERC20 token0, IERC20 token1) = getTokenOrder(quoteToken, baseToken);
-        return IUniswapV3Pool(IUniswapV3Factory(factory).getPool(address(token0), address(token1), feeRatio));
-    }
-
-    // @dev in uniswapV3, the smaller value of the token address is token0, the other one is token1
-    function getTokenOrder(IERC20 quoteToken, IERC20 baseToken) internal pure returns (IERC20 token0, IERC20 token1) {
-        return
-            uint160(address(quoteToken)) < uint160(address(baseToken))
-                ? (quoteToken, baseToken)
-                : (baseToken, quoteToken);
     }
 }

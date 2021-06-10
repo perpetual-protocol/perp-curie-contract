@@ -15,32 +15,36 @@ contract ClearingHouse is Ownable {
     //
     // state variables
     //
-    IERC20 public immutable quoteToken;
-    IERC20 public immutable vQuoteToken;
-    IUniswapV3Factory public immutable uniV3Factory;
+    address public immutable collateralToken;
+    address public immutable quoteToken;
+    address public immutable uniswapV3Factory;
 
-    mapping(address => bool) public poolMap;
+    mapping(address => bool) private _poolMap;
 
     constructor(
-        IERC20 vQuoteTokenParam,
-        IERC20 quoteTokenParam,
-        IUniswapV3Factory uniV3FactoryParam
+        address collateralTokenArg,
+        address quoteTokenArg,
+        address uniV3FactoryArg
     ) {
-        vQuoteToken = vQuoteTokenParam;
-        quoteToken = quoteTokenParam;
-        uniV3Factory = uniV3FactoryParam;
+        collateralToken = collateralTokenArg;
+        quoteToken = quoteTokenArg;
+        uniswapV3Factory = uniV3FactoryArg;
     }
 
-    function addPool(IERC20 baseToken, uint24 feeRatio) external onlyOwner {
-        IUniswapV3Pool pool = UniswapV3Broker.getPool(uniV3Factory, quoteToken, baseToken, feeRatio);
-        // CH_NEP: pool is not existent in uniV3 factory
-        require(address(pool) != address(0), "CH_NEP");
-        // CH_EP: pool is existent in ClearingHouse
-        require(!poolMap[address(pool)], "CH_EP");
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
+        address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
+        // CH_NEP: non-existent pool in uniswapV3 factory
+        require(pool != address(0), "CH_NEP");
+        // CH_EP: existent pool in ClearingHouse
+        require(!_poolMap[address(pool)], "CH_EP");
 
         // update poolMap
-        poolMap[address(pool)] = true;
+        _poolMap[pool] = true;
 
-        emit PoolAdded(address(baseToken), feeRatio, address(pool));
+        emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
+    function isPoolExisted(address pool) external view returns (bool) {
+        return _poolMap[pool];
     }
 }

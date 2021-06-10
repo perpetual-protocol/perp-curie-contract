@@ -19,7 +19,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback {
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata data
+        bytes calldata
     ) external override {
         // FIXME
         // MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
@@ -41,9 +41,5 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback {
         returns (UniswapV3Broker.MintResponse memory response)
     {
         return UniswapV3Broker.mint(params);
-    }
-
-    function getTokenOrder(IERC20 quoteToken, IERC20 baseToken) external pure returns (IERC20 token0, IERC20 token1) {
-        return UniswapV3Broker.getTokenOrder(quoteToken, baseToken);
     }
 }
