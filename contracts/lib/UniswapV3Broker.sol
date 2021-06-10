@@ -2,9 +2,11 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
+import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 
 library UniswapV3Broker {
     struct MintParams {
@@ -93,6 +95,16 @@ library UniswapV3Broker {
             response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
             response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
         }
+    }
+
+    function getPool(
+        address factory,
+        address quoteToken,
+        address baseToken,
+        uint24 feeRatio
+    ) internal view returns (address) {
+        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
+        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
     }
 
     function _isBase0Quote1(

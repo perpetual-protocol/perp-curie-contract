@@ -19,7 +19,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback {
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata data
+        bytes calldata
     ) external override {
         // FIXME
         // MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));

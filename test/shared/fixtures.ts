@@ -1,5 +1,6 @@
-import { ethers } from "hardhat"
 import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+
+import { ethers } from "hardhat"
 
 interface TokensFixture {
     base: TestERC20
@@ -13,6 +14,11 @@ interface PoolFixture {
     quote: TestERC20
 }
 
+export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
+    const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
+    return (await factoryFactory.deploy()) as UniswapV3Factory
+}
+
 export async function tokensFixture(): Promise<TokensFixture> {
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const base = (await tokenFactory.deploy("TestETH", "tETH")) as TestERC20
@@ -22,9 +28,8 @@ export async function tokensFixture(): Promise<TokensFixture> {
 
 export async function poolFixture(): Promise<PoolFixture> {
     const { base, quote } = await tokensFixture()
+    const factory = await uniswapV3FactoryFixture()
 
-    const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
-    const factory = (await factoryFactory.deploy()) as UniswapV3Factory
     const tx = await factory.createPool(base.address, quote.address, "10000")
     const receipt = await tx.wait()
     const poolAddress = receipt.events?.[0].args?.pool as string
