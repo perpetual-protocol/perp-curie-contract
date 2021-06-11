@@ -15,8 +15,8 @@ library UniswapV3Broker {
         address quoteToken;
         int24 tickLower;
         int24 tickUpper;
-        uint256 baseAmount;
-        uint256 quoteAmount;
+        uint256 base;
+        uint256 quote;
     }
 
     struct MintResponse {
@@ -29,18 +29,18 @@ library UniswapV3Broker {
 
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
-        require(params.baseAmount > 0 || params.quoteAmount > 0, "UB_ZIs");
+        require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        uint256 amount0;
-        uint256 amount1;
+        uint256 token0;
+        uint256 token1;
         if (isBase0Quote1) {
-            amount0 = params.baseAmount;
-            amount1 = params.quoteAmount;
+            token0 = params.base;
+            token1 = params.quote;
         } else {
-            amount0 = params.quoteAmount;
-            amount1 = params.baseAmount;
+            token0 = params.quote;
+            token1 = params.base;
         }
 
         // fetch the fee growth state if this has liquidity
@@ -63,8 +63,8 @@ library UniswapV3Broker {
             sqrtPriceX96,
             TickMath.getSqrtRatioAtTick(params.tickLower),
             TickMath.getSqrtRatioAtTick(params.tickUpper),
-            amount0,
-            amount1
+            token0,
+            token1
         );
 
         // call mint()

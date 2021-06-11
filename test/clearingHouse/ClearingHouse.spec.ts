@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse } from "../../typechain"
-import { deployERC20, mockedClearingHouseFixture } from "../shared/fixturesUT"
+import { mockedClearingHouseFixture, deployERC20 } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"

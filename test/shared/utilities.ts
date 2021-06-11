@@ -21,3 +21,21 @@ export function sortedTokens(tokenA: TestERC20, tokenB: TestERC20): { token0: Te
     )
     return { token0, token1 }
 }
+
+export interface BaseQuoteAmountPair {
+    base: BigNumberish
+    quote: BigNumberish
+}
+
+export function token01toBaseQuote(
+    baseAddr: string,
+    quoteAddr: string,
+    token0: BigNumberish,
+    token1: BigNumberish,
+): BaseQuoteAmountPair {
+    const isBase0Quote1 = baseAddr.toLowerCase() < quoteAddr.toLowerCase()
+    if (isBase0Quote1) {
+        return { base: token0, quote: token1 }
+    }
+    return { base: token1, quote: token0 }
+}
