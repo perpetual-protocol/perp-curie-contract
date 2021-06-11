@@ -12,10 +12,15 @@ describe("UniswapV3Broker", () => {
     let uniswapV3Broker: TestUniswapV3Broker
 
     beforeEach(async () => {
-        const { factory, pool: _pool, base, quote } = await waffle.loadFixture(poolFixture)
+        const {
+            factory,
+            pool: _pool,
+            baseToken: _baseToken,
+            quoteToken: _quoteToken,
+        } = await waffle.loadFixture(poolFixture)
         pool = _pool
-        baseToken = base
-        quoteToken = quote
+        baseToken = _baseToken
+        quoteToken = _quoteToken
 
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
         uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
@@ -31,14 +36,9 @@ describe("UniswapV3Broker", () => {
             await pool.initialize(encodePriceSqrt(1, 1))
 
             // when above price, token1 = 0
-            const token0Amount = parseEther("0.000816820841")
-            const token1Amount = "0"
-            const { baseAmount, quoteAmount } = token01toBaseQuote(
-                baseToken.address,
-                quoteToken.address,
-                token0Amount,
-                token1Amount,
-            )
+            const token0 = parseEther("0.000816820841")
+            const token1 = "0"
+            const { base, quote } = token01toBaseQuote(baseToken.address, quoteToken.address, token0, token1)
 
             await expect(
                 uniswapV3Broker.mint({
@@ -47,8 +47,8 @@ describe("UniswapV3Broker", () => {
                     quoteToken: quoteToken.address,
                     tickLower: 50000,
                     tickUpper: 50200,
-                    baseAmount,
-                    quoteAmount,
+                    base,
+                    quote,
                 }),
             )
                 .to.emit(pool, "Mint")
@@ -58,8 +58,8 @@ describe("UniswapV3Broker", () => {
                     50000,
                     50200,
                     "999999999994411796", // around 1
-                    token0Amount,
-                    token1Amount,
+                    token0,
+                    token1,
                 )
         })
 
@@ -67,14 +67,9 @@ describe("UniswapV3Broker", () => {
             await pool.initialize(encodePriceSqrt(200, 1))
 
             // when under price, token0 = 0
-            const token0Amount = "0"
-            const token1Amount = parseEther("0.122414646")
-            const { baseAmount, quoteAmount } = token01toBaseQuote(
-                baseToken.address,
-                quoteToken.address,
-                token0Amount,
-                token1Amount,
-            )
+            const token0 = "0"
+            const token1 = parseEther("0.122414646")
+            const { base, quote } = token01toBaseQuote(baseToken.address, quoteToken.address, token0, token1)
 
             await expect(
                 uniswapV3Broker.mint({
@@ -83,8 +78,8 @@ describe("UniswapV3Broker", () => {
                     quoteToken: quoteToken.address,
                     tickLower: "50000",
                     tickUpper: "50200",
-                    baseAmount,
-                    quoteAmount,
+                    base,
+                    quote,
                 }),
             )
                 .to.emit(pool, "Mint")
@@ -94,8 +89,8 @@ describe("UniswapV3Broker", () => {
                     50000,
                     50200,
                     "1000000000109464931", // around 1
-                    token0Amount,
-                    token1Amount,
+                    token0,
+                    token1,
                 )
         })
     })
