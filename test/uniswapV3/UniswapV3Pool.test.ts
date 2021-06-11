@@ -10,8 +10,8 @@ describe("UniswapV3Pool", () => {
     let token1: TestERC20
 
     beforeEach(async () => {
-        const { pool: _pool, base, quote } = await waffle.loadFixture(poolFixture)
-        const { token0: _token0, token1: _token1 } = sortedTokens(base, quote)
+        const { pool: _pool, baseToken, quoteToken } = await waffle.loadFixture(poolFixture)
+        const { token0: _token0, token1: _token1 } = sortedTokens(baseToken, quoteToken)
         pool = _pool
         token0 = _token0
         token1 = _token1
