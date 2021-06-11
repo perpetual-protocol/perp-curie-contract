@@ -7,7 +7,8 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.tabSize": 4,
     "[json]": {
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[javascript]": {
         "editor.formatOnSave": true,

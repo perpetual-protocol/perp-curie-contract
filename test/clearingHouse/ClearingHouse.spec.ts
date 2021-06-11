@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse } from "../../typechain"
-import { clearingHouseFixture, deployERC20 } from "./fixtures"
+import { mockedClearingHouseFixture, deployERC20 } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -11,15 +11,16 @@ describe("ClearingHouse Spec", () => {
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
     const POOL_C_ADDRESS = "0x000000000000000000000000000000000000000C"
     const DEFAULT_FEE = 3000
-    let baseToken: MockContract
+
     let clearingHouse: ClearingHouse
+    let baseToken: MockContract
     let uniV3Factory: MockContract
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
+        const _clearingHouseFixture = await waffle.loadFixture(mockedClearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
-        uniV3Factory = _clearingHouseFixture.mockUniV3Factory
-        baseToken = _clearingHouseFixture.mockBaseToken
+        baseToken = _clearingHouseFixture.mockedBaseToken
+        uniV3Factory = _clearingHouseFixture.mockedUniV3Factory
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
