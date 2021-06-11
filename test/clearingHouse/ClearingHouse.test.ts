@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20 } from "../../typechain"
 import { toWei } from "../helper/number"
-import { clearingHouseFixture } from "../shared/fixturesUT"
+import { clearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
     let admin: SignerWithAddress
