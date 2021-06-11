@@ -7,7 +7,8 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.tabSize": 4,
     "[json]": {
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[javascript]": {
         "editor.formatOnSave": true,
@@ -33,6 +34,27 @@
     "cSpell.enabled": true,
     "cSpell.enableFiletypes": ["solidity", "javascript", "typescript"],
     "cSpell.words": [
+        "Agos",
+        "BUSL",
+        "Cumulatives",
+        "Mintable",
+        "Numberish",
+        "SLOAD",
+        "SPDX",
+        "bignumber",
+        "bips",
+        "bytecode",
+        "chainlink",
+        "delegatecall",
+        "inheritdoc",
+        "lushan",
+        "nomiclabs",
+        "perp",
+        "returndatasize",
+        "sloads",
+        "solhint",
+        "struct",
+        "typechain"
     ],
     "solidity.defaultCompiler": "localNodeModule",
 }
