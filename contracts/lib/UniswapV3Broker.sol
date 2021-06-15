@@ -34,6 +34,9 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
+    /**
+     @return response .liquidity currently can be 0
+     */
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
@@ -56,11 +59,11 @@ library UniswapV3Broker {
             token1 = params.base;
         }
 
-        // fetch the fee growth state if this has liquidity
+        // fetch fee growth states if there is already liquidity
         uint256 feeGrowthInside0LastX128;
         uint256 feeGrowthInside1LastX128;
         if (_getPositionLiquidity(params.pool, lowerTick, upperTick) > 0) {
-            // get this' positionKey
+            // get positionKey of the caller contract
             // FIXME
             // check if the case sensitive of address(this) break the PositionKey computing
             bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
@@ -71,7 +74,7 @@ library UniswapV3Broker {
 
         // get current price
         (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1 in current price
+        // get the equivalent amount of liquidity from amount0 & amount1 with current price
         response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
             sqrtPriceX96,
             TickMath.getSqrtRatioAtTick(lowerTick),
@@ -81,9 +84,9 @@ library UniswapV3Broker {
         );
 
         // call mint()
-        // verify if this liquidity is necessary
         uint256 addedAmount0;
         uint256 addedAmount1;
+        // FIXME: currently it's okay to have liquidity == 0; should decide whether to block this in the future
         if (response.liquidity > 0) {
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
