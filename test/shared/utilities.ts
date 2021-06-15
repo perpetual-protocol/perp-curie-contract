@@ -33,9 +33,12 @@ export function token01toBaseQuote(
     token0: BigNumberish,
     token1: BigNumberish,
 ): BaseQuoteAmountPair {
-    const isBase0Quote1 = baseAddr.toLowerCase() < quoteAddr.toLowerCase()
-    if (isBase0Quote1) {
+    if (isBase0Quote1(baseAddr, quoteAddr)) {
         return { base: token0, quote: token1 }
     }
     return { base: token1, quote: token0 }
+}
+
+export function isBase0Quote1(baseAddr: string, quoteAddr: string): boolean {
+    return baseAddr.toLowerCase() < quoteAddr.toLowerCase()
 }
