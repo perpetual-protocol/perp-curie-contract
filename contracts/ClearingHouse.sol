@@ -21,6 +21,20 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
 
     //
+    // Struct
+    //
+    struct Account {
+        uint256 collateral;
+        // key: vToken
+        mapping(address => Asset) asset;
+    }
+
+    struct Asset {
+        uint256 available; // amount available in CH
+        uint256 debt;
+    }
+
+    //
     // state variables
     //
     address public immutable collateralToken;
@@ -64,6 +78,30 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         TransferHelper.safeTransferFrom(collateralToken, trader, address(this), amount);
 
         emit Deposited(collateralToken, trader, amount);
+    }
+
+    // TODO should add modifier: whenNotPaused()
+    function mint(
+        address baseToken,
+        uint256 base,
+        uint256 quote
+    ) external nonReentrant() {
+        Account account = _account[_msgSender()];
+
+        // mint vTokens
+        IERC20(baseToken).mint(base);
+        IERC20(quoteToken).mint(quote);
+
+        // update states
+        Asset baseAsset = account.asset[baseToken];
+        Asset quoteAsset = account.asset[quoteToken];
+
+        asset.baseAsset.available += base;
+        asset.baseAsset.debt += base;
+        asset.quoteAsset.available += quote;
+        asset.quoteAsset.debt += quote;
+
+        require(freeCollateral(msg.sender) > 0);
     }
 
     //
