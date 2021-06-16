@@ -8,13 +8,20 @@ import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionK
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 
+/**
+ * Uniswap's v3 pool: token0 & token1
+ * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
+ * Our system: base & quote
+ * -> base's price = quote / base; tick index = log(1.0001, base price)
+ * Figure out: (base, quote) == (token0, token1) or (token1, token0)
+ */
 library UniswapV3Broker {
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
         address quoteToken;
-        int24 tickLower;
-        int24 tickUpper;
+        int24 lowerTick;
+        int24 upperTick;
         uint256 base;
         uint256 quote;
     }
@@ -33,12 +40,18 @@ library UniswapV3Broker {
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
+        int24 lowerTick;
+        int24 upperTick;
         uint256 token0;
         uint256 token1;
         if (isBase0Quote1) {
+            lowerTick = params.lowerTick;
+            upperTick = params.upperTick;
             token0 = params.base;
             token1 = params.quote;
         } else {
+            lowerTick = -params.upperTick;
+            upperTick = -params.lowerTick;
             token0 = params.quote;
             token1 = params.base;
         }
@@ -46,11 +59,11 @@ library UniswapV3Broker {
         // fetch the fee growth state if this has liquidity
         uint256 feeGrowthInside0LastX128;
         uint256 feeGrowthInside1LastX128;
-        if (_getPositionLiquidity(params.pool, params.tickLower, params.tickUpper) > 0) {
+        if (_getPositionLiquidity(params.pool, lowerTick, upperTick) > 0) {
             // get this' positionKey
             // FIXME
             // check if the case sensitive of address(this) break the PositionKey computing
-            bytes32 positionKey = PositionKey.compute(address(this), params.tickLower, params.tickUpper);
+            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
             // get feeGrowthInside{0,1}LastX128
             (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKey);
@@ -61,8 +74,8 @@ library UniswapV3Broker {
         // get the equivalent amount of liquidity from amount0 & amount1 in current price
         response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
             sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(params.tickLower),
-            TickMath.getSqrtRatioAtTick(params.tickUpper),
+            TickMath.getSqrtRatioAtTick(lowerTick),
+            TickMath.getSqrtRatioAtTick(upperTick),
             token0,
             token1
         );
@@ -74,8 +87,8 @@ library UniswapV3Broker {
         if (response.liquidity > 0) {
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
-                params.tickLower,
-                params.tickUpper,
+                lowerTick,
+                upperTick,
                 response.liquidity,
                 // FIXME
                 // depends on what verification we need to check inside callback

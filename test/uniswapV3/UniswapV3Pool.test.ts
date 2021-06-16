@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { TestERC20, UniswapV3Pool } from "../../typechain"
-import { poolFixture } from "../shared/fixtures"
+import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt, sortedTokens } from "../shared/utilities"
 
 describe("UniswapV3Pool", () => {
@@ -10,7 +10,7 @@ describe("UniswapV3Pool", () => {
     let token1: TestERC20
 
     beforeEach(async () => {
-        const { pool: _pool, baseToken, quoteToken } = await waffle.loadFixture(poolFixture)
+        const { pool: _pool, baseToken, quoteToken } = await waffle.loadFixture(base0Quote1PoolFixture)
         const { token0: _token0, token1: _token1 } = sortedTokens(baseToken, quoteToken)
         pool = _pool
         token0 = _token0
