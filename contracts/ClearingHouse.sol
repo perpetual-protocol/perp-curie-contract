@@ -1,6 +1,6 @@
 pragma solidity 0.7.6;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -25,39 +25,22 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     // Struct
     //
 
-    struct Account {
-        uint256 collateral;
-        address[] tokens;
-        // key: vToken address
-        mapping(address => Asset) asset;
-        // maker only
-        // key: market base token address
-        mapping(address => MakerPosition) openOrder;
-    }
-
-    struct MakerPosition {
-        uint256[] orderIds;
-        // key: order id
-        mapping(uint256 => OpenOrder) openOrderMap;
-    }
-
-    struct Asset {
-        uint256 available; // amount available in CH
-        uint256 debt;
-    }
-
     struct Market {
         uint256 imRatio; // initial-margin ratio
         uint256 mmRatio; // minimum-margin ratio
         address[] pools;
     }
 
-    struct OpenOrder {
-        uint128 liquidity;
-        int24 tickLower;
-        int24 tickUpper;
-        uint256 feeGrowthInsideBase;
-        uint256 feeGrowthInsideQuote;
+    struct Account {
+        uint256 collateral;
+        address[] tokens;
+        // key: token address, e.g. vETH, vUSDC...
+        mapping(address => Asset) asset;
+    }
+
+    struct Asset {
+        uint256 available; // amount available in CH
+        uint256 debt;
     }
 
     //
@@ -67,6 +50,7 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
 
+    // key: base token
     mapping(address => Market) private _market;
 
     // TODO deprecated
@@ -120,23 +104,24 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         uint256 base,
         uint256 quote
     ) external nonReentrant() {
-        address trader = _msgSender();
-        Account memory account = _account[trader];
-
         // mint vTokens
-        IERC20(baseToken).mint(base);
-        IERC20(quoteToken).mint(quote);
+        if (base > 0 && baseToken != address(0x0)) {
+            ERC20PresetMinterPauser(baseToken).mint(address(this), base);
+        }
+        if (quote > 0) {
+            ERC20PresetMinterPauser(quoteToken).mint(address(this), quote);
+        }
 
         // update states
-        Asset storage baseAsset = account.asset[baseToken];
-        Asset storage quoteAsset = account.asset[quoteToken];
+        address trader = _msgSender();
+        Asset storage baseAsset = _account[trader].asset[baseToken];
+        Asset storage quoteAsset = _account[trader].asset[quoteToken];
+        baseAsset.available = baseAsset.available.add(base);
+        baseAsset.debt = baseAsset.debt.add(base);
+        quoteAsset.available = quoteAsset.available.add(quote);
+        quoteAsset.debt = quoteAsset.debt.add(quote);
 
-        baseAsset.available += base;
-        baseAsset.debt += base;
-        quoteAsset.available += quote;
-        quoteAsset.debt += quote;
-
-        require(getFreeCollateral(trader) > 0);
+        require(getFreeCollateral(trader) > 0, "CH_ZFC");
     }
 
     //
@@ -151,11 +136,11 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return int256(_collateral[trader]).add(getTotalMarketPnl(trader));
+        return int256(_collateral[trader]).add(_getTotalMarketPnl(trader));
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
-        int256 freeCollateral = getAccountValue(trader).sub(int256(getTotalInitialMarginRequirement(trader)));
+        int256 freeCollateral = getAccountValue(trader).sub(int256(_getTotalInitialMarginRequirement(trader)));
         return freeCollateral > 0 ? uint256(freeCollateral) : 0;
     }
 
@@ -167,12 +152,12 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     //
     // INTERNAL VIEW FUNCTIONS
     //
-    function getTotalMarketPnl(address trader) internal pure returns (int256) {
+    function _getTotalMarketPnl(address trader) internal pure returns (int256) {
         return 0; // TODO WIP
     }
 
-    function getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
-        Account memory account = _account[trader];
+    function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
+        Account storage account = _account[trader];
 
         uint256 totalImReq;
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
@@ -196,7 +181,7 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         return amount.mul(getIndexPrice(token));
     }
 
-    function _getPositionValue(Account memory account, address baseToken) private view returns (uint256) {
+    function _getPositionValue(Account storage account, address baseToken) private view returns (uint256) {
         // TODO WIP
         // uint256 positionSize = _getPositionSize(account, baseToken);
         // simulate trade and calculate position value
