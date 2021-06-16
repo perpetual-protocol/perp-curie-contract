@@ -115,7 +115,6 @@ describe("UniswapV3Broker burn", () => {
 
             await expect(uniswapV3Broker.burn(mintParams)).to.emit(pool, "Burn").withArgs(
                 uniswapV3Broker.address,
-                uniswapV3Broker.address,
                 50000,
                 50200,
                 "999999999994411796", // around 1
@@ -140,7 +139,6 @@ describe("UniswapV3Broker burn", () => {
             await uniswapV3Broker.mint(mintParams)
 
             await expect(uniswapV3Broker.burn(mintParams)).to.emit(pool, "Burn").withArgs(
-                uniswapV3Broker.address,
                 uniswapV3Broker.address,
                 50000,
                 50400,
@@ -296,7 +294,6 @@ describe("UniswapV3Broker burn", () => {
 
             await expect(uniswapV3Broker.burn(mintParams)).to.emit(pool, "Burn").withArgs(
                 uniswapV3Broker.address,
-                uniswapV3Broker.address,
                 -50200,
                 -50000,
                 "999999999994411796", // around 1
@@ -321,7 +318,6 @@ describe("UniswapV3Broker burn", () => {
             await uniswapV3Broker.mint(mintParams)
 
             await expect(uniswapV3Broker.burn(mintParams)).to.emit(pool, "Burn").withArgs(
-                uniswapV3Broker.address,
                 uniswapV3Broker.address,
                 -50400,
                 -50000,
