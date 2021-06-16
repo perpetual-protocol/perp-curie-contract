@@ -53,13 +53,12 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     // key: base token
     mapping(address => Market) private _market;
 
-    // TODO deprecated
-    // key: base token
-    mapping(address => bool) private _poolMap;
-
     // key: trader
     mapping(address => Account) private _account;
 
+    //
+    // CONSTRUCTOR
+    //
     constructor(
         address collateralTokenArg,
         address quoteTokenArg,
@@ -77,11 +76,13 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");
-        // CH_EP: existent pool in ClearingHouse
-        require(!_poolMap[address(pool)], "CH_EP");
 
-        // update poolMap
-        _poolMap[pool] = true;
+        address[] memory pools = _market[baseToken].pools;
+        for (uint256 i = 0; i < pools.length; i++) {
+            // CH_EP: existent pool in ClearingHouse
+            require(pools[i] != pool, "CH_EP");
+        }
+        _market[baseToken].pools.push(pool);
 
         emit PoolAdded(baseToken, feeRatio, pool);
     }
@@ -125,8 +126,8 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function isPoolExisted(address pool) external view returns (bool) {
-        return _poolMap[pool];
+    function getPools(address baseToken) external view returns (address[] memory) {
+        return _market[baseToken].pools;
     }
 
     function getCollateral(address trader) external view returns (uint256) {
