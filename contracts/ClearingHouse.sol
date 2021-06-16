@@ -57,10 +57,7 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     // key: base token
     mapping(address => bool) private _poolMap;
 
-    // TODO deprecated
-    // key: trader addr
-    mapping(address => uint256) private _collateral;
-
+    // key: trader
     mapping(address => Account) private _account;
 
     constructor(
@@ -92,7 +89,8 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     // TODO should add modifier: whenNotPaused()
     function deposit(uint256 amount) external nonReentrant() {
         address trader = _msgSender();
-        _collateral[trader] = _collateral[trader].add(amount);
+        Account storage account = _account[trader];
+        account.collateral = account.collateral.add(amount);
         TransferHelper.safeTransferFrom(collateralToken, trader, address(this), amount);
 
         emit Deposited(collateralToken, trader, amount);
@@ -132,11 +130,11 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     }
 
     function getCollateral(address trader) external view returns (uint256) {
-        return _collateral[trader];
+        return _account[trader].collateral;
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return int256(_collateral[trader]).add(_getTotalMarketPnl(trader));
+        return int256(_account[trader].collateral).add(_getTotalMarketPnl(trader));
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
