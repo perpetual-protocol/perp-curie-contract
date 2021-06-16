@@ -16,6 +16,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
+    // FIXME burn also use this, rename
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
@@ -109,6 +110,16 @@ library UniswapV3Broker {
             response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
         }
     }
+
+    struct BurnResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 feeGrowthInsideLastBase;
+        uint256 feeGrowthInsideLastQuote;
+    }
+
+    /// FIXME convert return to struct
+    function burn(MintParams memory params) internal returns (BurnResponse memory response) {}
 
     function getPool(
         address factory,
