@@ -47,8 +47,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: 50000, // 148.3760629
-                    baseUpperTick: 50400, // 154.4310961
+                    lowerTick: 50000, // 148.3760629
+                    upperTick: 50400, // 154.4310961
                     base,
                     quote,
                 }),
@@ -109,8 +109,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),
@@ -160,8 +160,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),
@@ -205,8 +205,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: 50000, // 148.3760629
-                    baseUpperTick: 50400, // 154.4310961
+                    lowerTick: 50000, // 148.3760629
+                    upperTick: 50400, // 154.4310961
                     base,
                     quote,
                 }),
@@ -268,8 +268,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),
@@ -320,8 +320,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),
