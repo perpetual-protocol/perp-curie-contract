@@ -68,6 +68,8 @@ describe("UniswapV3Broker", () => {
         it("mint range order above current price", async () => {
             await pool.initialize(encodePriceSqrt(1, 1))
 
+            // LP opens a range order above the current price means that LP expects the price of token0 (base) to rise,
+            // and traders would like to buy token0, so LP provides token0 to be bought
             // when above price, token1 = 0
             const base = parseEther("0.000816820841")
             const quote = "0"
@@ -118,6 +120,8 @@ describe("UniswapV3Broker", () => {
         it("mint range order under current price", async () => {
             await pool.initialize(encodePriceSqrt(200, 1))
 
+            // LP opens a range order under the current price means that LP expects the price of token0 (base) to drop
+            // and traders would like to sell token0, so LP provides token1 (quote) to buy traders' token0
             // when under price, token0 = 0
             const base = "0"
             const quote = parseEther("0.122414646")
