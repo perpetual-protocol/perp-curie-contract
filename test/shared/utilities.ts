@@ -33,12 +33,12 @@ export function token01toBaseQuote(
     token0: BigNumberish,
     token1: BigNumberish,
 ): BaseQuoteAmountPair {
-    if (isBase0Quote1(baseAddr, quoteAddr)) {
+    if (isAscendingTokensOrder(baseAddr, quoteAddr)) {
         return { base: token0, quote: token1 }
     }
     return { base: token1, quote: token0 }
 }
 
-export function isBase0Quote1(baseAddr: string, quoteAddr: string): boolean {
-    return baseAddr.toLowerCase() < quoteAddr.toLowerCase()
+export function isAscendingTokensOrder(addr0: string, addr1: string): boolean {
+    return addr0.toLowerCase() < addr1.toLowerCase()
 }

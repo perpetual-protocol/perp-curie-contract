@@ -1,10 +1,10 @@
 import { ethers } from "hardhat"
 import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
-import { isBase0Quote1 } from "./utilities"
+import { isAscendingTokensOrder } from "./utilities"
 
 interface TokensFixture {
-    baseToken: TestERC20
-    quoteToken: TestERC20
+    token0: TestERC20
+    token1: TestERC20
 }
 
 interface PoolFixture {
@@ -19,65 +19,48 @@ export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
     return (await factoryFactory.deploy()) as UniswapV3Factory
 }
 
-// assume isBase0Quote1/ token0 == base
+// assume isAscendingTokensOrder() == true/ token0 < token1
 export async function tokensFixture(): Promise<TokensFixture> {
     const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const tETH = (await tokenFactory.deploy("TestETH", "tETH")) as TestERC20
-    const tUSDC = (await tokenFactory.deploy("TestUSDC", "tUSDC")) as TestERC20
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
-    if (isBase0Quote1(tETH.address, tUSDC.address)) {
-        baseToken = tETH
-        quoteToken = tUSDC
+    const randomToken0 = (await tokenFactory.deploy("RandomTestToken0", "randomToken0")) as TestERC20
+    const randomToken1 = (await tokenFactory.deploy("RandomTestToken1", "randomToken1")) as TestERC20
+    let token0: TestERC20
+    let token1: TestERC20
+    if (isAscendingTokensOrder(randomToken0.address, randomToken1.address)) {
+        token0 = randomToken0
+        token1 = randomToken1
     } else {
-        baseToken = tUSDC
-        quoteToken = tETH
+        token0 = randomToken1
+        token1 = randomToken0
     }
-    return { baseToken, quoteToken }
+    return { token0, token1 }
 }
 
-// assume !isBase0Quote1/ token0 == quote
-export async function reverseTokensFixture(): Promise<TokensFixture> {
-    const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const tETH = (await tokenFactory.deploy("TestETH", "tETH")) as TestERC20
-    const tUSDC = (await tokenFactory.deploy("TestUSDC", "tUSDC")) as TestERC20
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
-    if (isBase0Quote1(tETH.address, tUSDC.address)) {
-        baseToken = tUSDC
-        quoteToken = tETH
-    } else {
-        baseToken = tETH
-        quoteToken = tUSDC
-    }
-    return { baseToken, quoteToken }
-}
-
-export async function poolFixture(): Promise<PoolFixture> {
-    const { baseToken, quoteToken } = await tokensFixture()
+export async function base0Quote1PoolFixture(): Promise<PoolFixture> {
+    const { token0, token1 } = await tokensFixture()
     const factory = await uniswapV3FactoryFixture()
 
-    const tx = await factory.createPool(baseToken.address, quoteToken.address, "10000")
+    const tx = await factory.createPool(token0.address, token1.address, "10000")
     const receipt = await tx.wait()
     const poolAddress = receipt.events?.[0].args?.pool as string
 
     const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
     const pool = poolFactory.attach(poolAddress) as UniswapV3Pool
 
-    return { factory, pool, baseToken, quoteToken }
+    return { factory, pool, baseToken: token0, quoteToken: token1 }
 }
 
 // for cases of reverse tokens order
-export async function reversePoolFixture(): Promise<PoolFixture> {
-    const { baseToken, quoteToken } = await reverseTokensFixture()
+export async function base1Quote0PoolFixture(): Promise<PoolFixture> {
+    const { token0, token1 } = await tokensFixture()
     const factory = await uniswapV3FactoryFixture()
 
-    const tx = await factory.createPool(baseToken.address, quoteToken.address, "10000")
+    const tx = await factory.createPool(token0.address, token1.address, "10000")
     const receipt = await tx.wait()
     const poolAddress = receipt.events?.[0].args?.pool as string
 
     const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
     const pool = poolFactory.attach(poolAddress) as UniswapV3Pool
 
-    return { factory, pool, baseToken, quoteToken }
+    return { factory, pool, baseToken: token1, quoteToken: token0 }
 }

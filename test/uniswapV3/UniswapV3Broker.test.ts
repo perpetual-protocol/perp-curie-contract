@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
-import { poolFixture, reversePoolFixture } from "../shared/fixtures"
+import { base0Quote1PoolFixture, base1Quote0PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapV3Broker", () => {
@@ -19,7 +19,7 @@ describe("UniswapV3Broker", () => {
                 pool: _pool,
                 baseToken: _baseToken,
                 quoteToken: _quoteToken,
-            } = await waffle.loadFixture(poolFixture)
+            } = await waffle.loadFixture(base0Quote1PoolFixture)
             pool = _pool
             baseToken = _baseToken
             quoteToken = _quoteToken
@@ -45,8 +45,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: 50000,
-                    baseUpperTick: 50200,
+                    lowerTick: 50000,
+                    upperTick: 50200,
                     base,
                     quote,
                 }),
@@ -75,8 +75,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),
@@ -102,7 +102,7 @@ describe("UniswapV3Broker", () => {
                 pool: _pool,
                 baseToken: _baseToken,
                 quoteToken: _quoteToken,
-            } = await waffle.loadFixture(reversePoolFixture)
+            } = await waffle.loadFixture(base1Quote0PoolFixture)
             pool = _pool
             baseToken = _baseToken
             quoteToken = _quoteToken
@@ -129,8 +129,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: 50000,
-                    baseUpperTick: 50200,
+                    lowerTick: 50000,
+                    upperTick: 50200,
                     base,
                     quote,
                 }),
@@ -162,8 +162,8 @@ describe("UniswapV3Broker", () => {
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
-                    baseLowerTick: "50000",
-                    baseUpperTick: "50200",
+                    lowerTick: "50000",
+                    upperTick: "50200",
                     base,
                     quote,
                 }),

@@ -8,13 +8,20 @@ import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionK
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 
+/**
+ * Uniswap's v3 pool: token0 & token1
+ * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
+ * Our system: base & quote
+ * -> base's price = quote / base; tick index = log(1.0001, base price)
+ * Figure out: (base, quote) == (token0, token1) or (token1, token0)
+ */
 library UniswapV3Broker {
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
         address quoteToken;
-        int24 baseLowerTick;
-        int24 baseUpperTick;
+        int24 lowerTick;
+        int24 upperTick;
         uint256 base;
         uint256 quote;
     }
@@ -38,13 +45,13 @@ library UniswapV3Broker {
         uint256 token0;
         uint256 token1;
         if (isBase0Quote1) {
-            lowerTick = params.baseLowerTick;
-            upperTick = params.baseUpperTick;
+            lowerTick = params.lowerTick;
+            upperTick = params.upperTick;
             token0 = params.base;
             token1 = params.quote;
         } else {
-            lowerTick = -params.baseUpperTick;
-            upperTick = -params.baseLowerTick;
+            lowerTick = -params.upperTick;
+            upperTick = -params.lowerTick;
             token0 = params.quote;
             token1 = params.base;
         }
