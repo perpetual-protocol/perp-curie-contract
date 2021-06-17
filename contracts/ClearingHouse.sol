@@ -7,6 +7,7 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
@@ -14,7 +15,9 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
 contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
+    using SafeCast for uint256;
     using SignedSafeMath for int256;
+    using SafeCast for int256;
     //
     // events
     //
@@ -140,7 +143,7 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         }
 
         // CH_NEAV: not enough account value
-        require(getAccountValue(trader) >= int256(_getTotalInitialMarginRequirement(trader)), "CH_NEAV");
+        require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
 
         emit Minted(baseToken, quoteToken, base, quote);
     }
@@ -157,12 +160,12 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return int256(_account[trader].collateral).add(_getTotalMarketPnl(trader));
+        return _account[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
-        int256 freeCollateral = getAccountValue(trader).sub(int256(_getTotalInitialMarginRequirement(trader)));
-        return freeCollateral > 0 ? uint256(freeCollateral) : 0;
+        int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
+        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
