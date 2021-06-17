@@ -1,11 +1,7 @@
-import { BigNumber } from "@ethersproject/bignumber"
-import { formatUnits, parseUnits } from "@ethersproject/units"
-import Big from "big.js"
+import { parseUnits } from "@ethersproject/units"
+import bn from "bignumber.js"
+import { BigNumber, BigNumberish } from "ethers"
 
-export function fromWei(wei: BigNumber, decimals = 18): Big {
-    return Big(formatUnits(wei, decimals))
-}
-
-export function toWei(val: Big, decimals = 18): BigNumber {
-    return parseUnits(val.toFixed(decimals), decimals)
+export function toWei(val: BigNumberish, decimals = 18): BigNumber {
+    return parseUnits(new bn(val.toString()).toFixed(decimals), decimals)
 }
