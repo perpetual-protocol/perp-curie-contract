@@ -34,6 +34,13 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
+    struct BurnResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 feeGrowthInsideLastBase;
+        uint256 feeGrowthInsideLastQuote;
+    }
+
     function mint(MintBurnParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
@@ -86,13 +93,6 @@ library UniswapV3Broker {
             response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
             response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
         }
-    }
-
-    struct BurnResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 feeGrowthInsideLastBase;
-        uint256 feeGrowthInsideLastQuote;
     }
 
     function burn(MintBurnParams memory params) internal returns (BurnResponse memory response) {
