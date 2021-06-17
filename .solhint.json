@@ -8,6 +8,7 @@
     "func-order": "warn",
     "reason-string": ["warn", { "maxLength": 48 }],
     "func-name-mixedcase": "off",
-    "private-vars-leading-underscore": "warn"
+    "private-vars-leading-underscore": "warn",
+    "func-visibility": ["warn", { "ignoreConstructors": true }]
   }
 }
