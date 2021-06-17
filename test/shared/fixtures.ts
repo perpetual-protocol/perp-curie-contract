@@ -1,6 +1,6 @@
 import { ethers } from "hardhat"
 import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
-import { isAscendingTokensOrder } from "./utilities"
+import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
     token0: TestERC20
@@ -26,7 +26,7 @@ export async function tokensFixture(): Promise<TokensFixture> {
     const randomToken1 = (await tokenFactory.deploy("RandomTestToken1", "randomToken1")) as TestERC20
     let token0: TestERC20
     let token1: TestERC20
-    if (isAscendingTokensOrder(randomToken0.address, randomToken1.address)) {
+    if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0
         token1 = randomToken1
     } else {
