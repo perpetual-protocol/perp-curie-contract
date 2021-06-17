@@ -41,21 +41,8 @@ library UniswapV3Broker {
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 token0;
-        uint256 token1;
-        if (isBase0Quote1) {
-            lowerTick = params.lowerTick;
-            upperTick = params.upperTick;
-            token0 = params.base;
-            token1 = params.quote;
-        } else {
-            lowerTick = -params.upperTick;
-            upperTick = -params.lowerTick;
-            token0 = params.quote;
-            token1 = params.base;
-        }
+        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
+            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
         // fetch fee growth states if there is already liquidity
         uint256 feeGrowthInside0LastX128;
@@ -123,21 +110,8 @@ library UniswapV3Broker {
         // FIXME: refactor with mint()
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 token0;
-        uint256 token1;
-        if (isBase0Quote1) {
-            lowerTick = params.lowerTick;
-            upperTick = params.upperTick;
-            token0 = params.base;
-            token1 = params.quote;
-        } else {
-            lowerTick = -params.upperTick;
-            upperTick = -params.lowerTick;
-            token0 = params.quote;
-            token1 = params.base;
-        }
+        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
+            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
         // get current price
         (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
@@ -202,6 +176,34 @@ library UniswapV3Broker {
         if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
         revert("UB_PTM");
+    }
+
+    function _baseQuoteToToken01(
+        bool isBase0Quote1,
+        uint256 base,
+        uint256 quote,
+        int24 baseQuoteLowerTick,
+        int24 baseQuoteUpperTick
+    )
+        private
+        returns (
+            uint256 token0,
+            uint256 token1,
+            int24 lowerTick,
+            int24 upperTick
+        )
+    {
+        if (isBase0Quote1) {
+            lowerTick = baseQuoteLowerTick;
+            upperTick = baseQuoteUpperTick;
+            token0 = base;
+            token1 = quote;
+        } else {
+            lowerTick = -baseQuoteUpperTick;
+            upperTick = -baseQuoteLowerTick;
+            token0 = quote;
+            token1 = base;
+        }
     }
 
     function _getPositionLiquidity(
