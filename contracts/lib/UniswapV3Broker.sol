@@ -34,40 +34,35 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
+    struct BurnParams {
+        IUniswapV3Pool pool;
+        address baseToken;
+        address quoteToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 base;
+        uint256 quote;
+    }
+
+    struct BurnResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 feeGrowthInsideLastBase;
+        uint256 feeGrowthInsideLastQuote;
+    }
+
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 token0;
-        uint256 token1;
-        if (isBase0Quote1) {
-            lowerTick = params.lowerTick;
-            upperTick = params.upperTick;
-            token0 = params.base;
-            token1 = params.quote;
-        } else {
-            lowerTick = -params.upperTick;
-            upperTick = -params.lowerTick;
-            token0 = params.quote;
-            token1 = params.base;
-        }
+        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
+            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
-        // fetch fee growth states if there is already liquidity
-        uint256 feeGrowthInside0LastX128;
-        uint256 feeGrowthInside1LastX128;
-        if (_getPositionLiquidity(params.pool, lowerTick, upperTick) > 0) {
-            // get positionKey of the caller contract
-            // FIXME
-            // check if the case sensitive of address(this) break the PositionKey computing
-            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-            // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKey);
-        }
+        // fetch the fee growth state if this has liquidity
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // get current price
         (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
@@ -110,6 +105,45 @@ library UniswapV3Broker {
         }
     }
 
+    function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
+        // make base & quote into the right order
+        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
+        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
+            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
+
+        // get current price
+        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+        // get the equivalent amount of liquidity from amount0 & amount1 in current price
+        uint128 liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(
+                sqrtPriceX96,
+                TickMath.getSqrtRatioAtTick(lowerTick),
+                TickMath.getSqrtRatioAtTick(upperTick),
+                token0,
+                token1
+            );
+
+        // call burn()
+        (uint256 amount0Burned, uint256 amount1Burned) = params.pool.burn(lowerTick, upperTick, liquidity);
+
+        // fetch the fee growth state if this has liquidity
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+
+        // make base & quote into the right order
+        if (isBase0Quote1) {
+            response.base = amount0Burned;
+            response.quote = amount1Burned;
+            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+        } else {
+            response.quote = amount0Burned;
+            response.base = amount1Burned;
+            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
+            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
+        }
+    }
+
     function getPool(
         address factory,
         address quoteToken,
@@ -131,6 +165,51 @@ library UniswapV3Broker {
         if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
         revert("UB_PTM");
+    }
+
+    function _baseQuoteToToken01(
+        bool isBase0Quote1,
+        uint256 base,
+        uint256 quote,
+        int24 baseQuoteLowerTick,
+        int24 baseQuoteUpperTick
+    )
+        private
+        pure
+        returns (
+            uint256 token0,
+            uint256 token1,
+            int24 lowerTick,
+            int24 upperTick
+        )
+    {
+        if (isBase0Quote1) {
+            lowerTick = baseQuoteLowerTick;
+            upperTick = baseQuoteUpperTick;
+            token0 = base;
+            token1 = quote;
+        } else {
+            lowerTick = -baseQuoteUpperTick;
+            upperTick = -baseQuoteLowerTick;
+            token0 = quote;
+            token1 = base;
+        }
+    }
+
+    function _getFeeGrowthInside(
+        IUniswapV3Pool pool,
+        int24 lowerTick,
+        int24 upperTick
+    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
+        if (_getPositionLiquidity(pool, lowerTick, upperTick) > 0) {
+            // get this' positionKey
+            // FIXME
+            // check if the case sensitive of address(this) break the PositionKey computing
+            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+
+            // get feeGrowthInside{0,1}LastX128
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
+        }
     }
 
     function _getPositionLiquidity(

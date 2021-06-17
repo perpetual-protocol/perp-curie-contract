@@ -5,7 +5,9 @@ import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
 import { base0Quote1PoolFixture, base1Quote0PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("UniswapV3Broker", () => {
+describe("UniswapV3Broker mint", () => {
+    const [wallet] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -19,7 +21,7 @@ describe("UniswapV3Broker", () => {
                 pool: _pool,
                 baseToken: _baseToken,
                 quoteToken: _quoteToken,
-            } = await waffle.loadFixture(base0Quote1PoolFixture)
+            } = await loadFixture(base0Quote1PoolFixture)
             pool = _pool
             baseToken = _baseToken
             quoteToken = _quoteToken
@@ -177,7 +179,7 @@ describe("UniswapV3Broker", () => {
                 pool: _pool,
                 baseToken: _baseToken,
                 quoteToken: _quoteToken,
-            } = await waffle.loadFixture(base1Quote0PoolFixture)
+            } = await loadFixture(base1Quote0PoolFixture)
             pool = _pool
             baseToken = _baseToken
             quoteToken = _quoteToken
