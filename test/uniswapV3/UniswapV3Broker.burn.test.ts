@@ -118,23 +118,21 @@ describe("UniswapV3Broker burn", () => {
                 50000,
                 50200,
                 "999999999994411796", // around 1
-                base,
                 "816820840999999", // rounding error, around 0.000816820841
+                "0",
             )
         })
 
         it("burn and get 100% quote and base token", async () => {
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            const base = parseEther("0.000808693720084599")
-            const quote = parseEther("0.122414646")
             const mintParams = {
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50400, // 154.4310961
-                base,
-                quote,
+                base: parseEther("0.000808693720084599"),
+                quote: parseEther("0.122414646"),
             }
             await uniswapV3Broker.mint(mintParams)
 
@@ -143,8 +141,8 @@ describe("UniswapV3Broker burn", () => {
                 50000,
                 50400,
                 "999999986406400213", // around 1
-                base,
-                quote,
+                "808693720084598", // rounding error, around 0.000808693720084599
+                "122414645999999999", // rounding error, around 0.122414646
             )
         })
 
@@ -217,7 +215,7 @@ describe("UniswapV3Broker burn", () => {
 
         // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=150902425
         it("burn and get 100% quote token", async () => {
-            await pool.initialize(encodePriceSqrt(200, 1))
+            await pool.initialize(encodePriceSqrt(1, 200))
             const base = "0"
             const quote = parseEther("0.122414646")
             const mintParams = {
@@ -236,13 +234,13 @@ describe("UniswapV3Broker burn", () => {
                 -50200,
                 -50000,
                 "1000000000109464931", // around 1
-                quote,
+                "122414645999999999", // rounding error
                 base,
             )
         })
 
         it("burn and get 50% quote token", async () => {
-            await pool.initialize(encodePriceSqrt(200, 1))
+            await pool.initialize(encodePriceSqrt(1, 200))
             const base = "0"
             const quote = parseEther("0.122414646")
             const mintParams = {
@@ -272,8 +270,8 @@ describe("UniswapV3Broker burn", () => {
                     uniswapV3Broker.address,
                     -50200,
                     -50000,
-                    "500000000109464931", // around 0.5
-                    quote.div(2),
+                    "500000000054732465", // around 0.5
+                    "61207322999999999", // around quote.div(2)
                     base,
                 )
         })
@@ -300,22 +298,20 @@ describe("UniswapV3Broker burn", () => {
                 -50000,
                 "999999999994411796", // around 1
                 quote,
-                base,
+                "816820840999999", // rounding error, around 0.000816820841
             )
         })
 
         it("burn and get 100% quote and base token", async () => {
-            await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            const base = parseEther("0.000808693720084599")
-            const quote = parseEther("0.122414646")
+            await pool.initialize(encodePriceSqrt(1, 151.3733069))
             const mintParams = {
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50400, // 154.4310961
-                base,
-                quote,
+                base: parseEther("0.000808693720084599"),
+                quote: parseEther("0.122414646"),
             }
             await uniswapV3Broker.mint(mintParams)
 
@@ -324,12 +320,12 @@ describe("UniswapV3Broker burn", () => {
                 -50400,
                 -50000,
                 "999999986406400213", // around 1
-                quote,
-                base,
+                "122414645999999999", // rounding error, around 0.122414646
+                "808693720084598", // rounding error, around 0.000808693720084599
             )
         })
 
-        it("burn zero liquidity when no liquidity", async () => {
+        it("force error when burn without liquidity", async () => {
             const base = parseEther("1")
             const quote = parseEther("1")
             await expect(
@@ -342,11 +338,11 @@ describe("UniswapV3Broker burn", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Burn")
+            ).to.be.reverted
         })
 
         it("burn zero liquidity when there was only quote liquidity", async () => {
-            await pool.initialize(encodePriceSqrt(200, 1))
+            await pool.initialize(encodePriceSqrt(1, 200))
             const base = "0"
             const quote = parseEther("0.122414646")
             const mintParams = {
@@ -370,7 +366,9 @@ describe("UniswapV3Broker burn", () => {
                     base: parseEther("1"),
                     quote: parseEther("0"),
                 }),
-            ).not.to.emit(pool, "Burn")
+            )
+                .to.emit(pool, "Burn")
+                .withArgs(uniswapV3Broker.address, -50200, -50000, "0", "0", "0")
         })
     })
 })
