@@ -1,11 +1,13 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory } from "../../typechain"
+import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
 import { uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: ClearingHouse
     uniV3Factory: UniswapV3Factory
+    pool: UniswapV3Pool
+    feeTier: number
     vUSDC: TestERC20
     USDC: TestERC20
     baseToken: TestERC20
@@ -28,9 +30,21 @@ export async function clearingHouseFixture(): Promise<ClearingHouseFixture> {
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = await clearingHouseFactory.deploy(USDC.address, vUSDC.address, uniV3Factory.address)
-    const baseToken = await deployERC20()
+    const baseToken = (await tokenFactory.deploy("vTestBase", "vBASE")) as TestERC20
 
-    return { clearingHouse, uniV3Factory, vUSDC, USDC, baseToken }
+    // set CH as the minter of all virtual tokens
+    await baseToken.setMinter(clearingHouse.address)
+    await vUSDC.setMinter(clearingHouse.address)
+
+    // deploy a pool
+    const feeTier = 3000
+    await uniV3Factory.createPool(baseToken.address, vUSDC.address, feeTier)
+    const poolAddr = await uniV3Factory.getPool(baseToken.address, vUSDC.address, feeTier)
+
+    const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+    const pool = poolFactory.attach(poolAddr)
+
+    return { clearingHouse, uniV3Factory, pool, feeTier, vUSDC, USDC, baseToken }
 }
 
 export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> {

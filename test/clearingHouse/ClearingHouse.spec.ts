@@ -36,8 +36,8 @@ describe("ClearingHouse Spec", () => {
                 .to.emit(clearingHouse, "PoolAdded")
                 .withArgs(baseToken.address, DEFAULT_FEE, POOL_A_ADDRESS)
 
-            const pools = await clearingHouse.getPools(baseToken.address)
-            expect(pools[0]).to.eq(POOL_A_ADDRESS)
+            const pool = await clearingHouse.getPool(baseToken.address)
+            expect(pool).to.eq(POOL_A_ADDRESS)
         })
 
         it("add multiple UniswapV3 pools", async () => {
@@ -46,22 +46,15 @@ describe("ClearingHouse Spec", () => {
 
             // mock the return address of `getPool`
             uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
-                return POOL_B_ADDRESS
-            })
-            await clearingHouse.addPool(baseToken.address, "10000")
-
-            // mock the return address of `getPool`
-            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                 return POOL_C_ADDRESS
             })
             await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
 
             // verify isPoolExisted
-            const pools = await clearingHouse.getPools(baseToken.address)
-            expect(pools[0]).to.eq(POOL_A_ADDRESS)
-            expect(pools[1]).to.eq(POOL_B_ADDRESS)
-            const pools2 = await clearingHouse.getPools(baseToken2.address)
-            expect(pools2[0]).to.eq(POOL_C_ADDRESS)
+            const pool = await clearingHouse.getPool(baseToken.address)
+            expect(pool).to.eq(POOL_A_ADDRESS)
+            const pool2 = await clearingHouse.getPool(baseToken2.address)
+            expect(pool2).to.eq(POOL_C_ADDRESS)
         })
 
         it("force error, pool is not existent in uniswap v3", async () => {

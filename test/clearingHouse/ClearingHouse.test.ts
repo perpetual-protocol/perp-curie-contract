@@ -10,11 +10,15 @@ describe("ClearingHouse", () => {
     let alice: SignerWithAddress
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
+    let baseToken: TestERC20
+    let quoteToken: TestERC20
 
     beforeEach(async () => {
         const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         collateral = _clearingHouseFixture.USDC
+        baseToken = _clearingHouseFixture.baseToken
+        quoteToken = _clearingHouseFixture.vUSDC
 
         // assign accounts
         const accounts = await ethers.getSigners()
@@ -26,7 +30,7 @@ describe("ClearingHouse", () => {
     })
 
     describe("# deposit", () => {
-        let aliceInitCollateralBalance = 1000
+        const aliceInitCollateralBalance = 1000
 
         beforeEach(async () => {
             const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
@@ -51,5 +55,45 @@ describe("ClearingHouse", () => {
         })
 
         // TODO should we test against potential attack using EIP777?
+    })
+
+    describe("# mint", () => {
+        const aliceInitCollateralBalance = 1000
+
+        beforeEach(async () => {
+            // prepare collateral
+            const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+            await collateral.transfer(alice.address, amount)
+            await collateral.connect(alice).approve(clearingHouse.address, amount)
+            await clearingHouse.connect(alice).deposit(amount)
+
+            // add pool
+            await clearingHouse.addPool(baseToken.address, 3000)
+        })
+
+        it("alice mint quote and sends an event", async () => {
+            // assume imRatio = 0.1
+            // alice collateral=1000, mint 10000 quote
+            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, 0, quoteAmount))
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(baseToken.address, quoteToken.address, 0, quoteAmount)
+
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
+            // verify free collateral = 1000 / 0.1 - 10000 = 0
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+        })
+
+        it("alice mint base and sends an event", async () => {
+            // alice collateral=1000, mint 10 base @ price=100
+        })
+
+        it("alice mint both and sends an event", async () => {})
+
+        it("force error, alice mint too many quote", async () => {})
+
+        it("force error, alice mint too many base", async () => {})
+
+        it("force error, alice mint base without specifying baseToken", async () => {})
     })
 })

@@ -18,18 +18,13 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     //
     // events
     //
-    event PoolAdded(address indexed base, uint24 indexed feeRatio, address indexed pool);
+    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
+    event Minted(address indexed baseToken, address indexed quoteToken, uint256 base, uint256 quote);
 
     //
     // Struct
     //
-
-    struct Market {
-        uint256 imRatio; // initial-margin ratio
-        uint256 mmRatio; // minimum-margin ratio
-        address[] pools;
-    }
 
     struct Account {
         uint256 collateral;
@@ -46,12 +41,15 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     //
     // state variables
     //
+    uint256 public constant imRatio = 0.1 ether; // initial-margin ratio
+    uint256 public constant mmRatio = 0.0625 ether; // minimum-margin ratio
+
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
 
     // key: base token
-    mapping(address => Market) private _market;
+    mapping(address => address) private _pool;
 
     // key: trader
     mapping(address => Account) private _account;
@@ -76,14 +74,10 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");
+        // CH_EP: existent pool in ClearingHouse
+        require(pool != _pool[baseToken], "CH_EP");
 
-        address[] memory pools = _market[baseToken].pools;
-        for (uint256 i = 0; i < pools.length; i++) {
-            // CH_EP: existent pool in ClearingHouse
-            require(pools[i] != pool, "CH_EP");
-        }
-        _market[baseToken].pools.push(pool);
-
+        _pool[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
@@ -103,31 +97,42 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         uint256 base,
         uint256 quote
     ) external nonReentrant() {
+        address trader = _msgSender();
+        bool mintBase = base > 0 && baseToken != address(0x0) && _isPoolExistent(baseToken);
+        bool mintQuote = quote > 0;
+
         // mint vTokens
-        if (base > 0 && baseToken != address(0x0)) {
+        if (mintBase) {
             ERC20PresetMinterPauser(baseToken).mint(address(this), base);
         }
-        if (quote > 0) {
+        if (mintQuote) {
             ERC20PresetMinterPauser(quoteToken).mint(address(this), quote);
         }
 
-        // update states
-        address trader = _msgSender();
-        Asset storage baseAsset = _account[trader].asset[baseToken];
-        Asset storage quoteAsset = _account[trader].asset[quoteToken];
-        baseAsset.available = baseAsset.available.add(base);
-        baseAsset.debt = baseAsset.debt.add(base);
-        quoteAsset.available = quoteAsset.available.add(quote);
-        quoteAsset.debt = quoteAsset.debt.add(quote);
+        // update internal states
+        if (mintBase) {
+            Asset storage baseAsset = _account[trader].asset[baseToken];
+            baseAsset.available = baseAsset.available.add(base);
+            baseAsset.debt = baseAsset.debt.add(base);
+        }
 
-        require(getFreeCollateral(trader) > 0, "CH_ZFC");
+        if (mintQuote) {
+            Asset storage quoteAsset = _account[trader].asset[quoteToken];
+            quoteAsset.available = quoteAsset.available.add(quote);
+            quoteAsset.debt = quoteAsset.debt.add(quote);
+        }
+
+        // CH_NEAV: not enough account value
+        require(getAccountValue(trader) >= int256(_getTotalInitialMarginRequirement(trader)), "CH_NEAV");
+
+        emit Minted(baseToken, quoteToken, base, quote);
     }
 
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPools(address baseToken) external view returns (address[] memory) {
-        return _market[baseToken].pools;
+    function getPool(address baseToken) external view returns (address) {
+        return _pool[baseToken];
     }
 
     function getCollateral(address trader) external view returns (uint256) {
@@ -158,40 +163,37 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _account[trader];
 
-        uint256 totalImReq;
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = account.asset[quoteToken].debt;
+        uint256 totalPositionValue;
+        uint256 totalBaseDebtValue;
         for (uint256 i = 0; i < account.tokens.length; i++) {
-            Market memory market = _market[account.tokens[i]];
-            if (market.pools.length > 0) {
+            if (_isPoolExistent(account.tokens[i])) {
                 address baseToken = account.tokens[i];
                 Asset memory baseAsset = account.asset[baseToken];
                 uint256 baseDebtValue = _getDebtValue(baseToken, baseAsset.debt);
                 uint256 positionValue = _getPositionValue(account, baseToken);
-                uint256 imReq = Math.max(positionValue, Math.max(quoteDebtValue, baseDebtValue));
-                totalImReq = totalImReq.add(imReq);
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+                totalPositionValue = totalPositionValue.add(positionValue);
             }
         }
 
-        return totalImReq;
+        return Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio).div(1 ether);
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return amount.mul(getIndexPrice(token));
+        return amount.mul(getIndexPrice(token)).div(1 ether);
     }
 
     function _getPositionValue(Account storage account, address baseToken) private view returns (uint256) {
         // TODO WIP
         // uint256 positionSize = _getPositionSize(account, baseToken);
         // simulate trade and calculate position value
-        // Ex.
-        //   poolA, poolB
-        //   2    , 3
-        //   debt = 4
-        //   positionSize = 2 + 3 - 4 = 1
-        //   a = getExactBastToQuote(PoolA, 1), b = getExactBastToQuote(PoolB, 1)
-        //   c = getExactBastToQuote(PoolA, 0.5) + getExactBastToQuote(PoolB, 0.5)  <-- this is endless
-        //   positionValue = max(a, b, c)
+        // positionValue = getExactBastToQuote(pool, 1)
         return 0;
+    }
+
+    function _isPoolExistent(address baseToken) internal view returns (bool) {
+        return _pool[baseToken] != address(0);
     }
 }
