@@ -44,18 +44,9 @@ library UniswapV3Broker {
         (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
             _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
-        // fetch fee growth states if there is already liquidity
-        uint256 feeGrowthInside0LastX128;
-        uint256 feeGrowthInside1LastX128;
-        if (_getPositionLiquidity(params.pool, lowerTick, upperTick) > 0) {
-            // get positionKey of the caller contract
-            // FIXME
-            // check if the case sensitive of address(this) break the PositionKey computing
-            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-            // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKey);
-        }
+        // fetch the fee growth state if this has liquidity
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // get current price
         (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
@@ -105,9 +96,7 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    /// FIXME convert return to struct
     function burn(MintParams memory params) internal returns (BurnResponse memory response) {
-        // FIXME: refactor with mint()
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
         (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
@@ -129,17 +118,8 @@ library UniswapV3Broker {
         (uint256 amount0Burned, uint256 amount1Burned) = params.pool.burn(lowerTick, upperTick, liquidity);
 
         // fetch the fee growth state if this has liquidity
-        uint256 feeGrowthInside0LastX128;
-        uint256 feeGrowthInside1LastX128;
-        if (_getPositionLiquidity(params.pool, lowerTick, upperTick) > 0) {
-            // get this' positionKey
-            // FIXME
-            // check if the case sensitive of address(this) break the PositionKey computing
-            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-            // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = params.pool.positions(positionKey);
-        }
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
         if (isBase0Quote1) {
@@ -203,6 +183,22 @@ library UniswapV3Broker {
             upperTick = -baseQuoteLowerTick;
             token0 = quote;
             token1 = base;
+        }
+    }
+
+    function _getFeeGrowthInside(
+        IUniswapV3Pool pool,
+        int24 lowerTick,
+        int24 upperTick
+    ) private returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
+        if (_getPositionLiquidity(pool, lowerTick, upperTick) > 0) {
+            // get this' positionKey
+            // FIXME
+            // check if the case sensitive of address(this) break the PositionKey computing
+            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+
+            // get feeGrowthInside{0,1}LastX128
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
         }
     }
 
