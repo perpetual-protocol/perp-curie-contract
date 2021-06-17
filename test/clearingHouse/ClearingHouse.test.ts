@@ -94,7 +94,23 @@ describe("ClearingHouse", () => {
                 .withArgs(baseToken.address, quoteToken.address, baseAmount, 0)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - 10,000 * 0.1 = 0
+            // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+        })
+
+        it("alice mint base twice", async () => {
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            const baseAmount = toWei(50, await baseToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount, 0))
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(baseToken.address, quoteToken.address, baseAmount, 0)
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount, 0))
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(baseToken.address, quoteToken.address, baseAmount, 0)
+
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
         })
 
@@ -134,6 +150,22 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
+        })
+
+        it("should register each base token once at most", async () => {
+            const connectedClearingHouse = clearingHouse.connect(alice)
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 10000 quote once and then mint 50 base twice
+            const baseAmount = toWei(50, await baseToken.decimals())
+            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            await connectedClearingHouse.mint(baseToken.address, 0, quoteAmount)
+            await connectedClearingHouse.mint(baseToken.address, baseAmount, 0)
+            await connectedClearingHouse.mint(baseToken.address, baseAmount, 0)
+
+            expect(await clearingHouse.getAccountTokens(alice.address)).to.deep.eq([
+                quoteToken.address,
+                baseToken.address,
+            ])
         })
 
         it("force error, alice mint too many quote", async () => {

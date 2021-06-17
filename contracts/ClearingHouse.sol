@@ -31,9 +31,9 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
 
     struct Account {
         uint256 collateral;
-        address[] tokens;
+        address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => Asset) asset;
+        mapping(address => Asset) asset; // balance & debt info of each token
     }
 
     struct Asset {
@@ -121,31 +121,42 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
             baseAsset.available = baseAsset.available.add(base);
             baseAsset.debt = baseAsset.debt.add(base);
 
-            // add base token to account
-            address[] memory tokens = _account[trader].tokens;
-            if (tokens.length == 0) {
-                _account[trader].tokens.push(baseToken);
-            } else {
-                for (uint256 i = 0; i < tokens.length; i++) {
-                    if (tokens[i] == baseToken) {
-                        continue;
-                    }
-                    _account[trader].tokens.push(baseToken);
-                    break;
-                }
-            }
+            _registerToken(trader, baseToken);
         }
 
         if (mintQuote) {
             Asset storage quoteAsset = _account[trader].asset[quoteToken];
             quoteAsset.available = quoteAsset.available.add(quote);
             quoteAsset.debt = quoteAsset.debt.add(quote);
+
+            _registerToken(trader, quoteToken);
         }
 
         // CH_NEAV: not enough account value
         require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
 
         emit Minted(baseToken, quoteToken, base, quote);
+    }
+
+    //
+    // INTERNAL FUNCTIONS
+    //
+    function _registerToken(address trader, address token) private {
+        address[] memory tokens = _account[trader].tokens;
+        if (tokens.length == 0) {
+            _account[trader].tokens.push(token);
+        } else {
+            bool hit = false;
+            for (uint256 i = 0; i < tokens.length; i++) {
+                if (tokens[i] == token) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (!hit) {
+                _account[trader].tokens.push(token);
+            }
+        }
     }
 
     //
@@ -161,6 +172,10 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
 
     function getAccountValue(address trader) public view returns (int256) {
         return _account[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
+    }
+
+    function getAccountTokens(address trader) public view returns (address[] memory) {
+        return _account[trader].tokens;
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
