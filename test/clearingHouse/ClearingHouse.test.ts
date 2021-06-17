@@ -6,6 +6,7 @@ import { toWei } from "../helper/number"
 import { clearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
+    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     let admin: SignerWithAddress
     let alice: SignerWithAddress
     let clearingHouse: ClearingHouse
@@ -73,27 +74,99 @@ describe("ClearingHouse", () => {
 
         it("alice mint quote and sends an event", async () => {
             // assume imRatio = 0.1
-            // alice collateral=1000, mint 10000 quote
+            // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
             const quoteAmount = toWei(10000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, 0, quoteAmount))
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(baseToken.address, quoteToken.address, 0, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
-            // verify free collateral = 1000 / 0.1 - 10000 = 0
+            // verify free collateral = 1000 - 10,000 * 0.1 = 0
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint base and sends an event", async () => {
-            // alice collateral=1000, mint 10 base @ price=100
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            const baseAmount = toWei(100, await baseToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount, 0))
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(baseToken.address, quoteToken.address, baseAmount, 0)
+
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            // verify free collateral = 1,000 - 10,000 * 0.1 = 0
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
         })
 
-        it("alice mint both and sends an event", async () => {})
+        it("alice mint both and sends an event", async () => {
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base, 1,0000 quote
+            const baseAmount = toWei(100, await baseToken.decimals())
+            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount))
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(baseToken.address, quoteToken.address, baseAmount, quoteAmount)
 
-        it("force error, alice mint too many quote", async () => {})
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            // verify free collateral = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+        })
 
-        it("force error, alice mint too many base", async () => {})
+        it("alice mint equivalent base and quote", async () => {
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 50 base, 5000 quote
+            const baseAmount = toWei(50, await baseToken.decimals())
+            const quoteAmount = toWei(5000, await quoteToken.decimals())
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
 
-        it("force error, alice mint base without specifying baseToken", async () => {})
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            // verify free collateral = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
+        })
+
+        it("alice mint non-equivalent base and quote", async () => {
+            // assume imRatio = 0.1, price = 100
+            // alice collateral = 1000, freeCollateral = 10,000, mint 50 base, 5000 quote
+            const baseAmount = toWei(60, await baseToken.decimals())
+            const quoteAmount = toWei(4000, await quoteToken.decimals())
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
+
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            // verify free collateral = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
+        })
+
+        it("force error, alice mint too many quote", async () => {
+            // alice collateral = 1000, freeCollateral = 10,000, mint 10,001 quote
+            const quoteAmount = toWei(10001, await quoteToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, 0, quoteAmount)).to.be.revertedWith(
+                "CH_NEAV",
+            )
+        })
+
+        it("force error, alice mint too many base", async () => {
+            // alice collateral = 1000, freeCollateral = 10,000, mint 10,001 quote
+            const baseAmount = toWei(101, await baseToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount, 0)).to.be.revertedWith(
+                "CH_NEAV",
+            )
+        })
+
+        it("force error, alice mint without specifying amount", async () => {
+            await expect(clearingHouse.connect(alice).mint(baseToken.address, 0, 0)).to.be.revertedWith("CH_II")
+        })
+
+        it("force error, alice mint base without specifying baseToken", async () => {
+            const baseAmount = toWei(100, await baseToken.decimals())
+            await expect(clearingHouse.connect(alice).mint(EMPTY_ADDRESS, baseAmount, 0)).to.be.revertedWith("CH_II")
+        })
+
+        it("force error, alice mint base without addPool first", async () => {
+            const baseAmount = toWei(100, await baseToken.decimals())
+            // collateral: just a random address
+            await expect(clearingHouse.connect(alice).mint(collateral.address, baseAmount, 0)).to.be.revertedWith(
+                "CH_II",
+            )
+        })
     })
 })

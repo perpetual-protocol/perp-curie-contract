@@ -41,14 +41,14 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     //
     // state variables
     //
-    uint256 public constant imRatio = 0.1 ether; // initial-margin ratio
-    uint256 public constant mmRatio = 0.0625 ether; // minimum-margin ratio
+    uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
+    uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
 
-    // key: base token
+    // key: base token, value: pool
     mapping(address => address) private _pool;
 
     // key: trader
@@ -97,9 +97,11 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         uint256 base,
         uint256 quote
     ) external nonReentrant() {
-        address trader = _msgSender();
-        bool mintBase = base > 0 && baseToken != address(0x0) && _isPoolExistent(baseToken);
+        bool mintBase = base > 0 && baseToken != address(0) && _isPoolExistent(baseToken);
         bool mintQuote = quote > 0;
+
+        // CH_ZI: invalid input
+        require(mintBase || mintQuote, "CH_II");
 
         // mint vTokens
         if (mintBase) {
@@ -110,10 +112,25 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         }
 
         // update internal states
+        address trader = _msgSender();
         if (mintBase) {
             Asset storage baseAsset = _account[trader].asset[baseToken];
             baseAsset.available = baseAsset.available.add(base);
             baseAsset.debt = baseAsset.debt.add(base);
+
+            // add base token to account
+            address[] memory tokens = _account[trader].tokens;
+            if (tokens.length == 0) {
+                _account[trader].tokens.push(baseToken);
+            } else {
+                for (uint256 i = 0; i < tokens.length; i++) {
+                    if (tokens[i] == baseToken) {
+                        continue;
+                    }
+                    _account[trader].tokens.push(baseToken);
+                    break;
+                }
+            }
         }
 
         if (mintQuote) {
@@ -167,11 +184,11 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         uint256 quoteDebtValue = account.asset[quoteToken].debt;
         uint256 totalPositionValue;
         uint256 totalBaseDebtValue;
-        for (uint256 i = 0; i < account.tokens.length; i++) {
-            if (_isPoolExistent(account.tokens[i])) {
-                address baseToken = account.tokens[i];
-                Asset memory baseAsset = account.asset[baseToken];
-                uint256 baseDebtValue = _getDebtValue(baseToken, baseAsset.debt);
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.asset[baseToken].debt);
                 uint256 positionValue = _getPositionValue(account, baseToken);
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
