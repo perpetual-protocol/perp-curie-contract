@@ -36,14 +36,14 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback {
         }
     }
 
-    function mint(UniswapV3Broker.MintParams calldata params)
+    function mint(UniswapV3Broker.MintBurnParams calldata params)
         external
         returns (UniswapV3Broker.MintResponse memory response)
     {
         return UniswapV3Broker.mint(params);
     }
 
-    function burn(UniswapV3Broker.MintParams calldata params)
+    function burn(UniswapV3Broker.MintBurnParams calldata params)
         external
         returns (UniswapV3Broker.BurnResponse memory response)
     {

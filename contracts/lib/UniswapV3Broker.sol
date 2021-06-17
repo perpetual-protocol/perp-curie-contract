@@ -16,8 +16,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
-    // FIXME burn also use this, rename
-    struct MintParams {
+    struct MintBurnParams {
         IUniswapV3Pool pool;
         address baseToken;
         address quoteToken;
@@ -35,7 +34,7 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    function mint(MintParams memory params) internal returns (MintResponse memory response) {
+    function mint(MintBurnParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
@@ -96,7 +95,7 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    function burn(MintParams memory params) internal returns (BurnResponse memory response) {
+    function burn(MintBurnParams memory params) internal returns (BurnResponse memory response) {
         // make base & quote into the right order
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
         (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
