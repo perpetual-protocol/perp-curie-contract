@@ -1,18 +1,17 @@
 import { expect } from "chai"
-import { Wallet } from "ethers"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20 } from "../../typechain"
 import { toWei } from "../helper/number"
 import { clearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    const admin: Wallet = waffle.provider.getWallets()[0]
-    const alice: Wallet = waffle.provider.getWallets()[1]
+    const [admin, alice] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
+        const _clearingHouseFixture = await loadFixture(clearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         collateral = _clearingHouseFixture.USDC
 
