@@ -175,6 +175,7 @@ library UniswapV3Broker {
         int24 baseQuoteUpperTick
     )
         private
+        pure
         returns (
             uint256 token0,
             uint256 token1,
@@ -199,7 +200,7 @@ library UniswapV3Broker {
         IUniswapV3Pool pool,
         int24 lowerTick,
         int24 upperTick
-    ) private returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
+    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
         if (_getPositionLiquidity(pool, lowerTick, upperTick) > 0) {
             // get this' positionKey
             // FIXME
