@@ -34,9 +34,6 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    /**
-     @return response .liquidity currently can be 0
-     */
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
