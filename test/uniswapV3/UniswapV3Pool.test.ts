@@ -6,7 +6,7 @@ import { encodePriceSqrt, sortedTokens } from "../shared/utilities"
 
 describe("UniswapV3Pool", () => {
     const [wallet] = waffle.provider.getWallets()
-    let loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
     let token0: TestERC20
     let token1: TestERC20

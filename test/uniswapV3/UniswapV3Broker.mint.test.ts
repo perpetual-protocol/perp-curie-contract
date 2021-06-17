@@ -7,7 +7,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapV3Broker mint", () => {
     const [wallet] = waffle.provider.getWallets()
-    let loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
     let baseToken: TestERC20
     let quoteToken: TestERC20
