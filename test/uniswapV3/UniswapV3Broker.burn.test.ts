@@ -7,7 +7,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapV3Broker burn", () => {
     const [wallet] = waffle.provider.getWallets()
-    let loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -56,7 +56,7 @@ describe("UniswapV3Broker burn", () => {
                 50200,
                 "1000000000109464931", // around 1
                 base,
-                quote,
+                "122414645999999999", // rounding error, it's around 0.122414646
             )
         })
 
@@ -91,13 +91,13 @@ describe("UniswapV3Broker burn", () => {
                     uniswapV3Broker.address,
                     50000,
                     50200,
-                    "500000000109464931", // around 0.5
+                    "500000000054732465", // around 0.5
                     base,
-                    quote.div(2),
+                    "61207322999999999", // quote.div(2)
                 )
         })
 
-        // FIXME: add partial burn cases for all the following cases in the future
+        // TODO: add partial burn cases for all the following cases in the future
         it("burn and get 100% base token", async () => {
             await pool.initialize(encodePriceSqrt(1, 1))
             const base = parseEther("0.000816820841")
@@ -119,7 +119,7 @@ describe("UniswapV3Broker burn", () => {
                 50200,
                 "999999999994411796", // around 1
                 base,
-                quote,
+                "816820840999999", // rounding error, around 0.000816820841
             )
         })
 
@@ -161,7 +161,7 @@ describe("UniswapV3Broker burn", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Burn")
+            ).to.be.reverted
         })
 
         it("burn zero liquidity when there was only quote liquidity", async () => {
@@ -189,7 +189,9 @@ describe("UniswapV3Broker burn", () => {
                     base: parseEther("1"),
                     quote: parseEther("0"),
                 }),
-            ).not.to.emit(pool, "Burn")
+            )
+                .to.emit(pool, "Burn")
+                .withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
         })
     })
 
