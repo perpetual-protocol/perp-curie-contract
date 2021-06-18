@@ -1,4 +1,5 @@
 pragma solidity 0.7.6;
+pragma abicoder v2;
 
 import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -16,6 +17,7 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
+    using SafeCast for uint128;
     using SignedSafeMath for int256;
     using SafeCast for int256;
     //
@@ -24,6 +26,17 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed baseToken, address indexed quoteToken, uint256 base, uint256 quote);
+    event LiquidityAdded(
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        uint256 base,
+        uint256 quote,
+        uint128 liquidity,
+        uint256 baseFee,
+        uint256 quoteFee
+    );
 
     //
     // Struct
@@ -34,11 +47,36 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => TokenInfo) tokenInfo; // balance & debt info of each token
+        // key: token address, e.g. vETH, vUSDC...
+        mapping(address => MakerPosition) makerPosition; // open orders for maker
     }
 
     struct TokenInfo {
         uint256 available; // amount available in CH
         uint256 debt;
+        uint256 fee;
+    }
+
+    struct OpenOrder {
+        uint128 liquidity;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthInsideLastBase;
+        uint256 feeGrowthInsideLastQuote;
+    }
+
+    struct MakerPosition {
+        bytes32[] orderIds;
+        // key: order id
+        mapping(bytes32 => OpenOrder) openOrder;
+    }
+
+    struct AddLiquidityParams {
+        address baseToken;
+        uint256 base;
+        uint256 quote;
+        int24 lowerTick;
+        int24 upperTick;
     }
 
     //
@@ -138,6 +176,75 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         emit Minted(baseToken, quoteToken, base, quote);
     }
 
+    function addLiquidity(AddLiquidityParams calldata addLiquidityParams) external nonReentrant() {
+        address trader = _msgSender();
+        Account storage account = _account[trader];
+        address baseToken = addLiquidityParams.baseToken;
+        TokenInfo storage baseTokenInfo = account.tokenInfo[baseToken];
+        TokenInfo storage quoteTokenInfo = account.tokenInfo[quoteToken];
+        require(baseTokenInfo.available >= addLiquidityParams.base);
+        require(quoteTokenInfo.available >= addLiquidityParams.quote);
+
+        // add liquidity to liquidity pool
+        UniswapV3Broker.MintResponse memory mintResponse =
+            UniswapV3Broker.mint(
+                UniswapV3Broker.MintParams(
+                    IUniswapV3Pool(_pool[baseToken]),
+                    baseToken,
+                    quoteToken,
+                    addLiquidityParams.lowerTick,
+                    addLiquidityParams.upperTick,
+                    addLiquidityParams.base,
+                    addLiquidityParams.quote
+                )
+            );
+
+        // TODO add slippage protection
+
+        // load existing open order
+        bytes32 orderId = _getOrderId(trader, baseToken, addLiquidityParams.lowerTick, addLiquidityParams.upperTick);
+        OpenOrder storage openOrder = account.makerPosition[baseToken].openOrder[orderId];
+        if (openOrder.liquidity == 0) {
+            openOrder.lowerTick = addLiquidityParams.lowerTick;
+            openOrder.upperTick = addLiquidityParams.upperTick;
+        } else {
+            // update token info based on existing open order
+            baseTokenInfo.fee = baseTokenInfo.fee.add(
+                openOrder.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastBase.sub(openOrder.feeGrowthInsideLastBase)
+                )
+            );
+            quoteTokenInfo.fee = quoteTokenInfo.fee.add(
+                openOrder.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastQuote.sub(openOrder.feeGrowthInsideLastQuote)
+                )
+            );
+        }
+
+        // update token info
+        baseTokenInfo.available = baseTokenInfo.available.sub(mintResponse.base);
+        quoteTokenInfo.available = quoteTokenInfo.available.sub(mintResponse.quote);
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().add(mintResponse.liquidity.toUint256()).toUint128();
+        openOrder.feeGrowthInsideLastBase = openOrder.feeGrowthInsideLastBase.add(mintResponse.feeGrowthInsideLastBase);
+        openOrder.feeGrowthInsideLastQuote = openOrder.feeGrowthInsideLastQuote.add(
+            mintResponse.feeGrowthInsideLastQuote
+        );
+
+        emit LiquidityAdded(
+            addLiquidityParams.baseToken,
+            quoteToken,
+            addLiquidityParams.lowerTick,
+            addLiquidityParams.upperTick,
+            mintResponse.quote,
+            mintResponse.base,
+            mintResponse.liquidity,
+            baseTokenInfo.fee,
+            quoteTokenInfo.fee
+        );
+    }
+
     //
     // INTERNAL FUNCTIONS
     //
@@ -230,5 +337,14 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _pool[baseToken] != address(0);
+    }
+
+    function _getOrderId(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 }

@@ -195,4 +195,38 @@ describe("ClearingHouse", () => {
             )
         })
     })
+
+    describe("# addLiquidity", () => {
+        const aliceInitCollateralBalance = 1000
+
+        beforeEach(async () => {
+            // prepare collateral
+            const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+            await collateral.transfer(alice.address, amount)
+            await collateral.connect(alice).approve(clearingHouse.address, amount)
+            await clearingHouse.connect(alice).deposit(amount)
+
+            // add pool
+            await clearingHouse.addPool(baseToken.address, 3000)
+
+            // mint
+            const baseAmount = toWei(100, await baseToken.decimals())
+            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
+        })
+
+        it.only("add liquidity with only quote token", async () => {
+            // assume imRatio = 0.1
+            // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: 0,
+                quote: toWei(10000, await quoteToken.decimals()),
+                lowerTick: 10,
+                upperTick: 20,
+            })
+
+            expect(true).to.eq(true)
+        })
+    })
 })
