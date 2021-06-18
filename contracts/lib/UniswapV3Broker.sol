@@ -173,7 +173,7 @@ library UniswapV3Broker {
 
         // FIXME: should have safe checks for the conversion
         // in case a large uint is converted to int and can have unexpected value
-        int256 signedExactAmount = params.isExactInput ? int256(params.amount) : -int256(params.amount);
+        int256 specifiedAmount = params.isExactInput ? int256(params.amount) : -int256(params.amount);
 
         // FIXME: need confirmation
         // amount0 & amount1 are deltaAmount, in the perspective of the pool
@@ -183,7 +183,7 @@ library UniswapV3Broker {
             params.pool.swap(
                 address(this),
                 isZeroForOne,
-                signedExactAmount,
+                specifiedAmount,
                 // FIXME: suppose the reason is for under/overflow but need confirmation
                 params.sqrtPriceLimitX96 == 0
                     ? (isZeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
