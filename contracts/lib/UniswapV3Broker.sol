@@ -51,6 +51,21 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
+    struct SwapParams {
+        IUniswapV3Pool pool;
+        address baseToken;
+        address quoteToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+    }
+
+    struct SwapResponse {
+        uint256 base;
+        uint256 quote;
+    }
+
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
@@ -141,6 +156,66 @@ library UniswapV3Broker {
             response.base = amount1Burned;
             response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
             response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
+        }
+    }
+
+    function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
+        // zero input
+        require(params.amount > 0, "UB_ZI");
+
+        // true for token0 to token1, false for token1 to token0
+        // true: baseToken < quoteToken && isBaseToQuote || baseToken > quoteToken && !isBaseToQuote
+        // false: baseToken > quoteToken && isBaseToQuote || baseToken < quoteToken && !isBaseToQuote
+        // thus, (baseToken > quoteToken) != (isBaseToQuote)
+        bool isZeroForOne = (params.baseToken > params.quoteToken) != params.isBaseToQuote;
+
+        // WARNING:
+        // should have safe checks for the conversion
+        // in case a large uint is converted to int and can have unexpected value
+        int256 amountWithSignDigit = params.isExactInput ? int256(params.amount) : -int256(params.amount);
+
+        // FIXME: need confirmation
+        // amount0 & amount1 are deltaAmount, in the perspective of the pool
+        // > 0: pool gets; user pays
+        // < 0: pool provides; user gets
+        (int256 amount0, int256 amount1) =
+            params.pool.swap(
+                address(this),
+                isZeroForOne,
+                amountWithSignDigit,
+                params.sqrtPriceLimitX96,
+                // FIXME
+                // depends on what verification we need to check inside callback
+                abi.encode(msg.sender)
+            );
+
+        if (params.isExactInput) {
+            uint256 deltaAmount;
+            uint256 exactInputAmount;
+
+            (deltaAmount, exactInputAmount) = isZeroForOne
+                ? (uint256(-amount1), uint256(amount0))
+                : (uint256(-amount0), uint256(amount1));
+
+            (response.base, response.quote) = params.isBaseToQuote
+                ? (exactInputAmount, deltaAmount)
+                : (deltaAmount, exactInputAmount);
+        } else {
+            uint256 deltaAmount;
+            uint256 exactOutputAmount;
+
+            (deltaAmount, exactOutputAmount) = isZeroForOne
+                ? (uint256(amount0), uint256(-amount1))
+                : (uint256(amount1), uint256(-amount0));
+
+            // it's technically possible to not receive the full output amount,
+            // so if no price limit has been specified, require this possibility away
+            // incorrect output amount
+            if (params.sqrtPriceLimitX96 == 0) require(exactOutputAmount == params.amount, "UB_IOA");
+
+            (response.base, response.quote) = params.isBaseToQuote
+                ? (deltaAmount, exactOutputAmount)
+                : (exactOutputAmount, deltaAmount);
         }
     }
 
