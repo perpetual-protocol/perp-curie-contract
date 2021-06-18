@@ -1,25 +1,19 @@
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { expect } from "chai"
-import { ethers, waffle } from "hardhat"
+import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20 } from "../../typechain"
 import { toWei } from "../helper/number"
 import { clearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    let admin: SignerWithAddress
-    let alice: SignerWithAddress
+    const [admin, alice] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await waffle.loadFixture(clearingHouseFixture)
+        const _clearingHouseFixture = await loadFixture(clearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         collateral = _clearingHouseFixture.USDC
-
-        // assign accounts
-        const accounts = await ethers.getSigners()
-        admin = accounts[0]
-        alice = accounts[1]
 
         // mint
         collateral.mint(admin.address, toWei(10000))
