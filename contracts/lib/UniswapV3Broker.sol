@@ -164,9 +164,11 @@ library UniswapV3Broker {
         require(params.amount > 0, "UB_ZI");
 
         bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        // true for token0 to token1, false for token1 to token0
+        // true for swapping token0 into token1, false for token1 to token0
         // true: isBase0Quote1 && isBaseToQuote || !isBase0Quote1 && !isBaseToQuote
         // false: !isBase0Quote1 && isBaseToQuote || isBase0Quote1 && !isBaseToQuote
+        // ex: if isBase0Quote1 == true & isBaseToQuote -> base == token0, thus it's token0 to token1 -> true
+        // ex: if isBase0Quote1 == false & isBaseToQuote -> base == token1, thus it's token1 to token0 -> false
         bool isZeroForOne = isBase0Quote1 == params.isBaseToQuote;
 
         // FIXME: should have safe checks for the conversion
