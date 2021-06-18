@@ -6,6 +6,8 @@ import { ClearingHouse } from "../../typechain"
 import { deployERC20, mockedClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
+    const [wallet] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
@@ -17,7 +19,7 @@ describe("ClearingHouse Spec", () => {
     let uniV3Factory: MockContract
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await waffle.loadFixture(mockedClearingHouseFixture)
+        const _clearingHouseFixture = await loadFixture(mockedClearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         baseToken = _clearingHouseFixture.mockedBaseToken
         uniV3Factory = _clearingHouseFixture.mockedUniV3Factory

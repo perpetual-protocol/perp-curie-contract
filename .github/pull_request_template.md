@@ -20,6 +20,7 @@ uint fakeAmm = 1;
 - [ ] `Map` and `Array` should always be private. Set `state` or `function` to `private` if not sure.
 - [ ] If using external contracts, following their contract name. For example, `uniswapV3`.
 - [ ] Import should specify contract names, like `import { SafeMath } from "./SafeMath.sol";`.
+- [ ] If the number of function arguments is more than 4, use a struct as input argument instead. 
 
 ### Source Files
 - [ ] Use `singular` naming, DO NOT use the plural.

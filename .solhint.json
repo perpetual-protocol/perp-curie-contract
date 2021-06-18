@@ -1,11 +1,14 @@
 {
+  "plugins": ["prettier"],
   "extends": "solhint:recommended",
   "rules": {
+    "prettier/prettier": "error",
     "max-line-length": "error",
     "compiler-version": "off",
     "func-order": "warn",
     "reason-string": ["warn", { "maxLength": 48 }],
     "func-name-mixedcase": "off",
+    "private-vars-leading-underscore": "warn",
     "func-visibility": ["warn", { "ignoreConstructors": true }]
   }
 }
