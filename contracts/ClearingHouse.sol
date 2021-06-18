@@ -33,10 +33,10 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         uint256 collateral;
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => Asset) asset; // balance & debt info of each token
+        mapping(address => TokenInfo) tokenInfo; // balance & debt info of each token
     }
 
-    struct Asset {
+    struct TokenInfo {
         uint256 available; // amount available in CH
         uint256 debt;
     }
@@ -117,17 +117,17 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         // update internal states
         address trader = _msgSender();
         if (mintBase) {
-            Asset storage baseAsset = _account[trader].asset[baseToken];
-            baseAsset.available = baseAsset.available.add(base);
-            baseAsset.debt = baseAsset.debt.add(base);
+            TokenInfo storage baseTokenInfo = _account[trader].tokenInfo[baseToken];
+            baseTokenInfo.available = baseTokenInfo.available.add(base);
+            baseTokenInfo.debt = baseTokenInfo.debt.add(base);
 
             _registerToken(trader, baseToken);
         }
 
         if (mintQuote) {
-            Asset storage quoteAsset = _account[trader].asset[quoteToken];
-            quoteAsset.available = quoteAsset.available.add(quote);
-            quoteAsset.debt = quoteAsset.debt.add(quote);
+            TokenInfo storage quoteTokenInfo = _account[trader].tokenInfo[quoteToken];
+            quoteTokenInfo.available = quoteTokenInfo.available.add(quote);
+            quoteTokenInfo.debt = quoteTokenInfo.debt.add(quote);
 
             _registerToken(trader, quoteToken);
         }
@@ -199,14 +199,14 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
         Account storage account = _account[trader];
 
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = account.asset[quoteToken].debt;
+        uint256 quoteDebtValue = account.tokenInfo[quoteToken].debt;
         uint256 totalPositionValue;
         uint256 totalBaseDebtValue;
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.asset[baseToken].debt);
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfo[baseToken].debt);
                 uint256 positionValue = _getPositionValue(account, baseToken);
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
