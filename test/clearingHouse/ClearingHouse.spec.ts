@@ -10,7 +10,7 @@ describe("ClearingHouse Spec", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
-    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
+    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
     const POOL_C_ADDRESS = "0x000000000000000000000000000000000000000C"
     const DEFAULT_FEE = 3000
 
@@ -38,7 +38,8 @@ describe("ClearingHouse Spec", () => {
                 .to.emit(clearingHouse, "PoolAdded")
                 .withArgs(baseToken.address, DEFAULT_FEE, POOL_A_ADDRESS)
 
-            expect(await clearingHouse.isPoolExisted(POOL_A_ADDRESS)).to.eq(true)
+            const pool = await clearingHouse.getPool(baseToken.address)
+            expect(pool).to.eq(POOL_A_ADDRESS)
         })
 
         it("add multiple UniswapV3 pools", async () => {
@@ -47,20 +48,15 @@ describe("ClearingHouse Spec", () => {
 
             // mock the return address of `getPool`
             uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
-                return POOL_B_ADDRESS
-            })
-            await clearingHouse.addPool(baseToken.address, "10000")
-
-            // mock the return address of `getPool`
-            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                 return POOL_C_ADDRESS
             })
             await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
 
             // verify isPoolExisted
-            expect(await clearingHouse.isPoolExisted(POOL_A_ADDRESS)).to.eq(true)
-            expect(await clearingHouse.isPoolExisted(POOL_B_ADDRESS)).to.eq(true)
-            expect(await clearingHouse.isPoolExisted(POOL_C_ADDRESS)).to.eq(true)
+            const pool = await clearingHouse.getPool(baseToken.address)
+            expect(pool).to.eq(POOL_A_ADDRESS)
+            const pool2 = await clearingHouse.getPool(baseToken2.address)
+            expect(pool2).to.eq(POOL_C_ADDRESS)
         })
 
         it("force error, pool is not existent in uniswap v3", async () => {
