@@ -1,8 +1,9 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20 } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
 import { clearingHouseFixture } from "./fixtures"
+import { encodePriceSqrt, isAscendingTokenOrder } from "../shared/utilities"
 
 describe("ClearingHouse", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -12,6 +13,7 @@ describe("ClearingHouse", () => {
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
+    let pool: UniswapV3Pool
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(clearingHouseFixture)
@@ -19,6 +21,7 @@ describe("ClearingHouse", () => {
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.vUSDC
+        pool = _clearingHouseFixture.pool
 
         // mint
         collateral.mint(admin.address, toWei(10000))
@@ -209,6 +212,14 @@ describe("ClearingHouse", () => {
             // add pool
             await clearingHouse.addPool(baseToken.address, 3000)
 
+            // TODO review needed
+            if (isAscendingTokenOrder(baseToken.address, quoteToken.address)) {
+                await pool.initialize(encodePriceSqrt(100, 1))
+            } else {
+                await pool.initialize(encodePriceSqrt(1, 100))
+            }
+            console.log(`base: ${baseToken.address}, quote: ${quoteToken.address}, tick: ${(await pool.slot0()).tick}`)
+
             // mint
             const baseAmount = toWei(100, await baseToken.decimals())
             const quoteAmount = toWei(10000, await quoteToken.decimals())
@@ -218,13 +229,28 @@ describe("ClearingHouse", () => {
         it.only("add liquidity with only quote token", async () => {
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: 0,
-                quote: toWei(10000, await quoteToken.decimals()),
-                lowerTick: 10,
-                upperTick: 20,
-            })
+            await expect(
+                clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: 0,
+                    quote: toWei(10000, await quoteToken.decimals()),
+                    // TODO review needed
+                    lowerTick: -46080,
+                    upperTick: -46020,
+                }),
+            )
+                .to.emit(clearingHouse, "LiquidityAdded")
+                .withArgs(
+                    baseToken.address,
+                    quoteToken.address,
+                    -46080,
+                    -46020,
+                    0,
+                    toWei(10000, await quoteToken.decimals()),
+                    "33328314132413441985358332",
+                    0,
+                    0,
+                )
 
             expect(true).to.eq(true)
         })

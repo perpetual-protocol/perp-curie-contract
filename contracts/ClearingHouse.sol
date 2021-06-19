@@ -12,9 +12,10 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
-contract ClearingHouse is ReentrancyGuard, Context, Ownable {
+contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for uint128;
@@ -237,12 +238,29 @@ contract ClearingHouse is ReentrancyGuard, Context, Ownable {
             quoteToken,
             addLiquidityParams.lowerTick,
             addLiquidityParams.upperTick,
-            mintResponse.quote,
             mintResponse.base,
+            mintResponse.quote,
             mintResponse.liquidity,
             baseTokenInfo.fee,
             quoteTokenInfo.fee
         );
+    }
+
+    // TODO this is dangerous, anyone can call it
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata
+    ) external override {
+        // TODO review it
+        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        if (amount0Owed > 0) {
+            ERC20PresetMinterPauser(pool.token0()).transfer(msg.sender, amount0Owed);
+        }
+        if (amount1Owed > 0) {
+            ERC20PresetMinterPauser(pool.token1()).transfer(msg.sender, amount1Owed);
+        }
     }
 
     //
