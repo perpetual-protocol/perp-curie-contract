@@ -55,6 +55,11 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
+    struct SwapCallbackData {
+        bytes path;
+        address payer;
+    }
+
     struct SwapParams {
         IUniswapV3Pool pool;
         address baseToken;
@@ -63,6 +68,7 @@ library UniswapV3Broker {
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        SwapCallbackData data;
     }
 
     struct SwapResponse {
@@ -193,7 +199,7 @@ library UniswapV3Broker {
                     : params.sqrtPriceLimitX96,
                 // FIXME
                 // depends on what verification we need to check inside callback
-                abi.encode(msg.sender)
+                abi.encode(params.data)
             );
 
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
