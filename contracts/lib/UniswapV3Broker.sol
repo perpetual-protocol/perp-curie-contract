@@ -163,60 +163,47 @@ library UniswapV3Broker {
         // zero input
         require(params.amount > 0, "UB_ZI");
 
-        // true for token0 to token1, false for token1 to token0
-        // true: baseToken < quoteToken && isBaseToQuote || baseToken > quoteToken && !isBaseToQuote
-        // false: baseToken > quoteToken && isBaseToQuote || baseToken < quoteToken && !isBaseToQuote
-        // thus, (baseToken > quoteToken) != (isBaseToQuote)
-        bool isZeroForOne = (params.baseToken > params.quoteToken) != params.isBaseToQuote;
+        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
+        // true for swapping token0 into token1, false for token1 to token0
+        // true: isBase0Quote1 && isBaseToQuote || !isBase0Quote1 && !isBaseToQuote
+        // false: !isBase0Quote1 && isBaseToQuote || isBase0Quote1 && !isBaseToQuote
+        // ex: if isBase0Quote1 == true & isBaseToQuote -> base == token0, thus it's token0 to token1 -> true
+        // ex: if isBase0Quote1 == false & isBaseToQuote -> base == token1, thus it's token1 to token0 -> false
+        bool isZeroForOne = isBase0Quote1 == params.isBaseToQuote;
 
-        // WARNING:
-        // should have safe checks for the conversion
+        // FIXME: should have safe checks for the conversion
         // in case a large uint is converted to int and can have unexpected value
-        int256 amountWithSignDigit = params.isExactInput ? int256(params.amount) : -int256(params.amount);
+        int256 specifiedAmount = params.isExactInput ? int256(params.amount) : -int256(params.amount);
 
         // FIXME: need confirmation
         // amount0 & amount1 are deltaAmount, in the perspective of the pool
         // > 0: pool gets; user pays
         // < 0: pool provides; user gets
-        (int256 amount0, int256 amount1) =
+        (int256 signedAmount0, int256 signedAmount1) =
             params.pool.swap(
                 address(this),
                 isZeroForOne,
-                amountWithSignDigit,
-                params.sqrtPriceLimitX96,
+                specifiedAmount,
+                // FIXME: suppose the reason is for under/overflow but need confirmation
+                params.sqrtPriceLimitX96 == 0
+                    ? (isZeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+                    : params.sqrtPriceLimitX96,
                 // FIXME
                 // depends on what verification we need to check inside callback
                 abi.encode(msg.sender)
             );
 
-        if (params.isExactInput) {
-            uint256 deltaAmount;
-            uint256 exactInputAmount;
+        uint256 amount0 = signedAmount0 < 0 ? uint256(-signedAmount0) : uint256(signedAmount0);
+        uint256 amount1 = signedAmount1 < 0 ? uint256(-signedAmount1) : uint256(signedAmount1);
 
-            (deltaAmount, exactInputAmount) = isZeroForOne
-                ? (uint256(-amount1), uint256(amount0))
-                : (uint256(-amount0), uint256(amount1));
+        uint256 exactAmount = params.isExactInput == isZeroForOne ? amount0 : amount1;
+        // FIXME: why is this check necessary for exactOutput but not for exactInput?
+        // it's technically possible to not receive the full output amount,
+        // so if no price limit has been specified, require this possibility away
+        // incorrect output amount
+        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
 
-            (response.base, response.quote) = params.isBaseToQuote
-                ? (exactInputAmount, deltaAmount)
-                : (deltaAmount, exactInputAmount);
-        } else {
-            uint256 deltaAmount;
-            uint256 exactOutputAmount;
-
-            (deltaAmount, exactOutputAmount) = isZeroForOne
-                ? (uint256(amount0), uint256(-amount1))
-                : (uint256(amount1), uint256(-amount0));
-
-            // it's technically possible to not receive the full output amount,
-            // so if no price limit has been specified, require this possibility away
-            // incorrect output amount
-            if (params.sqrtPriceLimitX96 == 0) require(exactOutputAmount == params.amount, "UB_IOA");
-
-            (response.base, response.quote) = params.isBaseToQuote
-                ? (deltaAmount, exactOutputAmount)
-                : (exactOutputAmount, deltaAmount);
-        }
+        (response.base, response.quote) = isBase0Quote1 ? (amount0, amount1) : (amount1, amount0);
     }
 
     function getPool(
