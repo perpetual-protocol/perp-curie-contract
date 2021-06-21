@@ -210,10 +210,7 @@ describe("ClearingHouse", () => {
             await clearingHouse.connect(alice).deposit(amount)
 
             // add pool
-            await clearingHouse.addPool(baseToken.address, 3000)
-
-            // initialize price to 100
-            await pool.initialize(encodePriceSqrt(100, 1)) // tick = 46054 (1.0001^46054 = 99.9999559362)
+            await clearingHouse.addPool(baseToken.address, 10000)
 
             // mint
             const baseAmount = toWei(100, await baseToken.decimals())
@@ -221,7 +218,9 @@ describe("ClearingHouse", () => {
             await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
         })
 
-        it("add liquidity with only quote token", async () => {
+        it.only("add liquidity with only quote token", async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+
             const baseBefore = await baseToken.balanceOf(clearingHouse.address)
             const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
@@ -231,20 +230,20 @@ describe("ClearingHouse", () => {
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
-                    quote: toWei(10000, await quoteToken.decimals()),
-                    lowerTick: 45960, // upperTick - 60
-                    upperTick: 46020, // floor(46054 / 60) * 60
+                    quote: toWei(400, await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50200,
                 }),
             )
                 .to.emit(clearingHouse, "LiquidityAdded")
                 .withArgs(
                     baseToken.address,
                     quoteToken.address,
-                    45960,
-                    46020,
+                    50000,
+                    50200,
                     0,
-                    toWei(10000, await quoteToken.decimals()),
-                    "334418323076330428554511",
+                    toWei(400, await quoteToken.decimals()),
+                    "3267582867852152041499",
                     0,
                     0,
                 )
@@ -252,78 +251,82 @@ describe("ClearingHouse", () => {
             // verify CH balance changes
             expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
             expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                toWei(10000, await quoteToken.decimals()),
+                toWei(400, await quoteToken.decimals()),
             )
         })
 
-        it("add liquidity with only base token", async () => {
+        it.only("add liquidity with only base token", async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
+
             const baseBefore = await baseToken.balanceOf(clearingHouse.address)
             const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
             // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            // alice collateral = 1000, freeCollateral = 10,000, mint 1.321236909 base
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(100, await quoteToken.decimals()),
+                    base: toWei("1.321236909", await baseToken.decimals()),
                     quote: 0,
-                    lowerTick: 46080, // ceil(46054 / 60) * 60
-                    upperTick: 46140, // lowerTick + 60
+                    lowerTick: 50200,
+                    upperTick: 50400,
                 }),
             )
                 .to.emit(clearingHouse, "LiquidityAdded")
                 .withArgs(
                     baseToken.address,
                     quoteToken.address,
-                    46080,
-                    46140,
-                    toWei(100, await baseToken.decimals()),
+                    50200,
+                    50400,
+                    toWei("1.321236909", await baseToken.decimals()),
                     0,
-                    "334284441883814974469091",
+                    "1633791434409089921502",
                     0,
                     0,
                 )
 
             // verify CH balance changes
             expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                toWei(100, await baseToken.decimals()),
+                toWei("1.321236909", await baseToken.decimals()),
             )
             expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
         })
 
         it.only("add liquidity with both tokens", async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+
             const baseBefore = await baseToken.balanceOf(clearingHouse.address)
             const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
             // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+            // alice collateral = 1000, freeCollateral = 10,000, mint 1.321236909 base and 10000 quote
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(100, await quoteToken.decimals()),
+                    base: toWei("1.321236909", await baseToken.decimals()),
                     quote: toWei(10000, await quoteToken.decimals()),
-                    lowerTick: 46020, // floor(46054 / 60) * 60
-                    upperTick: 46080, // ceil(46054 / 60) * 60
+                    lowerTick: 50000,
+                    upperTick: 50400,
                 }),
             )
                 .to.emit(clearingHouse, "LiquidityAdded")
                 .withArgs(
                     baseToken.address,
                     quoteToken.address,
-                    46020,
-                    46080,
-                    "76463022903644977464",
-                    toWei(10000, await quoteToken.decimals()),
-                    "588688614394359809204233",
+                    50000,
+                    50400,
+                    toWei("1.321236909", await baseToken.decimals()),
+                    "200000000059127975762",
+                    "1633791434409089921889",
                     0,
                     0,
                 )
 
             // verify CH balance changes
-            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq("76463022903644977464")
-            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                toWei(10000, await quoteToken.decimals()),
+            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                toWei("1.321236909", await baseToken.decimals()),
             )
+            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq("200000000059127975762")
         })
     })
 })

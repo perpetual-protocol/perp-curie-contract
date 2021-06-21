@@ -104,6 +104,10 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         address quoteTokenArg,
         address uniV3FactoryArg
     ) {
+        require(collateralTokenArg != address(0));
+        require(quoteTokenArg != address(0));
+        require(uniV3FactoryArg != address(0));
+
         collateralToken = collateralTokenArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;

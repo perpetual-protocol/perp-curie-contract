@@ -37,7 +37,7 @@ export async function clearingHouseFixture(): Promise<ClearingHouseFixture> {
     await quoteToken.setMinter(clearingHouse.address)
 
     // deploy a pool
-    const feeTier = 3000
+    const feeTier = 10000
     await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
     const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
 
