@@ -60,48 +60,51 @@ library UniswapV3Broker {
         (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
             _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
-        // fetch the fee growth state if this has liquidity
-        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+        {
+            // get current price
+            (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+            // get the equivalent amount of liquidity from amount0 & amount1 with current price
+            response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
+                sqrtPriceX96,
+                TickMath.getSqrtRatioAtTick(lowerTick),
+                TickMath.getSqrtRatioAtTick(upperTick),
+                token0,
+                token1
+            );
+            // UB_ZL: zero liquidity
+            require(response.liquidity > 0, "UB_ZL");
+        }
 
-        // get current price
-        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1 with current price
-        response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(lowerTick),
-            TickMath.getSqrtRatioAtTick(upperTick),
-            token0,
-            token1
-        );
+        {
+            // fetch the fee growth state if this has liquidity
+            (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
-        // call mint()
-        uint256 addedAmount0;
-        uint256 addedAmount1;
-        // FIXME: currently it's okay to have liquidity == 0; should decide whether to block this in the future
-        if (response.liquidity > 0) {
+            // call mint()
+            uint256 addedAmount0;
+            uint256 addedAmount1;
+            // we use baseToken for verification since CH knows which base token maps to which pool
+            bytes memory data = abi.encode(params.baseToken);
             (addedAmount0, addedAmount1) = params.pool.mint(
                 address(this),
                 lowerTick,
                 upperTick,
                 response.liquidity,
-                // FIXME
-                // depends on what verification we need to check inside callback
-                abi.encode(msg.sender)
+                data
             );
-        }
 
-        // make base & quote into the right order
-        if (isBase0Quote1) {
-            response.base = addedAmount0;
-            response.quote = addedAmount1;
-            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
-        } else {
-            response.quote = addedAmount0;
-            response.base = addedAmount1;
-            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
+            // make base & quote into the right order
+            if (isBase0Quote1) {
+                response.base = addedAmount0;
+                response.quote = addedAmount1;
+                response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+                response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+            } else {
+                response.quote = addedAmount0;
+                response.base = addedAmount1;
+                response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
+                response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
+            }
         }
     }
 

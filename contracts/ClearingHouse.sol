@@ -1,7 +1,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -14,6 +13,7 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
+import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -147,10 +147,10 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
 
         // mint vTokens
         if (mintBase) {
-            ERC20PresetMinterPauser(baseToken).mint(address(this), base);
+            IMintableERC20(baseToken).mint(address(this), base);
         }
         if (mintQuote) {
-            ERC20PresetMinterPauser(quoteToken).mint(address(this), quote);
+            IMintableERC20(quoteToken).mint(address(this), quote);
         }
 
         // update internal states
@@ -246,20 +246,23 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         );
     }
 
-    // TODO this is dangerous, anyone can call it
-    /// @inheritdoc IUniswapV3MintCallback
+    // @audit: review security and possible attacks (@detoo)
+    // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata
+        bytes calldata data // contains baseToken
     ) external override {
-        // TODO review it
-        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        address baseToken = abi.decode(data, (address));
+        address pool = _pool[baseToken];
+        require(_msgSender() == pool, "CH_NPOOL");
+
+        IUniswapV3Pool uniV3Pool = IUniswapV3Pool(pool);
         if (amount0Owed > 0) {
-            ERC20PresetMinterPauser(pool.token0()).transfer(msg.sender, amount0Owed);
+            IMintableERC20(uniV3Pool.token0()).transfer(pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            ERC20PresetMinterPauser(pool.token1()).transfer(msg.sender, amount1Owed);
+            IMintableERC20(uniV3Pool.token1()).transfer(pool, amount1Owed);
         }
     }
 
