@@ -1,9 +1,9 @@
-import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
+import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-
+import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
-import { parseEther } from "ethers/lib/utils"
 
 describe("UniswapV3Broker", () => {
     const [wallet] = waffle.provider.getWallets()
@@ -12,8 +12,10 @@ describe("UniswapV3Broker", () => {
     let baseToken: TestERC20
     let quoteToken: TestERC20
     let uniswapV3Broker: TestUniswapV3Broker
+    let admin: SignerWithAddress
 
     beforeEach(async () => {
+        admin = (await ethers.getSigners())[0]
         const {
             factory,
             pool: _pool,
@@ -32,8 +34,75 @@ describe("UniswapV3Broker", () => {
         await quoteToken.setMinter(uniswapV3Broker.address)
     })
 
-    describe("# swap", () => {
-        it("mint range order includes current price", async () => {
+    describe.only("# swap", () => {
+        it.skip("force error, when there's no liquidity", async () => {
+            // the current price of token0 (base) = reserve1/reserve0 = 151.3733069/1
+            // P(50200) = 1.0001^50200 ~= 151.3733069
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+
+            const base = parseEther("0.000808693720084599")
+            const quote = parseEther("0.122414646")
+        })
+
+        it("swapQuoteToExactBase", async () => {
+            // case 2
+            // assume base = ETH
+            // pay ? USDC can I get 0.1 ETH
+            // -------------------------
+            // baseToken = ETH
+            // quoteToken = USDC
+            // isBaseToQuote = false
+            // isExactInput = false
+            // amount = 0.1
+
+            // the current price of token0 (base) = reserve1/reserve0 = 148.3760629/1
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt(148.3760629, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: parseEther("0.000808693720084599"),
+                quote: "0",
+            })
+
+            const quote = parseEther("0.122414646")
+            const fee = parseEther("0.01")
+            await uniswapV3Broker.swap({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: quote,
+                sqrtPriceLimitX96: "0",
+                data: {
+                    // path: params.tokenOut, params.fee, params.tokenIn
+                    path: ethers.utils.defaultAbiCoder.encode(
+                        ["string", "string", "string"],
+                        [baseToken.address, fee, quoteToken.address],
+                    ),
+                    payer: admin.address,
+                },
+            })
+        })
+
+        it("swapExactBaseToQuote", async () => {
+            // case 0
+            // assume base = ETH
+            // pay 0.1 ETH to get ? USDC
+            // -------------------------
+            // baseToken = ETH
+            // quoteToken = USDC
+            // isBaseToQuote = true
+            // isExactInput = true
+            // amount = 0.1
+
+            // path: params.tokenIn, params.fee, params.tokenOut
+
             // the current price of token0 (base) = reserve1/reserve0 = 151.3733069/1
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
