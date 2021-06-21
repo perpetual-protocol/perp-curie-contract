@@ -7,6 +7,7 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -16,6 +17,9 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
+    using SafeCast for uint256;
+    using SafeCast for int256;
+
     struct MintParams {
         IUniswapV3Pool pool;
         address baseToken;
@@ -171,12 +175,11 @@ library UniswapV3Broker {
         // ex: if isBase0Quote1 == false & isBaseToQuote -> base == token1, thus it's token1 to token0 -> false
         bool isZeroForOne = isBase0Quote1 == params.isBaseToQuote;
 
-        // FIXME: should have safe checks for the conversion
-        // in case a large uint is converted to int and can have unexpected value
-        int256 specifiedAmount = params.isExactInput ? int256(params.amount) : -int256(params.amount);
+        // UniswapV3Pool will use a signed value to determine isExactInput or not.
+        int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
 
         // FIXME: need confirmation
-        // amount0 & amount1 are deltaAmount, in the perspective of the pool
+        // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
         // > 0: pool gets; user pays
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =
@@ -193,8 +196,8 @@ library UniswapV3Broker {
                 abi.encode(msg.sender)
             );
 
-        uint256 amount0 = signedAmount0 < 0 ? uint256(-signedAmount0) : uint256(signedAmount0);
-        uint256 amount1 = signedAmount1 < 0 ? uint256(-signedAmount1) : uint256(signedAmount1);
+        uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
+        uint256 amount1 = signedAmount1 < 0 ? (-signedAmount1).toUint256() : signedAmount1.toUint256();
 
         uint256 exactAmount = params.isExactInput == isZeroForOne ? amount0 : amount1;
         // FIXME: why is this check necessary for exactOutput but not for exactInput?
