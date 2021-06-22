@@ -22,6 +22,12 @@ const config: HardhatUserConfig = {
         hardhat: {
             allowUnlimitedContractSize: true,
         },
+        rinkeby: {
+            url: "https://rinkeby.infura.io/v3/c8aa0d69c3e64141bc40de909cd33ad6",
+            accounts: {
+                mnemonic: process.env.RINKEBY_MNEMONIC,
+            },
+        },
     },
     external: {
         contracts: [
