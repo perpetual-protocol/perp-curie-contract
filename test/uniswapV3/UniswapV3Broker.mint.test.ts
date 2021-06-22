@@ -116,7 +116,7 @@ describe("UniswapV3Broker mint", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Mint")
+            ).to.be.revertedWith("UB_ZL")
         })
 
         it("mint range order under current price", async () => {
@@ -167,7 +167,7 @@ describe("UniswapV3Broker mint", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Mint")
+            ).to.be.revertedWith("UB_ZL")
         })
     })
 
@@ -275,7 +275,7 @@ describe("UniswapV3Broker mint", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Mint")
+            ).to.be.revertedWith("UB_ZL")
         })
 
         it("mint range order under current price", async () => {
@@ -327,7 +327,7 @@ describe("UniswapV3Broker mint", () => {
                     base,
                     quote,
                 }),
-            ).not.to.emit(pool, "Mint")
+            ).to.be.revertedWith("UB_ZL")
         })
     })
 })
