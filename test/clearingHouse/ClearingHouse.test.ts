@@ -1,3 +1,4 @@
+import { defaultAbiCoder } from "@ethersproject/abi"
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
@@ -507,6 +508,11 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                 }),
             ).to.be.revertedWith("UB_ZL")
+        })
+
+        it("force error, non-registered pool calls mint callback", async () => {
+            const encodedData = defaultAbiCoder.encode(["address"], [baseToken.address])
+            await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_NPOOL")
         })
     })
 })
