@@ -47,9 +47,9 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         uint256 collateral;
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => TokenInfo) tokenInfo; // balance & debt info of each token
+        mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => MakerPosition) makerPosition; // open orders for maker
+        mapping(address => MakerPosition) makerPositionMap; // open orders for maker
     }
 
     struct TokenInfo {
@@ -69,7 +69,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     struct MakerPosition {
         bytes32[] orderIds;
         // key: order id
-        mapping(bytes32 => OpenOrder) openOrder;
+        mapping(bytes32 => OpenOrder) openOrderMap;
     }
 
     struct AddLiquidityParams {
@@ -157,7 +157,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         // update internal states
         address trader = _msgSender();
         if (mintBase) {
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfo[baseToken];
+            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
             baseTokenInfo.available = baseTokenInfo.available.add(base);
             baseTokenInfo.debt = baseTokenInfo.debt.add(base);
 
@@ -165,7 +165,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         }
 
         if (mintQuote) {
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfo[quoteToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
             quoteTokenInfo.available = quoteTokenInfo.available.add(quote);
             quoteTokenInfo.debt = quoteTokenInfo.debt.add(quote);
 
@@ -182,8 +182,8 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         address trader = _msgSender();
         Account storage account = _accountMap[trader];
         address baseToken = addLiquidityParams.baseToken;
-        TokenInfo storage baseTokenInfo = account.tokenInfo[baseToken];
-        TokenInfo storage quoteTokenInfo = account.tokenInfo[quoteToken];
+        TokenInfo storage baseTokenInfo = account.tokenInfoMap[baseToken];
+        TokenInfo storage quoteTokenInfo = account.tokenInfoMap[quoteToken];
         require(baseTokenInfo.available >= addLiquidityParams.base);
         require(quoteTokenInfo.available >= addLiquidityParams.quote);
 
@@ -205,20 +205,20 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, baseToken, addLiquidityParams.lowerTick, addLiquidityParams.upperTick);
-        OpenOrder storage openOrder = account.makerPosition[baseToken].openOrder[orderId];
-        if (openOrder.liquidity == 0) {
-            openOrder.lowerTick = addLiquidityParams.lowerTick;
-            openOrder.upperTick = addLiquidityParams.upperTick;
+        OpenOrder storage openOrderMap = account.makerPositionMap[baseToken].openOrderMap[orderId];
+        if (openOrderMap.liquidity == 0) {
+            openOrderMap.lowerTick = addLiquidityParams.lowerTick;
+            openOrderMap.upperTick = addLiquidityParams.upperTick;
         } else {
             // update token info based on existing open order
             baseTokenInfo.fee = baseTokenInfo.fee.add(
-                openOrder.liquidity.toUint256().mul(
-                    mintResponse.feeGrowthInsideLastBase.sub(openOrder.feeGrowthInsideLastBase)
+                openOrderMap.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastBase.sub(openOrderMap.feeGrowthInsideLastBase)
                 )
             );
             quoteTokenInfo.fee = quoteTokenInfo.fee.add(
-                openOrder.liquidity.toUint256().mul(
-                    mintResponse.feeGrowthInsideLastQuote.sub(openOrder.feeGrowthInsideLastQuote)
+                openOrderMap.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastQuote.sub(openOrderMap.feeGrowthInsideLastQuote)
                 )
             );
         }
@@ -228,9 +228,11 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         quoteTokenInfo.available = quoteTokenInfo.available.sub(mintResponse.quote);
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(mintResponse.liquidity.toUint256()).toUint128();
-        openOrder.feeGrowthInsideLastBase = openOrder.feeGrowthInsideLastBase.add(mintResponse.feeGrowthInsideLastBase);
-        openOrder.feeGrowthInsideLastQuote = openOrder.feeGrowthInsideLastQuote.add(
+        openOrderMap.liquidity = openOrderMap.liquidity.toUint256().add(mintResponse.liquidity.toUint256()).toUint128();
+        openOrderMap.feeGrowthInsideLastBase = openOrderMap.feeGrowthInsideLastBase.add(
+            mintResponse.feeGrowthInsideLastBase
+        );
+        openOrderMap.feeGrowthInsideLastQuote = openOrderMap.feeGrowthInsideLastQuote.add(
             mintResponse.feeGrowthInsideLastQuote
         );
 
@@ -317,6 +319,21 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         return 100 ether;
     }
 
+    function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
+        Account storage account = _accountMap[trader];
+        return account.tokenInfoMap[token];
+    }
+
+    function getOpenOrder(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (OpenOrder memory) {
+        Account storage account = _accountMap[trader];
+        return account.makerPositionMap[baseToken].openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
+    }
+
     //
     // INTERNAL VIEW FUNCTIONS
     //
@@ -328,14 +345,14 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         Account storage account = _accountMap[trader];
 
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = account.tokenInfo[quoteToken].debt;
+        uint256 quoteDebtValue = account.tokenInfoMap[quoteToken].debt;
         uint256 totalPositionValue;
         uint256 totalBaseDebtValue;
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfo[baseToken].debt);
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
                 uint256 positionValue = _getPositionValue(account, baseToken);
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
