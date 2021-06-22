@@ -56,7 +56,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         // FIXME
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
         (address tokenIn, address tokenOut, uint24 fee) = data.path.decodeFirstPool();
-        CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
+        // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
 
         (bool isExactInput, uint256 amountToPay) =
             amount0Delta > 0
