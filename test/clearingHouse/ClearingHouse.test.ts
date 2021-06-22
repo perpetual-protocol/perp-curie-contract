@@ -26,13 +26,11 @@ describe("ClearingHouse", () => {
     })
 
     describe("# deposit", () => {
-        const aliceInitCollateralBalance = 1000
-
         beforeEach(async () => {
             // mint
             collateral.mint(admin.address, toWei(10000))
 
-            const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+            const amount = toWei(1000, await collateral.decimals())
             await collateral.transfer(alice.address, amount)
             await collateral.connect(alice).approve(clearingHouse.address, amount)
         })
@@ -57,14 +55,12 @@ describe("ClearingHouse", () => {
     })
 
     describe("# mint", () => {
-        const aliceInitCollateralBalance = 1000
-
         beforeEach(async () => {
             // mint
             collateral.mint(admin.address, toWei(10000))
 
             // prepare collateral
-            const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+            const amount = toWei(1000, await collateral.decimals())
             await collateral.transfer(alice.address, amount)
             await collateral.connect(alice).approve(clearingHouse.address, amount)
             await clearingHouse.connect(alice).deposit(amount)
@@ -206,15 +202,13 @@ describe("ClearingHouse", () => {
     // simulation results:
     //   https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity", () => {
-        const aliceInitCollateralBalance = 1000
-
         describe("base0, quote1", () => {
             beforeEach(async () => {
                 // mint
                 collateral.mint(admin.address, toWei(10000))
 
                 // prepare collateral
-                const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+                const amount = toWei(1000, await collateral.decimals())
                 await collateral.transfer(alice.address, amount)
                 await collateral.connect(alice).approve(clearingHouse.address, amount)
                 await clearingHouse.connect(alice).deposit(amount)
@@ -538,7 +532,7 @@ describe("ClearingHouse", () => {
                 collateral.mint(admin.address, toWei(10000))
 
                 // prepare collateral
-                const amount = toWei(aliceInitCollateralBalance, await collateral.decimals())
+                const amount = toWei(1000, await collateral.decimals())
                 await collateral.transfer(alice.address, amount)
                 await collateral.connect(alice).approve(clearingHouse.address, amount)
                 await clearingHouse.connect(alice).deposit(amount)

@@ -91,14 +91,11 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     address public immutable uniswapV3Factory;
 
     // key: base token, value: pool
-    mapping(address => address) private _pool;
+    mapping(address => address) private _poolMap;
 
     // key: trader
-    mapping(address => Account) private _account;
+    mapping(address => Account) private _accountMap;
 
-    //
-    // CONSTRUCTOR
-    //
     constructor(
         address collateralTokenArg,
         address quoteTokenArg,
@@ -121,16 +118,16 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");
         // CH_EP: existent pool in ClearingHouse
-        require(pool != _pool[baseToken], "CH_EP");
+        require(pool != _poolMap[baseToken], "CH_EP");
 
-        _pool[baseToken] = pool;
+        _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
     // TODO should add modifier: whenNotPaused()
     function deposit(uint256 amount) external nonReentrant() {
         address trader = _msgSender();
-        Account storage account = _account[trader];
+        Account storage account = _accountMap[trader];
         account.collateral = account.collateral.add(amount);
         TransferHelper.safeTransferFrom(collateralToken, trader, address(this), amount);
 
@@ -160,7 +157,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         // update internal states
         address trader = _msgSender();
         if (mintBase) {
-            TokenInfo storage baseTokenInfo = _account[trader].tokenInfo[baseToken];
+            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfo[baseToken];
             baseTokenInfo.available = baseTokenInfo.available.add(base);
             baseTokenInfo.debt = baseTokenInfo.debt.add(base);
 
@@ -168,7 +165,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         }
 
         if (mintQuote) {
-            TokenInfo storage quoteTokenInfo = _account[trader].tokenInfo[quoteToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfo[quoteToken];
             quoteTokenInfo.available = quoteTokenInfo.available.add(quote);
             quoteTokenInfo.debt = quoteTokenInfo.debt.add(quote);
 
@@ -183,7 +180,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
 
     function addLiquidity(AddLiquidityParams calldata addLiquidityParams) external nonReentrant() {
         address trader = _msgSender();
-        Account storage account = _account[trader];
+        Account storage account = _accountMap[trader];
         address baseToken = addLiquidityParams.baseToken;
         TokenInfo storage baseTokenInfo = account.tokenInfo[baseToken];
         TokenInfo storage quoteTokenInfo = account.tokenInfo[quoteToken];
@@ -194,7 +191,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         UniswapV3Broker.MintResponse memory mintResponse =
             UniswapV3Broker.mint(
                 UniswapV3Broker.MintParams(
-                    IUniswapV3Pool(_pool[baseToken]),
+                    IUniswapV3Pool(_poolMap[baseToken]),
                     baseToken,
                     quoteToken,
                     addLiquidityParams.lowerTick,
@@ -258,7 +255,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         bytes calldata data // contains baseToken
     ) external override {
         address baseToken = abi.decode(data, (address));
-        address pool = _pool[baseToken];
+        address pool = _poolMap[baseToken];
         require(_msgSender() == pool, "CH_NPOOL");
 
         IUniswapV3Pool uniV3Pool = IUniswapV3Pool(pool);
@@ -274,11 +271,11 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     // INTERNAL FUNCTIONS
     //
     function _registerToken(address trader, address token) private {
-        address[] memory tokens = _account[trader].tokens;
+        address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
-            _account[trader].tokens.push(token);
+            _accountMap[trader].tokens.push(token);
         } else {
-            bool hit = false;
+            bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
                     hit = true;
@@ -286,7 +283,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
                 }
             }
             if (!hit) {
-                _account[trader].tokens.push(token);
+                _accountMap[trader].tokens.push(token);
             }
         }
     }
@@ -295,19 +292,19 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     // EXTERNAL VIEW FUNCTIONS
     //
     function getPool(address baseToken) external view returns (address) {
-        return _pool[baseToken];
+        return _poolMap[baseToken];
     }
 
     function getCollateral(address trader) external view returns (uint256) {
-        return _account[trader].collateral;
+        return _accountMap[trader].collateral;
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return _account[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
+        return _accountMap[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
     }
 
     function getAccountTokens(address trader) public view returns (address[] memory) {
-        return _account[trader].tokens;
+        return _accountMap[trader].tokens;
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
@@ -328,7 +325,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     }
 
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
-        Account storage account = _account[trader];
+        Account storage account = _accountMap[trader];
 
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = account.tokenInfo[quoteToken].debt;
@@ -361,7 +358,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     }
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
-        return _pool[baseToken] != address(0);
+        return _poolMap[baseToken] != address(0);
     }
 
     function _getOrderId(
