@@ -54,7 +54,8 @@
         "sloads",
         "solhint",
         "struct",
-        "typechain"
+        "typechain",
+        "Reentrancy"
     ],
     "solidity.defaultCompiler": "localNodeModule",
 }
