@@ -115,7 +115,7 @@ library UniswapV3Broker {
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
-        // call collect to trigger `transfer`
+        // call collect to `transfer` tokens to CH
         (uint128 amount0Received, uint128 amount1Received) =
             IUniswapV3Pool(params.pool).collect(
                 address(this),

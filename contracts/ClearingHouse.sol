@@ -187,21 +187,21 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
         address trader = _msgSender();
-        Account storage account = _accountMap[trader];
-        address baseToken = params.baseToken;
-        TokenInfo storage baseTokenInfo = account.tokenInfoMap[baseToken];
-        TokenInfo storage quoteTokenInfo = account.tokenInfoMap[quoteToken];
+        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        uint256 baseAvailable = baseTokenInfo.available;
+        uint256 quoteAvailable = quoteTokenInfo.available;
         // CH_NEB: not enough available base amount
-        require(baseTokenInfo.available >= params.base, "CH_NEB");
+        require(baseAvailable >= params.base, "CH_NEB");
         // CH_NEB: not enough available quote amount
-        require(quoteTokenInfo.available >= params.quote, "CH_NEQ");
+        require(quoteAvailable >= params.quote, "CH_NEQ");
 
         // add liquidity to liquidity pool
         UniswapV3Broker.MintResponse memory response =
             UniswapV3Broker.mint(
                 UniswapV3Broker.MintParams(
-                    _poolMap[baseToken],
-                    baseToken,
+                    _poolMap[params.baseToken],
+                    params.baseToken,
                     quoteToken,
                     params.lowerTick,
                     params.upperTick,
@@ -213,8 +213,8 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         // TODO add slippage protection
 
         // load existing open order
-        bytes32 orderId = _getOrderId(trader, baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = account.makerPositionMap[baseToken].openOrderMap[orderId];
+        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
         if (openOrder.liquidity == 0) {
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
@@ -233,80 +233,60 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         }
 
         // update token info
-        baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
+        baseTokenInfo.available = baseAvailable.sub(response.base);
+        quoteTokenInfo.available = quoteAvailable.sub(response.quote);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().add(response.liquidity.toUint256()).toUint128();
         openOrder.feeGrowthInsideLastBase = response.feeGrowthInsideLastBase;
         openOrder.feeGrowthInsideLastQuote = response.feeGrowthInsideLastQuote;
 
-        emit LiquidityChanged(
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.liquidity.toInt128(),
-            baseTokenInfo.owedFee,
-            quoteTokenInfo.owedFee
-        );
+        _emitLiquidityChanged(trader, params, response);
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
-        address baseToken = params.baseToken;
         UniswapV3Broker.BurnResponse memory response =
             UniswapV3Broker.burn(
-                UniswapV3Broker.BurnParams(_poolMap[baseToken], params.lowerTick, params.upperTick, params.liquidity)
+                UniswapV3Broker.BurnParams(
+                    _poolMap[params.baseToken],
+                    params.lowerTick,
+                    params.upperTick,
+                    params.liquidity
+                )
             );
 
         // TODO add slippage protection
 
-        address trader = _msgSender();
-        Account storage account = _accountMap[trader];
-
         // load existing open order
-        bytes32 orderId = _getOrderId(trader, baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = account.makerPositionMap[baseToken].openOrderMap[orderId];
+        address trader = _msgSender();
+        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        uint128 previousLiquidity = openOrder.liquidity;
         // CH_ZL zero liquidity
-        require(openOrder.liquidity > 0, "CH_ZL");
+        require(previousLiquidity > 0, "CH_ZL");
 
         // update token info based on existing open order
-        TokenInfo storage baseTokenInfo = account.tokenInfoMap[baseToken];
-        TokenInfo storage quoteTokenInfo = account.tokenInfoMap[quoteToken];
+        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
-            _calcOwnedFee(openOrder.liquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase)
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase)
         );
         quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
-            _calcOwnedFee(openOrder.liquidity, response.feeGrowthInsideLastQuote, openOrder.feeGrowthInsideLastQuote)
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastQuote, openOrder.feeGrowthInsideLastQuote)
         );
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.quote);
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
+        openOrder.liquidity = previousLiquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
         if (openOrder.liquidity == 0) {
-            delete account.makerPositionMap[baseToken].openOrderMap[orderId];
+            delete _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
         } else {
             openOrder.feeGrowthInsideLastBase = response.feeGrowthInsideLastBase;
             openOrder.feeGrowthInsideLastQuote = response.feeGrowthInsideLastQuote;
         }
 
-        int256 deltaBase = -response.base.toInt256();
-        int256 deltaQuote = -response.quote.toInt256();
-        int128 deltaLiquidity = -params.liquidity.toInt128();
-        emit LiquidityChanged(
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            deltaBase,
-            deltaQuote,
-            deltaLiquidity,
-            baseTokenInfo.owedFee,
-            quoteTokenInfo.owedFee
-        );
+        _emitLiquidityChanged(trader, params, response);
     }
 
     // @audit: review security and possible attacks (@detoo)
@@ -445,7 +425,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) internal view returns (bytes32) {
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 
@@ -455,5 +435,41 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         uint256 feeGrowthInsideLastOld
     ) private pure returns (uint256) {
         return liquidity.toUint256().mul(feeGrowthInsideLastNew.sub(feeGrowthInsideLastOld));
+    }
+
+    function _emitLiquidityChanged(
+        address trader,
+        RemoveLiquidityParams memory params,
+        UniswapV3Broker.BurnResponse memory response
+    ) private {
+        emit LiquidityChanged(
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            _accountMap[trader].tokenInfoMap[params.baseToken].owedFee,
+            _accountMap[trader].tokenInfoMap[quoteToken].owedFee
+        );
+    }
+
+    function _emitLiquidityChanged(
+        address trader,
+        AddLiquidityParams memory params,
+        UniswapV3Broker.MintResponse memory response
+    ) private {
+        emit LiquidityChanged(
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.liquidity.toInt128(),
+            _accountMap[trader].tokenInfoMap[params.baseToken].owedFee,
+            _accountMap[trader].tokenInfoMap[quoteToken].owedFee
+        );
     }
 }
