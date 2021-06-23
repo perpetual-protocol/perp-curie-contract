@@ -777,12 +777,12 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
         // true: 1 -> 0; exactOutput
         // ? USDC (100) -> 0.1 ETH
-        // amountSpecified = 0.1
+        // amountSpecified = -0.1
         // (-0.1, 100)
 
         // false: 0 -> 1; exactOutput
         // ? ETH (0.1) -> 100 USDC
-        // amountSpecified = 100
+        // amountSpecified = -100
         // (0.1, -100)
 
         // false: 1 -> 0; exactInput

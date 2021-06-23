@@ -200,6 +200,10 @@ library UniswapV3Broker {
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
         uint256 amount1 = signedAmount1 < 0 ? (-signedAmount1).toUint256() : signedAmount1.toUint256();
 
+        // isExactInput = true, isZeroForOne = true => exact token0
+        // isExactInput = false, isZeroForOne = false => exact token0
+        // isExactInput = false, isZeroForOne = true => exact token1
+        // isExactInput = true, isZeroForOne = false => exact token1
         uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
         // FIXME: why is this check necessary for exactOutput but not for exactInput?
         // it's technically possible to not receive the full output amount,
