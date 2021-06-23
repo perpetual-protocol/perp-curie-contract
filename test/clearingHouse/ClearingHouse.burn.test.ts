@@ -4,7 +4,7 @@ import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
 import { createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse.burn", () => {
+describe("ClearingHouse.burn", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
