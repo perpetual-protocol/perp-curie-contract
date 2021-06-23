@@ -144,6 +144,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         require(amount > 0, "CH_IA");
     }
 
+    // TODO: WIP be blocked by swap()
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
