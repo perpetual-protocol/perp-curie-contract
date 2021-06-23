@@ -604,7 +604,89 @@ describe("ClearingHouse", () => {
     })
 
     describe("# removeLiquidity", () => {
-        it("remove liquidity above current price", async () => {})
+        beforeEach(async () => {
+            // mint
+            collateral.mint(admin.address, toWei(10000))
+
+            // prepare collateral
+            const amount = toWei(1000, await collateral.decimals())
+            await collateral.transfer(alice.address, amount)
+            await collateral.connect(alice).approve(clearingHouse.address, amount)
+            await clearingHouse.connect(alice).deposit(amount)
+
+            // add pool
+            await clearingHouse.addPool(baseToken.address, 10000)
+
+            // mint
+            const baseAmount = toWei(100, await baseToken.decimals())
+            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
+        })
+
+        it("remove liquidity above current price", async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
+
+            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+            // assume imRatio = 0.1
+            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: toWei(100, await baseToken.decimals()),
+                quote: 0,
+                lowerTick: 50200,
+                upperTick: 50400,
+            })
+
+            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400))
+                .liquidity
+
+            await expect(
+                clearingHouse.connect(alice).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    liquidity,
+                }),
+            )
+                .to.emit(clearingHouse, "LiquidityChanged")
+                .withArgs(
+                    baseToken.address,
+                    quoteToken.address,
+                    50200,
+                    50400,
+                    "-99999999999999999999",
+                    0,
+                    "-123656206035422669342231",
+                    0,
+                    0,
+                )
+
+            // WIP verify account states
+            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                BigNumber.from("99999999999999999999"), // available
+                toWei(100, await baseToken.decimals()), // debt
+                toWei(0, await baseToken.decimals()), // fee
+            ])
+            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                toWei(10000, await baseToken.decimals()), // available
+                toWei(10000, await baseToken.decimals()), // debt
+                toWei(0, await baseToken.decimals()), // fee
+            ])
+            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
+                BigNumber.from(0), // liquidity
+                0, // lowerTick
+                0, // upperTick
+                toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
+                toWei(0, await baseToken.decimals()), // feeGrowthInsideLastQuote
+            ])
+
+            // verify CH balance changes
+            // TODO somehow Alice received 1 wei less than she deposited, it could be a problem for closing positions
+            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
+        })
 
         it("remove liquidity below current price", async () => {})
 

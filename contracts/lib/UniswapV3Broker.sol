@@ -7,6 +7,7 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -16,6 +17,9 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
+    using SafeCast for uint256;
+    using SafeCast for uint128;
+
     struct MintParams {
         address pool;
         address baseToken;
@@ -111,13 +115,23 @@ library UniswapV3Broker {
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
+        // call collect to trigger `transfer`
+        (uint128 amount0Received, uint128 amount1Received) =
+            IUniswapV3Pool(params.pool).collect(
+                address(this),
+                params.lowerTick,
+                params.upperTick,
+                amount0Burned.toUint128(),
+                amount1Burned.toUint128()
+            );
+
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
-        response.base = amount0Burned;
-        response.quote = amount1Burned;
+        response.base = amount0Received.toUint256();
+        response.quote = amount1Received.toUint256();
         response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
         response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
     }
