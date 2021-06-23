@@ -12,8 +12,6 @@ import "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     using Path for bytes;
-    uint256 private constant DEFAULT_AMOUNT_IN_CACHED = type(uint256).max;
-    uint256 private amountInCached = DEFAULT_AMOUNT_IN_CACHED;
 
     address private _factory;
 
@@ -69,8 +67,6 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
             IMintableERC20(tokenA).mint(address(this), amountToPay);
             IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
         } else {
-            // FIXME: figure out the mechanism of amountInCached; can see SwapRouter.sol
-            // amountInCached = amountToPay;
             // tokenA: tokenOut
             // tokenB: tokenIn
             IMintableERC20(tokenB).mint(address(this), amountToPay);
