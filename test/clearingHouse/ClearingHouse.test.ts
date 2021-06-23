@@ -21,18 +21,16 @@ describe("ClearingHouse", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+
+        // mint
+        collateral.mint(admin.address, toWei(10000))
+
+        const amount = toWei(1000, await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
+        await collateral.connect(alice).approve(clearingHouse.address, amount)
     })
 
     describe("# deposit", () => {
-        beforeEach(async () => {
-            // mint
-            collateral.mint(admin.address, toWei(10000))
-
-            const amount = toWei(1000, await collateral.decimals())
-            await collateral.transfer(alice.address, amount)
-            await collateral.connect(alice).approve(clearingHouse.address, amount)
-        })
-
         // @SAMPLE - deposit
         it("alice deposit and sends an event", async () => {
             const amount = toWei(100, await collateral.decimals())
@@ -54,19 +52,15 @@ describe("ClearingHouse", () => {
 
     describe("# mint", () => {
         beforeEach(async () => {
-            // mint
-            collateral.mint(admin.address, toWei(10000))
-
             // prepare collateral
             const amount = toWei(1000, await collateral.decimals())
-            await collateral.transfer(alice.address, amount)
-            await collateral.connect(alice).approve(clearingHouse.address, amount)
             await clearingHouse.connect(alice).deposit(amount)
 
             // add pool
             await clearingHouse.addPool(baseToken.address, 10000)
         })
 
+        // @SAMPLE - mint
         it("alice mint quote and sends an event", async () => {
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote

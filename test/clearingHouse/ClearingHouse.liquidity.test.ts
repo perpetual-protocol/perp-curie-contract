@@ -24,31 +24,30 @@ describe("ClearingHouse", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+
+        // mint
+        collateral.mint(admin.address, toWei(10000))
+
+        // prepare collateral
+        const amount = toWei(1000, await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
+        await collateral.connect(alice).approve(clearingHouse.address, amount)
+        await clearingHouse.connect(alice).deposit(amount)
+
+        // add pool
+        await clearingHouse.addPool(baseToken.address, 10000)
+
+        // mint
+        const baseAmount = toWei(100, await baseToken.decimals())
+        const quoteAmount = toWei(10000, await quoteToken.decimals())
+        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
     })
 
     // simulation results:
     //   https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity", () => {
         describe("base0, quote1", () => {
-            beforeEach(async () => {
-                // mint
-                collateral.mint(admin.address, toWei(10000))
-
-                // prepare collateral
-                const amount = toWei(1000, await collateral.decimals())
-                await collateral.transfer(alice.address, amount)
-                await collateral.connect(alice).approve(clearingHouse.address, amount)
-                await clearingHouse.connect(alice).deposit(amount)
-
-                // add pool
-                await clearingHouse.addPool(baseToken.address, 10000)
-
-                // mint
-                const baseAmount = toWei(100, await baseToken.decimals())
-                const quoteAmount = toWei(10000, await quoteToken.decimals())
-                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
-            })
-
+            // @SAMPLE - addLiquidity
             it("add liquidity below price with only quote token", async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
 
@@ -161,6 +160,7 @@ describe("ClearingHouse", () => {
                 )
             })
 
+            // @SAMPLE - addLiquidity
             it("add liquidity above price with only base token", async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
 
@@ -501,6 +501,32 @@ describe("ClearingHouse", () => {
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: 0,
+                        quote: toWei(10001, await quoteToken.decimals()),
+                        lowerTick: 50000,
+                        upperTick: 50400,
+                    }),
+                ).to.be.revertedWith("CH_NEQ")
+            })
+
+            it("force error, add quote over minted quote", async () => {
+                await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                await expect(
+                    clearingHouse.connect(alice).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: toWei(101, await quoteToken.decimals()),
+                        quote: 0,
+                        lowerTick: 50000,
+                        upperTick: 50400,
+                    }),
+                ).to.be.revertedWith("CH_NEB")
+            })
+
+            it("force error, add base over minted base", async () => {
+                await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                await expect(
+                    clearingHouse.connect(alice).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: 0,
                         quote: toWei(1, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
@@ -604,25 +630,7 @@ describe("ClearingHouse", () => {
     })
 
     describe("# removeLiquidity", () => {
-        beforeEach(async () => {
-            // mint
-            collateral.mint(admin.address, toWei(10000))
-
-            // prepare collateral
-            const amount = toWei(1000, await collateral.decimals())
-            await collateral.transfer(alice.address, amount)
-            await collateral.connect(alice).approve(clearingHouse.address, amount)
-            await clearingHouse.connect(alice).deposit(amount)
-
-            // add pool
-            await clearingHouse.addPool(baseToken.address, 10000)
-
-            // mint
-            const baseAmount = toWei(100, await baseToken.decimals())
-            const quoteAmount = toWei(10000, await quoteToken.decimals())
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
-        })
-
+        // @SAMPLE - removeLiquidity
         it("remove liquidity above current price", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
 
