@@ -73,6 +73,23 @@ interface MockedClearingHouseFixture {
     mockedBaseToken: MockContract
 }
 
+export const LONGER_THAN = true
+export const SHORTER_THAN = false
+export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Promise<MockContract> {
+    // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
+    let mockedToken: MockContract
+    while (
+        !mockedToken ||
+        (longerThan
+            ? mockedToken.address.toLowerCase() <= targetAddr.toLowerCase()
+            : mockedToken.address.toLowerCase() >= targetAddr.toLowerCase())
+    ) {
+        const token = await deployERC20()
+        mockedToken = await smockit(token)
+    }
+    return mockedToken
+}
+
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -93,8 +110,9 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedVUSDC.address,
         mockedUniV3Factory.address,
     )
-    const baseToken = await deployERC20()
-    const mockedBaseToken = await smockit(baseToken)
+
+    // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
+    const mockedBaseToken = await mockedTokenTo(SHORTER_THAN, mockedVUSDC.address)
 
     return { clearingHouse, mockedUniV3Factory, mockedVUSDC, mockedUSDC, mockedBaseToken }
 }
