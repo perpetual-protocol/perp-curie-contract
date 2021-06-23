@@ -1,7 +1,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import "../uniswap/Path.sol";
 import "../lib/UniswapV3Broker.sol";
 import "../interface/IMintableERC20.sol";
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
@@ -9,6 +8,7 @@ import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.so
 import "@uniswap/v3-periphery/contracts/libraries/CallbackValidation.sol";
 import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     using Path for bytes;
@@ -55,21 +55,26 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
         // FIXME
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (address tokenIn, address tokenOut, uint24 fee) = data.path.decodeFirstPool();
+        (address tokenA, address tokenB, uint24 fee) = data.path.decodeFirstPool();
         // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
 
         (bool isExactInput, uint256 amountToPay) =
-            amount0Delta > 0
-                ? (tokenIn < tokenOut, uint256(amount0Delta))
-                : (tokenOut < tokenIn, uint256(amount1Delta));
+            amount0Delta > 0 ? (tokenA < tokenB, uint256(amount0Delta)) : (tokenB < tokenA, uint256(amount1Delta));
+
+        // isExactInput: 100 USDC (in) = tokenA -> ? ETH = tokenB
+        // isExactOutput: ? USDC (in) = tokenB -> 0.1 ETH (out) = tokenA
         if (isExactInput) {
-            IMintableERC20(tokenIn).mint(address(this), amountToPay);
-            IMintableERC20(tokenIn).transfer(msg.sender, amountToPay);
+            // tokenA: tokenIn
+            // tokenB: tokenOut
+            IMintableERC20(tokenA).mint(address(this), amountToPay);
+            IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
         } else {
-            amountInCached = amountToPay;
-            tokenIn = tokenOut; // swap in/out because exact output swaps are reversed
-            IMintableERC20(tokenIn).mint(address(this), amountToPay);
-            IMintableERC20(tokenIn).transfer(msg.sender, amountToPay);
+            // FIXME: figure out the mechanism of amountInCached; can see SwapRouter.sol
+            // amountInCached = amountToPay;
+            // tokenA: tokenOut
+            // tokenB: tokenIn
+            IMintableERC20(tokenB).mint(address(this), amountToPay);
+            IMintableERC20(tokenB).transfer(msg.sender, amountToPay);
         }
     }
 
