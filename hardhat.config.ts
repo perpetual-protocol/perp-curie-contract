@@ -4,13 +4,8 @@ import "@typechain/hardhat"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import { HardhatUserConfig } from "hardhat/config"
-import _ from "lodash"
 import "solidity-coverage"
-
-const RINKEBY_MNEMONIC = _.defaultTo(process.env.RINKEBY_MNEMONIC, "")
-if (_.isEmpty(RINKEBY_MNEMONIC)) {
-    console.warn("RINKEBY_MNEMONIC is empty")
-}
+import { RINKEBY_DEPLOYER_MNEMONIC, RINKEBY_WEB3_ENDPOINT } from "./constants"
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -29,9 +24,9 @@ const config: HardhatUserConfig = {
             allowUnlimitedContractSize: true,
         },
         rinkeby: {
-            url: "https://rinkeby.infura.io/v3/c8aa0d69c3e64141bc40de909cd33ad6",
+            url: RINKEBY_WEB3_ENDPOINT,
             accounts: {
-                mnemonic: RINKEBY_MNEMONIC,
+                mnemonic: RINKEBY_DEPLOYER_MNEMONIC,
             },
         },
     },
