@@ -135,15 +135,6 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         emit Deposited(collateralToken, trader, amount);
     }
 
-    function _requireTokenExistAndValidAmount(address token, uint256 amount) private view {
-        if (quoteToken != token) {
-            // CH_TNF: token not found
-            require(_isPoolExistent(token), "CH_TNF");
-        }
-        // CH_IA: invalid amount
-        require(amount > 0, "CH_IA");
-    }
-
     // TODO: WIP be blocked by swap()
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
@@ -385,5 +376,14 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         int24 upperTick
     ) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
+    }
+
+    function _requireTokenExistAndValidAmount(address token, uint256 amount) private view {
+        if (quoteToken != token) {
+            // CH_TNF: token not found
+            require(_isPoolExistent(token), "CH_TNF");
+        }
+        // CH_IA: invalid amount
+        require(amount > 0, "CH_IA");
     }
 }
