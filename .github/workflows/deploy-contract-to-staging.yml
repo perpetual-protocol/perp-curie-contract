@@ -51,4 +51,4 @@ jobs:
                   DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
               uses: Ilshidur/action-discord@master
               with:
-                  args: "contract ${{github.ref}} deployed to staging"
+                  args: "lushan contract ${{github.ref}} deployed to staging"
