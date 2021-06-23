@@ -26,7 +26,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
-    event Minted(address indexed baseToken, address indexed quoteToken, uint256 base, uint256 quote);
+    event Minted(address indexed token, uint256 amount);
     event LiquidityAdded(
         address indexed baseToken,
         address indexed quoteToken,
@@ -135,47 +135,29 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     }
 
     // TODO should add modifier: whenNotPaused()
-    function mint(
-        address baseToken,
-        uint256 base,
-        uint256 quote
-    ) external nonReentrant() {
-        bool mintBase = base > 0 && baseToken != address(0) && _isPoolExistent(baseToken);
-        bool mintQuote = quote > 0;
-
-        // CH_ZI: invalid input
-        require(mintBase || mintQuote, "CH_II");
-
-        // mint vTokens
-        if (mintBase) {
-            IMintableERC20(baseToken).mint(address(this), base);
+    function mint(address token, uint256 amount) external nonReentrant() {
+        if (quoteToken != token) {
+            // CH_TNF: token not found
+            require(_isPoolExistent(token), "CH_TNF");
         }
-        if (mintQuote) {
-            IMintableERC20(quoteToken).mint(address(this), quote);
-        }
+        // CH_IA: invalid amount
+        require(amount > 0, "CH_IA");
+
+        IMintableERC20(token).mint(address(this), amount);
 
         // update internal states
         address trader = _msgSender();
-        if (mintBase) {
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
-            baseTokenInfo.available = baseTokenInfo.available.add(base);
-            baseTokenInfo.debt = baseTokenInfo.debt.add(base);
+        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.add(amount);
+        tokenInfo.debt = tokenInfo.debt.add(amount);
 
-            _registerToken(trader, baseToken);
-        }
+        _registerToken(trader, token);
 
-        if (mintQuote) {
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-            quoteTokenInfo.available = quoteTokenInfo.available.add(quote);
-            quoteTokenInfo.debt = quoteTokenInfo.debt.add(quote);
-
-            _registerToken(trader, quoteToken);
-        }
-
+        // TODO: optimize when mint both
         // CH_NEAV: not enough account value
         require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
 
-        emit Minted(baseToken, quoteToken, base, quote);
+        emit Minted(token, amount);
     }
 
     function addLiquidity(AddLiquidityParams calldata addLiquidityParams) external nonReentrant() {
