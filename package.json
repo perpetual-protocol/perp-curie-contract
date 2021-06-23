@@ -11,7 +11,9 @@
     "build": "npm run typechain && hardhat compile",
     "postinstall": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
-    "lint-staged": "lint-staged"
+    "lint-staged": "lint-staged",
+    "deploy-staging": "hardhat deploy --network rinkeby",
+    "upload-metadata-staging": "aws s3 cp ./metadata/staging.json s3://config.perp.fi/staging/metadata.json --cache-control=no-store"
   },
   "author": "",
   "license": "ISC",
