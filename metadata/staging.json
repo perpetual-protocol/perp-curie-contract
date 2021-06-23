@@ -1,0 +1,16 @@
+{
+    "network": "rinkeby",
+    "contracts": {
+        "ClearingHouse": {
+            "name": "ClearingHouse",
+            "address": "0x9A6C17F41C786C9c95199b80801bc5842176802d"
+        },
+        "ETHUSD": {
+            "name": "Amm",
+            "address": "0xeC1E22Ea15B5F8D6ed73ae42Bc26fB89ED3A4c06"
+        }
+    },
+    "externalContracts": {
+        "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    }
+}
