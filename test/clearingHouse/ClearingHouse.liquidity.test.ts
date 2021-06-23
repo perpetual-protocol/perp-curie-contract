@@ -66,7 +66,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -122,7 +122,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -178,7 +178,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -234,7 +234,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -290,7 +290,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -348,7 +348,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
@@ -560,7 +560,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityAdded")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         baseToken.address,
                         quoteToken.address,
