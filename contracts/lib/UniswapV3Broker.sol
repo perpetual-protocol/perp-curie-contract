@@ -71,6 +71,7 @@ library UniswapV3Broker {
                 token0,
                 token1
             );
+            // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
             // UB_ZL: zero liquidity
             require(response.liquidity > 0, "UB_ZL");
         }

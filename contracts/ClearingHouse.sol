@@ -55,7 +55,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     struct TokenInfo {
         uint256 available; // amount available in CH
         uint256 debt;
-        uint256 fee;
+        uint256 owedFee;
     }
 
     struct OpenOrder {
@@ -101,9 +101,9 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         address quoteTokenArg,
         address uniV3FactoryArg
     ) {
-        require(collateralTokenArg != address(0));
-        require(quoteTokenArg != address(0));
-        require(uniV3FactoryArg != address(0));
+        require(collateralTokenArg != address(0), "CH_II_C");
+        require(quoteTokenArg != address(0), "CH_II_Q");
+        require(uniV3FactoryArg != address(0), "CH_II_U");
 
         collateralToken = collateralTokenArg;
         quoteToken = quoteTokenArg;
@@ -211,12 +211,12 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
             openOrderMap.upperTick = addLiquidityParams.upperTick;
         } else {
             // update token info based on existing open order
-            baseTokenInfo.fee = baseTokenInfo.fee.add(
+            baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
                 openOrderMap.liquidity.toUint256().mul(
                     mintResponse.feeGrowthInsideLastBase.sub(openOrderMap.feeGrowthInsideLastBase)
                 )
             );
-            quoteTokenInfo.fee = quoteTokenInfo.fee.add(
+            quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
                 openOrderMap.liquidity.toUint256().mul(
                     mintResponse.feeGrowthInsideLastQuote.sub(openOrderMap.feeGrowthInsideLastQuote)
                 )
@@ -244,8 +244,8 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
             mintResponse.base,
             mintResponse.quote,
             mintResponse.liquidity,
-            baseTokenInfo.fee,
-            quoteTokenInfo.fee
+            baseTokenInfo.owedFee,
+            quoteTokenInfo.owedFee
         );
     }
 
@@ -320,8 +320,7 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     }
 
     function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
-        Account storage account = _accountMap[trader];
-        return account.tokenInfoMap[token];
+        return _accountMap[trader].tokenInfoMap[token];
     }
 
     function getOpenOrder(
