@@ -36,12 +36,9 @@ library UniswapV3Broker {
 
     struct BurnParams {
         IUniswapV3Pool pool;
-        address baseToken;
-        address quoteToken;
         int24 lowerTick;
         int24 upperTick;
-        uint256 base;
-        uint256 quote;
+        uint128 liquidity;
     }
 
     struct BurnResponse {
@@ -110,42 +107,19 @@ library UniswapV3Broker {
     }
 
     function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
-        // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
-
-        // get current price
-        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1 in current price
-        uint128 liquidity =
-            LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
-            );
-
         // call burn()
-        (uint256 amount0Burned, uint256 amount1Burned) = params.pool.burn(lowerTick, upperTick, liquidity);
+        (uint256 amount0Burned, uint256 amount1Burned) =
+            params.pool.burn(params.lowerTick, params.upperTick, params.liquidity);
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
-        if (isBase0Quote1) {
-            response.base = amount0Burned;
-            response.quote = amount1Burned;
-            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
-        } else {
-            response.quote = amount0Burned;
-            response.base = amount1Burned;
-            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
-        }
+        response.base = amount0Burned;
+        response.quote = amount1Burned;
+        response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+        response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
     }
 
     function getPool(

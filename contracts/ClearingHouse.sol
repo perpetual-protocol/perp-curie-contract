@@ -27,14 +27,14 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed baseToken, address indexed quoteToken, uint256 base, uint256 quote);
-    event LiquidityAdded(
+    event LiquidityChanged(
         address indexed baseToken,
         address indexed quoteToken,
         int24 lowerTick,
         int24 upperTick,
-        uint256 base,
-        uint256 quote,
-        uint128 liquidity,
+        int256 base,
+        int256 quote,
+        int128 liquidity,
         uint256 baseFee,
         uint256 quoteFee
     );
@@ -78,6 +78,13 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
+    }
+
+    struct RemoveLiquidityParams {
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
     }
 
     //
@@ -205,20 +212,20 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, baseToken, addLiquidityParams.lowerTick, addLiquidityParams.upperTick);
-        OpenOrder storage openOrderMap = account.makerPositionMap[baseToken].openOrderMap[orderId];
-        if (openOrderMap.liquidity == 0) {
-            openOrderMap.lowerTick = addLiquidityParams.lowerTick;
-            openOrderMap.upperTick = addLiquidityParams.upperTick;
+        OpenOrder storage openOrder = account.makerPositionMap[baseToken].openOrderMap[orderId];
+        if (openOrder.liquidity == 0) {
+            openOrder.lowerTick = addLiquidityParams.lowerTick;
+            openOrder.upperTick = addLiquidityParams.upperTick;
         } else {
             // update token info based on existing open order
             baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
-                openOrderMap.liquidity.toUint256().mul(
-                    mintResponse.feeGrowthInsideLastBase.sub(openOrderMap.feeGrowthInsideLastBase)
+                openOrder.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastBase.sub(openOrder.feeGrowthInsideLastBase)
                 )
             );
             quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
-                openOrderMap.liquidity.toUint256().mul(
-                    mintResponse.feeGrowthInsideLastQuote.sub(openOrderMap.feeGrowthInsideLastQuote)
+                openOrder.liquidity.toUint256().mul(
+                    mintResponse.feeGrowthInsideLastQuote.sub(openOrder.feeGrowthInsideLastQuote)
                 )
             );
         }
@@ -228,22 +235,86 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         quoteTokenInfo.available = quoteTokenInfo.available.sub(mintResponse.quote);
 
         // update open order with new liquidity
-        openOrderMap.liquidity = openOrderMap.liquidity.toUint256().add(mintResponse.liquidity.toUint256()).toUint128();
-        openOrderMap.feeGrowthInsideLastBase = openOrderMap.feeGrowthInsideLastBase.add(
-            mintResponse.feeGrowthInsideLastBase
-        );
-        openOrderMap.feeGrowthInsideLastQuote = openOrderMap.feeGrowthInsideLastQuote.add(
-            mintResponse.feeGrowthInsideLastQuote
-        );
+        openOrder.liquidity = openOrder.liquidity.toUint256().add(mintResponse.liquidity.toUint256()).toUint128();
+        openOrder.feeGrowthInsideLastBase = mintResponse.feeGrowthInsideLastBase;
+        openOrder.feeGrowthInsideLastQuote = mintResponse.feeGrowthInsideLastQuote;
 
-        emit LiquidityAdded(
+        emit LiquidityChanged(
             addLiquidityParams.baseToken,
             quoteToken,
             addLiquidityParams.lowerTick,
             addLiquidityParams.upperTick,
-            mintResponse.base,
-            mintResponse.quote,
-            mintResponse.liquidity,
+            mintResponse.base.toInt256(),
+            mintResponse.quote.toInt256(),
+            mintResponse.liquidity.toInt128(),
+            baseTokenInfo.owedFee,
+            quoteTokenInfo.owedFee
+        );
+    }
+
+    function removeLiquidity(RemoveLiquidityParams calldata removeLiquidityParams) external nonReentrant() {
+        address trader = _msgSender();
+        Account storage account = _accountMap[trader];
+        address baseToken = removeLiquidityParams.baseToken;
+
+        UniswapV3Broker.BurnResponse memory burnResponse =
+            UniswapV3Broker.burn(
+                UniswapV3Broker.BurnParams(
+                    IUniswapV3Pool(_poolMap[baseToken]),
+                    removeLiquidityParams.lowerTick,
+                    removeLiquidityParams.upperTick,
+                    removeLiquidityParams.liquidity
+                )
+            );
+
+        // TODO add slippage protection
+
+        TokenInfo storage baseTokenInfo = account.tokenInfoMap[baseToken];
+        TokenInfo storage quoteTokenInfo = account.tokenInfoMap[quoteToken];
+
+        // load existing open order
+        bytes32 orderId =
+            _getOrderId(trader, baseToken, removeLiquidityParams.lowerTick, removeLiquidityParams.upperTick);
+        OpenOrder storage openOrder = account.makerPositionMap[baseToken].openOrderMap[orderId];
+        // update token info based on existing open order
+        baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
+            openOrder.liquidity.toUint256().mul(
+                burnResponse.feeGrowthInsideLastBase.sub(openOrder.feeGrowthInsideLastBase)
+            )
+        );
+        quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
+            openOrder.liquidity.toUint256().mul(
+                burnResponse.feeGrowthInsideLastQuote.sub(openOrder.feeGrowthInsideLastQuote)
+            )
+        );
+        baseTokenInfo.available = baseTokenInfo.available.add(burnResponse.base);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(burnResponse.quote);
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder
+            .liquidity
+            .toUint256()
+            .sub(removeLiquidityParams.liquidity.toUint256())
+            .toUint128();
+        if (openOrder.liquidity == 0) {
+            delete account.makerPositionMap[baseToken].openOrderMap[orderId];
+        } else {
+            openOrder.feeGrowthInsideLastBase = burnResponse.feeGrowthInsideLastBase;
+            openOrder.feeGrowthInsideLastQuote = burnResponse.feeGrowthInsideLastQuote;
+        }
+
+        int256 deltaBase = -burnResponse.base.toInt256();
+        int256 deltaQuote = -burnResponse.quote.toInt256();
+        int128 deltaLiquidity = -removeLiquidityParams.liquidity.toInt128();
+
+        emit LiquidityChanged(
+            removeLiquidityParams.baseToken,
+            quoteToken,
+            removeLiquidityParams.lowerTick,
+            removeLiquidityParams.upperTick,
+            deltaBase,
+            deltaQuote,
+            deltaLiquidity,
             baseTokenInfo.owedFee,
             quoteTokenInfo.owedFee
         );

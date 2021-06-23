@@ -441,6 +441,8 @@ describe("ClearingHouse", () => {
                 )
             })
 
+            // TODO add test case with fees
+
             it("force error, add nothing", async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 await expect(
