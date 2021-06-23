@@ -17,7 +17,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
  */
 library UniswapV3Broker {
     struct MintParams {
-        IUniswapV3Pool pool;
+        address pool;
         address baseToken;
         address quoteToken;
         int24 lowerTick;
@@ -35,7 +35,7 @@ library UniswapV3Broker {
     }
 
     struct BurnParams {
-        IUniswapV3Pool pool;
+        address pool;
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
@@ -59,7 +59,7 @@ library UniswapV3Broker {
 
         {
             // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
@@ -83,7 +83,7 @@ library UniswapV3Broker {
             uint256 addedAmount1;
             // we use baseToken for verification since CH knows which base token maps to which pool
             bytes memory data = abi.encode(params.baseToken);
-            (addedAmount0, addedAmount1) = params.pool.mint(
+            (addedAmount0, addedAmount1) = IUniswapV3Pool(params.pool).mint(
                 address(this),
                 lowerTick,
                 upperTick,
@@ -109,7 +109,7 @@ library UniswapV3Broker {
     function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
         // call burn()
         (uint256 amount0Burned, uint256 amount1Burned) =
-            params.pool.burn(params.lowerTick, params.upperTick, params.liquidity);
+            IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
@@ -133,12 +133,12 @@ library UniswapV3Broker {
     }
 
     function _isBase0Quote1(
-        IUniswapV3Pool pool,
+        address pool,
         address baseToken,
         address quoteToken
     ) private view returns (bool) {
-        address token0 = pool.token0();
-        address token1 = pool.token1();
+        address token0 = IUniswapV3Pool(pool).token0();
+        address token1 = IUniswapV3Pool(pool).token1();
         if (baseToken == token0 && quoteToken == token1) return true;
         if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
@@ -175,7 +175,7 @@ library UniswapV3Broker {
     }
 
     function _getFeeGrowthInside(
-        IUniswapV3Pool pool,
+        address pool,
         int24 lowerTick,
         int24 upperTick
     ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
@@ -186,16 +186,16 @@ library UniswapV3Broker {
             bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
             // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
         }
     }
 
     function _getPositionLiquidity(
-        IUniswapV3Pool pool,
+        address pool,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
-        (liquidity, , , , ) = pool.positions(positionKey);
+        (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 }
