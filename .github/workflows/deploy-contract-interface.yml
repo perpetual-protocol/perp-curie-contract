@@ -40,7 +40,7 @@ jobs:
                 CI: true
 
             - name: Deploy contract
-              run: npx hardhat run --network rinkeby ./scripts/02_deploy_clearinghouse.ts
+              run: npx hardhat run --network rinkeby ./scripts/02-deploy-ClearingHouse.ts
               env:
                 RINKEBY_WEB3_ENDPOINT: ${{ secrets.RINKEBY_WEB3_ENDPOINT }}
                 RINKEBY_DEPLOYER_MNEMONIC: ${{ secrets.RINKEBY_DEPLOYER_MNEMONIC }}
