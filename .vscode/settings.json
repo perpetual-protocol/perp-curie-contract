@@ -39,8 +39,10 @@
         "Cumulatives",
         "Mintable",
         "Numberish",
+        "Reentrancy",
         "SLOAD",
         "SPDX",
+        "VUSDC",
         "bignumber",
         "bips",
         "bytecode",
@@ -52,10 +54,10 @@
         "perp",
         "returndatasize",
         "sloads",
+        "smockit",
         "solhint",
         "struct",
-        "typechain",
-        "Reentrancy"
+        "typechain"
     ],
     "solidity.defaultCompiler": "localNodeModule",
 }
