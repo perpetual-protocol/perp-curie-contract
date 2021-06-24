@@ -245,6 +245,17 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
+        // load existing open order
+        address trader = _msgSender();
+        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        uint128 previousLiquidity = openOrder.liquidity;
+
+        // CH_ZL zero liquidity
+        require(previousLiquidity > 0, "CH_ZL");
+        // CH_NEL not enough liquidity
+        require(params.liquidity <= previousLiquidity, "CH_NEL");
+
         UniswapV3Broker.BurnResponse memory response =
             UniswapV3Broker.burn(
                 UniswapV3Broker.BurnParams(
@@ -256,14 +267,6 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
             );
 
         // TODO add slippage protection
-
-        // load existing open order
-        address trader = _msgSender();
-        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
-        uint128 previousLiquidity = openOrder.liquidity;
-        // CH_ZL zero liquidity
-        require(previousLiquidity > 0, "CH_ZL");
 
         // update token info based on existing open order
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
