@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse } from "../../typechain"
-import { LONGER_THAN, mockedClearingHouseFixture, mockedTokenTo, SHORTER_THAN } from "./fixtures"
+import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedClearingHouseFixture, mockedTokenTo } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
     const [wallet] = waffle.provider.getWallets()
@@ -44,7 +44,7 @@ describe("ClearingHouse Spec", () => {
         })
 
         it("add multiple UniswapV3 pools", async () => {
-            const baseToken2 = await mockedTokenTo(SHORTER_THAN, quoteToken.address)
+            const baseToken2 = await mockedTokenTo(ADDR_LESS_THAN, quoteToken.address)
             await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
 
             // mock the return address of `getPool`
@@ -73,7 +73,7 @@ describe("ClearingHouse Spec", () => {
         })
 
         it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
-            const tokenWithLongerAddr = await mockedTokenTo(LONGER_THAN, quoteToken.address)
+            const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
             await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("CH_IB")
         })
     })

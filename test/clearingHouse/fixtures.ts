@@ -73,8 +73,8 @@ interface MockedClearingHouseFixture {
     mockedBaseToken: MockContract
 }
 
-export const LONGER_THAN = true
-export const SHORTER_THAN = false
+export const ADDR_GREATER_THAN = true
+export const ADDR_LESS_THAN = false
 export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Promise<MockContract> {
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     let mockedToken: MockContract
@@ -112,7 +112,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     )
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
-    const mockedBaseToken = await mockedTokenTo(SHORTER_THAN, mockedVUSD.address)
+    const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedVUSD.address)
 
     return { clearingHouse, mockedUniV3Factory, mockedVUSD, mockedUSDC, mockedBaseToken }
 }
