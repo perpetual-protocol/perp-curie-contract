@@ -133,11 +133,11 @@ library UniswapV3Broker {
     }
 
     function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
-        // call burn()
+        // call burn(), this will only update tokensOwed instead of transfer the token
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
-        // call collect to `transfer` tokens to CH
+        // call collect to `transfer` tokens to CH, the amount including every trader pooled into the same range
         (uint128 amount0Received, uint128 amount1Received) =
             IUniswapV3Pool(params.pool).collect(
                 address(this),
