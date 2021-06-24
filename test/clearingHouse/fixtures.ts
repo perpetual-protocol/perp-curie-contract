@@ -45,7 +45,11 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
 
         // deploy clearingHouse
         const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-        const clearingHouse = await clearingHouseFactory.deploy(USDC.address, quoteToken.address, uniV3Factory.address)
+        const clearingHouse = (await clearingHouseFactory.deploy(
+            USDC.address,
+            quoteToken.address,
+            uniV3Factory.address,
+        )) as ClearingHouse
 
         // set CH as the minter of all virtual tokens
         await baseToken.setMinter(clearingHouse.address)
@@ -57,7 +61,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
 
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-        const pool = poolFactory.attach(poolAddr)
+        const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
         return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken }
     }
@@ -110,11 +114,11 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = await clearingHouseFactory.deploy(
+    const clearingHouse = (await clearingHouseFactory.deploy(
         mockedUSDC.address,
         mockedVUSD.address,
         mockedUniV3Factory.address,
-    )
+    )) as ClearingHouse
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedVUSD.address)
