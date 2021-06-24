@@ -143,9 +143,12 @@ library UniswapV3Broker {
                 address(this),
                 params.lowerTick,
                 params.upperTick,
-                amount0Burned.toUint128(),
-                amount1Burned.toUint128()
+                type(uint128).max,
+                type(uint128).max
             );
+        // unexpected amount{0,1}
+        require(amount0Received.toUint256() >= amount0Burned, "UB_UA0");
+        require(amount1Received.toUint256() >= amount1Burned, "UB_UA1");
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
