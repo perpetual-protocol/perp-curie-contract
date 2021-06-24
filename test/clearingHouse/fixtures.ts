@@ -40,7 +40,11 @@ export function createClearingHouseFixture(isBase0quote1: boolean): () => Promis
 
         // deploy clearingHouse
         const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-        const clearingHouse = await clearingHouseFactory.deploy(USDC.address, quoteToken.address, uniV3Factory.address)
+        const clearingHouse = (await clearingHouseFactory.deploy(
+            USDC.address,
+            quoteToken.address,
+            uniV3Factory.address,
+        )) as ClearingHouse
 
         // set CH as the minter of all virtual tokens
         await baseToken.setMinter(clearingHouse.address)
@@ -52,7 +56,7 @@ export function createClearingHouseFixture(isBase0quote1: boolean): () => Promis
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
 
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-        const pool = poolFactory.attach(poolAddr)
+        const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
         return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken }
     }
@@ -88,11 +92,12 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = await clearingHouseFactory.deploy(
+    const clearingHouse = (await clearingHouseFactory.deploy(
         mockedUSDC.address,
         mockedVUSDC.address,
         mockedUniV3Factory.address,
-    )
+    )) as ClearingHouse
+
     const baseToken = await deployERC20()
     const mockedBaseToken = await smockit(baseToken)
 
