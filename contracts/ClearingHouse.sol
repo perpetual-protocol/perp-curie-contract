@@ -26,7 +26,8 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
-    event Minted(address indexed baseToken, address indexed quoteToken, uint256 base, uint256 quote);
+    event Minted(address indexed token, uint256 amount);
+    event Burned(address indexed token, uint256 amount);
     event LiquidityChanged(
         address indexed baseToken,
         address indexed quoteToken,
@@ -141,48 +142,38 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         emit Deposited(collateralToken, trader, amount);
     }
 
-    // TODO should add modifier: whenNotPaused()
-    function mint(
-        address baseToken,
-        uint256 base,
-        uint256 quote
-    ) external nonReentrant() {
-        bool mintBase = base > 0 && baseToken != address(0) && _isPoolExistent(baseToken);
-        bool mintQuote = quote > 0;
-
-        // CH_II: invalid input
-        require(mintBase || mintQuote, "CH_II");
-
-        // mint vTokens
-        if (mintBase) {
-            IMintableERC20(baseToken).mint(address(this), base);
-        }
-        if (mintQuote) {
-            IMintableERC20(quoteToken).mint(address(this), quote);
-        }
+    // TODO: WIP be blocked by swap()
+    function burn(address token, uint256 amount) external nonReentrant() {
+        _requireTokenExistAndValidAmount(token, amount);
 
         // update internal states
         address trader = _msgSender();
-        if (mintBase) {
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
-            baseTokenInfo.available = baseTokenInfo.available.add(base);
-            baseTokenInfo.debt = baseTokenInfo.debt.add(base);
+        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.sub(amount);
+        tokenInfo.debt = tokenInfo.debt.sub(amount);
 
-            _registerToken(trader, baseToken);
-        }
+        emit Burned(token, amount);
+    }
 
-        if (mintQuote) {
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-            quoteTokenInfo.available = quoteTokenInfo.available.add(quote);
-            quoteTokenInfo.debt = quoteTokenInfo.debt.add(quote);
+    // TODO should add modifier: whenNotPaused()
+    function mint(address token, uint256 amount) external nonReentrant() {
+        _requireTokenExistAndValidAmount(token, amount);
 
-            _registerToken(trader, quoteToken);
-        }
+        IMintableERC20(token).mint(address(this), amount);
 
+        // update internal states
+        address trader = _msgSender();
+        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.add(amount);
+        tokenInfo.debt = tokenInfo.debt.add(amount);
+
+        _registerToken(trader, token);
+
+        // TODO: optimize when mint both
         // CH_NEAV: not enough account value
         require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
 
-        emit Minted(baseToken, quoteToken, base, quote);
+        emit Minted(token, amount);
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -474,5 +465,14 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
             _accountMap[trader].tokenInfoMap[params.baseToken].owedFee,
             _accountMap[trader].tokenInfoMap[quoteToken].owedFee
         );
+    }
+
+    function _requireTokenExistAndValidAmount(address token, uint256 amount) private view {
+        if (quoteToken != token) {
+            // CH_TNF: token not found
+            require(_isPoolExistent(token), "CH_TNF");
+        }
+        // CH_IA: invalid amount
+        require(amount > 0, "CH_IA");
     }
 }

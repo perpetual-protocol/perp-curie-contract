@@ -1,0 +1,328 @@
+import { expect } from "chai"
+import { parseEther } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
+import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
+import { base0Quote1PoolFixture } from "../shared/fixtures"
+import { encodePriceSqrt } from "../shared/utilities"
+
+describe("UniswapV3Broker swap", () => {
+    const [wallet] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
+    let pool: UniswapV3Pool
+    let baseToken: TestERC20
+    let quoteToken: TestERC20
+    let uniswapV3Broker: TestUniswapV3Broker
+
+    beforeEach(async () => {
+        const {
+            factory,
+            pool: _pool,
+            baseToken: _baseToken,
+            quoteToken: _quoteToken,
+        } = await loadFixture(base0Quote1PoolFixture)
+        pool = _pool
+        baseToken = _baseToken
+        quoteToken = _quoteToken
+
+        const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
+        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+
+        // broker has the only permission to mint vToken
+        await baseToken.setMinter(uniswapV3Broker.address)
+        await quoteToken.setMinter(uniswapV3Broker.address)
+    })
+
+    describe("no liquidity", () => {
+        // FIXME: can investigate into what's the correct error message
+        it("force error, tx should fail", async () => {
+            // the current price of token0 (base) = reserve1/reserve0 = 148.3760629/1
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt(1, 148.3760629))
+
+            const quote = parseEther("0.1135501475")
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: quote,
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [quoteToken.address, fee, baseToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            ).to.be.reverted
+        })
+    })
+
+    describe("liquidity = 1 (10^18)", () => {
+        it("exact quote -> base", async () => {
+            // ***FIXME***: figure out why giving the price in reciprocal can also work
+            // the current price of token0 (base) = reserve1/reserve0 = 148.3760629/1
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt(148.3760629, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: parseEther("0.000816820841"),
+                quote: "0",
+            })
+
+            // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
+            // the sheet does not take tx fee into consideration; thus, divide the value on sheet by 0.99
+            // 0.112414646 / 0.99 = 0.1135501475
+            const quote = parseEther("0.1135501475")
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: quote,
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        // params.tokenIn, params.fee, params.tokenOut
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [quoteToken.address, fee, baseToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            )
+                .to.emit(pool, "Swap")
+                .withArgs(
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
+                    parseEther("-0.000750705258114652"),
+                    quote,
+                    "973982383197523125365247178066",
+                    "999999999994411796", // around 1
+                    50183, // floor(tick index of the current price)
+                )
+            // sqrt(151.1273391) * (2^96) = 9.739823831E29 ~= 973982383197523125365247178066
+            // -> (973982383197523125365247178066 / (2 ^ 96)) ^ 2 = 151.1273391399
+            // 1.0001 ^ 50183.73689 = 151.1273391471
+        })
+
+        it("exact base -> quote", async () => {
+            // P(50200) = 1.0001^50200 ~= 151.3733069
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: "0",
+                quote: parseEther("0.122414646"),
+            })
+
+            // 0.0004084104205 / 0.99 = 0.0004125357783
+            const base = parseEther("0.0004125357783")
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: base,
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        // params.tokenIn, params.fee, params.tokenOut
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [baseToken.address, fee, quoteToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            )
+                .to.emit(pool, "Swap")
+                .withArgs(
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
+                    base,
+                    parseEther("-0.061513341759797928"),
+                    "969901075782366361490154736876",
+                    "1000000000109464931", // around 1
+                    50099, // floor(tick index of the current price)
+                )
+            // sqrt(149.863446) * (2^96) = 9.699010759E29 ~= 969901075782366361490154736876
+            // -> (969901075782366361490154736876 / (2 ^ 96)) ^ 2 = 149.8634459755
+            // 1.0001 ^ 50099.75001 = 149.8634459223
+        })
+
+        it("quote -> exact base", async () => {
+            // the current price of token0 (base) = reserve1/reserve0 = 148.3760629/1
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt(148.3760629, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: parseEther("0.000816820841"),
+                quote: "0",
+            })
+
+            const base = 0.000750705258114652
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: parseEther(base.toString()),
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        // params.tokenOut, params.fee, params.tokenIn
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [baseToken.address, fee, quoteToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            )
+                .to.emit(pool, "Swap")
+                .withArgs(
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
+                    parseEther((-base).toString()),
+                    // can check out numbers in the case "exact quote -> base"
+                    parseEther("0.113550147499999924"),
+                    "973982383197523119302772529062",
+                    "999999999994411796", // around 1
+                    50183, // floor(tick index of the current price)
+                )
+            // sqrt(151.1273391) * (2^96) = 9.739823831E29 ~= 973982383197523125365247178066
+            // -> (973982383197523125365247178066 / (2 ^ 96)) ^ 2 = 151.1273391399
+            // 1.0001 ^ 50183.73689 = 151.1273391471
+        })
+
+        it("base -> exact quote", async () => {
+            // P(50200) = 1.0001^50200 ~= 151.3733069
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: "0",
+                quote: parseEther("0.122414646"),
+            })
+
+            const quote = 0.061513341759797928
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    amount: parseEther(quote.toString()),
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        // params.tokenOut, params.fee, params.tokenIn
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [quoteToken.address, fee, baseToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            )
+                .to.emit(pool, "Swap")
+                .withArgs(
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
+                    // can check out numbers in the case "exact base -> quote"
+                    parseEther("0.0004125357783"),
+                    parseEther((-quote).toString()),
+                    "969901075782366361754130049404",
+                    "1000000000109464931", // around 1
+                    50099, // floor(tick index of the current price)
+                )
+            // sqrt(149.863446) * (2^96) = 9.699010759E29 ~= 969901075782366361490154736876
+            // -> (969901075782366361490154736876 / (2 ^ 96)) ^ 2 = 149.8634459755
+            // 1.0001 ^ 50099.75001 = 149.8634459223
+        })
+    })
+
+    describe("liquidity = 10 (10^19)", () => {
+        it("exact quote -> base", async () => {
+            // the current price of token0 (base) = reserve1/reserve0 = 148.3760629/1
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt(148.3760629, 1))
+
+            await uniswapV3Broker.mint({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                lowerTick: 50000, // 148.3760629
+                upperTick: 50200, // 151.3733069
+                base: parseEther("0.00816820841"),
+                quote: "0",
+            })
+
+            // 1.12414646 / 0.99 = 1.135501475
+            const quote = parseEther("1.135501475")
+            const fee = "10000"
+            await expect(
+                uniswapV3Broker.swap({
+                    pool: pool.address,
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: quote,
+                    sqrtPriceLimitX96: "0",
+                    data: {
+                        path: ethers.utils.solidityPack(
+                            ["address", "uint24", "address"],
+                            [quoteToken.address, fee, baseToken.address],
+                        ),
+                        payer: uniswapV3Broker.address,
+                    },
+                }),
+            )
+                .to.emit(pool, "Swap")
+                .withArgs(
+                    uniswapV3Broker.address,
+                    uniswapV3Broker.address,
+                    parseEther("-0.007507052581146525"),
+                    quote,
+                    "973982383197523125362575256312",
+                    "9999999999944117963", // around 10
+                    50183, // floor(tick index of the current price)
+                )
+            // sqrt(151.1273391) * (2^96) = 9.739823831E29 ~= 973982383197523125365247178066
+            // -> (973982383197523125365247178066 / (2 ^ 96)) ^ 2 = 151.1273391399
+            // 1.0001 ^ 50183.73689 = 151.1273391471
+        })
+    })
+})

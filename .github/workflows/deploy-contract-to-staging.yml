@@ -1,0 +1,54 @@
+name: Deploy Contracts to Staging
+on:
+    push:
+        tags:
+            - v*
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Get npm cache directory
+              id: npm-cache
+              run: |
+                  echo "::set-output name=dir::$(npm config get cache)"
+            - uses: actions/cache@v2
+              with:
+                  path: |
+                      ${{ steps.npm-cache.outputs.dir }}
+                      **/node_modules
+                  key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-node-
+
+            - name: Use Node.js 12.x
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install contract dependencies
+              run: npm ci
+              env:
+                CI: true
+
+            - name: Build contract package
+              run: npm run build
+              env:
+                CI: true
+
+            - name: Deploy contract
+              run: npx hardhat run --network rinkeby ./scripts/02-deploy-ClearingHouse.ts
+              env:
+                RINKEBY_WEB3_ENDPOINT: ${{ secrets.RINKEBY_WEB3_ENDPOINT }}
+                RINKEBY_DEPLOYER_MNEMONIC: ${{ secrets.RINKEBY_DEPLOYER_MNEMONIC }}
+                CI: true
+
+            - name: Discord notification
+              env:
+                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+              uses: Ilshidur/action-discord@master
+              with:
+                  args: "lushan contract ${{github.ref}} deployed to staging"

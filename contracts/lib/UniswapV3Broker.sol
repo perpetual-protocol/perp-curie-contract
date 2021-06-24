@@ -19,6 +19,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 library UniswapV3Broker {
     using SafeCast for uint256;
     using SafeCast for uint128;
+    using SafeCast for int256;
 
     struct MintParams {
         address pool;
@@ -50,6 +51,27 @@ library UniswapV3Broker {
         uint256 quote;
         uint256 feeGrowthInsideLastBase;
         uint256 feeGrowthInsideLastQuote;
+    }
+
+    struct SwapCallbackData {
+        bytes path;
+        address payer;
+    }
+
+    struct SwapParams {
+        IUniswapV3Pool pool;
+        address baseToken;
+        address quoteToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+        SwapCallbackData data;
+    }
+
+    struct SwapResponse {
+        uint256 base;
+        uint256 quote;
     }
 
     function mint(MintParams memory params) internal returns (MintResponse memory response) {
@@ -134,6 +156,48 @@ library UniswapV3Broker {
         response.quote = amount1Received.toUint256();
         response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
         response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+    }
+
+    function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
+        // zero input
+        require(params.amount > 0, "UB_ZI");
+
+        // UniswapV3Pool will use a signed value to determine isExactInput or not.
+        int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
+
+        // FIXME: need confirmation
+        // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
+        // > 0: pool gets; user pays
+        // < 0: pool provides; user gets
+        (int256 signedAmount0, int256 signedAmount1) =
+            params.pool.swap(
+                address(this),
+                params.isBaseToQuote,
+                specifiedAmount,
+                // FIXME: suppose the reason is for under/overflow but need confirmation
+                params.sqrtPriceLimitX96 == 0
+                    ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+                    : params.sqrtPriceLimitX96,
+                // FIXME
+                // depends on what verification we need to check inside callback
+                abi.encode(params.data)
+            );
+
+        uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
+        uint256 amount1 = signedAmount1 < 0 ? (-signedAmount1).toUint256() : signedAmount1.toUint256();
+
+        // isExactInput = true, isZeroForOne = true => exact token0
+        // isExactInput = false, isZeroForOne = false => exact token0
+        // isExactInput = false, isZeroForOne = true => exact token1
+        // isExactInput = true, isZeroForOne = false => exact token1
+        uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
+        // FIXME: why is this check necessary for exactOutput but not for exactInput?
+        // it's technically possible to not receive the full output amount,
+        // so if no price limit has been specified, require this possibility away
+        // incorrect output amount
+        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
+
+        (response.base, response.quote) = (amount0, amount1);
     }
 
     function getPool(

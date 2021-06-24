@@ -591,6 +591,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     }
 
     /// @inheritdoc IUniswapV3PoolActions
+    /// @param amountSpecified The amount of the swap; exact input (positive), or exact output (negative)
     function swap(
         address recipient,
         bool zeroForOne,
@@ -669,9 +670,15 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             );
 
             if (exactInput) {
+                // assume amountSpecified = 100 USDC; 100 USDC -> ? ETH (0.1)
+                // amountSpecifiedRemaining = 100 - 100 = 0
+                // amountCalculated = -0.1 ETH
                 state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
                 state.amountCalculated = state.amountCalculated.sub(step.amountOut.toInt256());
             } else {
+                // assume amountSpecified = -0.1 ETH; ? USDC (100) -> 0.1 ETH
+                // amountSpecifiedRemaining = -0.1 + 0.1 = 0
+                // amountCalculated = 100 USDC
                 state.amountSpecifiedRemaining += step.amountOut.toInt256();
                 state.amountCalculated = state.amountCalculated.add((step.amountIn + step.feeAmount).toInt256());
             }
@@ -762,6 +769,26 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             if (state.protocolFee > 0) protocolFees.token1 += state.protocolFee;
         }
 
+        // assume token0 = ETH, token1 = USDC
+        // true: 0 -> 1; exactInput
+        // 0.1 ETH -> ? USDC (100)
+        // amountSpecified = 0.1
+        // (0.1, -100)
+
+        // true: 1 -> 0; exactOutput
+        // ? USDC (100) -> 0.1 ETH
+        // amountSpecified = -0.1
+        // (-0.1, 100)
+
+        // false: 0 -> 1; exactOutput
+        // ? ETH (0.1) -> 100 USDC
+        // amountSpecified = -100
+        // (0.1, -100)
+
+        // false: 1 -> 0; exactInput
+        // 100 USDC -> ? ETH (0.1)
+        // amountSpecified = 100
+        // (-0.1, 100)
         (amount0, amount1) = zeroForOne == exactInput
             ? (amountSpecified - state.amountSpecifiedRemaining, state.amountCalculated)
             : (state.amountCalculated, amountSpecified - state.amountSpecifiedRemaining);
