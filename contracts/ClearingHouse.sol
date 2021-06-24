@@ -322,17 +322,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 amount1Owed,
         bytes calldata data // contains baseToken
     ) external override {
-        address baseToken = abi.decode(data, (address));
-        address pool = _poolMap[baseToken];
-        // CH_SNP msg sender is not registered pool
-        require(_msgSender() == pool, "CH_SNP");
+        address pool = abi.decode(data, (address));
+        // CH_FMV: failed mintCallback verification
+        require(_msgSender() == pool, "CH_FMV");
 
-        IUniswapV3Pool uniV3Pool = IUniswapV3Pool(pool);
         if (amount0Owed > 0) {
-            IMintableERC20(uniV3Pool.token0()).transfer(pool, amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(uniV3Pool.token1()).transfer(pool, amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed);
         }
     }
 

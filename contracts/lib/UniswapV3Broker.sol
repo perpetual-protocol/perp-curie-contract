@@ -104,17 +104,9 @@ library UniswapV3Broker {
                 _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
             // call mint()
-            uint256 addedAmount0;
-            uint256 addedAmount1;
-            // we use baseToken for verification since CH knows which base token maps to which pool
-            bytes memory data = abi.encode(params.baseToken);
-            (addedAmount0, addedAmount1) = IUniswapV3Pool(params.pool).mint(
-                address(this),
-                lowerTick,
-                upperTick,
-                response.liquidity,
-                data
-            );
+            bytes memory data = abi.encode(params.pool);
+            (uint256 addedAmount0, uint256 addedAmount1) =
+                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
 
             // make base & quote into the right order
             if (isBase0Quote1) {

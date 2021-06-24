@@ -25,18 +25,17 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         uint256 amount1Owed,
         bytes calldata data
     ) external override {
-        // FIXME
-        // MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
-        // CallbackValidation.verifyCallback(_factory, decoded.poolKey);
-        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        address pool = abi.decode(data, (address));
+        // CH_FMV: failed mintCallback verification
+        require(msg.sender == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            IMintableERC20(pool.token0()).mint(address(this), amount0Owed);
-            IMintableERC20(pool.token0()).transfer(msg.sender, amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).mint(address(this), amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(msg.sender, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(pool.token1()).mint(address(this), amount1Owed);
-            IMintableERC20(pool.token1()).transfer(msg.sender, amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).mint(address(this), amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(msg.sender, amount1Owed);
         }
     }
 
