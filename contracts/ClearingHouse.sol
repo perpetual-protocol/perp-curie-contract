@@ -122,6 +122,9 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
+        // to ensure the base is always token0 and quote is always token1
+        // CH_IB: invalid baseToken
+        require(baseToken < quoteToken, "CH_IB");
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");

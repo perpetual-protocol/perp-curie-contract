@@ -45,7 +45,11 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
 
         // deploy clearingHouse
         const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-        const clearingHouse = await clearingHouseFactory.deploy(USDC.address, quoteToken.address, uniV3Factory.address)
+        const clearingHouse = (await clearingHouseFactory.deploy(
+            USDC.address,
+            quoteToken.address,
+            uniV3Factory.address,
+        )) as ClearingHouse
 
         // set CH as the minter of all virtual tokens
         await baseToken.setMinter(clearingHouse.address)
@@ -57,7 +61,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
 
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-        const pool = poolFactory.attach(poolAddr)
+        const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
         return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken }
     }
@@ -73,17 +77,34 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
     mockedUniV3Factory: MockContract
-    mockedVUSDC: MockContract
+    mockedVUSD: MockContract
     mockedUSDC: MockContract
     mockedBaseToken: MockContract
+}
+
+export const ADDR_GREATER_THAN = true
+export const ADDR_LESS_THAN = false
+export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Promise<MockContract> {
+    // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
+    let mockedToken: MockContract
+    while (
+        !mockedToken ||
+        (longerThan
+            ? mockedToken.address.toLowerCase() <= targetAddr.toLowerCase()
+            : mockedToken.address.toLowerCase() >= targetAddr.toLowerCase())
+    ) {
+        const token = await deployERC20()
+        mockedToken = await smockit(token)
+    }
+    return mockedToken
 }
 
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const vUSDC = (await tokenFactory.deploy("vTestUSDC", "vUSDC")) as TestERC20
+    const vUSD = (await tokenFactory.deploy("vUSD", "vUSD")) as TestERC20
     const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
-    const mockedVUSDC = await smockit(vUSDC)
+    const mockedVUSD = await smockit(vUSD)
     const mockedUSDC = await smockit(USDC)
 
     // deploy UniV3 factory
@@ -93,15 +114,16 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = await clearingHouseFactory.deploy(
+    const clearingHouse = (await clearingHouseFactory.deploy(
         mockedUSDC.address,
-        mockedVUSDC.address,
+        mockedVUSD.address,
         mockedUniV3Factory.address,
-    )
-    const baseToken = await deployERC20()
-    const mockedBaseToken = await smockit(baseToken)
+    )) as ClearingHouse
 
-    return { clearingHouse, mockedUniV3Factory, mockedVUSDC, mockedUSDC, mockedBaseToken }
+    // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
+    const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedVUSD.address)
+
+    return { clearingHouse, mockedUniV3Factory, mockedVUSD, mockedUSDC, mockedBaseToken }
 }
 
 export async function deployERC20(): Promise<TestERC20> {
