@@ -18,10 +18,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
  */
 library UniswapV3Broker {
     using SafeCast for uint256;
+    using SafeCast for uint128;
     using SafeCast for int256;
 
     struct MintParams {
-        IUniswapV3Pool pool;
+        address pool;
         address baseToken;
         address quoteToken;
         int24 lowerTick;
@@ -39,13 +40,10 @@ library UniswapV3Broker {
     }
 
     struct BurnParams {
-        IUniswapV3Pool pool;
-        address baseToken;
-        address quoteToken;
+        address pool;
         int24 lowerTick;
         int24 upperTick;
-        uint256 base;
-        uint256 quote;
+        uint128 liquidity;
     }
 
     struct BurnResponse {
@@ -87,7 +85,7 @@ library UniswapV3Broker {
 
         {
             // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
@@ -96,6 +94,7 @@ library UniswapV3Broker {
                 token0,
                 token1
             );
+            // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
             // UB_ZL: zero liquidity
             require(response.liquidity > 0, "UB_ZL");
         }
@@ -110,7 +109,7 @@ library UniswapV3Broker {
             uint256 addedAmount1;
             // we use baseToken for verification since CH knows which base token maps to which pool
             bytes memory data = abi.encode(params.baseToken);
-            (addedAmount0, addedAmount1) = params.pool.mint(
+            (addedAmount0, addedAmount1) = IUniswapV3Pool(params.pool).mint(
                 address(this),
                 lowerTick,
                 upperTick,
@@ -134,42 +133,29 @@ library UniswapV3Broker {
     }
 
     function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
-        // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
-
-        // get current price
-        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1 in current price
-        uint128 liquidity =
-            LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
-            );
-
         // call burn()
-        (uint256 amount0Burned, uint256 amount1Burned) = params.pool.burn(lowerTick, upperTick, liquidity);
+        (uint256 amount0Burned, uint256 amount1Burned) =
+            IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
+
+        // call collect to `transfer` tokens to CH
+        (uint128 amount0Received, uint128 amount1Received) =
+            IUniswapV3Pool(params.pool).collect(
+                address(this),
+                params.lowerTick,
+                params.upperTick,
+                amount0Burned.toUint128(),
+                amount1Burned.toUint128()
+            );
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
-        if (isBase0Quote1) {
-            response.base = amount0Burned;
-            response.quote = amount1Burned;
-            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
-        } else {
-            response.quote = amount0Burned;
-            response.base = amount1Burned;
-            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
-        }
+        response.base = amount0Received.toUint256();
+        response.quote = amount1Received.toUint256();
+        response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+        response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
@@ -225,12 +211,12 @@ library UniswapV3Broker {
     }
 
     function _isBase0Quote1(
-        IUniswapV3Pool pool,
+        address pool,
         address baseToken,
         address quoteToken
     ) private view returns (bool) {
-        address token0 = pool.token0();
-        address token1 = pool.token1();
+        address token0 = IUniswapV3Pool(pool).token0();
+        address token1 = IUniswapV3Pool(pool).token1();
         if (baseToken == token0 && quoteToken == token1) return true;
         if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
@@ -267,7 +253,7 @@ library UniswapV3Broker {
     }
 
     function _getFeeGrowthInside(
-        IUniswapV3Pool pool,
+        address pool,
         int24 lowerTick,
         int24 upperTick
     ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
@@ -278,16 +264,16 @@ library UniswapV3Broker {
             bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
             // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
         }
     }
 
     function _getPositionLiquidity(
-        IUniswapV3Pool pool,
+        address pool,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
-        (liquidity, , , , ) = pool.positions(positionKey);
+        (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 }

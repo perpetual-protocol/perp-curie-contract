@@ -17,7 +17,12 @@ interface UniswapV3BrokerFixture {
     uniswapV3Broker: TestUniswapV3Broker
 }
 
-export function createClearingHouseFixture(isBase0quote1: boolean): () => Promise<ClearingHouseFixture> {
+export enum BaseQuoteOrdering {
+    BASE_0_QUOTE_1,
+    BASE_1_QUOTE_0,
+}
+
+export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -26,7 +31,7 @@ export function createClearingHouseFixture(isBase0quote1: boolean): () => Promis
         let baseToken: TestERC20, quoteToken: TestERC20
         const { token0, token1 } = await tokensFixture()
 
-        if (isBase0quote1) {
+        if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
             baseToken = token0
             quoteToken = token1
         } else {
