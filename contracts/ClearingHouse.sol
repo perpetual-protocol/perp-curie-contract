@@ -193,7 +193,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     params.isExactInput,
                     params.amount,
                     params.sqrtPriceLimitX96,
-                    // SwapCallbackData({path: abi.encodePacked(params.tokenOut, params.fee, params.tokenIn), payer: msg.sender})
                     UniswapV3Broker.SwapCallbackData({
                         path: abi.encodePacked(tokenIn, pool.fee(), tokenOut),
                         payer: address(this)
