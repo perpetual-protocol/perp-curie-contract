@@ -40,7 +40,8 @@ describe("ClearingHouse", () => {
         // mint
         const baseAmount = toWei(100, await baseToken.decimals())
         const quoteAmount = toWei(10000, await quoteToken.decimals())
-        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
+        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+        await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
     // simulation results:
@@ -566,7 +567,8 @@ describe("ClearingHouse", () => {
                 // mint
                 const baseAmount = toWei(100, await baseToken.decimals())
                 const quoteAmount = toWei(10000, await quoteToken.decimals())
-                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount, quoteAmount)
+                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+                await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
             })
 
             it("add liquidity with both tokens", async () => {
