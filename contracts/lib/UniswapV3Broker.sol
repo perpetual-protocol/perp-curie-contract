@@ -66,7 +66,6 @@ library UniswapV3Broker {
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        SwapCallbackData data;
     }
 
     struct SwapResponse {
@@ -181,9 +180,7 @@ library UniswapV3Broker {
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                // FIXME
-                // depends on what verification we need to check inside callback
-                abi.encode(params.data)
+                abi.encode(params.pool)
             );
 
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();

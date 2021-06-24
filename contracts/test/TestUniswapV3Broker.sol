@@ -23,7 +23,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata
+        bytes calldata data
     ) external override {
         // FIXME
         // MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
@@ -48,30 +48,22 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata _data
+        bytes calldata data
     ) external override {
-        require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
-        // FIXME
-        SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (address tokenA, address tokenB, uint24 fee) = data.path.decodeFirstPool();
-        // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // CH_ZIs: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        (bool isExactInput, uint256 amountToPay) =
-            amount0Delta > 0 ? (tokenA < tokenB, uint256(amount0Delta)) : (tokenB < tokenA, uint256(amount1Delta));
+        IUniswapV3Pool pool = IUniswapV3Pool(abi.decode(data, (address)));
+        // using CH clearingHouse here as this contract is to mock CH
+        // CH_FSV: failed swapCallback verification
+        require(msg.sender == address(pool), "CH_FSV");
 
-        // isExactInput: 100 USDC (in) = tokenA -> ? ETH = tokenB
-        // isExactOutput: ? USDC (in) = tokenB -> 0.1 ETH (out) = tokenA
-        if (isExactInput) {
-            // tokenA: tokenIn
-            // tokenB: tokenOut
-            IMintableERC20(tokenA).mint(address(this), amountToPay);
-            IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
-        } else {
-            // tokenA: tokenOut
-            // tokenB: tokenIn
-            IMintableERC20(tokenB).mint(address(this), amountToPay);
-            IMintableERC20(tokenB).transfer(msg.sender, amountToPay);
-        }
+        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
+        (address token, uint256 amountToPay) =
+            amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
+        IMintableERC20(token).mint(address(this), amountToPay);
+        IMintableERC20(token).transfer(msg.sender, amountToPay);
     }
 
     function mint(UniswapV3Broker.MintParams calldata params)
