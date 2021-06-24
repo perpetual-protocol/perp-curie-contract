@@ -99,7 +99,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        SwapCallbackData data;
     }
 
     //
@@ -174,17 +173,30 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function swap(SwapParams memory params) external returns (UniswapV3Broker.SwapResponse memory) {
         // TODO: refactor duplicate arguments passing
+        address tokenIn;
+        address tokenOut;
+        if (params.isBaseToQuote) {
+            tokenIn = params.baseToken;
+            tokenOut = params.quoteToken;
+        } else {
+            tokenIn = params.quoteToken;
+            tokenOut = params.baseToken;
+        }
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
         return
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
-                    IUniswapV3Pool(_poolMap[params.baseToken]),
+                    pool,
                     params.baseToken,
                     params.quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
                     params.sqrtPriceLimitX96,
-                    UniswapV3Broker.SwapCallbackData(params.data.path, params.data.payer)
+                    UniswapV3Broker.SwapCallbackData({
+                        path: abi.encodePacked(tokenIn, pool.fee(), tokenOut),
+                        payer: address(this)
+                    })
                 )
             );
     }
