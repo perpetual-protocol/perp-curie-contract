@@ -47,6 +47,7 @@ describe("ClearingHouse", () => {
     // simulation results:
     //   https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity", () => {
+        // TODO remove this unnecessary desc
         describe("base0, quote1", () => {
             // @SAMPLE - addLiquidity
             it("add liquidity below price with only quote token", async () => {
