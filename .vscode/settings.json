@@ -37,8 +37,10 @@
         "Agos",
         "BUSL",
         "Cumulatives",
+        "ETHUSD",
         "Mintable",
         "Numberish",
+        "Reentrancy",
         "SLOAD",
         "SPDX",
         "bignumber",
@@ -54,8 +56,7 @@
         "sloads",
         "solhint",
         "struct",
-        "typechain",
-        "Reentrancy"
+        "typechain"
     ],
     "solidity.defaultCompiler": "localNodeModule",
 }
