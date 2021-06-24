@@ -68,7 +68,7 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
     mockedUniV3Factory: MockContract
-    mockedVUSDC: MockContract
+    mockedVUSD: MockContract
     mockedUSDC: MockContract
     mockedBaseToken: MockContract
 }
@@ -93,9 +93,9 @@ export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Pr
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const vUSDC = (await tokenFactory.deploy("vTestUSDC", "vUSDC")) as TestERC20
+    const vUSD = (await tokenFactory.deploy("vUSD", "vUSD")) as TestERC20
     const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
-    const mockedVUSDC = await smockit(vUSDC)
+    const mockedVUSD = await smockit(vUSD)
     const mockedUSDC = await smockit(USDC)
 
     // deploy UniV3 factory
@@ -107,14 +107,14 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = await clearingHouseFactory.deploy(
         mockedUSDC.address,
-        mockedVUSDC.address,
+        mockedVUSD.address,
         mockedUniV3Factory.address,
     )
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
-    const mockedBaseToken = await mockedTokenTo(SHORTER_THAN, mockedVUSDC.address)
+    const mockedBaseToken = await mockedTokenTo(SHORTER_THAN, mockedVUSD.address)
 
-    return { clearingHouse, mockedUniV3Factory, mockedVUSDC, mockedUSDC, mockedBaseToken }
+    return { clearingHouse, mockedUniV3Factory, mockedVUSD, mockedUSDC, mockedBaseToken }
 }
 
 export async function deployERC20(): Promise<TestERC20> {
