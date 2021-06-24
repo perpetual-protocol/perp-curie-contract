@@ -12,15 +12,19 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
+import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
+import { Path } from "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 
-contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Ownable {
+contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for uint128;
     using SignedSafeMath for int256;
     using SafeCast for int256;
+    using Path for bytes;
+
     //
     // events
     //
@@ -86,6 +90,16 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
+    }
+
+    struct SwapParams {
+        address baseToken;
+        address quoteToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+        SwapCallbackData data;
     }
 
     //
@@ -156,6 +170,23 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
         emit Burned(token, amount);
+    }
+
+    function swap(SwapParams memory params) external returns (UniswapV3Broker.SwapResponse memory) {
+        // TODO: refactor duplicate arguments passing
+        return
+            UniswapV3Broker.swap(
+                UniswapV3Broker.SwapParams(
+                    IUniswapV3Pool(_poolMap[params.baseToken]),
+                    params.baseToken,
+                    params.quoteToken,
+                    params.isBaseToQuote,
+                    params.isExactInput,
+                    params.amount,
+                    params.sqrtPriceLimitX96,
+                    UniswapV3Broker.SwapCallbackData(params.data.path, params.data.payer)
+                )
+            );
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -304,6 +335,40 @@ contract ClearingHouse is IUniswapV3MintCallback, ReentrancyGuard, Context, Owna
         }
         if (amount1Owed > 0) {
             IMintableERC20(uniV3Pool.token1()).transfer(pool, amount1Owed);
+        }
+    }
+
+    struct SwapCallbackData {
+        bytes path;
+        address payer;
+    }
+
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata _data
+    ) external override {
+        require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
+        // FIXME
+        SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
+        (address tokenA, address tokenB, uint24 fee) = data.path.decodeFirstPool();
+        // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
+
+        (bool isExactInput, uint256 amountToPay) =
+            amount0Delta > 0 ? (tokenA < tokenB, uint256(amount0Delta)) : (tokenB < tokenA, uint256(amount1Delta));
+
+        // isExactInput: 100 USDC (in) = tokenA -> ? ETH = tokenB
+        // isExactOutput: ? USDC (in) = tokenB -> 0.1 ETH (out) = tokenA
+        if (isExactInput) {
+            // tokenA: tokenIn
+            // tokenB: tokenOut
+            IMintableERC20(tokenA).mint(address(this), amountToPay);
+            IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
+        } else {
+            // tokenA: tokenOut
+            // tokenB: tokenIn
+            IMintableERC20(tokenB).mint(address(this), amountToPay);
+            IMintableERC20(tokenB).transfer(msg.sender, amountToPay);
         }
     }
 
