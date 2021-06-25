@@ -30,6 +30,9 @@ const config: HardhatUserConfig = {
             },
         },
     },
+    namedAccounts: {
+        deployer: 0, // 0 means ethers.getSigners[0]
+    },
     external: {
         contracts: [
             {
