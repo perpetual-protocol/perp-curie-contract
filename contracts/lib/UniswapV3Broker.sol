@@ -104,7 +104,7 @@ library UniswapV3Broker {
                 _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
             // call mint()
-            bytes memory data = abi.encode(params.pool);
+            bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
                 IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
 
@@ -172,7 +172,7 @@ library UniswapV3Broker {
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                abi.encode(params.pool)
+                abi.encode(params.baseToken)
             );
 
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();

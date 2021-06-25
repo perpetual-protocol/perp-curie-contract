@@ -23,9 +23,12 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata data
+        bytes calldata
     ) external override {
-        address pool = abi.decode(data, (address));
+        // address baseToken = abi.decode(data, (address));
+        // address pool = _poolMap[baseToken];
+        // no data structure here; thus comment out
+        address pool = msg.sender;
         // CH_FMV: failed mintCallback verification
         require(msg.sender == pool, "CH_FMV");
 
@@ -47,14 +50,16 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata data
+        bytes calldata
     ) external override {
         // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
         // CH_ZIs: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        IUniswapV3Pool pool = IUniswapV3Pool(abi.decode(data, (address)));
-        // using CH clearingHouse here as this contract is to mock CH
+        // address baseToken = abi.decode(data, (address));
+        // address pool = _poolMap[baseToken];
+        // no data structure here; thus comment out
+        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
         // CH_FSV: failed swapCallback verification
         require(msg.sender == address(pool), "CH_FSV");
 

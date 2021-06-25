@@ -322,7 +322,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 amount1Owed,
         bytes calldata data // contains baseToken
     ) external override {
-        address pool = abi.decode(data, (address));
+        address baseToken = abi.decode(data, (address));
+        address pool = _poolMap[baseToken];
         // CH_FMV: failed mintCallback verification
         require(_msgSender() == pool, "CH_FMV");
 
@@ -343,7 +344,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // CH_ZIs: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        IUniswapV3Pool pool = IUniswapV3Pool(abi.decode(data, (address)));
+        address baseToken = abi.decode(data, (address));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
         // CH_FSV: failed swapCallback verification
         require(_msgSender() == address(pool), "CH_FSV");
 
