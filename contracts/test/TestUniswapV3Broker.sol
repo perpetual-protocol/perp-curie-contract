@@ -74,18 +74,18 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         }
     }
 
-    function mint(UniswapV3Broker.MintParams calldata params)
+    function addLiquidity(UniswapV3Broker.AddLiquidityParams calldata params)
         external
-        returns (UniswapV3Broker.MintResponse memory response)
+        returns (UniswapV3Broker.AddLiquidityResponse memory response)
     {
-        return UniswapV3Broker.mint(params);
+        return UniswapV3Broker.addLiquidity(params);
     }
 
-    function burn(UniswapV3Broker.BurnParams calldata params)
+    function removeLiquidity(UniswapV3Broker.RemoveLiquidityParams calldata params)
         external
-        returns (UniswapV3Broker.BurnResponse memory response)
+        returns (UniswapV3Broker.RemoveLiquidityResponse memory response)
     {
-        return UniswapV3Broker.burn(params);
+        return UniswapV3Broker.removeLiquidity(params);
     }
 
     function swap(UniswapV3Broker.SwapParams calldata params)

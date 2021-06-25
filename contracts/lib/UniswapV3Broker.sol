@@ -21,7 +21,7 @@ library UniswapV3Broker {
     using SafeCast for uint128;
     using SafeCast for int256;
 
-    struct MintParams {
+    struct AddLiquidityParams {
         address pool;
         address baseToken;
         address quoteToken;
@@ -31,7 +31,7 @@ library UniswapV3Broker {
         uint256 quote;
     }
 
-    struct MintResponse {
+    struct AddLiquidityResponse {
         uint256 base;
         uint256 quote;
         uint128 liquidity;
@@ -39,16 +39,16 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    struct BurnParams {
+    struct RemoveLiquidityParams {
         address pool;
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
     }
 
-    struct BurnResponse {
-        uint256 base;
-        uint256 quote;
+    struct RemoveLiquidityResponse {
+        uint256 base; // amount of base token received from burning the liquidity (excl. fee)
+        uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
         uint256 feeGrowthInsideLastBase;
         uint256 feeGrowthInsideLastQuote;
     }
@@ -74,7 +74,7 @@ library UniswapV3Broker {
         uint256 quote;
     }
 
-    function mint(MintParams memory params) internal returns (MintResponse memory response) {
+    function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
@@ -132,7 +132,10 @@ library UniswapV3Broker {
         }
     }
 
-    function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
+    function removeLiquidity(RemoveLiquidityParams memory params)
+        internal
+        returns (RemoveLiquidityResponse memory response)
+    {
         // call burn(), this will only update tokensOwed instead of transfer the token
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
@@ -155,8 +158,8 @@ library UniswapV3Broker {
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
-        response.base = amount0Received.toUint256();
-        response.quote = amount1Received.toUint256();
+        response.base = amount0Burned;
+        response.quote = amount1Burned;
         response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
         response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
     }

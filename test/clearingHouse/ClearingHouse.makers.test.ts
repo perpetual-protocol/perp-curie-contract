@@ -105,15 +105,16 @@ describe("ClearingHouse with makers within same range", () => {
             )
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
+                    alice.address,
                     baseToken.address,
                     quoteToken.address,
                     50000,
                     50200,
                     0,
-                    "-9999999999999999999999", // ~= -10,000
+                    "-999999999999999999999", // ~= -1,000
                     liquidity.mul(-1).toString(),
-                    toWei(0.05), // half of the total vETH fee
-                    toWei(10), // half of the total vUSD fee
+                    "49999999999999999", // ~half of the total vETH fee
+                    "9999999999999999999", // ~half of the total vUSD fee
                 )
         })
     })
