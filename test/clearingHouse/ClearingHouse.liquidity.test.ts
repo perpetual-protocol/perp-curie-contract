@@ -69,6 +69,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50000,
@@ -125,6 +126,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50000,
@@ -182,6 +184,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50200,
@@ -238,6 +241,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50200,
@@ -294,6 +298,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50000,
@@ -352,6 +357,7 @@ describe("ClearingHouse", () => {
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
+                        alice.address,
                         baseToken.address,
                         quoteToken.address,
                         50000,
@@ -574,6 +580,7 @@ describe("ClearingHouse", () => {
             )
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
+                    alice.address,
                     baseToken.address,
                     quoteToken.address,
                     50200,
@@ -639,6 +646,7 @@ describe("ClearingHouse", () => {
             )
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
+                    alice.address,
                     baseToken.address,
                     quoteToken.address,
                     50000,
@@ -703,6 +711,7 @@ describe("ClearingHouse", () => {
             )
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
+                    alice.address,
                     baseToken.address,
                     quoteToken.address,
                     50000,
@@ -824,7 +833,7 @@ describe("ClearingHouse", () => {
                 }),
             )
                 .to.emit(clearingHouse, "LiquidityChanged")
-                .withArgs(baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0, 0)
+                .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0, 0)
 
             // verify account states
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([

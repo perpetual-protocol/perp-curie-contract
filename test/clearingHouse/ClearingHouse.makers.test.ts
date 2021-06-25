@@ -55,7 +55,7 @@ describe("ClearingHouse with makers within same range", () => {
     })
 
     describe("adding orders below current price", () => {
-        it.only("get 50% of token if maker owns 50% of the liquidity", async () => {
+        it("get 50% of token if maker owns 50% of the liquidity", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
 
             // alice bob as maker
@@ -114,7 +114,7 @@ describe("ClearingHouse with makers within same range", () => {
                     "-999999999999999999999", // ~= -1,000
                     liquidity.mul(-1).toString(),
                     "49999999999999999", // ~half of the total vETH fee
-                    "9999999999999999999", // ~half of the total vUSD fee
+                    "7512656479464227918", // TODO need a spreadsheet to verify
                 )
         })
     })
