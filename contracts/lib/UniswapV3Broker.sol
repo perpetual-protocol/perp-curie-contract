@@ -141,17 +141,13 @@ library UniswapV3Broker {
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
         // call collect to `transfer` tokens to CH, the amount including every trader pooled into the same range
-        (uint128 amount0Received, uint128 amount1Received) =
-            IUniswapV3Pool(params.pool).collect(
-                address(this),
-                params.lowerTick,
-                params.upperTick,
-                type(uint128).max,
-                type(uint128).max
-            );
-        // unexpected amount{0,1}
-        require(amount0Received.toUint256() >= amount0Burned, "UB_UA0");
-        require(amount1Received.toUint256() >= amount1Burned, "UB_UA1");
+        IUniswapV3Pool(params.pool).collect(
+            address(this),
+            params.lowerTick,
+            params.upperTick,
+            type(uint128).max,
+            type(uint128).max
+        );
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
