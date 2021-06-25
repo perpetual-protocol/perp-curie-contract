@@ -12,8 +12,6 @@ import "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     using Path for bytes;
-    uint256 private constant DEFAULT_AMOUNT_IN_CACHED = type(uint256).max;
-    uint256 private amountInCached = DEFAULT_AMOUNT_IN_CACHED;
 
     address private _factory;
 
@@ -27,18 +25,20 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         uint256 amount1Owed,
         bytes calldata
     ) external override {
-        // FIXME
-        // MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
-        // CallbackValidation.verifyCallback(_factory, decoded.poolKey);
-        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        // address baseToken = abi.decode(data, (address));
+        // address pool = _poolMap[baseToken];
+        // no data structure here; thus comment out
+        address pool = msg.sender;
+        // CH_FMV: failed mintCallback verification
+        require(msg.sender == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            IMintableERC20(pool.token0()).mint(address(this), amount0Owed);
-            IMintableERC20(pool.token0()).transfer(msg.sender, amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).mint(address(this), amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(msg.sender, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(pool.token1()).mint(address(this), amount1Owed);
-            IMintableERC20(pool.token1()).transfer(msg.sender, amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).mint(address(this), amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(msg.sender, amount1Owed);
         }
     }
 
@@ -50,32 +50,24 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata _data
+        bytes calldata
     ) external override {
-        require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
-        // FIXME
-        SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (address tokenA, address tokenB, uint24 fee) = data.path.decodeFirstPool();
-        // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // CH_ZIs: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        (bool isExactInput, uint256 amountToPay) =
-            amount0Delta > 0 ? (tokenA < tokenB, uint256(amount0Delta)) : (tokenB < tokenA, uint256(amount1Delta));
+        // address baseToken = abi.decode(data, (address));
+        // address pool = _poolMap[baseToken];
+        // no data structure here; thus comment out
+        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        // CH_FSV: failed swapCallback verification
+        require(msg.sender == address(pool), "CH_FSV");
 
-        // isExactInput: 100 USDC (in) = tokenA -> ? ETH = tokenB
-        // isExactOutput: ? USDC (in) = tokenB -> 0.1 ETH (out) = tokenA
-        if (isExactInput) {
-            // tokenA: tokenIn
-            // tokenB: tokenOut
-            IMintableERC20(tokenA).mint(address(this), amountToPay);
-            IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
-        } else {
-            // FIXME: figure out the mechanism of amountInCached; can see SwapRouter.sol
-            // amountInCached = amountToPay;
-            // tokenA: tokenOut
-            // tokenB: tokenIn
-            IMintableERC20(tokenB).mint(address(this), amountToPay);
-            IMintableERC20(tokenB).transfer(msg.sender, amountToPay);
-        }
+        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
+        (address token, uint256 amountToPay) =
+            amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
+        IMintableERC20(token).mint(address(this), amountToPay);
+        IMintableERC20(token).transfer(msg.sender, amountToPay);
     }
 
     function mint(UniswapV3Broker.MintParams calldata params)

@@ -43,6 +43,7 @@
         "Reentrancy",
         "SLOAD",
         "SPDX",
+        "VUSD",
         "bignumber",
         "bips",
         "bytecode",
@@ -54,6 +55,7 @@
         "perp",
         "returndatasize",
         "sloads",
+        "smockit",
         "solhint",
         "struct",
         "typechain"

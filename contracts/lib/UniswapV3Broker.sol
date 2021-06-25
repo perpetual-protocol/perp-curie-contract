@@ -18,10 +18,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
  */
 library UniswapV3Broker {
     using SafeCast for uint256;
+    using SafeCast for uint128;
     using SafeCast for int256;
 
     struct MintParams {
-        IUniswapV3Pool pool;
+        address pool;
         address baseToken;
         address quoteToken;
         int24 lowerTick;
@@ -39,13 +40,10 @@ library UniswapV3Broker {
     }
 
     struct BurnParams {
-        IUniswapV3Pool pool;
-        address baseToken;
-        address quoteToken;
+        address pool;
         int24 lowerTick;
         int24 upperTick;
-        uint256 base;
-        uint256 quote;
+        uint128 liquidity;
     }
 
     struct BurnResponse {
@@ -68,7 +66,6 @@ library UniswapV3Broker {
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        SwapCallbackData data;
     }
 
     struct SwapResponse {
@@ -87,7 +84,7 @@ library UniswapV3Broker {
 
         {
             // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
+            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
@@ -96,6 +93,7 @@ library UniswapV3Broker {
                 token0,
                 token1
             );
+            // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
             // UB_ZL: zero liquidity
             require(response.liquidity > 0, "UB_ZL");
         }
@@ -106,17 +104,9 @@ library UniswapV3Broker {
                 _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
             // call mint()
-            uint256 addedAmount0;
-            uint256 addedAmount1;
-            // we use baseToken for verification since CH knows which base token maps to which pool
             bytes memory data = abi.encode(params.baseToken);
-            (addedAmount0, addedAmount1) = params.pool.mint(
-                address(this),
-                lowerTick,
-                upperTick,
-                response.liquidity,
-                data
-            );
+            (uint256 addedAmount0, uint256 addedAmount1) =
+                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
 
             // make base & quote into the right order
             if (isBase0Quote1) {
@@ -134,55 +124,37 @@ library UniswapV3Broker {
     }
 
     function burn(BurnParams memory params) internal returns (BurnResponse memory response) {
-        // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
-
-        // get current price
-        (uint160 sqrtPriceX96, , , , , , ) = params.pool.slot0();
-        // get the equivalent amount of liquidity from amount0 & amount1 in current price
-        uint128 liquidity =
-            LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
-            );
-
         // call burn()
-        (uint256 amount0Burned, uint256 amount1Burned) = params.pool.burn(lowerTick, upperTick, liquidity);
+        (uint256 amount0Burned, uint256 amount1Burned) =
+            IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
+
+        // call collect to `transfer` tokens to CH
+        (uint128 amount0Received, uint128 amount1Received) =
+            IUniswapV3Pool(params.pool).collect(
+                address(this),
+                params.lowerTick,
+                params.upperTick,
+                type(uint128).max,
+                type(uint128).max
+            );
+        // unexpected amount{0,1}
+        require(amount0Received.toUint256() >= amount0Burned, "UB_UA0");
+        require(amount1Received.toUint256() >= amount1Burned, "UB_UA1");
 
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
-        if (isBase0Quote1) {
-            response.base = amount0Burned;
-            response.quote = amount1Burned;
-            response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
-        } else {
-            response.quote = amount0Burned;
-            response.base = amount1Burned;
-            response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-            response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
-        }
+        response.base = amount0Received.toUint256();
+        response.quote = amount1Received.toUint256();
+        response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
+        response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
         // zero input
         require(params.amount > 0, "UB_ZI");
-
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        // true for swapping token0 into token1, false for token1 to token0
-        // true: isBase0Quote1 && isBaseToQuote || !isBase0Quote1 && !isBaseToQuote
-        // false: !isBase0Quote1 && isBaseToQuote || isBase0Quote1 && !isBaseToQuote
-        // ex: if isBase0Quote1 == true & isBaseToQuote -> base == token0, thus it's token0 to token1 -> true
-        // ex: if isBase0Quote1 == false & isBaseToQuote -> base == token1, thus it's token1 to token0 -> false
-        bool isZeroForOne = isBase0Quote1 == params.isBaseToQuote;
 
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
@@ -194,28 +166,30 @@ library UniswapV3Broker {
         (int256 signedAmount0, int256 signedAmount1) =
             params.pool.swap(
                 address(this),
-                isZeroForOne,
+                params.isBaseToQuote,
                 specifiedAmount,
                 // FIXME: suppose the reason is for under/overflow but need confirmation
                 params.sqrtPriceLimitX96 == 0
-                    ? (isZeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+                    ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                // FIXME
-                // depends on what verification we need to check inside callback
-                abi.encode(params.data)
+                abi.encode(params.baseToken)
             );
 
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
         uint256 amount1 = signedAmount1 < 0 ? (-signedAmount1).toUint256() : signedAmount1.toUint256();
 
-        uint256 exactAmount = params.isExactInput == isZeroForOne ? amount0 : amount1;
+        // isExactInput = true, isZeroForOne = true => exact token0
+        // isExactInput = false, isZeroForOne = false => exact token0
+        // isExactInput = false, isZeroForOne = true => exact token1
+        // isExactInput = true, isZeroForOne = false => exact token1
+        uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
         // FIXME: why is this check necessary for exactOutput but not for exactInput?
         // it's technically possible to not receive the full output amount,
         // so if no price limit has been specified, require this possibility away
         // incorrect output amount
         if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
 
-        (response.base, response.quote) = isBase0Quote1 ? (amount0, amount1) : (amount1, amount0);
+        (response.base, response.quote) = (amount0, amount1);
     }
 
     function getPool(
@@ -229,12 +203,12 @@ library UniswapV3Broker {
     }
 
     function _isBase0Quote1(
-        IUniswapV3Pool pool,
+        address pool,
         address baseToken,
         address quoteToken
     ) private view returns (bool) {
-        address token0 = pool.token0();
-        address token1 = pool.token1();
+        address token0 = IUniswapV3Pool(pool).token0();
+        address token1 = IUniswapV3Pool(pool).token1();
         if (baseToken == token0 && quoteToken == token1) return true;
         if (baseToken == token1 && quoteToken == token0) return false;
         // pool token mismatched. should throw from earlier check
@@ -271,7 +245,7 @@ library UniswapV3Broker {
     }
 
     function _getFeeGrowthInside(
-        IUniswapV3Pool pool,
+        address pool,
         int24 lowerTick,
         int24 upperTick
     ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
@@ -282,16 +256,16 @@ library UniswapV3Broker {
             bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
             // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
+            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
         }
     }
 
     function _getPositionLiquidity(
-        IUniswapV3Pool pool,
+        address pool,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
-        (liquidity, , , , ) = pool.positions(positionKey);
+        (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 }

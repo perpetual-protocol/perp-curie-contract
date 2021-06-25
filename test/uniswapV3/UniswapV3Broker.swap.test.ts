@@ -50,15 +50,8 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [quoteToken.address, fee, baseToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
-            ).to.be.reverted
+            ).to.be.revertedWith("CH_F0S")
         })
     })
 
@@ -93,14 +86,6 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        // params.tokenIn, params.fee, params.tokenOut
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [quoteToken.address, fee, baseToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -144,14 +129,6 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: true,
                     amount: base,
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        // params.tokenIn, params.fee, params.tokenOut
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [baseToken.address, fee, quoteToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -195,14 +172,6 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: false,
                     amount: parseEther(base.toString()),
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        // params.tokenOut, params.fee, params.tokenIn
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [baseToken.address, fee, quoteToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -246,14 +215,6 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: false,
                     amount: parseEther(quote.toString()),
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        // params.tokenOut, params.fee, params.tokenIn
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [quoteToken.address, fee, baseToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -301,13 +262,6 @@ describe("UniswapV3Broker swap", () => {
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
-                    data: {
-                        path: ethers.utils.solidityPack(
-                            ["address", "uint24", "address"],
-                            [quoteToken.address, fee, baseToken.address],
-                        ),
-                        payer: uniswapV3Broker.address,
-                    },
                 }),
             )
                 .to.emit(pool, "Swap")
