@@ -171,17 +171,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit Burned(token, amount);
     }
 
-    function swap(SwapParams memory params) external returns (UniswapV3Broker.SwapResponse memory) {
-        // TODO: refactor duplicate arguments passing
-        address tokenIn;
-        address tokenOut;
-        if (params.isBaseToQuote) {
-            tokenIn = params.baseToken;
-            tokenOut = params.quoteToken;
-        } else {
-            tokenIn = params.quoteToken;
-            tokenOut = params.baseToken;
-        }
+    function swap(SwapParams memory params) external nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
         return
             UniswapV3Broker.swap(
@@ -192,11 +182,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
-                    params.sqrtPriceLimitX96,
-                    UniswapV3Broker.SwapCallbackData({
-                        path: abi.encodePacked(tokenIn, pool.fee(), tokenOut),
-                        payer: address(this)
-                    })
+                    params.sqrtPriceLimitX96
                 )
             );
     }
@@ -338,50 +324,35 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     ) external override {
         address baseToken = abi.decode(data, (address));
         address pool = _poolMap[baseToken];
-        // CH_SNP msg sender is not registered pool
-        require(_msgSender() == pool, "CH_SNP");
+        // CH_FMV: failed mintCallback verification
+        require(_msgSender() == pool, "CH_FMV");
 
-        IUniswapV3Pool uniV3Pool = IUniswapV3Pool(pool);
         if (amount0Owed > 0) {
-            IMintableERC20(uniV3Pool.token0()).transfer(pool, amount0Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(uniV3Pool.token1()).transfer(pool, amount1Owed);
+            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed);
         }
-    }
-
-    struct SwapCallbackData {
-        bytes path;
-        address payer;
     }
 
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata _data
+        bytes calldata data
     ) external override {
-        require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
-        // FIXME
-        SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (address tokenA, address tokenB, uint24 fee) = data.path.decodeFirstPool();
-        // CallbackValidation.verifyCallback(_factory, tokenIn, tokenOut, fee);
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // CH_ZIs: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        (bool isExactInput, uint256 amountToPay) =
-            amount0Delta > 0 ? (tokenA < tokenB, uint256(amount0Delta)) : (tokenB < tokenA, uint256(amount1Delta));
+        address baseToken = abi.decode(data, (address));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
+        // CH_FSV: failed swapCallback verification
+        require(_msgSender() == address(pool), "CH_FSV");
 
-        // isExactInput: 100 USDC (in) = tokenA -> ? ETH = tokenB
-        // isExactOutput: ? USDC (in) = tokenB -> 0.1 ETH (out) = tokenA
-        if (isExactInput) {
-            // tokenA: tokenIn
-            // tokenB: tokenOut
-            IMintableERC20(tokenA).mint(address(this), amountToPay);
-            IMintableERC20(tokenA).transfer(msg.sender, amountToPay);
-        } else {
-            // tokenA: tokenOut
-            // tokenB: tokenIn
-            IMintableERC20(tokenB).mint(address(this), amountToPay);
-            IMintableERC20(tokenB).transfer(msg.sender, amountToPay);
-        }
+        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
+        (address token, uint256 amountToPay) =
+            amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
+        IMintableERC20(token).transfer(_msgSender(), amountToPay);
     }
 
     //

@@ -66,7 +66,6 @@ library UniswapV3Broker {
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        SwapCallbackData data;
     }
 
     struct SwapResponse {
@@ -105,17 +104,9 @@ library UniswapV3Broker {
                 _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
 
             // call mint()
-            uint256 addedAmount0;
-            uint256 addedAmount1;
-            // we use baseToken for verification since CH knows which base token maps to which pool
             bytes memory data = abi.encode(params.baseToken);
-            (addedAmount0, addedAmount1) = IUniswapV3Pool(params.pool).mint(
-                address(this),
-                lowerTick,
-                upperTick,
-                response.liquidity,
-                data
-            );
+            (uint256 addedAmount0, uint256 addedAmount1) =
+                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
 
             // make base & quote into the right order
             if (isBase0Quote1) {
@@ -181,9 +172,7 @@ library UniswapV3Broker {
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                // FIXME
-                // depends on what verification we need to check inside callback
-                abi.encode(params.data)
+                abi.encode(params.baseToken)
             );
 
         uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
