@@ -53,7 +53,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 pool: pool.address,
                 lowerTick: "50000",
                 upperTick: "50200",
-                liquidity: "1000000000109464931",
+                liquidity: "1000000000109464931", // around 1
             }),
         )
             .to.emit(pool, "Burn")
@@ -87,7 +87,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 pool: pool.address,
                 lowerTick: "50000",
                 upperTick: "50200",
-                liquidity: "500000000054732465",
+                liquidity: "500000000054732465", // around 0.5
             }),
         )
             .to.emit(pool, "Burn")
@@ -122,7 +122,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 pool: pool.address,
                 lowerTick: "50000",
                 upperTick: "50200",
-                liquidity: "999999999994411796",
+                liquidity: "999999999994411796", // around 1
             }),
         )
             .to.emit(pool, "Burn")
@@ -154,7 +154,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 pool: pool.address,
                 lowerTick: "50000",
                 upperTick: "50400",
-                liquidity: "999999986406400213",
+                liquidity: "999999986406400213", // around 1
             }),
         )
             .to.emit(pool, "Burn")
