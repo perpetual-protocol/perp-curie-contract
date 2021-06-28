@@ -13,6 +13,8 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { Path } from "@uniswap/v3-periphery/contracts/libraries/Path.sol";
@@ -33,15 +35,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     event Minted(address indexed token, uint256 amount);
     event Burned(address indexed token, uint256 amount);
     event LiquidityChanged(
+        address indexed maker,
         address indexed baseToken,
         address indexed quoteToken,
         int24 lowerTick,
         int24 upperTick,
+        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
         int256 base,
+        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
         int256 quote,
-        int128 liquidity,
-        uint256 baseFee,
-        uint256 quoteFee
+        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
+        uint256 baseFee, // amount of base token the maker received as fee
+        uint256 quoteFee // amount of quote token the maker received as fee
     );
 
     //
@@ -220,9 +225,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(quoteAvailable >= params.quote, "CH_NEQ");
 
         // add liquidity to liquidity pool
-        UniswapV3Broker.MintResponse memory response =
-            UniswapV3Broker.mint(
-                UniswapV3Broker.MintParams(
+        UniswapV3Broker.AddLiquidityResponse memory response =
+            UniswapV3Broker.addLiquidity(
+                UniswapV3Broker.AddLiquidityParams(
                     _poolMap[params.baseToken],
                     params.baseToken,
                     quoteToken,
@@ -238,21 +243,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        uint128 previousLiquidity = openOrder.liquidity;
+        uint256 feeBase =
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase);
+        uint256 feeQuote =
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastQuote, openOrder.feeGrowthInsideLastQuote);
         if (openOrder.liquidity == 0) {
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
         } else {
             // update token info based on existing open order
-            baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
-                _calcOwnedFee(openOrder.liquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase)
-            );
-            quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
-                _calcOwnedFee(
-                    openOrder.liquidity,
-                    response.feeGrowthInsideLastQuote,
-                    openOrder.feeGrowthInsideLastQuote
-                )
-            );
+            baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(feeBase);
+            quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(feeQuote);
         }
 
         // update token info
@@ -264,7 +266,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         openOrder.feeGrowthInsideLastBase = response.feeGrowthInsideLastBase;
         openOrder.feeGrowthInsideLastQuote = response.feeGrowthInsideLastQuote;
 
-        _emitLiquidityChanged(trader, params, response);
+        _emitLiquidityChanged(trader, params, response, feeBase, feeQuote);
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
@@ -279,9 +281,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // CH_NEL not enough liquidity
         require(params.liquidity <= previousLiquidity, "CH_NEL");
 
-        UniswapV3Broker.BurnResponse memory response =
-            UniswapV3Broker.burn(
-                UniswapV3Broker.BurnParams(
+        UniswapV3Broker.RemoveLiquidityResponse memory response =
+            UniswapV3Broker.removeLiquidity(
+                UniswapV3Broker.RemoveLiquidityParams(
                     _poolMap[params.baseToken],
                     params.lowerTick,
                     params.upperTick,
@@ -294,12 +296,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // update token info based on existing open order
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(
-            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase)
-        );
-        quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(
-            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastQuote, openOrder.feeGrowthInsideLastQuote)
-        );
+        uint256 feeBase =
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase);
+        uint256 feeQuote =
+            _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastQuote, openOrder.feeGrowthInsideLastQuote);
+        baseTokenInfo.owedFee = baseTokenInfo.owedFee.add(feeBase);
+        quoteTokenInfo.owedFee = quoteTokenInfo.owedFee.add(feeQuote);
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.quote);
 
@@ -312,7 +314,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             openOrder.feeGrowthInsideLastQuote = response.feeGrowthInsideLastQuote;
         }
 
-        _emitLiquidityChanged(trader, params, response);
+        _emitLiquidityChanged(trader, params, response, feeBase, feeQuote);
     }
 
     // @audit: review security and possible attacks (@detoo)
@@ -479,33 +481,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 feeGrowthInsideLastNew,
         uint256 feeGrowthInsideLastOld
     ) private pure returns (uint256) {
-        return liquidity.toUint256().mul(feeGrowthInsideLastNew.sub(feeGrowthInsideLastOld));
+        return FullMath.mulDiv(feeGrowthInsideLastNew - feeGrowthInsideLastOld, liquidity, FixedPoint128.Q128);
     }
 
     function _emitLiquidityChanged(
-        address trader,
-        RemoveLiquidityParams memory params,
-        UniswapV3Broker.BurnResponse memory response
-    ) private {
-        emit LiquidityChanged(
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
-            _accountMap[trader].tokenInfoMap[params.baseToken].owedFee,
-            _accountMap[trader].tokenInfoMap[quoteToken].owedFee
-        );
-    }
-
-    function _emitLiquidityChanged(
-        address trader,
+        address maker,
         AddLiquidityParams memory params,
-        UniswapV3Broker.MintResponse memory response
+        UniswapV3Broker.AddLiquidityResponse memory response,
+        uint256 feeBase,
+        uint256 feeQuote
     ) private {
         emit LiquidityChanged(
+            maker,
             params.baseToken,
             quoteToken,
             params.lowerTick,
@@ -513,8 +500,29 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             response.base.toInt256(),
             response.quote.toInt256(),
             response.liquidity.toInt128(),
-            _accountMap[trader].tokenInfoMap[params.baseToken].owedFee,
-            _accountMap[trader].tokenInfoMap[quoteToken].owedFee
+            feeBase,
+            feeQuote
+        );
+    }
+
+    function _emitLiquidityChanged(
+        address maker,
+        RemoveLiquidityParams memory params,
+        UniswapV3Broker.RemoveLiquidityResponse memory response,
+        uint256 feeBase,
+        uint256 feeQuote
+    ) private {
+        emit LiquidityChanged(
+            maker,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            feeBase,
+            feeQuote
         );
     }
 

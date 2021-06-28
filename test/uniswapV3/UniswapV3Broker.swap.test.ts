@@ -62,7 +62,7 @@ describe("UniswapV3Broker swap", () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt(148.3760629, 1))
 
-            await uniswapV3Broker.mint({
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
@@ -107,7 +107,7 @@ describe("UniswapV3Broker swap", () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
-            await uniswapV3Broker.mint({
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
@@ -151,7 +151,7 @@ describe("UniswapV3Broker swap", () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt(148.3760629, 1))
 
-            await uniswapV3Broker.mint({
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
@@ -194,7 +194,7 @@ describe("UniswapV3Broker swap", () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
-            await uniswapV3Broker.mint({
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
@@ -240,7 +240,7 @@ describe("UniswapV3Broker swap", () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt(148.3760629, 1))
 
-            await uniswapV3Broker.mint({
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
