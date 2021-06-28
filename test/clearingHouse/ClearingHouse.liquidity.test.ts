@@ -85,12 +85,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei(100, await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
@@ -142,12 +140,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei(100, await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
@@ -200,12 +196,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei(0, await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(10000, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
@@ -257,12 +251,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei(0, await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(10000, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
@@ -314,12 +306,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei("33.938154569530515977", await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("81689571696303801018159"), // liquidity
@@ -373,12 +363,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei(50, await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei("2431.334657063838663853", await baseToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("61828103017711334685748"), // liquidity
@@ -425,12 +413,10 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     toWei("33.938154569530515976", await baseToken.decimals()), // available
                     toWei(100, await baseToken.decimals()), // debt
-                    toWei(0, await baseToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
-                    toWei(0, await quoteToken.decimals()), // fee
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("81689571696303801018158"), // liquidity
@@ -596,12 +582,10 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 BigNumber.from("99999999999999999999"), // available
                 toWei(100, await baseToken.decimals()), // debt
-                toWei(0, await baseToken.decimals()), // fee
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(10000, await quoteToken.decimals()), // available
                 toWei(10000, await quoteToken.decimals()), // debt
-                toWei(0, await quoteToken.decimals()), // fee
             ])
             expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
                 BigNumber.from(0), // liquidity
@@ -662,12 +646,10 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 toWei(100, await baseToken.decimals()), // available
                 toWei(100, await baseToken.decimals()), // debt
-                toWei(0, await baseToken.decimals()), // fee
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 BigNumber.from("9999999999999999999999"), // available, ~= -10,000
                 toWei(10000, await quoteToken.decimals()), // debt
-                toWei(0, await quoteToken.decimals()), // fee
             ])
             expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
                 BigNumber.from(0), // liquidity
@@ -727,12 +709,10 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 BigNumber.from("99999999999999999999"), // available
                 toWei(100, await baseToken.decimals()), // debt
-                toWei(0, await baseToken.decimals()), // fee
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 BigNumber.from("9999999999999999999999"), // available
                 toWei(10000, await quoteToken.decimals()), // debt
-                toWei(0, await quoteToken.decimals()), // fee
             ])
             expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                 BigNumber.from(0), // liquidity
@@ -786,12 +766,10 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 BigNumber.from("99999999999999999999"), // available, ~= 100
                 toWei(100, await baseToken.decimals()), // debt
-                toWei(0, await baseToken.decimals()), // fee
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 BigNumber.from("9999999999999999999999"), // available ~= 10,000
                 toWei(10000, await quoteToken.decimals()), // debt
-                toWei(0, await quoteToken.decimals()), // fee
             ])
             expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                 BigNumber.from(0), // liquidity
@@ -839,12 +817,10 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 BigNumber.from("33938154569530515977"), // available
                 toWei(100, await baseToken.decimals()), // debt
-                toWei(0, await baseToken.decimals()), // fee
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 BigNumber.from(0), // available
                 toWei(10000, await quoteToken.decimals()), // debt
-                toWei(0, await quoteToken.decimals()), // fee
             ])
             expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                 liquidity,

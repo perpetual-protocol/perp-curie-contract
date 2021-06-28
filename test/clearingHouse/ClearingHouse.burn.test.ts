@@ -39,7 +39,6 @@ describe("ClearingHouse.burn", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(10), // available
                 toWei(10), // debt
-                toWei(0), // fee
             ])
 
             await expect(clearingHouse.connect(alice).burn(quoteToken.address, toWei(10)))
@@ -49,7 +48,6 @@ describe("ClearingHouse.burn", () => {
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(0), // available
                 toWei(0), // debt
-                toWei(0), // fee
             ])
 
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
