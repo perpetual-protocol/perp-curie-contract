@@ -5,7 +5,7 @@ import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("UniswapV3Broker.removeLiquidity", () => {
+describe("UniswapV3Broker removeLiquidity", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
