@@ -53,11 +53,6 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideLastQuote;
     }
 
-    struct SwapCallbackData {
-        bytes path;
-        address payer;
-    }
-
     struct SwapParams {
         IUniswapV3Pool pool;
         address baseToken;
