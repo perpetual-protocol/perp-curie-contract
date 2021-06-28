@@ -45,7 +45,7 @@ describe("UniswapV3Broker mint", () => {
 
             // the emission of event is from Uniswap v3, with params representing the real minting conditions
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -78,7 +78,7 @@ describe("UniswapV3Broker mint", () => {
 
             // the emission of event is from Uniswap v3, with params representing the real minting conditions
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -107,7 +107,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = parseEther("0.122414646")
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -129,7 +129,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = parseEther("0.122414646")
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -158,7 +158,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = "0"
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -203,7 +203,7 @@ describe("UniswapV3Broker mint", () => {
             // the emission of event is from Uniswap v3, with params representing the real minting conditions
             // the current price of token0 (quote) = reserve1/reserve0 = 1/151.3733069 = 0.00660618454
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -235,7 +235,7 @@ describe("UniswapV3Broker mint", () => {
             // the emission of event is from Uniswap v3, with params representing the real minting conditions
             // thus, since the order of tokens is reverse, expected ticks & amounts are also reverse, while liquidity remains the same
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -266,7 +266,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = parseEther("0.122414646")
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -287,7 +287,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = parseEther("0.122414646")
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
@@ -318,7 +318,7 @@ describe("UniswapV3Broker mint", () => {
             const quote = "0"
 
             await expect(
-                uniswapV3Broker.mint({
+                uniswapV3Broker.addLiquidity({
                     pool: pool.address,
                     baseToken: baseToken.address,
                     quoteToken: quoteToken.address,
