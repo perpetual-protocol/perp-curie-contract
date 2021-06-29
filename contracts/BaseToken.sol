@@ -2,7 +2,6 @@ pragma solidity 0.7.6;
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-import "hardhat/console.sol";
 
 interface IPriceFeed {
     function decimals() external view returns (uint8);
@@ -163,9 +162,6 @@ contract BaseToken is ERC20PresetMinterPauser {
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        console.log("_price %s", _price);
-        console.log("decimals() %s", decimals());
-        console.log("_priceFeedDecimals %s", _priceFeedDecimals);
         return _price.mul(10**uint256(decimals())).div(10**uint256(_priceFeedDecimals));
     }
 }
