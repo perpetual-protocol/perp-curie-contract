@@ -62,8 +62,8 @@ async function runAll(): Promise<void> {
 // The following steps are required to use this script:
 // 1. pip3 install slither-analyzer
 // 2. pip3 install solc-select
-// 3. solc-select install 0.6.9 (the current solc version)
-// 4. solc-select use 0.6.9
+// 3. solc-select install 0.7.6 (check hardhat.config.ts)
+// 4. solc-select use 0.7.6
 if (require.main === module) {
     runAll()
         .then(() => process.exit(0))
