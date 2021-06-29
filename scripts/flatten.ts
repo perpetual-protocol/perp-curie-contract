@@ -13,6 +13,7 @@ export async function flatten(
 ): Promise<void> {
     let licenseDeclared = false
     let versionDeclared = false
+    let abiV2ExpDeclared = false
     let abiV2Declared = false
 
     const fromFile = join(fromDir, filename)
@@ -38,6 +39,13 @@ export async function flatten(
                 return false
             }
         } else if (line.indexOf("pragma experimental ABIEncoderV2") !== -1) {
+            if (!abiV2ExpDeclared) {
+                abiV2ExpDeclared = true
+                return true
+            } else {
+                return false
+            }
+        } else if (line.indexOf("pragma abicoder v2") !== -1) {
             if (!abiV2Declared) {
                 abiV2Declared = true
                 return true
