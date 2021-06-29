@@ -55,6 +55,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
+        // @audit - suggest to flatten the mapping by keep an orderIds[] here
+        // and create another _openOrderMap global state
+        // because the orderId already contains the baseTokenAddr (@wraecca).
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
     }
@@ -234,12 +237,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     params.quote
                 )
             );
-
+        // mint callback
         // TODO add slippage protection
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        // @audit - more readable but not necessary
+        // we can use openOrder.liquidity directly before it's getting mutated (@wraecca)
         uint128 previousLiquidity = openOrder.liquidity;
         uint256 feeBase =
             _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase);
@@ -271,8 +276,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader = _msgSender();
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        // @audit - more readable but not necessary
+        // we can use openOrder.liquidity directly before it's getting mutated (@wraecca)
         uint128 previousLiquidity = openOrder.liquidity;
 
+        // @audit - this line (CH_ZL) is already being covered by CH_NEL (next line) (@wraecca)
         // CH_ZL zero liquidity
         require(previousLiquidity > 0, "CH_ZL");
         // CH_NEL not enough liquidity
@@ -327,10 +335,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(_msgSender() == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed);
+            // token0 transfer failed
+            require(IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed), "CH_0TF");
         }
         if (amount1Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed);
+            // token1 transfer failed
+            require(IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed), "CH_1TF");
         }
     }
 
@@ -351,7 +361,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-        IMintableERC20(token).transfer(_msgSender(), amountToPay);
+        // swap fail
+        require(IMintableERC20(token).transfer(_msgSender(), amountToPay), "CH_SF");
     }
 
     //
