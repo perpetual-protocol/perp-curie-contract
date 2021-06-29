@@ -335,12 +335,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(_msgSender() == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            // token0 transfer failed
-            require(IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed), "CH_0TF");
+            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            // token1 transfer failed
-            require(IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed), "CH_1TF");
+            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token1(), pool, amount1Owed);
         }
     }
 
@@ -362,7 +360,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
         // swap fail
-        require(IMintableERC20(token).transfer(_msgSender(), amountToPay), "CH_SF");
+        TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
     //
