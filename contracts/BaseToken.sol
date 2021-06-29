@@ -163,6 +163,6 @@ contract BaseToken is ERC20PresetMinterPauser {
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        return _price.mul(10**decimals()).div(10**uint256(_priceFeed.decimals()));
+        return _price.mul(10**decimals()).div(10**_priceFeedDecimals);
     }
 }
