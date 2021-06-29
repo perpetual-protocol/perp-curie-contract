@@ -153,12 +153,11 @@ contract BaseToken is ERC20PresetMinterPauser {
         grantRole(MINTER_ROLE, minter);
     }
 
-    // TODO: rename to getOraclePrice()
-    function getPrice() external view returns (uint256) {
+    function getIndexPrice() external view returns (uint256) {
         return _formatDecimals(_priceFeed.getPrice());
     }
 
-    function getTwapPrice(uint256 _interval) external view returns (uint256) {
+    function getIndexTwapPrice(uint256 _interval) external view returns (uint256) {
         return _formatDecimals(_priceFeed.getTwapPrice(_interval));
     }
 
