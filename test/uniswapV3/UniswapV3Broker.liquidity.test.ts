@@ -78,8 +78,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
         // 0.0004084104205 / 0.99 = 0.0004125357783
         const base = 0.0004125357783
-        // fee = 1%
-        const fee = "10000"
 
         // exact base -> quote
         await uniswapV3Broker.swap({
@@ -107,6 +105,10 @@ describe("UniswapV3Broker removeLiquidity", () => {
             // there's one wei of imprecision, thus expecting 0.000004125357782999
             .withArgs(uniswapV3Broker.address, uniswapV3Broker.address, 50000, 50200, "4125357782999", "0")
     })
+
+    // vinta'PR: fix 171 desc
+    // add q -> swap -> remove q -> burn + collect
+    it("removeLiquidity and received proper tokens amount, after a swap happened", async () => {})
 })
 
 // describe("one maker", () => {
@@ -132,3 +134,15 @@ describe("UniswapV3Broker removeLiquidity", () => {
 // 		it("received nothing, if a trader swap 1000 quote to base in my range", () => {})
 // 	})
 // })
+
+/**
+ * Vinta:
+ * add q -> remove q-> burn
+ * add q -> remove 50%q -> burn
+ * add b -> remove b -> burn
+ * add bq -> remove bq -> burn
+ * fix 171 desc
+ * add q -> remove 0 -> burn
+ * ===
+ * add q -> swap -> remove q -> burn + collect
+ */
