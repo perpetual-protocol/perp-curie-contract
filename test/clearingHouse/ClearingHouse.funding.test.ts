@@ -1,7 +1,10 @@
+import { smockit } from "@eth-optimism/smock"
+import BigNumber from "bignumber.js"
 import { expect } from "chai"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
+import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
@@ -26,7 +29,7 @@ describe("ClearingHouse", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
+
         // // mint
         // collateral.mint(alice.address, million)
         // collateral.mint(bob.address, million)
@@ -48,11 +51,29 @@ describe("ClearingHouse", () => {
         // await clearingHouse.connect(bob).mint(baseToken.address, ten)
         // await clearingHouse.connect(carol).mint(baseToken.address, ten)
     })
-
     describe("# updateFunding", async () => {
         let fundingBufferPeriod
 
         beforeEach(async () => {
+            await clearingHouse.addPool(baseToken.address, 10000)
+            await pool.initialize(encodePriceSqrt("100", "1"))
+
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const poolFac = poolFactory.attach(pool.address) as UniswapV3Pool
+            const mockedPool = await smockit(poolFac)
+            mockedPool.smocked.slot0.will.return.with({
+                sqrtPriceX96: 10,
+                tick: 1,
+                observationIndex: 2,
+                observationCardinality: 2,
+                observationCardinalityNext: 2,
+                feeProtocol: 0,
+                unlocked: true,
+            })
+            mockedPool.smocked.observe.will.return.with((secondsAgo: BigNumber) => {
+                return [360000, 396000]
+            })
+
             fundingBufferPeriod = (await clearingHouse.fundingPeriod()).div(2)
         })
 
@@ -74,7 +95,7 @@ describe("ClearingHouse", () => {
             // expect(await amm.nextFundingTime()).eq(originalNextFundingTime.add(fundingPeriod))
         })
 
-        it.only("consecutive update funding calls must be at least fundingBufferPeriod apart", async () => {
+        it("consecutive update funding calls must be at least fundingBufferPeriod apart", async () => {
             await clearingHouse.updateFunding(baseToken.address)
             const originalNextFundingTime = await clearingHouse.getNextFundingTime(baseToken.address)
             const updateFundingTimestamp = originalNextFundingTime.add(fundingBufferPeriod).add(1)

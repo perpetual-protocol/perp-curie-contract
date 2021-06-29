@@ -1,8 +1,8 @@
-import { MockContract } from "@eth-optimism/smock"
+import { MockContract, smockit } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
-import { waffle } from "hardhat"
-import { ClearingHouse } from "../../typechain"
+import { ethers, waffle } from "hardhat"
+import { ClearingHouse, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedClearingHouseFixture, mockedTokenTo } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
@@ -75,6 +75,41 @@ describe("ClearingHouse Spec", () => {
         it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
             const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
             await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("CH_IB")
+        })
+    })
+    describe("# updateFunding", async () => {
+        let fundingBufferPeriod
+
+        beforeEach(async () => {
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            const mockedPool = await smockit(pool)
+
+            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+                return mockedPool.address
+            })
+
+            mockedPool.smocked.slot0.will.return.with([10, 2, 2, 2, 2, 0, true])
+            mockedPool.smocked.observe.will.return.with([
+                [360000, 396000],
+                [0, 0],
+            ])
+
+            await clearingHouse.addPool(baseToken.address, 10000)
+
+            fundingBufferPeriod = (await clearingHouse.fundingPeriod()).div(2)
+        })
+
+        it.only("consecutive update funding calls must be at least fundingBufferPeriod apart", async () => {
+            await clearingHouse.updateFunding(baseToken.address)
+            const originalNextFundingTime = await clearingHouse.getNextFundingTime(baseToken.address)
+            const updateFundingTimestamp = originalNextFundingTime.add(fundingBufferPeriod).add(1)
+            console.log(`updateFundingTimestamp: ${+updateFundingTimestamp}`)
+            await waffle.provider.send("evm_setNextBlockTimestamp", [+updateFundingTimestamp])
+            await clearingHouse.updateFunding(baseToken.address)
+            expect(await clearingHouse.getNextFundingTime(baseToken.address)).eq(
+                updateFundingTimestamp.add(fundingBufferPeriod),
+            )
         })
     })
 })
