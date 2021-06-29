@@ -8,7 +8,6 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
-import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
@@ -17,7 +16,6 @@ import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
-import { Path } from "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -25,7 +23,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     using SafeCast for uint128;
     using SignedSafeMath for int256;
     using SafeCast for int256;
-    using Path for bytes;
 
     //
     // events
@@ -58,6 +55,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
+        // @audit - suggest to flatten the mapping by keep an orderIds[] here
+        // and create another _openOrderMap global state
+        // because the orderId already contains the baseTokenAddr (@wraecca).
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
     }
@@ -237,12 +237,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     params.quote
                 )
             );
-
+        // mint callback
         // TODO add slippage protection
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        // @audit - more readable but not necessary
+        // we can use openOrder.liquidity directly before it's getting mutated (@wraecca)
         uint128 previousLiquidity = openOrder.liquidity;
         uint256 feeBase =
             _calcOwnedFee(previousLiquidity, response.feeGrowthInsideLastBase, openOrder.feeGrowthInsideLastBase);
@@ -274,8 +276,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader = _msgSender();
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        // @audit - more readable but not necessary
+        // we can use openOrder.liquidity directly before it's getting mutated (@wraecca)
         uint128 previousLiquidity = openOrder.liquidity;
 
+        // @audit - this line (CH_ZL) is already being covered by CH_NEL (next line) (@wraecca)
         // CH_ZL zero liquidity
         require(previousLiquidity > 0, "CH_ZL");
         // CH_NEL not enough liquidity
@@ -330,10 +335,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(_msgSender() == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(pool, amount0Owed);
+            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(pool, amount1Owed);
+            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token1(), pool, amount1Owed);
         }
     }
 
@@ -354,7 +359,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-        IMintableERC20(token).transfer(_msgSender(), amountToPay);
+        // swap fail
+        TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
     //
