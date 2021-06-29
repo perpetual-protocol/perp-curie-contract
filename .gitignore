@@ -6,3 +6,4 @@ coverage
 typechain
 flattened
 slither
+/.DS_Store
