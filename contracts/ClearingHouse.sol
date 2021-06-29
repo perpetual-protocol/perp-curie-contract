@@ -14,8 +14,10 @@ import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
+import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
+import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -45,6 +47,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 baseFee, // amount of base token the maker received as fee
         uint256 quoteFee // amount of quote token the maker received as fee
     );
+    event FundingRateUpdated(int256 rate, uint256 underlyingPrice);
 
     //
     // Struct
@@ -106,6 +109,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
 
+    struct SwapCallbackData {
+        bytes path;
+        address payer;
+    }
+
     //
     // state variables
     //
@@ -122,10 +130,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // key: trader
     mapping(address => Account) private _accountMap;
 
+    uint256 public fundingTwapInterval = 1 hours;
+    uint256 public immutable fundingPeriod;
+
+    mapping(address => uint256) private _nextFundingTimeMap;
+    mapping(address => int256[]) private _premiumFractionsMap;
+    mapping(address => uint256[]) private _sqrtMarkTwapPricesX96Map;
+
     constructor(
         address collateralTokenArg,
         address quoteTokenArg,
-        address uniV3FactoryArg
+        address uniV3FactoryArg,
+        uint256 fundingPeriodArg
     ) {
         require(collateralTokenArg != address(0), "CH_II_C");
         require(quoteTokenArg != address(0), "CH_II_Q");
@@ -134,6 +150,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         collateralToken = collateralTokenArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
+        fundingPeriod = fundingPeriodArg;
     }
 
     //
@@ -363,6 +380,50 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
+    /**
+     * @notice "pay funding" by registering the primitives for funding calculations (premiumFraction, markPrice, etc)
+     * so that we can defer the actual settlement of payment later for each market and each trader, respectively,
+     * therefore spread out the computational loads. It is expected to be called by a keeper every fundingPeriod.
+     * @param baseToken base token address
+     */
+    function updateFunding(address baseToken) external {
+        // TODO should check if market is open
+
+        // solhint-disable-next-line not-rely-on-time
+        uint256 nowTimestamp = block.timestamp;
+        uint256 nextFundingTime = _nextFundingTimeMap[baseToken];
+        // CH_UFTE update funding too early
+        require(nowTimestamp >= nextFundingTime, "CH_UFTE");
+
+        // premium = twapMarketPrice - twapIndexPrice
+        // timeFraction = fundingPeriod(1 hour) / 1 day
+        // premiumFraction = premium * timeFraction
+        (uint160 sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(_poolMap[baseToken]).slot0();
+        uint256 sqrtMarkTwapPriceX96 = uint256(getSqrtMarkTwapPrice(baseToken, fundingTwapInterval));
+        uint256 markTwapPriceX96 = FullMath.mulDiv(sqrtMarkTwapPriceX96, sqrtMarkTwapPriceX96, FixedPoint96.Q96);
+        uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
+        uint256 indexTwapPrice = getIndexTwapPrice(baseToken, fundingTwapInterval);
+
+        int256 premium = markTwapPriceIn18Digit.toInt256().sub(indexTwapPrice.toInt256());
+        int256 premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
+
+        // register primitives for funding calculations so we can settle it later
+        _premiumFractionsMap[baseToken].push(premiumFraction);
+        _sqrtMarkTwapPricesX96Map[baseToken].push(sqrtMarkTwapPriceX96);
+
+        // update next funding time requirements so we can prevent multiple funding settlement
+        // during very short time after network congestion
+        uint256 minNextValidFundingTime = nowTimestamp.add(fundingPeriod.div(2));
+        // floor((nextFundingTime + fundingPeriod) / 3600) * 3600
+        uint256 nextFundingTimeOnHourStart = nextFundingTime.add(fundingPeriod).div(1 hours).mul(1 hours);
+        // max(nextFundingTimeOnHourStart, minNextValidFundingTime)
+        _nextFundingTimeMap[baseToken] = nextFundingTimeOnHourStart > minNextValidFundingTime
+            ? nextFundingTimeOnHourStart
+            : minNextValidFundingTime;
+
+        emit FundingRateUpdated(premiumFraction.mul(1 ether).div(indexTwapPrice.toInt256()), indexTwapPrice);
+    }
+
     //
     // EXTERNAL VIEW FUNCTIONS
     //
@@ -392,6 +453,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return 100 ether;
     }
 
+    function getIndexTwapPrice(address token, uint256 twapInterval) public view returns (uint256) {
+        return 100 ether;
+    }
+
     function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
         return _accountMap[trader].tokenInfoMap[token];
     }
@@ -406,6 +471,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             _accountMap[trader].makerPositionMap[baseToken].openOrderMap[
                 _getOrderId(trader, baseToken, lowerTick, upperTick)
             ];
+    }
+
+    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) public view returns (uint160) {
+        uint32[] memory secondsAgos = new uint32[](2);
+
+        // solhint-disable-next-line not-rely-on-time
+        secondsAgos[0] = uint32(twapInterval);
+        secondsAgos[1] = uint32(0);
+        (int56[] memory tickCumulatives, ) = IUniswapV3Pool(_poolMap[baseToken]).observe(secondsAgos);
+
+        // note this assumes token0 is always the base token
+        return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / uint32(twapInterval)));
+    }
+
+    function getNextFundingTime(address baseToken) external view returns (uint256) {
+        return _nextFundingTimeMap[baseToken];
     }
 
     //
