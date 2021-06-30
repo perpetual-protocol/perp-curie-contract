@@ -7,7 +7,7 @@ import { toWei } from "../helper/number"
 import { baseTokenFixture } from "./fixtures"
 
 // TODO: should also test ChainlinkPriceFeed
-describe.only("BaseToken", async () => {
+describe("BaseToken", async () => {
     const [admin] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
