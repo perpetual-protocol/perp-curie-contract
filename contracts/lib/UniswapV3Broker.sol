@@ -7,6 +7,8 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 /**
@@ -261,5 +263,42 @@ library UniswapV3Broker {
     ) private view returns (uint128 liquidity) {
         bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
         (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    // note this assumes token0 is always the base token
+    function getSqrtMarkTwapPrice(address pool, uint256 twapInterval) internal view returns (uint160) {
+        uint32[] memory secondsAgos = new uint32[](2);
+
+        // solhint-disable-next-line not-rely-on-time
+        secondsAgos[0] = uint32(twapInterval);
+        secondsAgos[1] = uint32(0);
+        (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
+
+        if (twapInterval == 0) {
+            return TickMath.getSqrtRatioAtTick(int24(tickCumulatives[0]));
+        } else {
+            return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / uint32(twapInterval)));
+        }
+    }
+
+    /// copied from UniswapV3-periphery
+    /// @notice Computes the amount of token0 for a given amount of liquidity and a price range
+    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
+    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
+    /// @param liquidity The liquidity being valued
+    /// @return amount0 The amount of token0
+    function getAmount0ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) internal pure returns (uint256 amount0) {
+        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+
+        return
+            FullMath.mulDiv(
+                uint256(liquidity) << FixedPoint96.RESOLUTION,
+                sqrtRatioBX96 - sqrtRatioAX96,
+                sqrtRatioBX96
+            ) / sqrtRatioAX96;
     }
 }
