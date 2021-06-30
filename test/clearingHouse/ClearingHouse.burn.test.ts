@@ -54,10 +54,73 @@ describe("ClearingHouse.burn", () => {
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
         })
 
-        it("# burn quote 10 when debt = 10, available >= 10", async () => {
-            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+        // FIXME: blocked by CH.collect()
+        // it("# burn quote 10 when debt = 10, available >= 10", async () => {
+        //     await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
-            const { available: previousAvailable } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+        //     const { available: previousAvailable } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+
+        //     await clearingHouse.connect(alice).addLiquidity({
+        //         baseToken: baseToken.address,
+        //         base: toWei(0),
+        //         quote: toWei(10),
+        //         lowerTick: 50200,
+        //         upperTick: 50400,
+        //     })
+
+        //     await collateral.mint(bob.address, toWei(100))
+        //     await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
+        //     await clearingHouse.connect(bob).deposit(toWei(100))
+        //     await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
+        //     await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
+
+        //     await clearingHouse.connect(bob).swap({
+        //         // sell base
+        //         baseToken: baseToken.address,
+        //         quoteToken: quoteToken.address,
+        //         isBaseToQuote: true,
+        //         isExactInput: true,
+        //         amount: toWei(0.01),
+        //         sqrtPriceLimitX96: 0,
+        //     })
+
+        //     // // FIXME: currently ch.swap() doesn't update TokenInfo
+        //     // const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
+
+        //     await clearingHouse.connect(bob).swap({
+        //         // buy base back
+        //         baseToken: baseToken.address,
+        //         quoteToken: quoteToken.address,
+        //         isBaseToQuote: false,
+        //         isExactInput: false,
+        //         amount: toWei(0.01),
+        //         sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
+        //     })
+
+        //     const [liquidity, , , ,] = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+        //     await clearingHouse.connect(alice).removeLiquidity({
+        //         baseToken: baseToken.address,
+        //         lowerTick: 50200,
+        //         upperTick: 50400,
+        //         liquidity: liquidity,
+        //     })
+        //     const { available } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+        //     expect(available.gt(toWei(10))).to.be.true
+        //     await expect(clearingHouse.connect(alice).burn(quoteToken.address, available))
+        //         .to.emit(clearingHouse, "Burned")
+        //         .withArgs(quoteToken.address, available)
+        //     expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+        //         toWei(0), // available
+        //         toWei(0), // debt
+        //         toWei(0), // fee FIXME alice should has fee
+        //     ])
+
+        //     const profit = available.sub(previousAvailable)
+        //     expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10).add(profit))
+        // })
+
+        it("# burn quote 10 when debt = 10, available < 10", async () => {
+            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -71,6 +134,7 @@ describe("ClearingHouse.burn", () => {
             await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
             await clearingHouse.connect(bob).deposit(toWei(100))
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
+            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
 
             await clearingHouse.connect(bob).swap({
                 // sell base
@@ -78,21 +142,8 @@ describe("ClearingHouse.burn", () => {
                 quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: toWei(0.01),
+                amount: toWei(0.001),
                 sqrtPriceLimitX96: 0,
-            })
-
-            // FIXME: currently ch.swap() doesn't update TokenInfo
-            const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-
-            await clearingHouse.connect(bob).swap({
-                // buy base
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: bobQuoteAvailable,
-                sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
             })
 
             const [liquidity, , , ,] = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
@@ -102,22 +153,24 @@ describe("ClearingHouse.burn", () => {
                 upperTick: 50400,
                 liquidity: liquidity,
             })
-            const { available } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            expect(available.gt(toWei(10))).to.be.true
-            await expect(clearingHouse.connect(alice).burn(quoteToken.address, available))
+            const { available: aliceQuoteAvailable } = await clearingHouse.getTokenInfo(
+                alice.address,
+                quoteToken.address,
+            )
+            expect(aliceQuoteAvailable.lt(toWei(10))).to.be.true
+            await expect(clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailable))
                 .to.emit(clearingHouse, "Burned")
-                .withArgs(quoteToken.address, available)
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                toWei(0), // available
-                toWei(0), // debt
-                toWei(0), // fee FIXME alice should has fee
-            ])
+                .withArgs(quoteToken.address, aliceQuoteAvailable)
 
-            const profit = available.sub(previousAvailable)
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10).add(profit))
+            const {
+                available: aliceQuoteAvailableAfterBurn,
+                debt: aliceQuoteDebtAfterBurn,
+                owedFee: aliceQuoteFeeAfterBurn,
+            } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+            expect(aliceQuoteAvailableAfterBurn.eq(toWei(0))).to.be.true
+            expect(aliceQuoteDebtAfterBurn.gt(toWei(0))).to.be.true
+            expect(aliceQuoteFeeAfterBurn.eq(toWei(0))).to.be.true
         })
-
-        it("# burn quote 10 when debt = 10, available = 5", () => {})
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
