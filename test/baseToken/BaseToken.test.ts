@@ -30,15 +30,20 @@ describe.only("BaseToken", async () => {
             //
             //  --+------+-----+-----+-----+-----+-----+
             //          base                          now
-            const latestBlockNumber = await ethers.provider.getBlockNumber()
-            const latestBlock = await ethers.provider.getBlock(latestBlockNumber)
-            currentTimestamp = latestBlock.timestamp
+            const latestTimestamp = (await waffle.provider.getBlock("latest")).timestamp
+            currentTimestamp = latestTimestamp
             roundData = [
                 // [roundId, answer, startedAt, updatedAt, answeredInRound]
-                [0, toWei(400, 6), currentTimestamp, currentTimestamp, 0], // round 0
-                [1, toWei(405, 6), currentTimestamp + 15, currentTimestamp + 15, 1], // round 1
-                [2, toWei(410, 6), currentTimestamp + 30, currentTimestamp + 30, 2], // round 2
             ]
+
+            currentTimestamp += 0
+            roundData.push([0, toWei(400, 6), currentTimestamp, currentTimestamp, 0])
+
+            currentTimestamp += 15
+            roundData.push([1, toWei(405, 6), currentTimestamp, currentTimestamp, 1])
+
+            currentTimestamp += 15
+            roundData.push([2, toWei(410, 6), currentTimestamp, currentTimestamp, 2])
 
             mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return roundData[roundData.length - 1]
@@ -48,7 +53,8 @@ describe.only("BaseToken", async () => {
                 return roundData[round.toNumber()]
             })
 
-            await ethers.provider.send("evm_increaseTime", [45])
+            currentTimestamp += 15
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimestamp])
             await ethers.provider.send("evm_mine", [])
         })
 
@@ -68,26 +74,13 @@ describe.only("BaseToken", async () => {
         })
 
         it("given variant price period", async () => {
-            // TODO: what value should currentTime be?
-            // roundData.push(
-            //     [4, toWei(420, 6), currentTimestamp + 30, currentTimestamp + 30, 4], // round 4
-            // )
-            // await ethers.provider.send("evm_increaseTime", [50])
-            // await ethers.provider.send("evm_mine", [])
-            // const price = await baseToken.getIndexTwapPrice(95)
-            // expect(price).to.eq("409736842100000000000")
-            //     const currentTime = await priceFeed.mock_getCurrentTimestamp()
-            //     await chainlinkMock1.mockAddAnswer(
-            //         4,
-            //         toFullDigit(420, CHAINLINK_DECIMAL),
-            //         currentTime.addn(30),
-            //         currentTime.addn(30),
-            //         4,
-            //     )
-            //     await priceFeed.mock_setBlockTimestamp(currentTime.addn(50))
-            //     // twap price should be (400 * 15) + (405 * 15) + (410 * 45) + (420 * 20) / 95 = 409.74
-            //     const price = await priceFeed.getTwapPrice(stringToBytes32("ETH"), 95)
-            //     expect(price).to.eq("409736842100000000000")
+            roundData.push([4, toWei(420, 6), currentTimestamp + 30, currentTimestamp + 30, 4])
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimestamp + 50])
+            await ethers.provider.send("evm_mine", [])
+
+            // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
+            const price = await baseToken.getIndexTwapPrice(95)
+            expect(price).to.eq("409736842000000000000")
         })
 
         // it("latest price update time is earlier than the request, return the latest price", async () => {
