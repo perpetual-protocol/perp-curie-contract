@@ -49,6 +49,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             USDC.address,
             quoteToken.address,
             uniV3Factory.address,
+            3600, // fundingPeriod = 1 hour
         )) as ClearingHouse
 
         // set CH as the minter of all virtual tokens
@@ -118,6 +119,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedUSDC.address,
         mockedVUSD.address,
         mockedUniV3Factory.address,
+        3600,
     )) as ClearingHouse
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
