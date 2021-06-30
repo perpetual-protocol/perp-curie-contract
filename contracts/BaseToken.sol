@@ -1,6 +1,6 @@
 pragma solidity 0.7.6;
 
-import "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 

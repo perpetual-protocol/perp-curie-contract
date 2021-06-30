@@ -89,7 +89,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
         (uint80 round, int256 latestPrice, , uint256 latestTimestamp, ) = _aggregator.latestRoundData();
         finalPrice = uint256(latestPrice);
         if (latestPrice < 0) {
-            requireEnoughHistory(round);
+            _requireEnoughHistory(round);
             (round, finalPrice, latestTimestamp) = _getRoundData(round - 1);
         }
         return (round, finalPrice, latestTimestamp);
@@ -106,14 +106,14 @@ contract ChainlinkPriceFeed is IPriceFeed {
     {
         (uint80 round, int256 latestPrice, , uint256 latestTimestamp, ) = _aggregator.getRoundData(_round);
         while (latestPrice < 0) {
-            requireEnoughHistory(round);
+            _requireEnoughHistory(round);
             round = round - 1;
             (, latestPrice, , latestTimestamp, ) = _aggregator.getRoundData(round);
         }
         return (round, uint256(latestPrice), latestTimestamp);
     }
 
-    function requireEnoughHistory(uint80 _round) internal pure {
+    function _requireEnoughHistory(uint80 _round) private pure {
         require(_round > 0, "Not enough history");
     }
 }

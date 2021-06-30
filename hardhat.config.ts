@@ -40,9 +40,6 @@ const config: HardhatUserConfig = {
             {
                 artifacts: "node_modules/@openzeppelin/contracts/build",
             },
-            {
-                artifacts: "node_modules/@chainlink/contracts/abi/v0.6",
-            },
         ],
     },
 }
