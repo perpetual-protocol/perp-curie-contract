@@ -391,14 +391,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // solhint-disable-next-line not-rely-on-time
         uint256 nowTimestamp = block.timestamp;
-        uint256 nextFundingTime = _nextFundingTimeMap[baseToken];
         // CH_UFTE update funding too early
-        require(nowTimestamp >= nextFundingTime, "CH_UFTE");
+        require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
 
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        (uint160 sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(_poolMap[baseToken]).slot0();
         uint256 sqrtMarkTwapPriceX96 = uint256(getSqrtMarkTwapPrice(baseToken, fundingTwapInterval));
         uint256 markTwapPriceX96 = FullMath.mulDiv(sqrtMarkTwapPriceX96, sqrtMarkTwapPriceX96, FixedPoint96.Q96);
         uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
@@ -414,8 +412,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // update next funding time requirements so we can prevent multiple funding settlement
         // during very short time after network congestion
         uint256 minNextValidFundingTime = nowTimestamp.add(fundingPeriod.div(2));
-        // floor((nextFundingTime + fundingPeriod) / 3600) * 3600
-        uint256 nextFundingTimeOnHourStart = nextFundingTime.add(fundingPeriod).div(1 hours).mul(1 hours);
+        // (floor(nowTimestamp / fundingPeriod) + 1) * fundingPeriod
+        uint256 nextFundingTimeOnHourStart = nowTimestamp.div(fundingPeriod).add(1).mul(fundingPeriod);
         // max(nextFundingTimeOnHourStart, minNextValidFundingTime)
         _nextFundingTimeMap[baseToken] = nextFundingTimeOnHourStart > minNextValidFundingTime
             ? nextFundingTimeOnHourStart
@@ -487,6 +485,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
         return _nextFundingTimeMap[baseToken];
+    }
+
+    function getPremiumFraction(address baseToken, uint256 idx) external view returns (int256) {
+        return _premiumFractionsMap[baseToken][idx];
+    }
+
+    function getPremiumFractionsLength(address baseToken) external view returns (uint256) {
+        return _premiumFractionsMap[baseToken].length;
+    }
+
+    function getSqrtMarkTwapPriceX96(address baseToken, uint256 idx) external view returns (uint256) {
+        return _sqrtMarkTwapPricesX96Map[baseToken][idx];
+    }
+
+    function getSqrtMarkTwapPricesX96Length(address baseToken) external view returns (uint256) {
+        return _sqrtMarkTwapPricesX96Map[baseToken].length;
     }
 
     //
