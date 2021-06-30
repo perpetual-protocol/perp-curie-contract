@@ -12,7 +12,7 @@ describe("BaseToken", async () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
     let mockedAggregator: MockContract
-    let currentTimestamp: number
+    let currentTime: number
     let roundData: any[]
 
     describe("twap", () => {
@@ -31,19 +31,19 @@ describe("BaseToken", async () => {
             //  --+------+-----+-----+-----+-----+-----+
             //          base                          now
             const latestTimestamp = (await waffle.provider.getBlock("latest")).timestamp
-            currentTimestamp = latestTimestamp
+            currentTime = latestTimestamp
             roundData = [
                 // [roundId, answer, startedAt, updatedAt, answeredInRound]
             ]
 
-            currentTimestamp += 0
-            roundData.push([0, toWei(400, 6), currentTimestamp, currentTimestamp, 0])
+            currentTime += 0
+            roundData.push([0, toWei(400, 6), currentTime, currentTime, 0])
 
-            currentTimestamp += 15
-            roundData.push([1, toWei(405, 6), currentTimestamp, currentTimestamp, 1])
+            currentTime += 15
+            roundData.push([1, toWei(405, 6), currentTime, currentTime, 1])
 
-            currentTimestamp += 15
-            roundData.push([2, toWei(410, 6), currentTimestamp, currentTimestamp, 2])
+            currentTime += 15
+            roundData.push([2, toWei(410, 6), currentTime, currentTime, 2])
 
             mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return roundData[roundData.length - 1]
@@ -53,8 +53,8 @@ describe("BaseToken", async () => {
                 return roundData[round.toNumber()]
             })
 
-            currentTimestamp += 15
-            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimestamp])
+            currentTime += 15
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime])
             await ethers.provider.send("evm_mine", [])
         })
 
@@ -74,8 +74,8 @@ describe("BaseToken", async () => {
         })
 
         it("given variant price period", async () => {
-            roundData.push([4, toWei(420, 6), currentTimestamp + 30, currentTimestamp + 30, 4])
-            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimestamp + 50])
+            roundData.push([4, toWei(420, 6), currentTime + 30, currentTime + 30, 4])
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
             await ethers.provider.send("evm_mine", [])
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
@@ -83,47 +83,36 @@ describe("BaseToken", async () => {
             expect(price).to.eq("409736842000000000000")
         })
 
-        // it("latest price update time is earlier than the request, return the latest price", async () => {
-        //     const currentTime = await priceFeed.mock_getCurrentTimestamp()
-        //     await priceFeed.mock_setBlockTimestamp(currentTime.addn(100))
+        it("latest price update time is earlier than the request, return the latest price", async () => {
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 100])
+            await ethers.provider.send("evm_mine", [])
 
-        //     // latest update time is base + 30, but now is base + 145 and asking for (now - 45)
-        //     // should return the latest price directly
-        //     const price = await priceFeed.getTwapPrice(stringToBytes32("ETH"), 45)
-        //     expect(price).to.eq(toFullDigit(410))
-        // })
+            // latest update time is base + 30, but now is base + 145 and asking for (now - 45)
+            // should return the latest price directly
+            const price = await baseToken.getIndexTwapPrice(45)
+            expect(price).to.eq(toWei(410))
+        })
 
-        // it("if current price < 0, ignore the current price", async () => {
-        //     await chainlinkMock1.mockAddAnswer(3, toFullDigit(-10, CHAINLINK_DECIMAL), 250, 250, 3)
-        //     const price = await priceFeed.getTwapPrice(stringToBytes32("ETH"), 45)
-        //     expect(price).to.eq(toFullDigit(405))
-        // })
+        it("if current price < 0, ignore the current price", async () => {
+            roundData.push([3, toWei(-10, 6), 250, 250, 3])
+            const price = await baseToken.getIndexTwapPrice(45)
+            expect(price).to.eq(toWei(405))
+        })
 
-        // it("if there is a negative price in the middle, ignore that price", async () => {
-        //     const currentTime = await priceFeed.mock_getCurrentTimestamp()
-        //     await chainlinkMock1.mockAddAnswer(
-        //         3,
-        //         toFullDigit(-100, CHAINLINK_DECIMAL),
-        //         currentTime.addn(20),
-        //         currentTime.addn(20),
-        //         3,
-        //     )
-        //     await chainlinkMock1.mockAddAnswer(
-        //         4,
-        //         toFullDigit(420, CHAINLINK_DECIMAL),
-        //         currentTime.addn(30),
-        //         currentTime.addn(30),
-        //         4,
-        //     )
-        //     await priceFeed.mock_setBlockTimestamp(currentTime.addn(50))
+        it("if there is a negative price in the middle, ignore that price", async () => {
+            roundData.push([3, toWei(-100, 6), currentTime + 20, currentTime + 20, 3])
+            roundData.push([4, toWei(420, 6), currentTime + 30, currentTime + 30, 4])
+            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
+            await ethers.provider.send("evm_mine", [])
 
-        //     // twap price should be (400 * 15) + (405 * 15) + (410 * 45) + (420 * 20) / 95 = 409.74
-        //     const price = await priceFeed.getTwapPrice(stringToBytes32("ETH"), 95)
-        //     expect(price).to.eq("409736842100000000000")
-        // })
+            // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
+            const price = await baseToken.getIndexTwapPrice(95)
+            expect(price).to.eq("409736842000000000000")
+        })
 
-        // it("force error, interval is zero", async () => {
-        //     await expectRevert(priceFeed.getTwapPrice(stringToBytes32("ETH"), 0), "interval can't be 0")
-        // })
+        it("force error, interval is zero", async () => {
+            // BT_II: invalid interval
+            await expect(baseToken.getIndexTwapPrice(0)).to.be.revertedWith("BT_II")
+        })
     })
 })
