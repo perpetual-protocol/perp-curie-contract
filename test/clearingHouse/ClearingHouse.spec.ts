@@ -177,7 +177,8 @@ describe("ClearingHouse Spec", () => {
 
         it("force error, can't update funding too frequently", async () => {
             await clearingHouse.updateFunding(baseToken.address)
-            await waffle.provider.send("evm_increaseTime", [fundingBufferPeriod - 1])
+            const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
+            await waffle.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + Number(fundingBufferPeriod) - 1])
             await expect(clearingHouse.updateFunding(baseToken.address)).to.be.revertedWith("CH_UFTE")
         })
     })
