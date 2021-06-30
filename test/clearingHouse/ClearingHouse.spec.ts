@@ -88,6 +88,15 @@ describe("ClearingHouse Spec", () => {
             mockedPool = await smockit(pool)
 
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            mockedPool.smocked.slot0.will.return.with([
+                "792281625142643375935439503360", // sqrt(100) * 2^96
+                0,
+                0,
+                0,
+                0,
+                0,
+                false, // unused
+            ])
             mockedPool.smocked.observe.will.return.with([
                 [0, 165600000], // markTwapPrice = 1.0001 ^ ((165600000 - 0) / 3600) = 99.4614384055 ~ 100
                 [0, 0],
@@ -114,9 +123,9 @@ describe("ClearingHouse Spec", () => {
             expect(await clearingHouse.getPremiumFraction(baseToken.address, 0)).eq(
                 "61274636598192578", // (101.4705912784 - 100) / 24 = 0.0612746366
             )
-            expect(await clearingHouse.getSqrtMarkTwapPricesX96Length(baseToken.address)).eq(1)
-            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 0)).eq(
-                "798085975696907572750577398006", // sqrt(1.0001) ^ 46200 = 10.0732612037 (offset by 2^96)
+            expect(await clearingHouse.getSqrtMarkPricesX96Length(baseToken.address)).eq(1)
+            expect(await clearingHouse.getSqrtMarkPriceX96(baseToken.address, 0)).eq(
+                "792281625142643375935439503360", // sqrt(100) * 2^96
             )
         })
 
@@ -137,9 +146,9 @@ describe("ClearingHouse Spec", () => {
             expect(await clearingHouse.getPremiumFraction(baseToken.address, 0)).eq(
                 "-104497189344630680", // (97.4920674557 - 100) / 24 = -0.1044971893
             )
-            expect(await clearingHouse.getSqrtMarkTwapPricesX96Length(baseToken.address)).eq(1)
-            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 0)).eq(
-                "782283596793893533377783603386", // sqrt(1.0001) ^ 45800 = 9.8738071409 (offset by 2^96)
+            expect(await clearingHouse.getSqrtMarkPricesX96Length(baseToken.address)).eq(1)
+            expect(await clearingHouse.getSqrtMarkPriceX96(baseToken.address, 0)).eq(
+                "792281625142643375935439503360", // sqrt(100) * 2^96
             )
         })
 

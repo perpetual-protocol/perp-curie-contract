@@ -63,8 +63,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // because the orderId already contains the baseTokenAddr (@wraecca).
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
-        // key: token address, value: array index of _premiumFractionsMap
-        mapping(address => uint256) premiumFractionsIndex;
+        // key: token address, value: next premium fraction index for settling funding payment
+        mapping(address => uint256) nextPremiumFractionIndexMap;
     }
 
     struct TokenInfo {
@@ -89,7 +89,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     struct FundingPayment {
         uint256 nextFundingTime;
         int256[] premiumFractions;
-        uint160[] sqrtMarkTwapPricesX96;
+        uint160[] sqrtMarkPricesX96;
     }
 
     struct AddLiquidityParams {
@@ -195,12 +195,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
+        // TODO test it
         _updatePremiumFractionsIndex(trader, token);
 
         emit Burned(token, amount);
     }
 
     function swap(SwapParams memory params) external nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
+        // TODO test it
         _updatePremiumFractionsIndex(msg.sender, params.baseToken);
 
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
@@ -229,6 +231,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         }
+
+        return response;
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -243,6 +247,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
 
+        // TODO test it
         _updatePremiumFractionsIndex(trader, token);
         _registerToken(trader, token);
 
@@ -428,7 +433,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // register primitives for funding calculations so we can settle it later
         fundingPayment.premiumFractions.push(premiumFraction);
-        fundingPayment.sqrtMarkTwapPricesX96.push(sqrtMarkTwapPriceX96);
+        fundingPayment.sqrtMarkPricesX96.push(UniswapV3Broker.getSqrtMarkPrice(_poolMap[baseToken]));
 
         // update next funding time requirements so we can prevent multiple funding settlement
         // during very short time after network congestion
@@ -492,11 +497,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             ];
     }
 
-    function getSqrtMarketPrice(address baseToken) public view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], 0);
+    function getSqrtMarkPrice(address baseToken) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkPrice(_poolMap[baseToken]);
     }
 
-    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) public view returns (uint160) {
+    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) external view returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], twapInterval);
     }
 
@@ -512,12 +517,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingPaymentMap[baseToken].premiumFractions.length;
     }
 
-    function getSqrtMarkTwapPriceX96(address baseToken, uint256 idx) external view returns (uint160) {
-        return _fundingPaymentMap[baseToken].sqrtMarkTwapPricesX96[idx];
+    function getSqrtMarkPriceX96(address baseToken, uint256 idx) external view returns (uint160) {
+        return _fundingPaymentMap[baseToken].sqrtMarkPricesX96[idx];
     }
 
-    function getSqrtMarkTwapPricesX96Length(address baseToken) external view returns (uint256) {
-        return _fundingPaymentMap[baseToken].sqrtMarkTwapPricesX96.length;
+    function getSqrtMarkPricesX96Length(address baseToken) external view returns (uint256) {
+        return _fundingPaymentMap[baseToken].sqrtMarkPricesX96.length;
     }
 
     function getPendingFundingPaymentForMaker(address maker, address baseToken) public view returns (int256) {
@@ -528,18 +533,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             FundingPayment memory fundingPayment = _fundingPaymentMap[baseToken];
             uint256 indexEnd = fundingPayment.premiumFractions.length;
             bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
-            for (uint256 i = account.premiumFractionsIndex[baseToken]; i < indexEnd; i++) {
-                uint160 sqrtMarkTwapPricesX96 = fundingPayment.sqrtMarkTwapPricesX96[i];
+            for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
+                uint160 sqrtMarkPricesX96 = fundingPayment.sqrtMarkPricesX96[i];
                 for (uint256 j = 0; j < orderIds.length; i++) {
                     OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[j]];
                     uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-                    uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
-                    if (sqrtMarkTwapPricesX96 <= sqrtPriceAtUpperTick) {
+                    // TODO <= or < ?
+                    if (sqrtMarkPricesX96 <= sqrtPriceAtUpperTick) {
+                        uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                         vBaseAmount = vBaseAmount.add(
-                            (sqrtMarkTwapPricesX96 >= sqrtPriceAtLowerTick)
+                            (sqrtMarkPricesX96 >= sqrtPriceAtLowerTick)
                                 ? UniswapV3Broker.getAmount0ForLiquidity(
                                     sqrtPriceAtLowerTick,
-                                    sqrtMarkTwapPricesX96,
+                                    sqrtMarkPricesX96,
                                     order.liquidity
                                 )
                                 : UniswapV3Broker.getAmount0ForLiquidity(
@@ -550,6 +556,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                         );
                     }
                 }
+
+                // TODO must include fee
+
                 int256 posSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
                 fundingPaymentAmount = fundingPaymentAmount.add(fundingPayment.premiumFractions[i].mul(posSize));
             }
@@ -580,7 +589,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function _updatePremiumFractionsIndex(address trader, address token) private {
         if (token != quoteToken) {
-            _accountMap[trader].premiumFractionsIndex[token] = _fundingPaymentMap[token].premiumFractions.length;
+            _accountMap[trader].nextPremiumFractionIndexMap[token] = _fundingPaymentMap[token].premiumFractions.length;
         }
     }
 
