@@ -86,6 +86,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         mapping(bytes32 => OpenOrder) openOrderMap;
     }
 
+    struct FundingPayment {
+        uint256 nextFundingTime;
+        int256[] premiumFractions;
+        uint160[] sqrtMarkTwapPricesX96;
+    }
+
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -133,11 +139,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     mapping(address => Account) private _accountMap;
 
     uint256 public immutable fundingPeriod;
-
-    mapping(address => uint256) private _nextFundingTimeMap;
-    mapping(address => int256[]) private _premiumFractionsMap;
-    mapping(address => uint160[]) private _sqrtMarkTwapPricesX96Map;
-    mapping(address => uint160[]) private _sqrtMarkPricesX96Map;
+    // key: base token
+    mapping(address => FundingPayment) private _fundingPaymentMap;
 
     constructor(
         address collateralTokenArg,
@@ -407,13 +410,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // solhint-disable-next-line not-rely-on-time
         uint256 nowTimestamp = block.timestamp;
+        FundingPayment storage fundingPayment = _fundingPaymentMap[baseToken];
         // CH_UFTE update funding too early
-        require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
+        require(nowTimestamp >= fundingPayment.nextFundingTime, "CH_UFTE");
 
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPrice(baseToken, fundingPeriod);
+        uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], fundingPeriod);
         uint256 markTwapPriceX96 =
             FullMath.mulDiv(uint160(sqrtMarkTwapPriceX96), uint160(sqrtMarkTwapPriceX96), FixedPoint96.Q96);
         uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
@@ -423,9 +427,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         int256 premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
         // register primitives for funding calculations so we can settle it later
-        _premiumFractionsMap[baseToken].push(premiumFraction);
-        _sqrtMarkTwapPricesX96Map[baseToken].push(sqrtMarkTwapPriceX96);
-        _sqrtMarkPricesX96Map[baseToken].push(getSqrtMarketPrice(baseToken));
+        fundingPayment.premiumFractions.push(premiumFraction);
+        fundingPayment.sqrtMarkTwapPricesX96.push(sqrtMarkTwapPriceX96);
 
         // update next funding time requirements so we can prevent multiple funding settlement
         // during very short time after network congestion
@@ -433,7 +436,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // (floor(nowTimestamp / fundingPeriod) + 1) * fundingPeriod
         uint256 nextFundingTimeOnHourStart = nowTimestamp.div(fundingPeriod).add(1).mul(fundingPeriod);
         // max(nextFundingTimeOnHourStart, minNextValidFundingTime)
-        _nextFundingTimeMap[baseToken] = nextFundingTimeOnHourStart > minNextValidFundingTime
+        fundingPayment.nextFundingTime = nextFundingTimeOnHourStart > minNextValidFundingTime
             ? nextFundingTimeOnHourStart
             : minNextValidFundingTime;
 
@@ -493,49 +496,50 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], 0);
     }
 
-    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) external view returns (uint160) {
+    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) public view returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], twapInterval);
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
-        return _nextFundingTimeMap[baseToken];
+        return _fundingPaymentMap[baseToken].nextFundingTime;
     }
 
     function getPremiumFraction(address baseToken, uint256 idx) external view returns (int256) {
-        return _premiumFractionsMap[baseToken][idx];
+        return _fundingPaymentMap[baseToken].premiumFractions[idx];
     }
 
     function getPremiumFractionsLength(address baseToken) external view returns (uint256) {
-        return _premiumFractionsMap[baseToken].length;
+        return _fundingPaymentMap[baseToken].premiumFractions.length;
     }
 
     function getSqrtMarkTwapPriceX96(address baseToken, uint256 idx) external view returns (uint160) {
-        return _sqrtMarkTwapPricesX96Map[baseToken][idx];
+        return _fundingPaymentMap[baseToken].sqrtMarkTwapPricesX96[idx];
     }
 
     function getSqrtMarkTwapPricesX96Length(address baseToken) external view returns (uint256) {
-        return _sqrtMarkTwapPricesX96Map[baseToken].length;
+        return _fundingPaymentMap[baseToken].sqrtMarkTwapPricesX96.length;
     }
 
     function getPendingFundingPaymentForMaker(address maker, address baseToken) public view returns (int256) {
         Account storage account = _accountMap[maker];
         uint256 vBaseAmount;
-        int256 fundingPayment;
+        int256 fundingPaymentAmount;
         {
-            uint256 indexEnd = _premiumFractionsMap[baseToken].length;
+            FundingPayment memory fundingPayment = _fundingPaymentMap[baseToken];
+            uint256 indexEnd = fundingPayment.premiumFractions.length;
             bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
             for (uint256 i = account.premiumFractionsIndex[baseToken]; i < indexEnd; i++) {
-                uint160 sqrtMarketPriceX96 = _sqrtMarkPricesX96Map[baseToken][i];
+                uint160 sqrtMarkTwapPricesX96 = fundingPayment.sqrtMarkTwapPricesX96[i];
                 for (uint256 j = 0; j < orderIds.length; i++) {
                     OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[j]];
                     uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
                     uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
-                    if (sqrtMarketPriceX96 <= sqrtPriceAtUpperTick) {
+                    if (sqrtMarkTwapPricesX96 <= sqrtPriceAtUpperTick) {
                         vBaseAmount = vBaseAmount.add(
-                            (sqrtMarketPriceX96 >= sqrtPriceAtLowerTick)
+                            (sqrtMarkTwapPricesX96 >= sqrtPriceAtLowerTick)
                                 ? UniswapV3Broker.getAmount0ForLiquidity(
                                     sqrtPriceAtLowerTick,
-                                    sqrtMarketPriceX96,
+                                    sqrtMarkTwapPricesX96,
                                     order.liquidity
                                 )
                                 : UniswapV3Broker.getAmount0ForLiquidity(
@@ -547,10 +551,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     }
                 }
                 int256 posSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
-                fundingPayment = fundingPayment.add(_premiumFractionsMap[baseToken][i].mul(posSize));
+                fundingPaymentAmount = fundingPaymentAmount.add(fundingPayment.premiumFractions[i].mul(posSize));
             }
         }
-        return fundingPayment;
+        return fundingPaymentAmount;
     }
 
     //
@@ -576,7 +580,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function _updatePremiumFractionsIndex(address trader, address token) private {
         if (token != quoteToken) {
-            _accountMap[trader].premiumFractionsIndex[token] = _premiumFractionsMap[token].length;
+            _accountMap[trader].premiumFractionsIndex[token] = _fundingPaymentMap[token].premiumFractions.length;
         }
     }
 

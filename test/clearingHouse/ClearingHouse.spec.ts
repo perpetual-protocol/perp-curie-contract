@@ -87,10 +87,7 @@ describe("ClearingHouse Spec", () => {
             const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
             mockedPool = await smockit(pool)
 
-            uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
-                return mockedPool.address
-            })
-
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.observe.will.return.with([
                 [0, 165600000], // markTwapPrice = 1.0001 ^ ((165600000 - 0) / 3600) = 99.4614384055 ~ 100
                 [0, 0],
