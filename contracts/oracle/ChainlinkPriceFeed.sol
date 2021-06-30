@@ -20,15 +20,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
         return _aggregator.decimals();
     }
 
-    function getPrice() external view override returns (uint256) {
-        (, uint256 latestPrice, ) = _getLatestRoundData();
-        return latestPrice;
-    }
-
-    function getTwapPrice(uint256 _interval) external view override returns (uint256) {
-        // BT_II: invalid interval
-        require(_interval != 0, "BT_II");
-
+    function getPrice(uint256 interval) external view override returns (uint256) {
         // 3 different timestamps, `previous`, `current`, `target`
         // `base` = now - _interval
         // `current` = current round timestamp from aggregator
@@ -44,7 +36,11 @@ contract ChainlinkPriceFeed is IPriceFeed {
         //         base           current previous now
 
         (uint80 round, uint256 latestPrice, uint256 latestTimestamp) = _getLatestRoundData();
-        uint256 baseTimestamp = block.timestamp.sub(_interval);
+        if (interval == 0) {
+            return latestPrice;
+        }
+
+        uint256 baseTimestamp = block.timestamp.sub(interval);
         // if latest updated timestamp is earlier than target timestamp, return the latest price.
         if (latestTimestamp < baseTimestamp || round == 0) {
             return latestPrice;
@@ -66,7 +62,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
             // check if current round timestamp is earlier than target timestamp
             if (currentTimestamp <= baseTimestamp) {
                 // weighted time period will be (target timestamp - previous timestamp). For example,
-                // now is 1000, _interval is 100, then target timestamp is 900. If timestamp of current round is 970,
+                // now is 1000, interval is 100, then target timestamp is 900. If timestamp of current round is 970,
                 // and timestamp of NEXT round is 880, then the weighted time period will be (970 - 900) = 70,
                 // instead of (970 - 880)
                 weightedPrice = weightedPrice.add(currentPrice.mul(previousTimestamp.sub(baseTimestamp)));
@@ -78,7 +74,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
             cumulativeTime = cumulativeTime.add(timeFraction);
             previousTimestamp = currentTimestamp;
         }
-        return weightedPrice.div(_interval);
+        return weightedPrice.div(interval);
     }
 
     function _getLatestRoundData()
