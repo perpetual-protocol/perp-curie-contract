@@ -1,13 +1,12 @@
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
-
-import { BigNumber } from "ethers"
 import { defaultAbiCoder } from "@ethersproject/abi"
-import { encodePriceSqrt } from "../shared/utilities"
 import { expect } from "chai"
+import { BigNumber } from "ethers"
 import { parseEther } from "ethers/lib/utils"
-import { toWei } from "../helper/number"
 import { waffle } from "hardhat"
+import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { toWei } from "../helper/number"
+import { encodePriceSqrt } from "../shared/utilities"
+import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -61,7 +60,7 @@ describe("ClearingHouse", () => {
     })
 
     // simulation results:
-    //   https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
+    // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity", () => {
         // TODO remove this unnecessary desc
         describe("base0, quote1", () => {
@@ -613,7 +612,7 @@ describe("ClearingHouse", () => {
                 ])
 
                 // verify CH balance changes
-                // TODO somehow Alice received 1 wei less than she deposited, it could be a problem for closing positions
+                // TODO somehow Alice receives 1 wei less than she deposited, it could be a problem for closing positions
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
                 expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
             })
@@ -865,7 +864,7 @@ describe("ClearingHouse", () => {
         })
 
         describe("remove zero liquidity, expect to collect fee", () => {
-            it("no swap, no fee, the amounts are not changed", async () => {
+            it("no swap no fee", async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
 
                 const baseBefore = await baseToken.balanceOf(clearingHouse.address)
@@ -921,7 +920,7 @@ describe("ClearingHouse", () => {
             })
 
             describe("one maker; current price is in maker's range", () => {
-                it("received 0.000004125357782999 base as fee, if a trader swaps 0.0004125357783 base to 0.06151334176 quote in maker's range", async () => {
+                it("receives 0.000004125357782999 base as fee, if a trader swaps 0.0004125357783 base to 0.06151334176 quote", async () => {
                     await pool.initialize(encodePriceSqrt(151.3733069, 1))
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -1021,7 +1020,7 @@ describe("ClearingHouse", () => {
                     )
                 })
 
-                it("received 0.001135501475 quote as fee, if a trader swaps 0.1135501475 quote to 0.0007507052579 base in maker's range", async () => {
+                it("receives 0.001135501475 quote as fee, if a trader swaps 0.1135501475 quote to 0.0007507052579 base", async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -1115,7 +1114,7 @@ describe("ClearingHouse", () => {
                     )
                 })
 
-                it("received 0.001135501475 quote and 0.000007582881392 base as fee, if a trader swaps 0.1135501475 quote -> 0.0007507052579 base and 0.0007582881392 base -> 0.112414646 quote happened in maker's range", async () => {
+                it("receives 0.000007582881393 base and 0.001135501475 quote as fee, if a trader swaps 0.1135501475 quote -> 0.0007507052579 base and 0.0007582881392 base -> 0.112414646 quote", async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -1172,7 +1171,7 @@ describe("ClearingHouse", () => {
                         liquidity: "0",
                     }
 
-                    // expect 1% of base = 0.000007582881392
+                    // expect 1% of base = 0.000007582881393
                     // expect 1% of quote = 0.001135501475
                     // there's one wei of imprecision, thus expecting 0.000007582881391999 & 0.001135501474999999
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
@@ -1233,8 +1232,9 @@ describe("ClearingHouse", () => {
             })
 
             describe("multi makers", () => {
-                describe("current price is in makers' range", () => {
-                    it.only("received quote and base, if swap quote -> base and base -> quote happened in makers' range", async () => {
+                // expect to have more tests
+                describe("current price is in makers' range:", () => {
+                    it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
                         await pool.initialize(encodePriceSqrt(148.3760629, 1))
                         const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                         const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -1300,7 +1300,7 @@ describe("ClearingHouse", () => {
                         }
                         await clearingHouse.connect(bob).swap(swapParams2)
 
-                        // alice remove liq 0, alice should collect fee
+                        // alice & carol both remove 0 liquidity; should both get fee
                         const removeLiquidityParams = {
                             baseToken: baseToken.address,
                             lowerTick,
@@ -1308,7 +1308,7 @@ describe("ClearingHouse", () => {
                             liquidity: "0",
                         }
 
-                        // expect 75% of 1% of base = 0.000007582881392 * 0.75 = 0.000005687161044
+                        // expect 75% of 1% of base = 0.000007582881393 * 0.75 = 0.000005687161045
                         // expect 75% of 1% of quote = 0.001135501475 * 0.75 = 0.0008516261063
                         await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
                             .to.emit(clearingHouse, "LiquidityChanged")
@@ -1325,7 +1325,7 @@ describe("ClearingHouse", () => {
                                 parseEther("0.000851626106249999"),
                             )
 
-                        // expect 25% of 1% of base = 0.000007582881392 * 0.25 = 0.000001895720348
+                        // expect 25% of 1% of base = 0.000007582881393 * 0.25 = 0.000001895720348
                         // expect 25% of 1% of quote = 0.001135501475 * 0.25 = 0.0002838753688
                         await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParams))
                             .to.emit(clearingHouse, "LiquidityChanged")
@@ -1341,42 +1341,6 @@ describe("ClearingHouse", () => {
                                 parseEther("0.000001895720348249"),
                                 parseEther("0.000283875368749999"),
                             )
-
-                        // verify account states
-                        console.log("alice, base, available")
-                        console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[0].toString())
-                        console.log("alice, base, debt")
-                        console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[1].toString())
-                        console.log("alice, quote, available")
-                        console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[0].toString())
-                        console.log("alice, quote, debt")
-                        console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[1].toString())
-
-                        console.log("----------------------")
-                        console.log("carol, base, available")
-                        console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[0].toString())
-                        console.log("carol, base, debt")
-                        console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[1].toString())
-                        console.log("carol, quote, available")
-                        console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[0].toString())
-                        console.log("carol, quote, debt")
-                        console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[1].toString())
-                        console.log("feeGrowthInsideLastBase")
-                        console.log(
-                            (
-                                await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
-                            )[3].toString(),
-                        )
-                        console.log("feeGrowthInsideLastQuote")
-                        console.log(
-                            (
-                                await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
-                            )[4].toString(),
-                        )
-                        console.log("base diff")
-                        console.log(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address)).toString())
-                        console.log("quote diff")
-                        console.log(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address)).toString())
 
                         // 100 - (0.000816820841 * 3) + 0.000005687161044749 = 99.9975552246
                         expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
@@ -1406,7 +1370,7 @@ describe("ClearingHouse", () => {
                         //    645080207126300583967392433349287
                         //  96597782389344016525663130594604468
                         //                  1000000000000000000
-                        // add the decimal point to prevent overflow, according to the following 10^18 comparison
+                        // add the decimal point to prevent overflow, according to the above 10^18 comparison
                         const feeGrowthInsideLastBase = parseEther("645080207126300.583967392433349287")
                         const feeGrowthInsideLastQuote = parseEther("96597782389344016.525663130594604468")
                         expect(
@@ -1445,14 +1409,433 @@ describe("ClearingHouse", () => {
                             parseEther("0.000769204069628756"),
                         )
                     })
+
+                    it("alice receives all fee since carol removes her liquidity before taker's swap", async () => {
+                        await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                        const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                        const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                        const lowerTick = "50000"
+                        const upperTick = "50200"
+                        const base = 0.000816820841
+
+                        // add base liquidity
+                        // 0.000816820841 * 3 = 0.002450462523
+                        const addLiquidityParamsAlice = {
+                            baseToken: baseToken.address,
+                            lowerTick, // 148.3760629
+                            upperTick, // 151.3733069
+                            base: parseEther((base * 3).toString()),
+                            quote: "0",
+                        }
+                        await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
+
+                        // add base liquidity
+                        const addLiquidityParamsCarol = {
+                            baseToken: baseToken.address,
+                            lowerTick, // 148.3760629
+                            upperTick, // 151.3733069
+                            base: parseEther(base.toString()),
+                            quote: "0",
+                        }
+                        await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
+
+                        // liquidity ~= 3
+                        const liquidityAlice = (
+                            await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                        ).liquidity
+
+                        // liquidity = 999999999994411796 ~= 10^18
+                        const liquidityCarol = (
+                            await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                        ).liquidity
+
+                        // carol removes all liquidity
+                        const removeLiquidityParamsCarol = {
+                            baseToken: baseToken.address,
+                            lowerTick,
+                            upperTick,
+                            liquidity: liquidityCarol,
+                        }
+
+                        await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
+                            .to.emit(clearingHouse, "LiquidityChanged")
+                            .withArgs(
+                                carol.address,
+                                baseToken.address,
+                                quoteToken.address,
+                                Number(lowerTick),
+                                Number(upperTick),
+                                // 1 wei of imprecision
+                                parseEther((-0.000816820840999999).toString()),
+                                "0",
+                                // (-liquidityCarol).toString() will cause underflow;
+                                // can also use: "-" + liquidityCarol.toString()
+                                "-999999999994411796",
+                                "0",
+                                "0",
+                            )
+
+                        // bob swap
+                        // quote: 0.112414646 / 0.99 = 0.1135501475
+                        // to base: 0.0007553097871
+                        const swapParams1 = {
+                            baseToken: baseToken.address,
+                            quoteToken: quoteToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: true,
+                            amount: parseEther("0.1135501475"),
+                            sqrtPriceLimitX96: "0",
+                        }
+                        await clearingHouse.connect(bob).swap(swapParams1)
+
+                        // Note that Bob does not use all base he gets to swap into quote here
+                        // base: 0.0007507052579 (instead of 0.0007558893279) / 0.99 = 0.0007582881393
+                        // to quote: ~= 0.1117314313
+                        const swapParams2 = {
+                            baseToken: baseToken.address,
+                            quoteToken: quoteToken.address,
+                            isBaseToQuote: true,
+                            isExactInput: true,
+                            amount: parseEther("0.0007582881393"),
+                            sqrtPriceLimitX96: "0",
+                        }
+                        await clearingHouse.connect(bob).swap(swapParams2)
+
+                        const removeLiquidityParamsAlice = {
+                            baseToken: baseToken.address,
+                            lowerTick,
+                            upperTick,
+                            liquidity: 0,
+                        }
+
+                        // expect 1% of base = 0.000007582881393
+                        // expect 1% of quote = 0.001135501475
+                        await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParamsAlice))
+                            .to.emit(clearingHouse, "LiquidityChanged")
+                            .withArgs(
+                                alice.address,
+                                baseToken.address,
+                                quoteToken.address,
+                                Number(lowerTick),
+                                Number(upperTick),
+                                "0",
+                                "0",
+                                "0",
+                                parseEther("0.000007582881392999"),
+                                parseEther("0.001135501474999999"),
+                            )
+
+                        // 100 - 0.002450462523 + 0.000007582881393 = 99.9975571204
+                        expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                            parseEther("99.997557120358392999"), // available
+                            parseEther("100"), // debt
+                        ])
+                        // 10000 + 0.001135501474999999 = 10000.001135501474999999
+                        expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                            parseEther("10000.001135501474999999"), // available
+                            parseEther("10000"), // debt
+                        ])
+
+                        // 1 wei of imprecision
+                        expect(await clearingHouse.getTokenInfo(carol.address, baseToken.address)).to.deep.eq([
+                            parseEther("99.999999999999999999"), // available
+                            parseEther("100"), // debt
+                        ])
+                        expect(await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).to.deep.eq([
+                            parseEther("10000"), // available
+                            parseEther("10000"), // debt
+                        ])
+                        // FIXME: skipping Bob's balances as currently the logic of swap() does not include balance updates
+
+                        // feeGrowthInsideLastBase: (0.000007582881393 / 3) * 2 ^ 128 = 8.601069428E32
+                        // feeGrowthInsideLastQuote: (0.001135501474999999 / 3) * 2 ^ 128 = 1.287970432E35
+                        //    860106942835067445289856577799050
+                        // 128797043185792022034217507459472624
+                        //                  1000000000000000000
+                        // add the decimal point to prevent overflow, according to the above 10^18 comparison
+                        const feeGrowthInsideLastBase = parseEther("860106942835067.445289856577799050")
+                        const feeGrowthInsideLastQuote = parseEther("128797043185792022.034217507459472624")
+                        expect(
+                            await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
+                        ).to.deep.eq([
+                            liquidityAlice,
+                            Number(lowerTick), // lowerTick
+                            Number(upperTick), // upperTick
+                            feeGrowthInsideLastBase,
+                            feeGrowthInsideLastQuote,
+                        ])
+                        expect(
+                            await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick),
+                        ).to.deep.eq([
+                            parseEther("0"),
+                            0, // lowerTick
+                            0, // upperTick
+                            parseEther("0"),
+                            parseEther("0"),
+                        ])
+
+                        // verify CH balance changes
+                        // base diff:
+                        // 0.002450462523 (alice addLiquidity)
+                        // - 0.0007553097871 (bob gets(from swap); note the difference)
+                        // + 0.0007582881393 (bob swap) - 0.000007582881393 (alice removeLiquidity)
+                        // = 0.002445857994
+                        expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                            parseEther("0.002445857993579665"),
+                        )
+                        // quote diff:
+                        // 0.1135501475 (bob swap) - 0.001135501475 (alice removeLiquidity)
+                        // - 0.1117314313 (bob gets (from swap); note the difference)
+                        // = 0.000683214725
+                        expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
+                            parseEther("0.00068321472030382"),
+                        )
+                    })
                 })
 
-                it("cannot receive tx fee after removed liquidity", async () => {})
-            })
+                it("out of maker's range; alice receives more fee as the price goes beyond carol's range'", async () => {
+                    await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                    const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                    const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
-            describe("out of maker's range", () => {
-                it("received nothing, if a trader swap 1000 quote to base in my range", async () => {})
+                    const lowerTick = "50000"
+                    const middleTick = "50200"
+                    const upperTick = "50400"
+                    const baseIn50000And50200 = 0.000816820841
+                    const baseIn50200And50400 = 0.0008086937422
+
+                    // add base
+                    // 0.000816820841 + 0.0008086937422 = 0.001625514583
+                    const addLiquidityParamsAlice = {
+                        baseToken: baseToken.address,
+                        lowerTick: lowerTick, // 148.3760629
+                        upperTick: upperTick, // 154.4310961
+                        base: parseEther((baseIn50000And50200 + baseIn50200And50400).toString()),
+                        quote: "0",
+                    }
+                    await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
+
+                    // add base
+                    const addLiquidityParamsCarol = {
+                        baseToken: baseToken.address,
+                        lowerTick: lowerTick, // 148.3760629
+                        upperTick: middleTick, // 151.3733069
+                        base: parseEther(baseIn50000And50200.toString()),
+                        quote: "0",
+                    }
+                    await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
+
+                    // liquidity ~= 1
+                    const liquidityAlice = (
+                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                    ).liquidity
+
+                    // liquidity ~= 1
+                    const liquidityCarol = (
+                        await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
+                    ).liquidity
+
+                    // bob swap
+                    // quote: (0.244829292 + 0.09891589745) / 0.99 = 0.3437451895 / 0.99 = 0.3472173631
+                    // to base: 0.001633641682 + 0.0006482449586 = 0.002281886641
+                    const swapParams1 = {
+                        baseToken: baseToken.address,
+                        quoteToken: quoteToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: true,
+                        amount: parseEther("0.3472173631"),
+                        sqrtPriceLimitX96: "0",
+                    }
+                    await clearingHouse.connect(bob).swap(swapParams1)
+
+                    // To achieve the same price after two swaps, Bob is using more base than he gets from the previous swap
+                    // base: 0.002281886641 / 0.99 = 0.002304936001
+                    // to quote: 0.3437451895
+                    const swapParams2 = {
+                        baseToken: baseToken.address,
+                        quoteToken: quoteToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        amount: parseEther("0.002304936001"),
+                        sqrtPriceLimitX96: "0",
+                    }
+                    await clearingHouse.connect(bob).swap(swapParams2)
+
+                    // alice  remove 0 liquidity; should get fee
+                    const removeLiquidityParamsAlice = {
+                        baseToken: baseToken.address,
+                        lowerTick: lowerTick,
+                        upperTick: upperTick,
+                        liquidity: "0",
+                    }
+
+                    // expect 50% of 1% of base in range (50000, 50200) = 0.001633641682 / 0.99 * 0.5 * 0.01 = 0.000008250715566
+                    // expect 100% of 1% of base in range (50200, 50400) = 0.0006482449586 / 0.99 * 0.01 = 0.000006547928875
+                    // base sum: 0.000008250715566 + 0.000006547928875 = 0.00001479864444
+                    // expect 50% of 1% of quote in range (50000, 50200) = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
+                    // expect 100% of 1% of quote in range (50200, 50400) = 0.09891589745 / 0.99 * 0.01 = 0.0009991504793
+                    // quote sum: 0.001236511576 + 0.0009991504793 = 0.002235662055
+                    await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParamsAlice))
+                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .withArgs(
+                            alice.address,
+                            baseToken.address,
+                            quoteToken.address,
+                            Number(lowerTick),
+                            Number(upperTick),
+                            "0",
+                            "0",
+                            "0",
+                            parseEther("0.000014798644443168"),
+                            parseEther("0.002235662055384689"),
+                        )
+
+                    // carol remove 0 liquidity; should get fee
+                    const removeLiquidityParamsCarol = {
+                        baseToken: baseToken.address,
+                        lowerTick: lowerTick,
+                        upperTick: middleTick,
+                        liquidity: "0",
+                    }
+
+                    // expect 50% of 1% of base in range (50000, 50200) = 0.001633641682 / 0.99 * 0.5 * 0.01 = 0.000008250715566
+                    // expect 50% of 1% of quote in range (50000, 50200) = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
+                    await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
+                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            quoteToken.address,
+                            Number(lowerTick),
+                            Number(middleTick),
+                            "0",
+                            "0",
+                            "0",
+                            parseEther("0.000008250715565656"),
+                            parseEther("0.001236511575615311"),
+                        )
+
+                    // verify account states
+                    // 100 - 0.001625514583 + 0.00001479864444 = 99.9983892841
+                    expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                        parseEther("99.998389284061243168"), // available
+                        parseEther("100"), // debt
+                    ])
+                    // 10000 + 0.002235662055 = 10000.0022356621
+                    expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                        parseEther("10000.002235662055384689"), // available
+                        parseEther("10000"), // debt
+                    ])
+
+                    // 100 - 0.000816820841 + 0.000008250715566 = 99.9991914299
+                    expect(await clearingHouse.getTokenInfo(carol.address, baseToken.address)).to.deep.eq([
+                        parseEther("99.999191429874565656"), // available
+                        parseEther("100"), // debt
+                    ])
+                    // 10000 + 0.001236511576 = 10000.0012365116
+                    expect(await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).to.deep.eq([
+                        parseEther("10000.001236511575615311"), // available
+                        parseEther("10000"), // debt
+                    ])
+                    // FIXME: skipping Bob's balances as currently the logic of swap() does not include balance updates
+
+                    // alice's range: 50000 - 50400
+                    // to get feeGrowthInsideLastBase:
+                    // 50000 - 50200: 0.001633641682 / 0.99 * 0.01 / 2 = 0.000008250715566
+                    // 50200 - 50400: 0.0006482449586 / 0.99 * 0.01 = 0.000006547928875
+                    // 0.000008250715566 + 0.000006547928875 = 0.00001479864444
+                    // = all fee alice gets, as alice's liquidity = 1, fits the definition of feeGrowthInside...
+                    // feeGrowthInsideLastBase: 0.00001479864444 * 2 ^ 128 = 5.035717757E33
+                    // feeGrowthInsideLastQuote: 0.002235662055 * 2 ^ 128 = 7.607563757E35
+                    //   5035717758230611089140033642599728
+                    // 760756375824692728591374008493999483
+                    //                  1000000000000000000
+                    // add the decimal point to prevent overflow, according to the above 10^18 comparison
+                    expect(
+                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
+                    ).to.deep.eq([
+                        liquidityAlice,
+                        Number(lowerTick), // lowerTick
+                        Number(upperTick), // upperTick
+                        parseEther("5035717758230611.089140033642599728"),
+                        parseEther("760756375824692728.591374008493999483"),
+                    ])
+
+                    // carol's range: 50000 - 50200
+                    // feeGrowthInsideLastBase: 0.000008250715566 * 2 ^ 128 = 2.807573022E33
+                    // feeGrowthInsideLastQuote: 0.001236511576 * 2 ^ 128 = 4.207630858E35
+                    //   2807573021488742689904099117881306
+                    // 420763085677868466632071754987713111
+                    //                  1000000000000000000
+                    // add the decimal point to prevent overflow, according to the above 10^18 comparison
+                    expect(
+                        await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick),
+                    ).to.deep.eq([
+                        liquidityCarol,
+                        Number(lowerTick), // lowerTick
+                        Number(middleTick), // upperTick
+                        parseEther("2807573021488742.689904099117881306"),
+                        parseEther("420763085677868466.632071754987713111"),
+                    ])
+
+                    // verify CH balance changes
+                    // base diff:
+                    // 0.001625514583 (alice addLiquidity) + 0.000816820841 (carol addLiquidity)
+                    // - 0.002281886641 (bob gets (from swap); note the difference)
+                    // + 0.002304936001 (bob swap) - (0.000008250715566 * 2 + 0.000006547928875) (alice & carol removeLiquidity)
+                    // = 0.002442335424
+                    expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                        parseEther("0.002442335424200003"),
+                    )
+                    // quote diff:
+                    // 0.3472173631 (bob swap) - (0.001236511576 * 2 + 0.0009991504793) (alice & carol removeLiquidity)
+                    // - 0.3437451895 (bob gets (from swap); note the difference)
+                    // = -3.13E-11 (extremely small, negligible)
+                    expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
+                        parseEther("0.000000000000000003"),
+                    )
+                })
             })
         })
     })
 })
+
+// // === useful console.log for verifying stats ===
+// console.log("alice stats:")
+// console.log("base, available")
+// console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[0].toString())
+// console.log("base, debt")
+// console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[1].toString())
+// console.log("quote, available")
+// console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[0].toString())
+// console.log("quote, debt")
+// console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[1].toString())
+
+// console.log("----------------------")
+// console.log("carol stats:")
+// console.log("base, available")
+// console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[0].toString())
+// console.log("base, debt")
+// console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[1].toString())
+// console.log("quote, available")
+// console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[0].toString())
+// console.log("quote, debt")
+// console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[1].toString())
+
+// console.log("----------------------")
+// console.log("feeGrowthInsideLastBase carol 50000 - 50200")
+// console.log((await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[3].toString())
+// console.log("feeGrowthInsideLastQuote carol 50000 - 50200")
+// console.log((await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[4].toString())
+// console.log("feeGrowthInsideLastBase alice 50000 - 50400")
+// console.log((await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[3].toString())
+// console.log("feeGrowthInsideLastQuote alice 50000 - 50400")
+// console.log((await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[4].toString())
+
+// console.log("----------------------")
+// console.log("base diff")
+// console.log(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address)).toString())
+// console.log("quote diff")
+// console.log(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address)).toString())
+// // === useful console.log for verifying stats ===
