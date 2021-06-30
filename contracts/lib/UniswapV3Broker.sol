@@ -35,8 +35,8 @@ library UniswapV3Broker {
         uint256 base;
         uint256 quote;
         uint128 liquidity;
-        uint256 feeGrowthInsideLastBase;
-        uint256 feeGrowthInsideLastQuote;
+        uint256 feeGrowthInsideBaseX128;
+        uint256 feeGrowthInsideQuoteX128;
     }
 
     struct RemoveLiquidityParams {
@@ -49,8 +49,8 @@ library UniswapV3Broker {
     struct RemoveLiquidityResponse {
         uint256 base; // amount of base token received from burning the liquidity (excl. fee)
         uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
-        uint256 feeGrowthInsideLastBase;
-        uint256 feeGrowthInsideLastQuote;
+        uint256 feeGrowthInsideBaseX128;
+        uint256 feeGrowthInsideQuoteX128;
     }
 
     struct SwapParams {
@@ -107,13 +107,13 @@ library UniswapV3Broker {
             if (isBase0Quote1) {
                 response.base = addedAmount0;
                 response.quote = addedAmount1;
-                response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-                response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+                response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
+                response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
             } else {
                 response.quote = addedAmount0;
                 response.base = addedAmount1;
-                response.feeGrowthInsideLastQuote = feeGrowthInside0LastX128;
-                response.feeGrowthInsideLastBase = feeGrowthInside1LastX128;
+                response.feeGrowthInsideQuoteX128 = feeGrowthInside0LastX128;
+                response.feeGrowthInsideBaseX128 = feeGrowthInside1LastX128;
             }
         }
     }
@@ -142,8 +142,8 @@ library UniswapV3Broker {
         // make base & quote into the right order
         response.base = amount0Burned;
         response.quote = amount1Burned;
-        response.feeGrowthInsideLastBase = feeGrowthInside0LastX128;
-        response.feeGrowthInsideLastQuote = feeGrowthInside1LastX128;
+        response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
+        response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
