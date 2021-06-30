@@ -58,6 +58,7 @@
         "smockit",
         "solhint",
         "struct",
+        "twap",
         "typechain"
     ],
     "solidity.defaultCompiler": "localNodeModule",
