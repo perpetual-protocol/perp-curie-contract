@@ -179,7 +179,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit Deposited(collateralToken, trader, amount);
     }
 
-    // TODO: WIP be blocked by swap()
+    /**
+     * @param amount the amount of available been burned
+     */
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
