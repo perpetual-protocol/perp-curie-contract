@@ -192,9 +192,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit Burned(token, amount);
     }
 
-    function swap(SwapParams memory params) external nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
+    function swap(SwapParams memory params)
+        external
+        nonReentrant()
+        returns (UniswapV3Broker.SwapResponse memory response)
+    {
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
-        return
+        UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
@@ -206,6 +210,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     params.sqrtPriceLimitX96
                 )
             );
+
+        // update internal states
+        address trader = _msgSender();
+        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
+
+        if (params.isBaseToQuote) {
+            baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
+            quoteTokenInfo.available = quoteTokenInfo.available.add(response.quote);
+        } else {
+            quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
+            baseTokenInfo.available = baseTokenInfo.available.add(response.base);
+        }
     }
 
     // TODO should add modifier: whenNotPaused()
