@@ -130,7 +130,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // key: trader
     mapping(address => Account) private _accountMap;
 
-    uint256 public fundingTwapInterval = 1 hours;
     uint256 public immutable fundingPeriod;
 
     mapping(address => uint256) private _nextFundingTimeMap;
@@ -397,10 +396,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        uint256 sqrtMarkTwapPriceX96 = uint256(getSqrtMarkTwapPrice(baseToken, fundingTwapInterval));
+        uint256 sqrtMarkTwapPriceX96 = uint256(getSqrtMarkTwapPrice(baseToken, fundingPeriod));
         uint256 markTwapPriceX96 = FullMath.mulDiv(sqrtMarkTwapPriceX96, sqrtMarkTwapPriceX96, FixedPoint96.Q96);
         uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
-        uint256 indexTwapPrice = getIndexTwapPrice(baseToken, fundingTwapInterval);
+        uint256 indexTwapPrice = getIndexTwapPrice(baseToken, fundingPeriod);
 
         int256 premium = markTwapPriceIn18Digit.toInt256().sub(indexTwapPrice.toInt256());
         int256 premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
