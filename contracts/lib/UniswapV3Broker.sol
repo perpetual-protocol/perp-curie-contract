@@ -266,12 +266,12 @@ library UniswapV3Broker {
     }
 
     // note this assumes token0 is always the base token
-    function getSqrtMarkPrice(address pool) internal view returns (uint160 sqrtMarkPrice) {
+    function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
     // note this assumes token0 is always the base token
-    function getSqrtMarkTwapPrice(address pool, uint256 twapInterval) internal view returns (uint160) {
+    function getSqrtMarkTwapPriceX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         uint32[] memory secondsAgos = new uint32[](2);
 
         // solhint-disable-next-line not-rely-on-time

@@ -124,7 +124,7 @@ describe("ClearingHouse Spec", () => {
                 "61274636598192578", // (101.4705912784 - 100) / 24 = 0.0612746366
             )
             expect(await clearingHouse.getSqrtMarkPricesX96Length(baseToken.address)).eq(1)
-            expect(await clearingHouse.getSqrtMarkPriceX96(baseToken.address, 0)).eq(
+            expect(await clearingHouse.getSqrtMarkPriceX96AtIndex(baseToken.address, 0)).eq(
                 "792281625142643375935439503360", // sqrt(100) * 2^96
             )
         })
@@ -147,7 +147,7 @@ describe("ClearingHouse Spec", () => {
                 "-104497189344630680", // (97.4920674557 - 100) / 24 = -0.1044971893
             )
             expect(await clearingHouse.getSqrtMarkPricesX96Length(baseToken.address)).eq(1)
-            expect(await clearingHouse.getSqrtMarkPriceX96(baseToken.address, 0)).eq(
+            expect(await clearingHouse.getSqrtMarkPriceX96AtIndex(baseToken.address, 0)).eq(
                 "792281625142643375935439503360", // sqrt(100) * 2^96
             )
         })

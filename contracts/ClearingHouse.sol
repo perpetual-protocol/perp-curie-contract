@@ -422,7 +422,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // premium = twapMarketPrice - twapIndexPrice
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
-        uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], fundingPeriod);
+        uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], fundingPeriod);
         uint256 markTwapPriceX96 =
             FullMath.mulDiv(uint160(sqrtMarkTwapPriceX96), uint160(sqrtMarkTwapPriceX96), FixedPoint96.Q96);
         uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
@@ -433,7 +433,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // register primitives for funding calculations so we can settle it later
         fundingPayment.premiumFractions.push(premiumFraction);
-        fundingPayment.sqrtMarkPricesX96.push(UniswapV3Broker.getSqrtMarkPrice(_poolMap[baseToken]));
+        fundingPayment.sqrtMarkPricesX96.push(UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
 
         // update next funding time requirements so we can prevent multiple funding settlement
         // during very short time after network congestion
@@ -497,14 +497,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             ];
     }
 
-    function getSqrtMarkPrice(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPrice(_poolMap[baseToken]);
-    }
-
-    function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapPrice(_poolMap[baseToken], twapInterval);
-    }
-
     function getNextFundingTime(address baseToken) external view returns (uint256) {
         return _fundingPaymentMap[baseToken].nextFundingTime;
     }
@@ -517,7 +509,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingPaymentMap[baseToken].premiumFractions.length;
     }
 
-    function getSqrtMarkPriceX96(address baseToken, uint256 idx) external view returns (uint160) {
+    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapInterval);
+    }
+
+    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+    }
+
+    function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
         return _fundingPaymentMap[baseToken].sqrtMarkPricesX96[idx];
     }
 
