@@ -162,14 +162,10 @@ describe("ClearingHouse.burn", () => {
                 .to.emit(clearingHouse, "Burned")
                 .withArgs(quoteToken.address, aliceQuoteAvailable)
 
-            const {
-                available: aliceQuoteAvailableAfterBurn,
-                debt: aliceQuoteDebtAfterBurn,
-                owedFee: aliceQuoteFeeAfterBurn,
-            } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+            const { available: aliceQuoteAvailableAfterBurn, debt: aliceQuoteDebtAfterBurn } =
+                await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
             expect(aliceQuoteAvailableAfterBurn.eq(toWei(0))).to.be.true
             expect(aliceQuoteDebtAfterBurn.gt(toWei(0))).to.be.true
-            expect(aliceQuoteFeeAfterBurn.eq(toWei(0))).to.be.true
         })
 
         it("# force fail when the user has no vTokens", async () => {
