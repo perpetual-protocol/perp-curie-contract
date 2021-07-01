@@ -525,9 +525,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingPaymentMap[baseToken].sqrtMarkPricesX96.length;
     }
 
-    function getPendingFundingPaymentForMaker(address maker, address baseToken) public view returns (int256) {
-        Account storage account = _accountMap[maker];
-        uint256 vBaseAmount;
+    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
+        Account storage account = _accountMap[trader];
         int256 fundingPaymentAmount;
         {
             FundingPayment memory fundingPayment = _fundingPaymentMap[baseToken];
@@ -535,11 +534,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
                 uint160 sqrtMarkPricesX96 = fundingPayment.sqrtMarkPricesX96[i];
+                uint256 vBaseAmount = account.tokenInfoMap[baseToken].available;
+
+                // only for trader
                 for (uint256 j = 0; j < orderIds.length; i++) {
                     OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[j]];
                     uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-                    // TODO <= or < ?
-                    if (sqrtMarkPricesX96 <= sqrtPriceAtUpperTick) {
+                    // TODO need to test verify <= or < ?
+                    if (sqrtMarkPricesX96 < sqrtPriceAtUpperTick) {
                         uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                         vBaseAmount = vBaseAmount.add(
                             (sqrtMarkPricesX96 >= sqrtPriceAtLowerTick)
@@ -556,8 +558,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                         );
                     }
                 }
-
-                // TODO must include fee
 
                 int256 posSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
                 fundingPaymentAmount = fundingPaymentAmount.add(fundingPayment.premiumFractions[i].mul(posSize));
