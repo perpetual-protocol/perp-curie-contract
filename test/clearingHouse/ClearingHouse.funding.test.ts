@@ -30,6 +30,11 @@ describe("ClearingHouse.funding", () => {
         await clearingHouse.addPool(baseToken.address, "10000")
     })
 
+    async function forward(numOfBlocks: number) {
+        await waffle.provider.send("evm_setNextBlockTimestamp", [numOfBlocks * 15])
+        await waffle.provider.send("evm_mine", [])
+    }
+
     describe("# getPendingFundingPayment", () => {
         beforeEach(async () => {
             // alice add long limit order
@@ -63,6 +68,8 @@ describe("ClearingHouse.funding", () => {
                 amount: parseEther("0.01"),
                 sqrtPriceLimitX96: 0,
             })
+            // forward 240 * 15 = 3600 secs to get 1hr twap in UniV3 pool
+            await forward(240)
 
             // TODO test
             const aliceTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
@@ -87,8 +94,13 @@ describe("ClearingHouse.funding", () => {
 
             // alice
             //   position size = 0.01
-            expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq()
-            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
+            //   funding payment = 0.01 * (154 - 150) / 24
+            expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
+                parseEther("0.001666666666"),
+            )
+            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
+                parseEther("-0.001666666666"),
+            )
         })
 
         it("get correct number for maker in negative funding rate", async () => {})
