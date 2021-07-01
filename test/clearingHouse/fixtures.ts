@@ -1,6 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { BaseToken } from "../../typechain/BaseToken"
 import { tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
@@ -9,8 +10,9 @@ interface ClearingHouseFixture {
     pool: UniswapV3Pool
     feeTier: number
     USDC: TestERC20
-    quoteToken: TestERC20
-    baseToken: TestERC20
+    quoteToken: BaseToken
+    baseToken: BaseToken
+    mockedBaseAggregator: MockContract
 }
 
 interface UniswapV3BrokerFixture {
@@ -28,15 +30,17 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
 
-        let baseToken: TestERC20, quoteToken: TestERC20
-        const { token0, token1 } = await tokensFixture()
+        let baseToken: BaseToken, quoteToken: BaseToken, mockedBaseAggregator: MockContract
+        const { token0, mockedAggregator0, token1, mockedAggregator1 } = await tokensFixture()
 
         if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
             baseToken = token0
             quoteToken = token1
+            mockedBaseAggregator = mockedAggregator0
         } else {
             baseToken = token1
             quoteToken = token0
+            mockedBaseAggregator = mockedAggregator1
         }
 
         // deploy UniV3 factory
@@ -64,7 +68,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
-        return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken }
+        return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken, mockedBaseAggregator }
     }
 }
 

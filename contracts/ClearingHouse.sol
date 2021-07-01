@@ -16,6 +16,7 @@ import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
+import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
@@ -473,12 +474,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
-        // TODO WIP
-        return 100 ether;
+        return BaseToken(token).getIndexPrice(0);
     }
 
     function getIndexTwapPrice(address token, uint256 twapInterval) public view returns (uint256) {
-        return 100 ether;
+        return BaseToken(token).getIndexPrice(twapInterval);
     }
 
     function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
