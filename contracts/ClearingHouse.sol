@@ -275,11 +275,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
+        MakerPosition storage makerPosition = _accountMap[trader].makerPositionMap[params.baseToken];
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
 
         uint256 baseFee;
         uint256 quoteFee;
         if (openOrder.liquidity == 0) {
+            // it's a new order
+            makerPosition.orderIds.push(orderId);
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
         } else {
@@ -342,7 +345,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
         if (openOrder.liquidity == 0) {
-            delete _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+            _removeOrder(trader, params.baseToken, orderId);
         } else {
             openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
             openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
@@ -483,6 +486,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             ];
     }
 
+    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
+        return _accountMap[trader].makerPositionMap[baseToken].orderIds;
+    }
+
     function getSqrtMarkTwapPrice(address baseToken, uint256 twapInterval) public view returns (uint160) {
         uint32[] memory secondsAgos = new uint32[](2);
 
@@ -534,6 +541,25 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 _accountMap[trader].tokens.push(token);
             }
         }
+    }
+
+    function _removeOrder(
+        address maker,
+        address baseToken,
+        bytes32 orderId
+    ) private {
+        MakerPosition storage makerPosition = _accountMap[maker].makerPositionMap[baseToken];
+        uint256 idx;
+        for (idx = 0; idx < makerPosition.orderIds.length; idx++) {
+            if (makerPosition.orderIds[idx] == orderId) {
+                // found the existing order ID
+                // remove it from the array efficiently by re-ordering and deleting the last element
+                makerPosition.orderIds[idx] = makerPosition.orderIds[makerPosition.orderIds.length - 1];
+                makerPosition.orderIds.pop();
+                break;
+            }
+        }
+        delete makerPosition.openOrderMap[orderId];
     }
 
     //
