@@ -14,8 +14,8 @@ interface IClearingHouse {
         uint256 liquidity;
         uint24 tickLower;
         uint24 tickUpper;
-        uint128 feeGrowthInsideLastBaseX128;
-        uint128 feeGrowthInsideLastQuoteX128;
+        uint128 feeGrowthInsideBaseX128;
+        uint128 feeGrowthInsideQuoteX128;
     }
 
     struct Account {

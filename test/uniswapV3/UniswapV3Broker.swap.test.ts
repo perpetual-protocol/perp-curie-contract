@@ -1,9 +1,10 @@
-import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
-import { ethers, waffle } from "hardhat"
 import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
+import { ethers, waffle } from "hardhat"
+
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
+import { expect } from "chai"
+import { parseEther } from "ethers/lib/utils"
 
 describe("UniswapV3Broker swap", () => {
     const [wallet] = waffle.provider.getWallets()
@@ -40,7 +41,6 @@ describe("UniswapV3Broker swap", () => {
             await pool.initialize(encodePriceSqrt(1, 148.3760629))
 
             const quote = parseEther("0.1135501475")
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
@@ -76,7 +76,6 @@ describe("UniswapV3Broker swap", () => {
             // the sheet does not take tx fee into consideration; thus, divide the value on sheet by 0.99
             // 0.112414646 / 0.99 = 0.1135501475
             const quote = parseEther("0.1135501475")
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
@@ -119,7 +118,6 @@ describe("UniswapV3Broker swap", () => {
 
             // 0.0004084104205 / 0.99 = 0.0004125357783
             const base = parseEther("0.0004125357783")
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
@@ -162,7 +160,6 @@ describe("UniswapV3Broker swap", () => {
             })
 
             const base = 0.000750705258114652
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
@@ -205,7 +202,6 @@ describe("UniswapV3Broker swap", () => {
             })
 
             const quote = 0.061513341759797928
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
@@ -252,7 +248,6 @@ describe("UniswapV3Broker swap", () => {
 
             // 1.12414646 / 0.99 = 1.135501475
             const quote = parseEther("1.135501475")
-            const fee = "10000"
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
