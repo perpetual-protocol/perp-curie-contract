@@ -346,7 +346,7 @@ describe("ClearingHouse", () => {
                         upperTick: 200,
                         liquidity: BigNumber.from(1),
                     }),
-                ).to.be.revertedWith("CH_ZL")
+                ).to.be.revertedWith("CH_NEO")
             })
 
             it("force error, range does not exist", async () => {
@@ -369,7 +369,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                         liquidity: BigNumber.from(1),
                     }),
-                ).to.be.revertedWith("CH_ZL")
+                ).to.be.revertedWith("CH_NEO")
             })
         })
 
