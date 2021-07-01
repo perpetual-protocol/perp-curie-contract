@@ -4,3 +4,6 @@ node_modules
 coverage.json
 coverage
 typechain
+flattened
+slither
+/.DS_Store
