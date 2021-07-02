@@ -55,7 +55,14 @@ describe("ClearingHouse.burn", () => {
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
         })
 
-        it("# burn quote 10 when debt = 10, available >= 10", async () => {
+        it("# reduce the vToken's balance of CH", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(alice).burn(quoteToken.address, toWei(10))
+            const balanceAfter = await quoteToken.balanceOf(clearingHouse.address)
+            expect(balanceBefore.sub(toWei(10)).eq(balanceAfter)).to.be.true
+        })
+
+        it("# can not burn more than debt, even there's enough available", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
             const lowerTick = 50000
