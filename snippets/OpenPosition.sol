@@ -119,6 +119,14 @@ contract OpenPosition {
             return;
         }
 
-        burn(quote, max(quoteAvailable, quoteDebt));
+        uint256 burnableQuote = max(quoteAvailable, quoteDebt);
+        burn(quote, burnableQuote);
+        if (quoteDebt > 0) {
+            // under collateral, insurance fund get hurt
+            _increaseBadDebt(quoteDebt);
+        } else {
+            account[positionOwner].collateral += quoteAvailable;
+        }
+        _clearQuoteBalanceAndDebt();
     }
 }
