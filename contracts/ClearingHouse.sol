@@ -183,10 +183,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
      * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) external nonReentrant() {
+        _requireTokenExistAndValidAmount(token, amount);
+
         bool isQuote = token == quoteToken;
-        if (!isQuote) {
-            _requireTokenExistAndValidAmount(token, amount);
-        }
 
         // update internal states
         address trader = _msgSender();
