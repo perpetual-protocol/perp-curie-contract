@@ -620,9 +620,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
-        // CH_IFG: invalid feeGrowthInside
-        require(feeGrowthInsideNew >= feeGrowthInsideOld, "CH_IFG");
-        return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
+        return FullMath.mulDiv(feeGrowthInsideNew.sub(feeGrowthInsideOld), liquidity, FixedPoint128.Q128);
     }
 
     function _emitLiquidityChanged(
