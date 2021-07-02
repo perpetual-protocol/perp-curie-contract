@@ -185,8 +185,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
-        bool isQuote = token == quoteToken;
-
         // update internal states
         address trader = _msgSender();
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
@@ -196,6 +194,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
 
         // TODO: move to closePosition
+        // bool isQuote = token == quoteToken;
         // if (amount > tokenInfo.debt) {
         //     uint256 realizedProfit = amount - tokenInfo.debt;
         //     // amount = amount - realizedProfit
