@@ -181,33 +181,47 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     /**
-     * @param amount the amount of available (not debt) to burn
+     * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) external nonReentrant() {
-        _requireTokenExistAndValidAmount(token, amount);
+        bool isQuote = token == quoteToken;
+        if (!isQuote) {
+            _requireTokenExistAndValidAmount(token, amount);
+        }
 
         // update internal states
         address trader = _msgSender();
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
 
         // CH_IA: invalid amount
-        require(amount <= tokenInfo.available, "CH_IA");
+        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
 
-        // TODO pay back debt
-        if (amount > tokenInfo.debt) {}
+        // TODO: move to closePosition
+        // if (amount > tokenInfo.debt) {
+        //     uint256 realizedProfit = amount - tokenInfo.debt;
+        //     // amount = amount - realizedProfit
+        //     amount = tokenInfo.debt;
+        //     if (isQuote) {
+        //         tokenInfo.available = tokenInfo.available.sub(realizedProfit);
+        //         _accountMap[trader].collateral = _accountMap[trader].collateral.add(realizedProfit);
+        //     } else {
+        //         // TODO how to do slippage protection
+        //         // realize base profit as quote
+        //         swap(SwapParams(token, quoteToken, true, false, realizedProfit, 0));
+        //     }
+        // }
+
+        // pay back debt
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
-        // TODO swap to quote if it's base
-        // TODO transfer to collateral if it's quote
-
-        IMintableERC20(token).burn(address(this), amount);
+        IMintableERC20(token).burn(amount);
 
         emit Burned(token, amount);
     }
 
     function swap(SwapParams memory params)
-        external
+        public
         nonReentrant()
         returns (UniswapV3Broker.SwapResponse memory response)
     {
