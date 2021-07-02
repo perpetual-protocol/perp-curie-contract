@@ -179,21 +179,47 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit Deposited(collateralToken, trader, amount);
     }
 
-    // TODO: WIP be blocked by swap()
+    /**
+     * @param amount the amount of debt to burn
+     */
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
         // update internal states
         address trader = _msgSender();
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+
+        // CH_IA: invalid amount
+        // can only burn the amount of debt that can be pay back with available
+        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
+
+        // TODO: move to closePosition
+        // bool isQuote = token == quoteToken;
+        // if (amount > tokenInfo.debt) {
+        //     uint256 realizedProfit = amount - tokenInfo.debt;
+        //     // amount = amount - realizedProfit
+        //     amount = tokenInfo.debt;
+        //     if (isQuote) {
+        //         tokenInfo.available = tokenInfo.available.sub(realizedProfit);
+        //         _accountMap[trader].collateral = _accountMap[trader].collateral.add(realizedProfit);
+        //     } else {
+        //         // TODO how to do slippage protection
+        //         // realize base profit as quote
+        //         swap(SwapParams(token, quoteToken, true, false, realizedProfit, 0));
+        //     }
+        // }
+
+        // pay back debt
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
+
+        IMintableERC20(token).burn(amount);
 
         emit Burned(token, amount);
     }
 
     function swap(SwapParams memory params)
-        external
+        public
         nonReentrant()
         returns (UniswapV3Broker.SwapResponse memory response)
     {
@@ -620,7 +646,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
-        return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
+        return FullMath.mulDiv(feeGrowthInsideNew.sub(feeGrowthInsideOld), liquidity, FixedPoint128.Q128);
     }
 
     function _emitLiquidityChanged(
