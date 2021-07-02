@@ -8,6 +8,7 @@ import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionK
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import "hardhat/console.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -126,6 +127,15 @@ library UniswapV3Broker {
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
+        (uint256 feeGrowthInside0LastX128B2, uint256 feeGrowthInside1LastX128B2) =
+            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+
+        console.log("broker removeLiq feeGrowthBase B2: %s", feeGrowthInside0LastX128B2);
+        console.log("broker removeLiq feeGrowthQuote B2: %s", feeGrowthInside1LastX128B2);
+
+        // console.log("broker removeLiq amount0Burned: %s", amount0Burned);
+        // console.log("broker removeLiq amount1Burned: %s", amount1Burned);
+
         // call collect to `transfer` tokens to CH, the amount including every trader pooled into the same range
         IUniswapV3Pool(params.pool).collect(
             address(this),
@@ -135,9 +145,13 @@ library UniswapV3Broker {
             type(uint128).max
         );
 
+        // TODO: feeGrowthInside{01}LastX128 would be reset to 0 after pool.burn(0)?
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+
+        console.log("broker removeLiq feeGrowthBase: %s", feeGrowthInside0LastX128);
+        console.log("broker removeLiq feeGrowthQuote: %s", feeGrowthInside1LastX128);
 
         // make base & quote into the right order
         response.base = amount0Burned;

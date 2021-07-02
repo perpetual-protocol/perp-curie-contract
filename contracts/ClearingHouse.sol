@@ -18,6 +18,7 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -180,7 +181,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     /**
-     * @param amount the amount of available been burned
+     * @param amount the amount of available (not debt) to burn
      */
     function burn(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
@@ -188,8 +189,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // update internal states
         address trader = _msgSender();
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+
+        // CH_IA: invalid amount
+        require(amount <= tokenInfo.available, "CH_IA");
+
+        // TODO pay back debt
+        if (amount > tokenInfo.debt) {}
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
+
+        // TODO swap to quote if it's base
+        // TODO transfer to collateral if it's quote
+
+        IMintableERC20(token).burn(address(this), amount);
 
         emit Burned(token, amount);
     }
@@ -217,6 +229,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader = _msgSender();
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
+
+        console.log("ch swap base: %s", response.base);
+        console.log("ch swap quote: %s", response.quote);
 
         if (params.isBaseToQuote) {
             baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
@@ -306,6 +321,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
         openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
 
+        console.log("ch addLiq feeGrowthBase: %s", openOrder.feeGrowthInsideBaseX128);
+        console.log("ch addLiq feeGrowthQuote: %s", openOrder.feeGrowthInsideQuoteX128);
+
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
@@ -340,6 +358,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideQuoteX128, openOrder.feeGrowthInsideQuoteX128);
         baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(response.quote);
+
+        console.log("baseFee: %s", baseFee);
+        console.log("quoteFee: %s", quoteFee);
+
+        console.log("ch removeLiq feeGrowthBase: %s", response.feeGrowthInsideBaseX128);
+        console.log("ch removeLiq feeGrowthQuote: %s", response.feeGrowthInsideQuoteX128);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
@@ -596,6 +620,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
+        // CH_IFG: invalid feeGrowthInside
+        require(feeGrowthInsideNew >= feeGrowthInsideOld, "CH_IFG");
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
 
