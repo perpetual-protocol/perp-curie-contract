@@ -85,7 +85,7 @@ contract OpenPosition {
             // TODO: add _mint(): mint quote even the collateral is not enough
             _mint(quote, quoteLoss, forceIsTrue);
 
-            // buy base
+            // buy base from extra base
             swap(baseToken, quoteToken, baseToQuoteFalse, exactInputFalse, quoteLoss, sqrtPriceLimit);
         } else if (basePnl > 0) {
             // sell extra base
@@ -119,7 +119,7 @@ contract OpenPosition {
             return;
         }
 
-        uint256 burnableQuote = max(quoteAvailable, quoteDebt);
+        uint256 burnableQuote = min(quoteAvailable, quoteDebt);
         burn(quote, burnableQuote);
         if (quoteDebt > 0) {
             // under collateral, insurance fund get hurt
