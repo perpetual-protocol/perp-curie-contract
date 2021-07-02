@@ -6,9 +6,7 @@
   - it mints missing amount of vToken for swapping
   - it does not mint anything if it's already sufficient
 - close position:
-  - [ ] if taker has exposure in the pool
-    1. liquidity, base available and base debt will be zero 0 ( but i feel it doesnt like how exchange work )
-    2. positionSize (net) is 0, liquidity might change but not necessary to be removed ( no idea how to impl ) 
+  - net position size will be zero
   - taker has ETH position
     - when loss
         - if the free collateral is not enough to cover the loss, revert (TODO: insurance fund)
@@ -21,7 +19,6 @@
  */
 
 contract OpenPosition {
-    // does not consider maker
     function openPosition(
         baseToken, // pool
         isBaseToQuote,
@@ -39,7 +36,8 @@ contract OpenPosition {
                 uint256 requiredBase = uni.getExactBaseFromQuote(amount);
                 // make sure taker has enough base to buy the desired quote
                 if (getBaseAvailable < requiredBase) {
-                    mint(baseToken, insufficientBase);
+                    // if it's reducing position to 0 we don't need to check margin
+                    _mint(baseToken, insufficientBase, forceIsTrue);
                 }
             } else {
                 // taker want to get exact base from quote
@@ -47,7 +45,8 @@ contract OpenPosition {
                 uint256 requiredQuote = uni.getExactQuoteFromBase(amount);
                 // make sure taker has enough quote to buy the desired base
                 if (getQuoteAvailable < requiredQuote) {
-                    mint(quoteToken, insufficientQuote);
+                    // if it's reducing position to 0 we don't need to check margin
+                    _mint(quoteToken, insufficientQuote, forceIsTrue);
                 }
             }
         }
@@ -55,11 +54,12 @@ contract OpenPosition {
         swap(baseToken, quoteToken, isBaseToQuote, isExactInput, amount, sqrtPriceLimitX96);
         if (isPositionClosed()) {
             _settle(msgSender());
+        } else {
+            requiredInitMarginRequirement();
         }
     }
 
     function closePosition(baseToken, sqrtPriceLimit) {
-        _removeOrders(baseToken);
         _closePosition(getPool(baseToken), msgSender(), sqrtPriceLimit);
     }
 
@@ -109,7 +109,7 @@ contract OpenPosition {
         // TODO move mint's code here
         // *** PASTED *** //
         if (!isForce) {
-            checkInitMarginRequirement();
+            requiredInitMarginRequirement();
         }
     }
 
