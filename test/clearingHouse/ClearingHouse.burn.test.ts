@@ -1,11 +1,11 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
-import { fromWei, toWei } from "../helper/number"
+import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse.burn", () => {
+describe("ClearingHouse.burn", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -55,7 +55,7 @@ describe.only("ClearingHouse.burn", () => {
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
         })
 
-        it.only("# burn quote 10 when debt = 10, available >= 10", async () => {
+        it("# burn quote 10 when debt = 10, available >= 10", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
             const lowerTick = 50000
@@ -103,7 +103,6 @@ describe.only("ClearingHouse.burn", () => {
             })
 
             // alice removes 0 liquidity to collect fee
-            console.log(`alice removeLiquidity(0)`)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: lowerTick,
@@ -112,7 +111,6 @@ describe.only("ClearingHouse.burn", () => {
             })
 
             // alice removes liquidity
-            console.log(`alice removeLiquidity()`)
             const { liquidity } = await clearingHouse.getOpenOrder(
                 alice.address,
                 baseToken.address,
@@ -130,13 +128,6 @@ describe.only("ClearingHouse.burn", () => {
                 alice.address,
                 quoteToken.address,
             )
-            console.log(`aliceQuoteAvailableAfter: ${fromWei(aliceQuoteAvailableAfter).toString()}`)
-
-            const { available: aliceBaseAvailableAfter } = await clearingHouse.getTokenInfo(
-                alice.address,
-                baseToken.address,
-            )
-            console.log(`aliceBaseAvailableAfter: ${fromWei(aliceBaseAvailableAfter).toString()}`)
 
             // contains fee
             expect(aliceQuoteAvailableAfter.gt(toWei(10))).to.be.true

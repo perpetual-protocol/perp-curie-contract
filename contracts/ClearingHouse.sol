@@ -18,7 +18,6 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -194,6 +193,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
 
         // CH_IA: invalid amount
+        // can only burn the amount of debt that can be pay back with available
         require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
 
         // TODO: move to closePosition
@@ -243,9 +243,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader = _msgSender();
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
-
-        console.log("ch swap base: %s", response.base);
-        console.log("ch swap quote: %s", response.quote);
 
         if (params.isBaseToQuote) {
             baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
@@ -335,9 +332,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
         openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
 
-        console.log("ch addLiq feeGrowthBase: %s", openOrder.feeGrowthInsideBaseX128);
-        console.log("ch addLiq feeGrowthQuote: %s", openOrder.feeGrowthInsideQuoteX128);
-
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
@@ -372,12 +366,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideQuoteX128, openOrder.feeGrowthInsideQuoteX128);
         baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(response.quote);
-
-        console.log("baseFee: %s", baseFee);
-        console.log("quoteFee: %s", quoteFee);
-
-        console.log("ch removeLiq feeGrowthBase: %s", response.feeGrowthInsideBaseX128);
-        console.log("ch removeLiq feeGrowthQuote: %s", response.feeGrowthInsideQuoteX128);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
