@@ -1,4 +1,5 @@
 import { defaultAbiCoder } from "@ethersproject/abi"
+import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { waffle } from "hardhat"
@@ -90,6 +91,12 @@ describe("ClearingHouse", () => {
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
                 ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50000, 50200],
+                    ),
+                ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
@@ -144,6 +151,12 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50000, 50200],
+                    ),
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
@@ -201,6 +214,12 @@ describe("ClearingHouse", () => {
                     toWei(10000, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
                 ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50200, 50400],
+                    ),
+                ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
@@ -256,6 +275,12 @@ describe("ClearingHouse", () => {
                     toWei(10000, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
                 ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50200, 50400],
+                    ),
+                ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
@@ -310,6 +335,12 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50000, 50400],
+                    ),
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("81689571696303801018159"), // liquidity
@@ -368,6 +399,12 @@ describe("ClearingHouse", () => {
                     toWei("2431.334657063838663853", await baseToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
                 ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50000, 50400],
+                    ),
+                ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("61828103017711334685748"), // liquidity
                     50000, // lowerTick
@@ -417,6 +454,12 @@ describe("ClearingHouse", () => {
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     toWei(0, await quoteToken.decimals()), // available
                     toWei(10000, await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                    keccak256(
+                        ["address", "address", "int24", "int24"],
+                        [alice.address, baseToken.address, 50000, 50400],
+                    ),
                 ])
                 expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
                     BigNumber.from("81689571696303801018158"), // liquidity
