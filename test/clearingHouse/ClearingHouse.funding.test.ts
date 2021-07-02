@@ -30,8 +30,9 @@ describe("ClearingHouse.funding", () => {
         await clearingHouse.addPool(baseToken.address, "10000")
     })
 
-    async function forward(numOfBlocks: number) {
-        await waffle.provider.send("evm_setNextBlockTimestamp", [numOfBlocks * 15])
+    async function forward(seconds: number) {
+        const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
+        await waffle.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + seconds])
         await waffle.provider.send("evm_mine", [])
     }
 
@@ -53,6 +54,13 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50400,
             })
 
+            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
+            console.log(
+                `alice position size: ${(
+                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
+                ).toString()}`,
+            )
+
             // bob short
             await collateral.mint(bob.address, parseEther("100"))
             await collateral.connect(bob).approve(clearingHouse.address, parseEther("100"))
@@ -68,16 +76,38 @@ describe("ClearingHouse.funding", () => {
                 amount: parseEther("0.01"),
                 sqrtPriceLimitX96: 0,
             })
-            // forward 240 * 15 = 3600 secs to get 1hr twap in UniV3 pool
-            await forward(240)
+            // forward 3600 secs to get 1hr twap in UniV3 pool
+            await forward(3600)
 
             // TODO test
-            const aliceTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            const bobTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
             console.log(
-                `alice available: ${aliceTokenInfo.available.toString()}, debt: ${aliceTokenInfo.debt.toString()}`,
+                `getSqrtMarkPriceX96: ${(await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString()}`,
             )
-            console.log(`bob available: ${bobTokenInfo.available.toString()}, debt: ${bobTokenInfo.debt.toString()}`)
+            const aliceBaseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+            const aliceQuoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+            const bobBaseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            const bobQuoteTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
+            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
+            console.log(
+                `alice base available: ${aliceBaseTokenInfo.available.toString()}, debt: ${aliceBaseTokenInfo.debt.toString()}, position size: ${(
+                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
+                ).toString()}`,
+            )
+            console.log(
+                `alice quote available: ${aliceQuoteTokenInfo.available.toString()}, debt: ${aliceQuoteTokenInfo.debt.toString()}`,
+            )
+            const aliceOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+            console.log(`alice order IDs: ${aliceOrderIds}, length: ${aliceOrderIds.length}`)
+            const aliceOpenOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+            console.log(`alice open order liquidity: ${aliceOpenOrder.liquidity.toString()}`)
+            console.log(
+                `bob base available: ${bobBaseTokenInfo.available.toString()}, debt: ${bobBaseTokenInfo.debt.toString()}, position size: ${(
+                    await clearingHouse.getPositionSize(bob.address, baseToken.address)
+                ).toString()}`,
+            )
+            console.log(
+                `bob quote available: ${bobQuoteTokenInfo.available.toString()}, debt: ${bobQuoteTokenInfo.debt.toString()}`,
+            )
         })
 
         it("get correct number for maker before any update funding", async () => {
