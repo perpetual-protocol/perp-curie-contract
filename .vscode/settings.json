@@ -50,6 +50,7 @@
         "chainlink",
         "delegatecall",
         "inheritdoc",
+        "keccak",
         "lushan",
         "nomiclabs",
         "perp",
