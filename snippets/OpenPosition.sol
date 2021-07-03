@@ -28,6 +28,23 @@ contract OpenPosition {
     ) {
         _settleFunding();
 
+        _openPosition(baseToken, isBaseToQuote, isExactInput, amount, sqrtPriceLimitX96);
+
+        if (isPositionClosed()) {
+            _settle(msgSender());
+        } else {
+            requiredInitMarginRequirement();
+        }
+    }
+
+    function _openPosition(
+        baseToken, // pool
+        isBaseToQuote,
+        isExactInput,
+        amount,
+        sqrtPriceLimitX96
+    ) {
+        // TODO if quote available is not enough, should we mint quote if it's under imRatio?
         // calculate if we need to mint more quote or base to buy the exact output
         if (!isExactInput) {
             if (isBaseToQuote) {
@@ -52,19 +69,16 @@ contract OpenPosition {
         }
 
         swap(baseToken, quoteToken, isBaseToQuote, isExactInput, amount, sqrtPriceLimitX96);
-        if (isPositionClosed()) {
-            _settle(msgSender());
-        } else {
-            requiredInitMarginRequirement();
-        }
     }
 
     function closePosition(baseToken, sqrtPriceLimit) {
+        _settleFunding();
         _closePosition(getPool(baseToken), msgSender(), sqrtPriceLimit);
     }
 
     function liquidate(posOwner, baseToken) {
         checkLiquidationRequirement(posOwner, baseToken);
+        _settleFunding();
         _closePosition(getPool(baseToken), posOwner, sqrtPriceLimit);
     }
 
@@ -73,23 +87,14 @@ contract OpenPosition {
         positionOwner,
         sqrtPriceLimit
     ) {
-        _settleFunding();
-
-        Position oldPosition = getPosition(positionOwner);
         int256 basePnl = getBaseAvailable(positionOwner) - getBaseDebt(positionOwner);
         // if has loss
         if (basePnl < 0) {
-            // if not enough money to pay back debt
-            uint256 quoteLoss = uni.getExactQuoteFromBase(basePnl);
-
-            // TODO: add _mint(): mint quote even the collateral is not enough
-            _mint(quote, quoteLoss, forceIsTrue);
-
-            // buy base from extra base
-            swap(baseToken, quoteToken, baseToQuoteFalse, exactInputFalse, quoteLoss, sqrtPriceLimit);
+            // buy exact base loss to pay back debt
+            _openPosition(baseToken, quoteToken, baseToQuoteFalse, exactInputFalse, basePnl, sqrtPriceLimit);
         } else if (basePnl > 0) {
             // sell extra base
-            swap(baseToken, quoteToken, baseToQuoteTrue, exactInputTrue, base, sqrtPriceLimit);
+            _openPosition(baseToken, quoteToken, baseToQuoteTrue, exactInputTrue, base, sqrtPriceLimit);
         }
         burn(baseToken, baseDebt);
         // expect baseAvailable and baseDebt are cleared
