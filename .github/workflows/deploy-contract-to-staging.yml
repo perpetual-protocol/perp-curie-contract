@@ -46,6 +46,13 @@ jobs:
                 RINKEBY_DEPLOYER_MNEMONIC: ${{ secrets.RINKEBY_DEPLOYER_MNEMONIC }}
                 CI: true
 
+            - name: Publish npm package
+              run: |
+                npm config set //registry.npmjs.org/:_authToken ${NPM_TOKEN}
+                npm publish --ignore-scripts
+              env:
+                NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
             - name: Discord notification
               env:
                   DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
