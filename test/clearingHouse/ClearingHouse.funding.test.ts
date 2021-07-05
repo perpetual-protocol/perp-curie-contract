@@ -115,7 +115,7 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
         })
 
-        it("get correct number for maker in positive funding rate", async () => {
+        it.only("get correct number for maker in positive funding rate", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseEther("150.4310961"), 0, 0, 0]
             })

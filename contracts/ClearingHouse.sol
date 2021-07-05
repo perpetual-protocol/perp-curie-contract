@@ -433,7 +433,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
         int256 premiumFraction;
         {
-            uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(baseToken, fundingPeriod);
+            uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], fundingPeriod);
             uint256 markTwapPriceX96 =
                 FullMath.mulDiv(uint160(sqrtMarkTwapPriceX96), uint160(sqrtMarkTwapPriceX96), FixedPoint96.Q96);
             uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
@@ -450,7 +450,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         FundingHistory memory fundingHistory =
             FundingHistory({
                 premiumFractions: premiumFraction,
-                sqrtMarkPricesX96: UniswapV3Broker.getSqrtMarkPriceX96(baseToken),
+                sqrtMarkPricesX96: UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
                 tick: tick,
                 feeGrowthGlobalBaseX128: pool.feeGrowthGlobal0X128(),
                 feeGrowthGlobalQuoteX128: pool.feeGrowthGlobal1X128()
@@ -556,7 +556,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
                 int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPricesX96);
-                fundingPaymentAmount = fundingPaymentAmount.add(fundingHistory[i].premiumFractions.mul(posSize));
+                fundingPaymentAmount = fundingPaymentAmount.add(
+                    fundingHistory[i].premiumFractions.mul(posSize).div(1 ether)
+                );
             }
         }
         return fundingPaymentAmount;
