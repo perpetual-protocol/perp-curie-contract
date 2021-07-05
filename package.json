@@ -1,15 +1,19 @@
 {
-  "name": "perp-lushan",
-  "version": "1.0.0",
+  "name": "@perp/lushan",
+  "version": "0.0.5",
   "description": "",
   "main": "hardhat.config.js",
+  "files": [
+    "artifacts/contracts/",
+    "metadata/",
+    "typechain/"
+  ],
   "scripts": {
     "typechain": "npm run typechain-openzeppelin",
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin ./node_modules/@openzeppelin/contracts/build/contracts/**/*.json",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "hardhat test",
     "build": "npm run typechain && hardhat compile",
-    "postinstall": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged",
     "deploy-staging": "hardhat deploy --network rinkeby",

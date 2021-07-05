@@ -1,7 +1,7 @@
 # lushan
 
-## Deploy to Staging
+## Publish npm package
 
 ```bash
-$ npx hardhat deploy --network rinkeby
+$ npm publish --access public
 ```
