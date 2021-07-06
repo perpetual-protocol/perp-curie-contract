@@ -2,6 +2,7 @@ import path from "path"
 
 export enum ContractFullyQualifiedName {
     ClearingHouse = "contracts/ClearingHouse.sol:ClearingHouse",
+    BaseToken = "contracts/BaseToken.sol:BaseToken",
 
     // external interface
     UniswapV3Factory = "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol:IUniswapV3Factory",
@@ -24,7 +25,7 @@ export enum DeploymentsKey {
 export const DEPLOYMENT_CONTRACT_FILES = {
     [DeploymentsKey.ClearingHouse]: ContractFullyQualifiedName.ClearingHouse,
     [DeploymentsKey.vUSD]: ContractFullyQualifiedName.TestERC20,
-    [DeploymentsKey.vETH]: ContractFullyQualifiedName.TestERC20,
+    [DeploymentsKey.vETH]: ContractFullyQualifiedName.BaseToken,
 }
 
 // eg. extract "deploy/01-deploy-USDC.ts" -> 01
