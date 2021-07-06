@@ -49,6 +49,7 @@
         "bytecode",
         "chainlink",
         "delegatecall",
+        "ethersproject",
         "inheritdoc",
         "keccak",
         "lushan",
