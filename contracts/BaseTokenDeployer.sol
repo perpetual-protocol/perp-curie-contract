@@ -12,7 +12,5 @@ contract BaseTokenDeployer {
         BaseToken(baseToken).grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         BaseToken(baseToken).grantRole(MINTER_ROLE, msg.sender);
         BaseToken(baseToken).grantRole(PAUSER_ROLE, msg.sender);
-
-        baseToken.setAdmin(msg.sender);
     }
 }

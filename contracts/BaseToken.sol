@@ -12,7 +12,7 @@ contract BaseToken is ERC20PresetMinterPauser {
     uint8 private immutable _priceFeedDecimals;
 
     modifier onlyOwner() {
-        require(hasRole(_roles[role].adminRole, _msgSender()), "BT_NO");
+        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "BT_NO");
         _;
     }
 
@@ -21,8 +21,6 @@ contract BaseToken is ERC20PresetMinterPauser {
         string memory symbolArg,
         address priceFeedArg
     ) ERC20PresetMinterPauser(nameArg, symbolArg) {
-        // _setRoleAdmin(_msgSender());
-
         // BT_IA: invalid address
         require(priceFeedArg != address(0), "BT_IA");
 
