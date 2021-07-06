@@ -4,6 +4,7 @@ import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20Pr
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 
+// TODO: maybe we could rename it to VToken or something?
 // TODO: Ownable
 // TODO: only keep what we need in ERC20PresetMinterPauser
 contract BaseToken is ERC20PresetMinterPauser {
@@ -31,10 +32,6 @@ contract BaseToken is ERC20PresetMinterPauser {
     // TODO: onlyOwner
     function setMinter(address minter) external {
         grantRole(MINTER_ROLE, minter);
-    }
-
-    function setOwner(address owner) external onlyOwner {
-        _setRoleAdmin(owner);
     }
 
     function getIndexPrice(uint256 interval) external view returns (uint256) {
