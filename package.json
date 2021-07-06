@@ -5,8 +5,10 @@
   "main": "hardhat.config.js",
   "files": [
     "artifacts/contracts/",
-    "metadata/",
-    "typechain/"
+    "!artifacts/contracts/test",
+    "!artifacts/contracts/uniswap",
+    "!artifacts/contracts/**/*.dbg.json",
+    "metadata/"
   ],
   "scripts": {
     "typechain": "npm run typechain-openzeppelin",
