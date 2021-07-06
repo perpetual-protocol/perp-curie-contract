@@ -3,7 +3,7 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0x42A4DfeFffd32A83F73c19E8f82025eDb63C52CF"
+            "address": "0x9dddCf87213210e5438Bf309148DdF0384556208"
         },
         "vETH": {
             "name": "contracts/test/TestERC20.sol:TestERC20",
@@ -11,7 +11,7 @@
         },
         "vUSD": {
             "name": "contracts/test/TestERC20.sol:TestERC20",
-            "address": "0x65ac1F00e0506aa47FeF9f9714D655A15F5A9596"
+            "address": "0xFDf05244f6a33e416700Cb65dBFeE032427bfD4C"
         }
     },
     "externalContracts": {
