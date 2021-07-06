@@ -8,17 +8,6 @@ contract TestERC20 is ERC20PresetMinterPauser {
     // which is hardcoded as 0x4e59b44847b379578588920ca78fbf26c0b4956c
     // and ERC20PresetMinterPauser set msg.sender as admin
     // https://rinkeby.etherscan.io/address/0x2789bbd5825f3253150abfa340107cf5a97eca43#events
-    // TODO
-    // const nonce = await web3.eth.getTransactionCount(deployer)
-    // const futureAddress = ethers.utils.getContractAddress({ from: deployer, nonce: nonce+1 });
-    // let nonce = await web3.eth.getTransactionCount(deployer)
-    // let futureBaseTokenAddr = ethers.utils.getContractAddress({ from: deployer, nonce: nonce + 1 })
-    // while (baseToken > quoteToken) {
-    //     nonce += 1
-    //     futureBaseTokenAddr = ethers.utils.getContractAddress({ from: deployer, nonce: nonce + 1 })
-    // }
-    // deploy()
-
     constructor(string memory name, string memory symbol) ERC20PresetMinterPauser(name, symbol) {}
 
     function setMinter(address minter) external {
