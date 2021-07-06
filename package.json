@@ -25,7 +25,7 @@
     "slither": "ts-node --files scripts/slither.ts"
   },
   "author": "",
-  "license": "ISC",
+  "license": "BSD 3-Clause License",
   "devDependencies": {
     "@chainlink/contracts": "0.1.7",
     "@eth-optimism/smock": "1.1.4",
