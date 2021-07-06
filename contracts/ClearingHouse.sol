@@ -102,7 +102,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     struct SwapParams {
         address baseToken;
+        // @audit - this is not required (@wraecca)
         address quoteToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+    }
+
+    struct OpenPositionParams {
+        address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
@@ -378,6 +387,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
+    }
+
+    function openPosition(OpenPositionParams memory) external {
+        // TO BE DONE
+        revert("CH_TBD");
     }
 
     // @audit: review security and possible attacks (@detoo)
