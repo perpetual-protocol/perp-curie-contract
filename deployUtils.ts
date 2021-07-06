@@ -24,7 +24,7 @@ export enum DeploymentsKey {
 
 export const DEPLOYMENT_CONTRACT_FILES = {
     [DeploymentsKey.ClearingHouse]: ContractFullyQualifiedName.ClearingHouse,
-    [DeploymentsKey.vUSD]: ContractFullyQualifiedName.TestERC20,
+    [DeploymentsKey.vUSD]: ContractFullyQualifiedName.BaseToken,
     [DeploymentsKey.vETH]: ContractFullyQualifiedName.BaseToken,
 }
 
