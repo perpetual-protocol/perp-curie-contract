@@ -1,15 +1,22 @@
 {
-  "name": "perp-lushan",
-  "version": "1.0.0",
+  "name": "@perp/lushan",
+  "version": "0.0.9",
   "description": "",
   "main": "hardhat.config.js",
+  "files": [
+    "artifacts/contracts/",
+    "!artifacts/contracts/test",
+    "!artifacts/contracts/uniswap",
+    "!artifacts/contracts/**/*.dbg.json",
+    "metadata/"
+  ],
   "scripts": {
     "typechain": "npm run typechain-openzeppelin",
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin ./node_modules/@openzeppelin/contracts/build/contracts/**/*.json",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "hardhat test",
     "build": "npm run typechain && hardhat compile",
-    "postinstall": "husky install",
+    "prepare": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged",
     "deploy-staging": "hardhat deploy --network rinkeby",
@@ -18,7 +25,7 @@
     "slither": "ts-node --files scripts/slither.ts"
   },
   "author": "",
-  "license": "ISC",
+  "license": "BSD 3-Clause License",
   "devDependencies": {
     "@chainlink/contracts": "0.1.7",
     "@eth-optimism/smock": "1.1.4",

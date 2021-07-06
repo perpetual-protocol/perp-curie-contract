@@ -1,7 +1,16 @@
 # lushan
 
-## Deploy to Staging
+## Usage
+
+TODO
+
+## Publish
 
 ```bash
-$ npx hardhat deploy --network rinkeby
+$ npm run deploy-staging
+$ git commit
+$ git push origin
+
+$ npm version patch
+$ git push origin vx.x.x
 ```

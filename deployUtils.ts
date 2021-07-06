@@ -2,6 +2,7 @@ import path from "path"
 
 export enum ContractFullyQualifiedName {
     ClearingHouse = "contracts/ClearingHouse.sol:ClearingHouse",
+    BaseToken = "contracts/BaseToken.sol:BaseToken",
 
     // external interface
     UniswapV3Factory = "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol:IUniswapV3Factory",

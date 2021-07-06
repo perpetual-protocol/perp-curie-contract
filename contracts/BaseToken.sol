@@ -4,12 +4,18 @@ import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20Pr
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 
+// TODO: maybe we could rename it to VToken or something?
 // TODO: Ownable
 // TODO: only keep what we need in ERC20PresetMinterPauser
 contract BaseToken is ERC20PresetMinterPauser {
     using SafeMath for uint256;
     address public immutable priceFeed;
     uint8 private immutable _priceFeedDecimals;
+
+    modifier onlyOwner() {
+        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "BT_NO");
+        _;
+    }
 
     constructor(
         string memory nameArg,
