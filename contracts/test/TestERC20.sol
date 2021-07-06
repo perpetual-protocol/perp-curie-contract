@@ -11,6 +11,14 @@ contract TestERC20 is ERC20PresetMinterPauser {
     // TODO
     // const nonce = await web3.eth.getTransactionCount(deployer)
     // const futureAddress = ethers.utils.getContractAddress({ from: deployer, nonce: nonce+1 });
+    // let nonce = await web3.eth.getTransactionCount(deployer)
+    // let futureBaseTokenAddr = ethers.utils.getContractAddress({ from: deployer, nonce: nonce + 1 })
+    // while (baseToken > quoteToken) {
+    //     nonce += 1
+    //     futureBaseTokenAddr = ethers.utils.getContractAddress({ from: deployer, nonce: nonce + 1 })
+    // }
+    // deploy()
+
     constructor(string memory name, string memory symbol) ERC20PresetMinterPauser(name, symbol) {}
 
     function setMinter(address minter) external {
