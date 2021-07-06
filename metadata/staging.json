@@ -3,19 +3,19 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0x10660E08953E8045Bf47c0D284C509e197dAC759"
-        },
-        "vETH": {
-            "name": "contracts/test/TestERC20.sol:TestERC20",
-            "address": "0x75a1664c65d9bcCc72DF5dD91d067C176BB71117"
+            "address": "0xeBa14268Ab7C9D8196932225300D421c41E276F9"
         },
         "vUSD": {
-            "name": "contracts/test/TestERC20.sol:TestERC20",
-            "address": "0xefB62006a7cAC2e6f2cfe3568C9a9F755690640D"
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0x8fEeDEdafDF196a0E6046f2231041789A3B3C392"
+        },
+        "vETH": {
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0x22a6dfDe247f3C5B7Bbd5Bf5b8De2053d98698ee"
         }
     },
     "externalContracts": {
-        "USDC": "0x6835C792631BEf13dF79b391bF37ab2db1f6D8Fc",
+        "USDC": "0x7CDF5D8021535683739E61f80cFB47448A312025",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     }
 }
