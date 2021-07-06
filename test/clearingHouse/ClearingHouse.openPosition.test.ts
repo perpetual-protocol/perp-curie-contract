@@ -1,9 +1,11 @@
+import { expect } from "chai"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
+import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe.only("ClearingHouse openPosition", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -11,6 +13,7 @@ describe("ClearingHouse openPosition", () => {
     let baseToken: TestERC20
     let quoteToken: TestERC20
     let pool: UniswapV3Pool
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -24,23 +27,89 @@ describe("ClearingHouse openPosition", () => {
         collateral.mint(admin.address, toWei(10000))
 
         // prepare collateral for alice
-        const amount = toWei(1000, await collateral.decimals())
+        collateralDecimals = await collateral.decimals()
+        const amount = toWei(1000, collateralDecimals)
         await collateral.transfer(alice.address, amount)
         await collateral.connect(alice).approve(clearingHouse.address, amount)
-        await clearingHouse.connect(alice).deposit(amount)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
     })
 
     describe("invalid input", () => {
-        it("force error due to invalid market")
-        it("force error due to zero amount")
-        it("force error due to slippage protection")
-        it("force error due to not enough liquidity")
-        it("force error due to not enough collateral")
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+        })
+
+        describe("enough collateral", () => {
+            beforeEach(async () => {
+                await clearingHouse.connect(alice).deposit(toWei(1000, collateralDecimals))
+            })
+
+            it("force error due to invalid baseToken", async () => {
+                await expect(
+                    clearingHouse.connect(alice).openPosition({
+                        baseToken: admin.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        amount: 1,
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_IB")
+            })
+            it("force error due to invalid amount (0)", async () => {
+                await expect(
+                    clearingHouse.connect(alice).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        amount: 0,
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_IA")
+            })
+
+            it("force error due to slippage protection", async () => {
+                // taker want to get 1 vETH in exact current price which is not possible
+                await expect(
+                    clearingHouse.connect(alice).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: 1,
+                        sqrtPriceLimitX96: encodePriceSqrt("154.4310961", "1"),
+                    }),
+                ).to.be.revertedWith("CH_OS")
+            })
+            it("force error due to not enough liquidity", async () => {
+                await expect(
+                    clearingHouse.connect(alice).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: 1,
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_NL")
+            })
+        })
+
+        describe("no collateral", () => {
+            it("force error due to not enough collateral", async () => {
+                await expect(
+                    clearingHouse.connect(alice).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: 1,
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_NL")
+            })
+        })
     })
 
+    // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1258612497
     describe("taker opens long from scratch", () => {
         it("settle funding payment")
         it("mint missing amount of vUSD for swapping")
