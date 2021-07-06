@@ -232,7 +232,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         nonReentrant()
         returns (UniswapV3Broker.SwapResponse memory response)
     {
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
+        IUniswapV3Pool pool = IUniswapV3Pool(getPool(params.baseToken));
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -389,7 +389,17 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
-    function openPosition(OpenPositionParams memory) external {
+    function openPosition(OpenPositionParams memory params) external {
+        swap(
+            SwapParams({
+                baseToken: params.baseToken,
+                quoteToken: quoteToken,
+                isBaseToQuote: params.isBaseToQuote,
+                isExactInput: params.isExactInput,
+                amount: params.amount,
+                sqrtPriceLimitX96: params.sqrtPriceLimitX96
+            })
+        );
         // TO BE DONE
         revert("CH_TBD");
     }
@@ -480,8 +490,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPool(address baseToken) external view returns (address) {
-        return _poolMap[baseToken];
+    function getPool(address baseToken) public view returns (address poolAddress) {
+        poolAddress = _poolMap[baseToken];
+        // pool not found
+        require(poolAddress != address(0), "CH_PNF");
     }
 
     function getCollateral(address trader) external view returns (uint256) {

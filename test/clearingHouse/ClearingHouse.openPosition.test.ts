@@ -5,7 +5,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse openPosition", () => {
+describe("ClearingHouse openPosition", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -49,13 +49,13 @@ describe.only("ClearingHouse openPosition", () => {
             it("force error due to invalid baseToken", async () => {
                 await expect(
                     clearingHouse.connect(alice).openPosition({
-                        baseToken: admin.address,
+                        baseToken: pool.address,
                         isBaseToQuote: true,
                         isExactInput: true,
                         amount: 1,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_IB")
+                ).to.be.revertedWith("CH_PNF")
             })
             it("force error due to invalid amount (0)", async () => {
                 await expect(
@@ -66,7 +66,7 @@ describe.only("ClearingHouse openPosition", () => {
                         amount: 0,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_IA")
+                ).to.be.revertedWith("UB_ZI")
             })
 
             it("force error due to slippage protection", async () => {
@@ -79,7 +79,7 @@ describe.only("ClearingHouse openPosition", () => {
                         amount: 1,
                         sqrtPriceLimitX96: encodePriceSqrt("154.4310961", "1"),
                     }),
-                ).to.be.revertedWith("CH_OS")
+                ).to.be.revertedWith("SPL")
             })
             it("force error due to not enough liquidity", async () => {
                 await expect(
@@ -90,7 +90,7 @@ describe.only("ClearingHouse openPosition", () => {
                         amount: 1,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_NL")
+                ).to.be.revertedWith("CH_F0S")
             })
         })
 
@@ -101,10 +101,10 @@ describe.only("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
-                        amount: 1,
+                        amount: toWei(1000),
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_NL")
+                ).to.be.revertedWith("CH_F0S")
             })
         })
     })
