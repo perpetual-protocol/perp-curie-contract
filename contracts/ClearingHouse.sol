@@ -21,6 +21,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
 import { console } from "hardhat/console.sol";
+import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -671,6 +672,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 );
             }
 
+            console.log("order", i);
             console.log("--> vBaseAmount (before fee):", vBaseAmount);
             if (includeBaseFee) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
@@ -679,7 +681,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                     UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
                 console.log("  getFeeGrowthInsideBase:", feeGrowthInsideBaseX128);
                 console.log("  order.feeGrowthInsideBaseX128:", order.feeGrowthInsideBaseX128);
-                console.log("  order.liquidity:", order.liquidity);
+                // console.log("  order.liquidity:", order.liquidity);
                 vBaseAmount = vBaseAmount.add(
                     _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128, order.feeGrowthInsideBaseX128)
                 );
@@ -688,6 +690,26 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
+    }
+
+    function uniPosition(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    )
+        external
+        view
+        returns (
+            uint128 _liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        )
+    {
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+        return IUniswapV3Pool(_poolMap[baseToken]).positions(positionKey);
     }
 
     function _getPositionValue(Account storage account, address baseToken) private view returns (uint256) {

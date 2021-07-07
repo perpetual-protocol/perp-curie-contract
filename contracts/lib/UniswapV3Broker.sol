@@ -76,48 +76,52 @@ library UniswapV3Broker {
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
+        // bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
+        // (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
+        //     _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
 
-        {
-            // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
-            // get the equivalent amount of liquidity from amount0 & amount1 with current price
-            response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
-            );
-            // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
-            // UB_ZL: zero liquidity
-            require(response.liquidity > 0, "UB_ZL");
-        }
+        // get current price
+        (uint160 sqrtPriceX96, int24 tick, , , , , ) = IUniswapV3Pool(params.pool).slot0();
+        // get the equivalent amount of liquidity from amount0 & amount1 with current price
+        response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(params.lowerTick),
+            TickMath.getSqrtRatioAtTick(params.upperTick),
+            params.base,
+            params.quote
+        );
+        // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
+        // UB_ZL: zero liquidity
+        require(response.liquidity > 0, "UB_ZL");
 
         {
             // fetch the fee growth state if this has liquidity
             (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+                getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick, tick);
 
             // call mint()
             bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
-                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
+                IUniswapV3Pool(params.pool).mint(
+                    address(this),
+                    params.lowerTick,
+                    params.upperTick,
+                    response.liquidity,
+                    data
+                );
 
             // make base & quote into the right order
-            if (isBase0Quote1) {
-                response.base = addedAmount0;
-                response.quote = addedAmount1;
-                response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
-                response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
-            } else {
-                response.quote = addedAmount0;
-                response.base = addedAmount1;
-                response.feeGrowthInsideQuoteX128 = feeGrowthInside0LastX128;
-                response.feeGrowthInsideBaseX128 = feeGrowthInside1LastX128;
-            }
+            // if (isBase0Quote1) {
+            response.base = addedAmount0;
+            response.quote = addedAmount1;
+            response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
+            response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
+            // } else {
+            //     response.quote = addedAmount0;
+            //     response.base = addedAmount1;
+            //     response.feeGrowthInsideQuoteX128 = feeGrowthInside0LastX128;
+            //     response.feeGrowthInsideBaseX128 = feeGrowthInside1LastX128;
+            // }
         }
     }
 
@@ -329,7 +333,9 @@ library UniswapV3Broker {
         int24 upperTick,
         int24 currentTick
     ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
-        _getFeeGrowthInside(pool, lowerTick, upperTick);
+        // console.log("tick lower", uint256(lowerTick));
+        // console.log("tick upper", uint256(upperTick));
+        console.log("current tick ", uint256(currentTick));
 
         (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
             IUniswapV3Pool(pool).ticks(lowerTick);
@@ -351,7 +357,7 @@ library UniswapV3Broker {
             feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
             feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
         }
-        console.log("    feeGrowthBelow0X128:", feeGrowthBelow0X128);
+        // console.log("    feeGrowthBelow0X128:", feeGrowthBelow0X128);
 
         // calculate fee growth above
         uint256 feeGrowthAbove0X128;
@@ -363,9 +369,15 @@ library UniswapV3Broker {
             feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
             feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
         }
-        console.log("    feeGrowthAbove0X128:", feeGrowthAbove0X128);
 
         feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
+        console.log("    !! feeGrowthInside0X128:", feeGrowthInside0X128);
+        if (feeGrowthInside0X128 > feeGrowthGlobal0X128) {
+            feeGrowthInside0X128 = 0;
+        }
         feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
+        if (feeGrowthInside1X128 > feeGrowthGlobal1X128) {
+            feeGrowthInside1X128 = 0;
+        }
     }
 }
