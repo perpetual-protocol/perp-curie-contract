@@ -258,11 +258,16 @@ library UniswapV3Broker {
 
     function _getPositionLiquidity(
         address pool,
-        int24 tickLower,
-        int24 tickUpper
+        int24 lowerTick,
+        int24 upperTick
     ) private view returns (uint128 liquidity) {
-        bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
         (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    // note this assumes token0 is always the base token
+    function getTick(address pool) internal view returns (int24 tick) {
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
     // note this assumes token0 is always the base token
@@ -305,5 +310,53 @@ library UniswapV3Broker {
                 sqrtRatioBX96 - sqrtRatioAX96,
                 sqrtRatioBX96
             ) / sqrtRatioAX96;
+    }
+
+    /// copied from UniswapV3-core
+    /// @notice Retrieves fee growth data
+    /// @param lowerTick The lower tick boundary of the position
+    /// @param upperTick The upper tick boundary of the position
+    /// @param currentTick The current tick
+    /// @return feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity,
+    ///         inside the position's tick boundaries
+    /// @return feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity,
+    ///         inside the position's tick boundaries
+    function getFeeGrowthInside(
+        address pool,
+        int24 lowerTick,
+        int24 upperTick,
+        int24 currentTick
+    ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
+        (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
+            IUniswapV3Pool(pool).ticks(lowerTick);
+        (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
+            IUniswapV3Pool(pool).ticks(upperTick);
+        uint256 feeGrowthGlobal0X128 = IUniswapV3Pool(pool).feeGrowthGlobal0X128();
+        uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
+
+        // calculate fee growth below
+        uint256 feeGrowthBelow0X128;
+        uint256 feeGrowthBelow1X128;
+        if (currentTick >= lowerTick) {
+            feeGrowthBelow0X128 = lowerFeeGrowthOutside0X128;
+            feeGrowthBelow1X128 = lowerFeeGrowthOutside1X128;
+        } else {
+            feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
+            feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
+        }
+
+        // calculate fee growth above
+        uint256 feeGrowthAbove0X128;
+        uint256 feeGrowthAbove1X128;
+        if (currentTick < upperTick) {
+            feeGrowthAbove0X128 = upperFeeGrowthOutside0X128;
+            feeGrowthAbove1X128 = upperFeeGrowthOutside1X128;
+        } else {
+            feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
+            feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
+        }
+
+        feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
+        feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
     }
 }

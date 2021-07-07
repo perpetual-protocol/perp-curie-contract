@@ -93,9 +93,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     struct FundingHistory {
         int256 premiumFractions;
         uint160 sqrtMarkPricesX96;
-        int24 tick;
-        uint256 feeGrowthGlobalBaseX128;
-        uint256 feeGrowthGlobalQuoteX128;
     }
 
     struct AddLiquidityParams {
@@ -449,15 +446,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         // register primitives for funding calculations so we can settle it later
-        (, int24 tick, , , , , ) = pool.slot0();
+        (uint160 sqrtMarkPricesX96, , , , , , ) = pool.slot0();
         FundingHistory memory fundingHistory =
-            FundingHistory({
-                premiumFractions: premiumFraction,
-                sqrtMarkPricesX96: UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
-                tick: tick,
-                feeGrowthGlobalBaseX128: pool.feeGrowthGlobal0X128(),
-                feeGrowthGlobalQuoteX128: pool.feeGrowthGlobal1X128()
-            });
+            FundingHistory({ premiumFractions: premiumFraction, sqrtMarkPricesX96: sqrtMarkPricesX96 });
         _fundingHistoryMap[baseToken].push(fundingHistory);
 
         // update next funding time requirements so we can prevent multiple funding settlement
@@ -524,7 +515,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getPositionSize(address trader, address baseToken) external view returns (int256) {
-        return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
+        return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -558,7 +549,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
-                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPricesX96);
+                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPricesX96, false);
                 console.logInt(posSize);
                 console.logInt(fundingHistory[i].premiumFractions);
                 fundingPaymentAmount = fundingPaymentAmount.add(
@@ -650,7 +641,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function _getPositionSize(
         address trader,
         address baseToken,
-        uint160 sqrtMarkPriceX96
+        uint160 sqrtMarkPriceX96,
+        bool includeBaseFee
     ) private view returns (int256) {
         Account storage account = _accountMap[trader];
         bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
@@ -678,21 +670,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 );
             }
 
-            // // FIXME it's not working now
-            // (uint256 feeGrowthInsideBaseX128, ) =
-            //     IUniswapV3Pool(_poolMap[baseToken]).ticks(fundingHistory[i].tick).getFeeGrowthInside(
-            //         sqrtPriceAtLowerTick,
-            //         sqrtPriceAtUpperTick,
-            //         fundingHistory[i].tick,
-            //         fundingHistory[i].feeGrowthGlobalBaseX128,
-            //         fundingHistory[i].feeGrowthGlobalQuoteX128
-            //     );
-
-            // // fee calculation
-            // vBaseAmount = vBaseAmount.add(
-            //     _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128.sub(previousFeeGrowthGlobalBaseX128))
-            // );
-            // previousFeeGrowthGlobalBaseX128 = feeGrowthInsideBaseX128;
+            if (includeBaseFee) {
+                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
+                // include uncollected fee base tokens
+                (uint256 feeGrowthInsideBaseX128, ) =
+                    UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
+                vBaseAmount = vBaseAmount.add(
+                    _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128, order.feeGrowthInsideBaseX128)
+                );
+            }
         }
 
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
