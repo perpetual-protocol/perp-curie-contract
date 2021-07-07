@@ -233,18 +233,17 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         returns (UniswapV3Broker.SwapResponse memory response)
     {
         IUniswapV3Pool pool = IUniswapV3Pool(getPool(params.baseToken));
-        UniswapV3Broker.SwapResponse memory response =
-            UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    pool,
-                    params.baseToken,
-                    params.quoteToken,
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    params.amount,
-                    params.sqrtPriceLimitX96
-                )
-            );
+        response = UniswapV3Broker.swap(
+            UniswapV3Broker.SwapParams(
+                pool,
+                params.baseToken,
+                params.quoteToken,
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                params.sqrtPriceLimitX96
+            )
+        );
 
         // update internal states
         address trader = _msgSender();
@@ -400,6 +399,44 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function openPosition(OpenPositionParams memory params) external {
+        uint256 baseAvailable = getTokenInfo(_msgSender(), params.baseToken).available;
+        uint256 quoteAvailable = getTokenInfo(_msgSender(), quoteToken).available;
+        // calculate if we need to mint more quote or base
+        if (params.isExactInput) {
+            if (params.isBaseToQuote) {
+                // check if taker has enough base to swap
+                if (baseAvailable < params.amount) {
+                    _mint(params.baseToken, params.amount.sub(baseAvailable), true);
+                }
+            } else {
+                // check if taker has enough quote to swap
+                if (quoteAvailable < params.amount) {
+                    _mint(quoteToken, params.amount.sub(quoteAvailable), true);
+                }
+            }
+        } else {
+            // // is exact output
+            // if (params.isBaseToQuote) {
+            //     // taker want to get exact quote from base
+            //     // calc how many base is needed for the exact quote
+            //     uint256 requiredBase = uni.getExactBaseFromQuote(amount);
+            //     // make sure taker has enough base to buy the desired quote
+            //     if (getBaseAvailable < requiredBase) {
+            //         // if it's reducing position to 0 we don't need to check margin
+            //         _mint(baseToken, insufficientBase, forceIsTrue);
+            //     }
+            // } else {
+            //     // taker want to get exact base from quote
+            //     // calc how many quote is needed for the exact base
+            //     uint256 requiredQuote = uni.getExactQuoteFromBase(amount);
+            //     // make sure taker has enough quote to buy the desired base
+            //     if (getQuoteAvailable < requiredQuote) {
+            //         // if it's reducing position to 0 we don't need to check margin
+            //         _mint(quoteToken, insufficientQuote, forceIsTrue);
+            //     }
+            // }
+        }
+
         swap(
             SwapParams({
                 baseToken: params.baseToken,
@@ -410,8 +447,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 sqrtPriceLimitX96: params.sqrtPriceLimitX96
             })
         );
-        // TO BE DONE
-        revert("CH_TBD");
     }
 
     // @audit: review security and possible attacks (@detoo)
@@ -532,7 +567,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return 100 ether;
     }
 
-    function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
+    function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
         return _accountMap[trader].tokenInfoMap[token];
     }
 
