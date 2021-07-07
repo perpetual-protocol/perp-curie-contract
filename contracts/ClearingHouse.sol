@@ -34,6 +34,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // events
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+    event ClearingHouseQuoterSet(address clearingHouseQuoter);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
@@ -157,6 +158,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
+    address public clearingHouseQuoter;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -175,6 +177,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address uniV3FactoryArg,
         uint256 fundingPeriodArg
     ) {
+        // CH_II: invalid input
         require(collateralTokenArg != address(0), "CH_II_C");
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
@@ -202,6 +205,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
+    function setClearingHouseQuoter(address clearingHouseQuoterArg) external onlyOwner {
+        require(clearingHouseQuoterArg != address(0), "CH_II_CQ");
+        clearingHouseQuoter = clearingHouseQuoterArg;
+        emit ClearingHouseQuoterSet(clearingHouseQuoter);
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -632,7 +641,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         bytes calldata data
     ) external override {
         // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
-        // CH_ZIs: forbidden 0 swap
+        // CH_F0S: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
         address baseToken = abi.decode(data, (address));
@@ -747,9 +756,25 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _accountMap[trader].tokens;
     }
 
-    function getFreeCollateral(address trader) public view returns (uint256) {
+    function getFreeCollateral(address trader) public returns (uint256) {
         int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
         return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
+    }
+
+    // TODO:
+    // 1. decide where require(clearingHouseQuoter != address(0)) should be
+    // 2. whether this is public or internal or private
+    // cannot be view function because of try/catch
+    function getPositionValue(address trader, address token) public returns (uint256 positionValue) {
+        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        if (tokenInfo.available == tokenInfo.debt) return 0;
+
+        positionValue = ClearingHouseQuoter(clearingHouseQuoter).getPositionValue(
+            _poolMap[token],
+            token,
+            tokenInfo.available,
+            tokenInfo.debt
+        );
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
@@ -902,7 +927,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return 0; // TODO WIP
     }
 
-    function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
+    function _getTotalInitialMarginRequirement(address trader) internal returns (uint256) {
         Account storage account = _accountMap[trader];
 
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
@@ -914,7 +939,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                uint256 positionValue = _getPositionValue(account, baseToken);
+                uint256 positionValue = getPositionValue(trader, baseToken);
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
