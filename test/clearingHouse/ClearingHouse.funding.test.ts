@@ -10,7 +10,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
-    const [admin, alice, bob, carol] = waffle.provider.getWallets()
+    const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -46,13 +46,6 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
             // await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
-            // carol
-            await collateral.mint(carol.address, parseEther("10000"))
-            await collateral.connect(carol).approve(clearingHouse.address, parseEther("10000"))
-            await clearingHouse.connect(carol).deposit(parseEther("10000"))
-            await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
-            await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
-
             // price at 50400 == 154.4310961
             await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
@@ -62,13 +55,6 @@ describe("ClearingHouse.funding", () => {
                 quote: parseEther("100"),
                 lowerTick: 50200,
                 upperTick: 50400,
-            })
-            await clearingHouse.connect(carol).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseEther("1"),
-                quote: parseEther("10"),
-                lowerTick: 50400,
-                upperTick: 50600,
             })
 
             console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
@@ -94,18 +80,13 @@ describe("ClearingHouse.funding", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // move price back to 154.4310961, just make calculation easily
-            await clearingHouse.connect(carol).swap({
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                amount: parseEther("0.1"),
-                sqrtPriceLimitX96: 0,
-            })
+            // mark price should be 153.9623330511
 
             // forward 3600 secs to get 1hr twap in UniV3 pool
             await forward(3600)
+
+            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
+            //  check why is that the case
 
             // TODO test
             console.log(
@@ -146,18 +127,22 @@ describe("ClearingHouse.funding", () => {
 
         it.only("get correct number for maker in positive funding rate", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("150.431096", 6), 0, 0, 0]
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
 
             await clearingHouse.updateFunding(baseToken.address)
 
             // alice
-            // position size = 0
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-            //   position size = -0.01
-            //   funding payment = 0.01 * (154 - 150) / 24
+            // position size = 0.099
+            // TODO position size should be 0.1 after we taking fee into consideration
+            //   funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
+            expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
+                "12375003379192555",
+            )
+            //   position size = -0.1
+            //   funding payment = 0.1 * (153.9531248192 - 150.953124) / 24 = 0.012500000341
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
-                "-16666667002800376",
+                "-12500003413325814",
             )
         })
 
