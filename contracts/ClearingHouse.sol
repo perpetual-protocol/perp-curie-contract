@@ -262,6 +262,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     // TODO should add modifier: whenNotPaused()
     function mint(address token, uint256 amount) external nonReentrant() {
+        _mint(token, amount, true);
+    }
+
+    function _mint(
+        address token,
+        uint256 amount,
+        bool checkMarginRatio
+    ) private {
         _requireTokenExistAndValidAmount(token, amount);
 
         IMintableERC20(token).mint(address(this), amount);
@@ -274,9 +282,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         _registerToken(trader, token);
 
-        // TODO: optimize when mint both
-        // CH_NEAV: not enough account value
-        require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
+        if (checkMarginRatio) {
+            // TODO: optimize when mint both
+            // CH_NEAV: not enough account value
+            require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
+        }
 
         emit Minted(token, amount);
     }
