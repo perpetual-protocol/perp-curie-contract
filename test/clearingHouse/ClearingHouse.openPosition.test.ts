@@ -5,8 +5,8 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
-    const [admin, alice] = waffle.provider.getWallets()
+describe.only("ClearingHouse openPosition", () => {
+    const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -22,33 +22,44 @@ describe("ClearingHouse openPosition", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
-
-        // mint
-        collateral.mint(admin.address, toWei(10000))
-
-        // prepare collateral for alice
         collateralDecimals = await collateral.decimals()
-        const amount = toWei(1000, collateralDecimals)
-        await collateral.transfer(alice.address, amount)
-        await collateral.connect(alice).approve(clearingHouse.address, amount)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
+        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+
+        // prepare collateral for taker
+        const makerCollateralAmount = toWei(10000, collateralDecimals)
+        await collateral.mint(maker.address, makerCollateralAmount)
+        await collateral.connect(maker).approve(clearingHouse.address, makerCollateralAmount)
+        await clearingHouse.connect(maker).deposit(makerCollateralAmount)
+
+        // maker add liquidity
+        await clearingHouse.connect(maker).mint(baseToken.address, toWei(100))
+        await clearingHouse.connect(maker).mint(quoteToken.address, toWei(10000))
+        await clearingHouse.connect(maker).addLiquidity({
+            baseToken: baseToken.address,
+            base: toWei(100),
+            quote: toWei(10000),
+            lowerTick: 50000,
+            upperTick: 54000,
+        })
+
+        // prepare collateral for taker
+        const takerCollateral = toWei(1000, collateralDecimals)
+        await collateral.mint(taker.address, takerCollateral)
+        await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
     })
 
     describe("invalid input", () => {
-        beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-        })
-
         describe("enough collateral", () => {
             beforeEach(async () => {
-                await clearingHouse.connect(alice).deposit(toWei(1000, collateralDecimals))
+                await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
             })
 
             it("force error due to invalid baseToken", async () => {
                 await expect(
-                    clearingHouse.connect(alice).openPosition({
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: pool.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -57,9 +68,10 @@ describe("ClearingHouse openPosition", () => {
                     }),
                 ).to.be.revertedWith("CH_PNF")
             })
+
             it("force error due to invalid amount (0)", async () => {
                 await expect(
-                    clearingHouse.connect(alice).openPosition({
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -72,18 +84,29 @@ describe("ClearingHouse openPosition", () => {
             it("force error due to slippage protection", async () => {
                 // taker want to get 1 vETH in exact current price which is not possible
                 await expect(
-                    clearingHouse.connect(alice).openPosition({
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
                         amount: 1,
-                        sqrtPriceLimitX96: encodePriceSqrt("154.4310961", "1"),
+                        sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
                     }),
                 ).to.be.revertedWith("SPL")
             })
+
             it("force error due to not enough liquidity", async () => {
+                // empty the liquidity
+                const order = await clearingHouse.getOpenOrder(maker.address, baseToken.address, 50000, 54000)
+                await clearingHouse.connect(maker).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 54000,
+                    liquidity: order.liquidity,
+                })
+
+                // trade
                 await expect(
-                    clearingHouse.connect(alice).openPosition({
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
@@ -95,16 +118,16 @@ describe("ClearingHouse openPosition", () => {
         })
 
         describe("no collateral", () => {
-            it("force error due to not enough collateral", async () => {
+            it.skip("force error due to not enough collateral for mint", async () => {
                 await expect(
-                    clearingHouse.connect(alice).openPosition({
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
-                        amount: toWei(1000),
+                        amount: toWei(10000000),
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_F0S")
+                ).to.be.revertedWith("CH_NEAV")
             })
         })
     })
