@@ -10,6 +10,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { console } from "hardhat/console.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -253,6 +254,7 @@ library UniswapV3Broker {
 
             // get feeGrowthInside{0,1}LastX128
             (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+            console.log("    _getFeeGrowthInside.feeGrowthInside0LastX128:", feeGrowthInside0LastX128);
         }
     }
 
@@ -327,12 +329,17 @@ library UniswapV3Broker {
         int24 upperTick,
         int24 currentTick
     ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
+        _getFeeGrowthInside(pool, lowerTick, upperTick);
+
         (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
             IUniswapV3Pool(pool).ticks(lowerTick);
         (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
             IUniswapV3Pool(pool).ticks(upperTick);
         uint256 feeGrowthGlobal0X128 = IUniswapV3Pool(pool).feeGrowthGlobal0X128();
         uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
+        console.log("    lowerFeeGrowthOutside0X128:", lowerFeeGrowthOutside0X128);
+        console.log("    upperFeeGrowthOutside0X128:", upperFeeGrowthOutside0X128);
+        console.log("    feeGrowthGlobal0X128:", feeGrowthGlobal0X128);
 
         // calculate fee growth below
         uint256 feeGrowthBelow0X128;
@@ -344,6 +351,7 @@ library UniswapV3Broker {
             feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
             feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
         }
+        console.log("    feeGrowthBelow0X128:", feeGrowthBelow0X128);
 
         // calculate fee growth above
         uint256 feeGrowthAbove0X128;
@@ -355,6 +363,7 @@ library UniswapV3Broker {
             feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
             feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
         }
+        console.log("    feeGrowthAbove0X128:", feeGrowthAbove0X128);
 
         feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
         feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;

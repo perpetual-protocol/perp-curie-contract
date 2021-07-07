@@ -651,6 +651,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
+            // console.log("vBaseAmount (before liq):", vBaseAmount);
             uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
             // TODO need to test verify <= or < ?
             if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
@@ -670,15 +671,20 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 );
             }
 
+            console.log("--> vBaseAmount (before fee):", vBaseAmount);
             if (includeBaseFee) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
                 // include uncollected fee base tokens
                 (uint256 feeGrowthInsideBaseX128, ) =
                     UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
+                console.log("  getFeeGrowthInsideBase:", feeGrowthInsideBaseX128);
+                console.log("  order.feeGrowthInsideBaseX128:", order.feeGrowthInsideBaseX128);
+                console.log("  order.liquidity:", order.liquidity);
                 vBaseAmount = vBaseAmount.add(
                     _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128, order.feeGrowthInsideBaseX128)
                 );
             }
+            console.log("<-- vBaseAmount (after fee):", vBaseAmount);
         }
 
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
