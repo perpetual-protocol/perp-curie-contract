@@ -5,7 +5,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse.burn", () => {
+describe("ClearingHouse.burn", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -66,16 +66,16 @@ describe.only("ClearingHouse.burn", () => {
         it("# can not burn more than debt, even there's enough available", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            const lowerTick = 50000
-            const upperTick = 50200
+            const lowerTick = 50000 // 148.3760629
+            const upperTick = 50200 // 151.3733069
 
             // alice adds liquidity (quote only) under the current price
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: toWei(0),
                 quote: toWei(10),
-                lowerTick: lowerTick, // 148.3760629
-                upperTick: upperTick, // 151.3733069
+                lowerTick: lowerTick,
+                upperTick: upperTick,
             })
 
             // prepare collateral for bob
@@ -86,35 +86,29 @@ describe.only("ClearingHouse.burn", () => {
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
 
-            // bob swaps base for quote (sell base), so alice receives base as fee
+            // bob swaps base to quote (sell base), so alice receives base as fee
+            // 0.1 quote leaves the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 isBaseToQuote: true,
-                isExactInput: true,
-                amount: toWei(0.01), // the amount of base to sell
+                isExactInput: false,
+                amount: toWei(0.1), // the amount of quote
                 sqrtPriceLimitX96: 0,
             })
 
             // bob mints 100 quote for swap
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
 
-            // bob swaps quote for base (buy base), so alice receives quote as fee
+            // bob swaps quote to base (buy base), so alice receives quote as fee
+            // 0.2 quote enters the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 isBaseToQuote: false,
-                isExactInput: false,
-                amount: toWei(0.01), // the amount of base to buy
+                isExactInput: true,
+                amount: toWei(0.2), // the amount of quote
                 sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
-            })
-
-            // alice removes 0 liquidity to collect fee
-            await clearingHouse.connect(alice).removeLiquidity({
-                baseToken: baseToken.address,
-                lowerTick: lowerTick,
-                upperTick: upperTick,
-                liquidity: 0,
             })
 
             // alice removes liquidity
@@ -136,7 +130,6 @@ describe.only("ClearingHouse.burn", () => {
                 quoteToken.address,
             )
 
-            // contains fee
             expect(aliceQuoteAvailableAfter.gt(toWei(10))).to.be.true
 
             await expect(
@@ -160,8 +153,8 @@ describe.only("ClearingHouse.burn", () => {
         it("# burn quote 10 when debt = 10, available < 10", async () => {
             // P(50400) = 1.0001^50400 ~= 151.4310961
             await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-            const lowerTick = 50200
-            const upperTick = 50400
+            const lowerTick = 50200 // 151.3733069
+            const upperTick = 50400 // 154.4310961
 
             const { debt: aliceQuoteDebt } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
 
@@ -170,8 +163,8 @@ describe.only("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 base: toWei(0),
                 quote: toWei(10),
-                lowerTick: lowerTick, // 151.3733069
-                upperTick: upperTick, // 154.4310961
+                lowerTick: lowerTick,
+                upperTick: upperTick,
             })
 
             // prepare collateral for bob
@@ -200,8 +193,8 @@ describe.only("ClearingHouse.burn", () => {
             )
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
-                lowerTick: lowerTick, // 151.3733069
-                upperTick: upperTick, // 154.4310961
+                lowerTick: lowerTick,
+                upperTick: upperTick,
                 liquidity: liquidity,
             })
 
@@ -272,8 +265,8 @@ describe.only("ClearingHouse.burn", () => {
         it("# burn base 10 when debt = 10, available < 10", async () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt("148.3760629", "1"))
-            const lowerTick = 50200
-            const upperTick = 50400
+            const lowerTick = 50200 // 151.3733069
+            const upperTick = 50400 // 154.4310961
 
             const { debt: aliceBaseDebt } = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
 
@@ -282,8 +275,8 @@ describe.only("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 base: toWei(10),
                 quote: toWei(0),
-                lowerTick: lowerTick, // 151.3733069
-                upperTick: upperTick, // 154.4310961
+                lowerTick: lowerTick,
+                upperTick: upperTick,
             })
 
             // prepare collateral for bob
@@ -312,8 +305,8 @@ describe.only("ClearingHouse.burn", () => {
             )
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
-                lowerTick: lowerTick, // 151.3733069
-                upperTick: upperTick, // 154.4310961
+                lowerTick: lowerTick,
+                upperTick: upperTick,
                 liquidity: liquidity,
             })
 
@@ -339,8 +332,8 @@ describe.only("ClearingHouse.burn", () => {
         it("# can not burn more than debt, even there's enough available", async () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt("148.3760629", "1"))
-            const lowerTick = 50000
-            const upperTick = 50200
+            const lowerTick = 50000 // 148.3760629
+            const upperTick = 50200 // 151.3733069
 
             // alice adds liquidity (base only) above the current price
             await clearingHouse.connect(alice).addLiquidity({
@@ -360,12 +353,13 @@ describe.only("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(1000))
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
+            // 0.1 base leaves the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: toWei(0.01), // the amount of base to buy
+                amount: toWei(0.1), // the amount of base
                 sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
             })
 
@@ -373,22 +367,15 @@ describe.only("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
 
             // bob swaps base to quote (sell base), so alice receives base as fee
+            // 0.2 base enters the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: toWei(0.02), // the amount of base to sell
+                amount: toWei(0.2), // the amount of base
                 sqrtPriceLimitX96: 0,
             })
-
-            // // alice removes 0 liquidity to collect fee
-            // await clearingHouse.connect(alice).removeLiquidity({
-            //     baseToken: baseToken.address,
-            //     lowerTick: lowerTick,
-            //     upperTick: upperTick,
-            //     liquidity: 0,
-            // })
 
             // alice removes liquidity
             const { liquidity } = await clearingHouse.getOpenOrder(
@@ -409,7 +396,6 @@ describe.only("ClearingHouse.burn", () => {
                 baseToken.address,
             )
 
-            // contains fee
             expect(aliceBaseAvailableAfter.gt(toWei(10))).to.be.true
 
             await expect(
