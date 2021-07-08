@@ -129,6 +129,7 @@ library UniswapV3Broker {
             type(uint128).max
         );
 
+        // TODO: feeGrowthInside{01}LastX128 would be reset to 0 after pool.burn(0)?
         // fetch the fee growth state if this has liquidity
         (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
             _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
@@ -237,15 +238,14 @@ library UniswapV3Broker {
         int24 lowerTick,
         int24 upperTick
     ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
-        if (_getPositionLiquidity(pool, lowerTick, upperTick) > 0) {
-            // get this' positionKey
-            // FIXME
-            // check if the case sensitive of address(this) break the PositionKey computing
-            bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+        // FIXME
+        // check if the case sensitive of address(this) break the PositionKey computing
+        // get this' positionKey
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
-            // get feeGrowthInside{0,1}LastX128
-            (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
-        }
+        // get feeGrowthInside{0,1}LastX128
+        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
+        (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
     function _getPositionLiquidity(
