@@ -6,7 +6,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe.only("ClearingHouse openPosition", () => {
-    const [admin, maker, taker] = waffle.provider.getWallets()
+    const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -14,6 +14,8 @@ describe.only("ClearingHouse openPosition", () => {
     let quoteToken: TestERC20
     let pool: UniswapV3Pool
     let collateralDecimals: number
+    const lowerTick: number = 0
+    const upperTick: number = 100000
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -41,8 +43,8 @@ describe.only("ClearingHouse openPosition", () => {
             baseToken: baseToken.address,
             base: toWei(100),
             quote: toWei(10000),
-            lowerTick: 50000,
-            upperTick: 54000,
+            lowerTick,
+            upperTick,
         })
 
         // prepare collateral for taker
@@ -96,11 +98,11 @@ describe.only("ClearingHouse openPosition", () => {
 
             it("force error due to not enough liquidity", async () => {
                 // empty the liquidity
-                const order = await clearingHouse.getOpenOrder(maker.address, baseToken.address, 50000, 54000)
+                const order = await clearingHouse.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
                 await clearingHouse.connect(maker).removeLiquidity({
                     baseToken: baseToken.address,
-                    lowerTick: 50000,
-                    upperTick: 54000,
+                    lowerTick,
+                    upperTick,
                     liquidity: order.liquidity,
                 })
 
@@ -221,7 +223,7 @@ describe.only("ClearingHouse openPosition", () => {
                     expect(baseInfo.available.eq(toWei(1))).to.be.true
                     expect(baseInfo.debt.eq(toWei(0))).to.be.true
                     console.log(quoteInfo.available.toString())
-                    expect(quoteInfo.available.toString()).eq("46832639745226588346") // around 200 - 151 with slippage
+                    expect(quoteInfo.available.toString()).eq("44941269298837045394") // around 200 - 151 with slippage
                     expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
             })
@@ -347,7 +349,7 @@ describe.only("ClearingHouse openPosition", () => {
         beforeEach(async () => {
             // deposit
             await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
-            // taker swap 1 USD for ? ETH
+            // taker swap 2 USD for ? ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -405,7 +407,65 @@ describe.only("ClearingHouse openPosition", () => {
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
             expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
         })
-        it("close position")
+
+        it("close position, base/quote available debt will be 0, collateral will be the origin number", async () => {
+            // expect taker has 2 USD worth ETH
+            const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+
+            // taker close 2 USD worth ETH
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: posSize,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // base debt and available will be 0
+            {
+                const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                expect(baseTokenInfo.available).deep.eq(toWei(0))
+                expect(baseTokenInfo.debt).deep.eq(toWei(0))
+                const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                expect(quoteTokenInfo.available).deep.eq(toWei(0))
+                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+            }
+
+            // collateral will be less than original number bcs of fees
+            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            expect(freeCollateral.lt(toWei(1000))).to.be.true
+        })
+
+        it.only("force error, can't open another long if it's under collateral", async () => {
+            // prepare collateral for carol
+            const carolAmount = toWei(1000000, collateralDecimals)
+            await collateral.connect(admin).mint(carol.address, carolAmount)
+            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
+            await clearingHouse.connect(carol).deposit(carolAmount)
+
+            // carol open short to make taker under collateral
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: carolAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // taker want to increase position but he's under collateral
+            // TODO expect taker's margin ratio < mmRatio
+            // await expect(
+            //     clearingHouse.connect(taker).openPosition({
+            //         baseToken: baseToken.address,
+            //         isBaseToQuote: false,
+            //         isExactInput: true,
+            //         amount: 1,
+            //         sqrtPriceLimitX96: 0,
+            //     }),
+            // ).to.be.revertedWith("CH_CNE")
+        })
+
         it("open larger reverse position")
     })
 

@@ -319,7 +319,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            mintableQuote = mintableQuote.div(getIndexPrice(token));
+            minted = mintableQuote.div(getIndexPrice(token));
         }
         return _mint(token, minted, false);
     }
@@ -520,12 +520,50 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             }
         }
 
-        // chekc margin ratio if its not close position
-        // if (isPositionClosed()) {
-        //     _settle(msgSender());
-        // } else {
-        //     requiredInitMarginRequirement();
-        // }
+        // long: q-debt = 100, b-ava = 1
+        // close long:  b-ava = 0
+
+        // short: b-ava = 1 b-debt = 1, swap -> b-ava = 0, b-debt = 1
+        // close short: b-debt = 0
+
+        // TODO: use
+
+        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        bool isPositionClosed = baseTokenInfo.available == 0 && baseTokenInfo.debt == 0;
+
+        // check margin ratio if its not close position
+        if (isPositionClosed) {
+            _settle(_msgSender());
+        } else {
+            // requiredInitMarginRequirement();
+        }
+    }
+
+    // ensure taker's position is zero
+    // settle pnl to trader's collateral when there's no position is hold
+    function _settle(address positionOwner) private {
+        TokenInfo storage quoteTokenInfo = _accountMap[positionOwner].tokenInfoMap[quoteToken];
+        uint256 burnableQuote = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
+        burn(quoteToken, burnableQuote);
+        if (quoteTokenInfo.debt > 0) {
+            // remaining debt is loss
+            Account storage accountInfo = _accountMap[positionOwner];
+            if (accountInfo.collateral > quoteTokenInfo.debt) {
+                accountInfo.collateral -= quoteTokenInfo.debt;
+            } else {
+                // TODO
+                // _increaseBadDebt(quoteTokenInfoAfterBurned.debt.sub(accountInfo.collateral));
+                accountInfo.collateral = 0;
+            }
+
+            // under collateral, insurance fund get hurt
+        } else {
+            _accountMap[positionOwner].collateral += quoteTokenInfo.available;
+        }
+
+        // clear quote available and debt
+        quoteTokenInfo.available = 0;
+        quoteTokenInfo.debt = 0;
     }
 
     // @audit: review security and possible attacks (@detoo)
