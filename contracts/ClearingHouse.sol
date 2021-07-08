@@ -21,7 +21,6 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
 // TODO change to ERC20Metadata for decimals
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -204,8 +203,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // CH_IA: invalid amount
         // can only burn the amount of debt that can be pay back with available
-        console.log("tokenInfo.debt,=%s", tokenInfo.debt);
-        console.log("tokenInfo.available,=%s", tokenInfo.available);
         require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
 
         // TODO: move to closePosition
@@ -300,7 +297,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // ensure token is base or quote
     function _mintMax(address token) private returns (uint256) {
         uint256 freeCollateral = getFreeCollateral(_msgSender());
-        console.log("freecOLL: %s", freeCollateral);
         if (freeCollateral == 0) {
             return 0;
         }
@@ -308,18 +304,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // normalize free collateral from collateral decimals to quote decimals
         uint256 collateralDecimals = ERC20(collateralToken).decimals();
         uint256 quoteDecimals = ERC20(quoteToken).decimals();
-        console.log("collateralDecimals: %s", collateralDecimals);
-        console.log("quoteDecimals: %s", quoteDecimals);
         uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, 10**quoteDecimals, 10**collateralDecimals);
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, 1 ether, imRatio);
-        console.log("mintableQuote: %s", mintableQuote);
-
         uint256 minted;
         if (token == quoteToken) {
             minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            minted = mintableQuote.div(getIndexPrice(token));
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
         }
         return _mint(token, minted, false);
     }
@@ -436,8 +428,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 baseAvailableBefore = getTokenInfo(_msgSender(), params.baseToken).available;
         uint256 quoteAvailableBefore = getTokenInfo(_msgSender(), quoteToken).available;
         uint256 minted;
-        console.log("baseAvailableBefore=%s", baseAvailableBefore);
-        console.log("quoteAvailableBefore=%s", quoteAvailableBefore);
 
         // calculate if we need to mint more quote or base
         if (params.isExactInput) {
@@ -502,9 +492,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 exactInsufficientBase = swapResponse.base.sub(baseAvailableBefore);
             }
 
-            console.log("exactInsufficientBase= %s", exactInsufficientBase);
             if (minted > exactInsufficientBase) {
-                console.log("minted.sub(exactInsufficientBase)= %s", minted.sub(exactInsufficientBase));
                 burn(params.baseToken, minted.sub(exactInsufficientBase));
             }
         } else {
@@ -513,9 +501,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 exactInsufficientQuote = swapResponse.quote.sub(quoteAvailableBefore);
             }
 
-            console.log("exactInsufficientQuote= %s", exactInsufficientQuote);
             if (minted > exactInsufficientQuote) {
-                console.log("minted.sub(exactInsufficientQuote)= %s", minted.sub(exactInsufficientQuote));
                 burn(quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
@@ -535,7 +521,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (isPositionClosed) {
             _settle(_msgSender());
         } else {
-            // requiredInitMarginRequirement();
+            require(
+                getAccountValue(_msgSender()) >= _getTotalInitialMarginRequirement(_msgSender()).toInt256(),
+                "CH_NEAV"
+            );
         }
     }
 

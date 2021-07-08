@@ -5,7 +5,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse openPosition", () => {
+describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -30,14 +30,14 @@ describe.only("ClearingHouse openPosition", () => {
         await clearingHouse.addPool(baseToken.address, 10000)
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
 
-        // prepare collateral for taker
-        const makerCollateralAmount = toWei(10000, collateralDecimals)
+        // prepare collateral for maker
+        const makerCollateralAmount = toWei(1000000, collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
         await collateral.connect(maker).approve(clearingHouse.address, makerCollateralAmount)
         await clearingHouse.connect(maker).deposit(makerCollateralAmount)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, toWei(100))
+        await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
         await clearingHouse.connect(maker).mint(quoteToken.address, toWei(10000))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
@@ -201,9 +201,7 @@ describe.only("ClearingHouse openPosition", () => {
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                     expect(baseInfo.available.eq(toWei(1))).to.be.true
                     expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                    console.log(`quoteInfo.available.toString()= ${quoteInfo.available.toString()}`)
                     expect(quoteInfo.available.eq(toWei(0))).to.be.true
-                    console.log(`quoteInfo.debt.toString()= ${quoteInfo.debt.toString()}`)
                     expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
 
@@ -222,7 +220,6 @@ describe.only("ClearingHouse openPosition", () => {
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                     expect(baseInfo.available.eq(toWei(1))).to.be.true
                     expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                    console.log(quoteInfo.available.toString())
                     expect(quoteInfo.available.toString()).eq("44941269298837045394") // around 200 - 151 with slippage
                     expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
@@ -437,9 +434,9 @@ describe.only("ClearingHouse openPosition", () => {
             expect(freeCollateral.lt(toWei(1000))).to.be.true
         })
 
-        it.only("force error, can't open another long if it's under collateral", async () => {
+        it.skip("force error, can't open another long if it's under collateral", async () => {
             // prepare collateral for carol
-            const carolAmount = toWei(1000000, collateralDecimals)
+            const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
             await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
             await clearingHouse.connect(carol).deposit(carolAmount)
@@ -455,15 +452,15 @@ describe.only("ClearingHouse openPosition", () => {
 
             // taker want to increase position but he's under collateral
             // TODO expect taker's margin ratio < mmRatio
-            // await expect(
-            //     clearingHouse.connect(taker).openPosition({
-            //         baseToken: baseToken.address,
-            //         isBaseToQuote: false,
-            //         isExactInput: true,
-            //         amount: 1,
-            //         sqrtPriceLimitX96: 0,
-            //     }),
-            // ).to.be.revertedWith("CH_CNE")
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: 1,
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.be.revertedWith("CH_CNE")
         })
 
         it("open larger reverse position")
