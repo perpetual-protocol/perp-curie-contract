@@ -647,11 +647,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
             uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-            // TODO need to test verify <= or < ?
             if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
                 uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                 vBaseAmount = vBaseAmount.add(
-                    (sqrtMarkPriceX96 >= sqrtPriceAtLowerTick)
+                    (sqrtMarkPriceX96 > sqrtPriceAtLowerTick)
                         ? UniswapV3Broker.getAmount0ForLiquidity(
                             sqrtMarkPriceX96,
                             sqrtPriceAtUpperTick,
