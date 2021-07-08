@@ -20,7 +20,6 @@ import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
-import { console } from "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -437,8 +436,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
             uint256 indexTwapPrice = getIndexTwapPrice(baseToken, fundingPeriod);
 
-            console.log("markTwapPriceIn18Digit", markTwapPriceIn18Digit);
-            console.log("indexTwapPrice", indexTwapPrice);
             int256 premium = markTwapPriceIn18Digit.toInt256().sub(indexTwapPrice.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
@@ -550,8 +547,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
                 int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPricesX96, false);
-                console.logInt(posSize);
-                console.logInt(fundingHistory[i].premiumFractions);
                 fundingPaymentAmount = fundingPaymentAmount.add(
                     fundingHistory[i].premiumFractions.mul(posSize).div(1 ether)
                 );
@@ -651,7 +646,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
-            // console.log("vBaseAmount (before liq):", vBaseAmount);
             uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
             // TODO need to test verify <= or < ?
             if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
@@ -671,20 +665,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 );
             }
 
-            console.log("--> vBaseAmount (before fee):", vBaseAmount);
             if (includeBaseFee) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
                 // include uncollected fee base tokens
                 (uint256 feeGrowthInsideBaseX128, ) =
                     UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
-                console.log("  getFeeGrowthInsideBase:", feeGrowthInsideBaseX128);
-                console.log("  order.feeGrowthInsideBaseX128:", order.feeGrowthInsideBaseX128);
-                console.log("  order.liquidity:", order.liquidity);
                 vBaseAmount = vBaseAmount.add(
                     _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128, order.feeGrowthInsideBaseX128)
                 );
             }
-            console.log("<-- vBaseAmount (after fee):", vBaseAmount);
         }
 
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());

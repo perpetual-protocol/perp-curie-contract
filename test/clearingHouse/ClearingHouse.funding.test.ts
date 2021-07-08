@@ -57,13 +57,6 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50400,
             })
 
-            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
-            console.log(
-                `alice position size: ${(
-                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
-                ).toString()}`,
-            )
-
             // bob short
             await collateral.mint(bob.address, parseEther("1000"))
             await collateral.connect(bob).approve(clearingHouse.address, parseEther("1000"))
@@ -87,37 +80,6 @@ describe("ClearingHouse.funding", () => {
 
             // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
             //  check why is that the case
-
-            // TODO test
-            console.log(
-                `getSqrtMarkPriceX96: ${(await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString()}`,
-            )
-            const aliceBaseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            const aliceQuoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            const bobBaseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-            const bobQuoteTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
-            console.log(
-                `alice base available: ${aliceBaseTokenInfo.available.toString()}, debt: ${aliceBaseTokenInfo.debt.toString()}, position size: ${(
-                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
-                ).toString()}`,
-            )
-            console.log(
-                `alice quote available: ${aliceQuoteTokenInfo.available.toString()}, debt: ${aliceQuoteTokenInfo.debt.toString()}`,
-            )
-            const aliceOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
-            console.log(`alice order IDs: ${aliceOrderIds}, length: ${aliceOrderIds.length}`)
-            const aliceOpenOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
-            console.log(`alice open order liquidity: ${aliceOpenOrder.liquidity.toString()}`)
-            console.log(
-                `bob base available: ${bobBaseTokenInfo.available.toString()}, debt: ${bobBaseTokenInfo.debt.toString()}, position size: ${(
-                    await clearingHouse.getPositionSize(bob.address, baseToken.address)
-                ).toString()}`,
-            )
-            console.log(
-                `bob quote available: ${bobQuoteTokenInfo.available.toString()}, debt: ${bobQuoteTokenInfo.debt.toString()}`,
-            )
-            console.log("========================")
         })
 
         it("get correct number for maker before any update funding", async () => {
@@ -169,15 +131,8 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq("12499996586674185")
         })
 
-        it.only("get correct number for maker in multiple orders and funding rates", async () => {
-            console.log(
-                `alice position size (before add second liquidity): ${(
-                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
-                ).toString()}`,
-            )
-
-            console.log("=== Add Liq. ===")
-
+        it("get correct number for maker in multiple orders and funding rates", async () => {
+            // alice to add her second open order
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0"),
@@ -186,23 +141,12 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50200,
             })
 
-            // console.log("=== COLLECT ===")
+            // first update funding
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
 
-            // await clearingHouse.connect(alice).removeLiquidity({
-            //     baseToken: baseToken.address,
-            //     lowerTick: 50000,
-            //     upperTick: 50200,
-            //     liquidity: 0,
-            // })
-
-            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
-            console.log(
-                `alice position size (after add second liquidity): ${(
-                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
-                ).toString()}`,
-            )
-
-            console.log("=== SWAP ===")
             // bob short
             await clearingHouse.connect(bob).swap({
                 // sell base
@@ -214,43 +158,27 @@ describe("ClearingHouse.funding", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // mark price should be 149.409359564 (tick ~= 50041)
+            // afterwards, mark price = 149.403346446539268519
 
-            // forward 3600 secs to get 1hr twap in UniV3 pool
+            // forward another 3600 secs
             await forward(3600)
 
-            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-            //  check why is that the case
+            // second update funding
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("152.403346", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
 
-            // TODO test
-            console.log(
-                `getSqrtMarkPriceX96: ${(await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString()}`,
+            // alice
+            // position size = 0.1 + 1 ~= 1.1
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("1099999999999999996")
+            // TODO for now, position size is 0.099, 1.089, respectively for funding calculation. We should take fee into considerations in the future
+            // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
+            // funding payment = 1.089 * (149.403346446539268519 - 152.403346) / 24 = -0.1361249797
+            // 0.01237500338 + (-0.1361249797) = -0.1237499763
+            expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
+                "-123749976359088135",
             )
-            const aliceBaseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            const aliceQuoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            const bobBaseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-            const bobQuoteTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-            console.log(`sqrt mark price: ${await clearingHouse.getSqrtMarkPriceX96(baseToken.address)}`)
-            console.log(
-                `alice base available: ${aliceBaseTokenInfo.available.toString()}, debt: ${aliceBaseTokenInfo.debt.toString()}, position size: ${(
-                    await clearingHouse.getPositionSize(alice.address, baseToken.address)
-                ).toString()}`,
-            )
-            // console.log(
-            //     `alice quote available: ${aliceQuoteTokenInfo.available.toString()}, debt: ${aliceQuoteTokenInfo.debt.toString()}`,
-            // )
-            const aliceOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
-            // console.log(`alice order IDs: ${aliceOrderIds}, length: ${aliceOrderIds.length}`)
-            const aliceOpenOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
-            console.log(`alice open order liquidity: ${aliceOpenOrder.liquidity.toString()}`)
-            console.log(
-                `bob base available: ${bobBaseTokenInfo.available.toString()}, debt: ${bobBaseTokenInfo.debt.toString()}, position size: ${(
-                    await clearingHouse.getPositionSize(bob.address, baseToken.address)
-                ).toString()}`,
-            )
-            // console.log(
-            //     `bob quote available: ${bobQuoteTokenInfo.available.toString()}, debt: ${bobQuoteTokenInfo.debt.toString()}`,
-            // )
         })
 
         it("get correct number when there is no positions", async () => {})
