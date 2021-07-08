@@ -54,7 +54,7 @@ describe("ClearingHouse openPosition", () => {
     })
 
     describe("invalid input", () => {
-        describe("enough collateral", () => {
+        describe("taker has enough collateral", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
             })
@@ -119,7 +119,7 @@ describe("ClearingHouse openPosition", () => {
             })
         })
 
-        describe("no collateral", () => {
+        describe("taker has 0 collateral", () => {
             it("force error due to not enough collateral for mint", async () => {
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -148,7 +148,8 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteInfo.debt.eq(0)).to.be.true
         })
 
-        describe("taker opens long ", () => {
+        describe("long", () => {
+            // TODO
             it("settle funding payment")
 
             it("increase ? position when exact input", async () => {
@@ -163,12 +164,12 @@ describe("ClearingHouse openPosition", () => {
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(baseInfo.available.gt(toWei(0))).to.be.true
-                expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                expect(quoteInfo.available.eq(toWei(0))).to.be.true
-                expect(quoteInfo.debt.eq(toWei(1))).to.be.true
+                expect(baseInfo.debt).be.deep.eq(toWei(0))
+                expect(quoteInfo.available).be.deep.eq(toWei(0))
+                expect(quoteInfo.debt).be.deep.eq(toWei(1))
             })
 
-            describe("open exact output position", () => {
+            describe("exact output", () => {
                 it("mint more USD to buy exact 1 ETH", async () => {
                     // taker swap ? USD for 1 ETH
                     await clearingHouse.connect(taker).openPosition({
@@ -180,9 +181,9 @@ describe("ClearingHouse openPosition", () => {
                     })
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                    expect(baseInfo.available.eq(toWei(1))).to.be.true
-                    expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                    expect(quoteInfo.available.eq(toWei(0))).to.be.true
+                    expect(baseInfo.available).be.deep.eq(toWei(1))
+                    expect(baseInfo.debt).be.deep.eq(toWei(0))
+                    expect(quoteInfo.available).be.deep.eq(toWei(0))
                     expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
 
@@ -199,13 +200,13 @@ describe("ClearingHouse openPosition", () => {
                     })
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                    expect(baseInfo.available.eq(toWei(1))).to.be.true
-                    expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                    expect(quoteInfo.available.eq(toWei(0))).to.be.true
+                    expect(baseInfo.available).be.deep.eq(toWei(1))
+                    expect(baseInfo.debt).be.deep.eq(toWei(0))
+                    expect(quoteInfo.available).be.deep.eq(toWei(0))
                     expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
 
-                it("mint max but burn all of them after swap because there's enough available", async () => {
+                it("mint more but burn all of them after swap because there's enough available", async () => {
                     await clearingHouse.connect(taker).mint(quoteToken.address, toWei(200))
 
                     // taker swap ? USD for 1 ETH
@@ -434,6 +435,7 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral.lt(toWei(1000))).to.be.true
         })
 
+        // TODO: blocked by TWAP based _getDebtValue
         it.skip("force error, can't open another long if it's under collateral", async () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)

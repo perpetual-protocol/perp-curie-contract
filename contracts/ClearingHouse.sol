@@ -282,9 +282,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
-    // TODO question below
-    // when caller is also a maker, her free collateral can be zero when she already has max quote
-    // but she can still mint more base when the posValue <= max(quoteDebt, totalBaseDebt)
     function _mintMax(address token) private returns (uint256) {
         uint256 freeCollateral = getFreeCollateral(_msgSender());
         if (freeCollateral == 0) {
