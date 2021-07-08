@@ -30,6 +30,8 @@ describe("ClearingHouse Spec", () => {
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
             return POOL_A_ADDRESS
         })
+
+        baseToken.smocked.getIndexPrice.will.return.with(parseEther("100"))
     })
 
     describe("# addPool", () => {

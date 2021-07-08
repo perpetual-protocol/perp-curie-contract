@@ -319,8 +319,6 @@ library UniswapV3Broker {
         int24 upperTick,
         int24 currentTick
     ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
-        _getFeeGrowthInside(pool, lowerTick, upperTick);
-
         (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
             IUniswapV3Pool(pool).ticks(lowerTick);
         (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
