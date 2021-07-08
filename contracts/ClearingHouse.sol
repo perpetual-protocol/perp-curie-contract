@@ -34,7 +34,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // events
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event ClearingHouseQuoterSet(address clearingHouseQuoter);
+    event TwapIntervalSet(uint256 twapInterval);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
@@ -154,11 +154,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
+    uint256 public twapInterval = 15 minutes; //
 
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
-    address public clearingHouseQuoter;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -207,10 +207,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
-    function setClearingHouseQuoter(address clearingHouseQuoterArg) external onlyOwner {
-        require(clearingHouseQuoterArg != address(0), "CH_II_CQ");
-        clearingHouseQuoter = clearingHouseQuoterArg;
-        emit ClearingHouseQuoterSet(clearingHouseQuoter);
+    function setTwapInterval(uint256 twapIntervalArg) external onlyOwner {
+        // invalid input of TwapInterval
+        require(twapIntervalArg != 0, "CH_II_TI");
+        twapInterval = twapIntervalArg;
+        emit TwapIntervalSet(twapInterval);
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -761,20 +762,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
     }
 
-    // TODO:
-    // 1. decide where require(clearingHouseQuoter != address(0)) should be
-    // 2. whether this is public or internal or private
-    // cannot be view function because of try/catch
-    function getPositionValue(address trader, address token) public returns (uint256 positionValue) {
+    // NOTE: the negative value will only be used when calculating the PNL
+    // TODO: whether this is public or internal or private
+    function getPositionValue(address trader, address token) public view returns (int256 positionValue) {
         TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-        if (tokenInfo.available == tokenInfo.debt) return 0;
+        int256 baseAvailable = tokenInfo.available.toInt256();
+        int256 baseDebt = tokenInfo.debt.toInt256();
+        if (baseAvailable == baseDebt) return 0;
 
-        positionValue = ClearingHouseQuoter(clearingHouseQuoter).getPositionValue(
-            _poolMap[token],
-            token,
-            tokenInfo.available,
-            tokenInfo.debt
-        );
+        int256 positionSize = baseAvailable.sub(baseDebt);
+        uint160 twapSqrtMarkPriceX96 = getSqrtMarkTwapPrice(token, twapInterval);
+        uint256 twapMarkPrice = _formatPrice(twapSqrtMarkPriceX96);
+
+        return positionSize.mul(twapMarkPrice.toInt256());
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
@@ -939,7 +939,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                uint256 positionValue = getPositionValue(trader, baseToken);
+                // will not use negative value in this case
+                uint256 positionValue = _formatAbsPositionValue(getPositionValue(trader, baseToken));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
@@ -997,16 +998,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
     }
 
-    function _getPositionValue(Account storage account, address baseToken) private view returns (uint256) {
-        // TODO WIP
-        // uint256 positionSize = _getPositionSize(account, baseToken);
-        // simulate trade and calculate position value
-        // positionValue = getExactBastToQuote(pool, 1)
-        return 0;
-    }
-
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
+    }
+
+    function _formatPrice(uint160 sqrtPriceX96) internal pure returns (uint256) {
+        return (uint256(sqrtPriceX96).div(2**96))**2;
+    }
+
+    function _formatAbsPositionValue(int256 positionValue) internal pure returns (uint256) {
+        return positionValue > 0 ? positionValue.toUint256() : (-positionValue).toUint256();
     }
 
     function _getOrderId(
