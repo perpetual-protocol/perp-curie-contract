@@ -765,13 +765,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // NOTE: the negative value will only be used when calculating the PNL
     // TODO: whether this is public or internal or private
     function getPositionValue(address trader, address token) public view returns (int256 positionValue) {
-        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-        int256 baseAvailable = tokenInfo.available.toInt256();
-        int256 baseDebt = tokenInfo.debt.toInt256();
-        if (baseAvailable == baseDebt) return 0;
+        int256 positionSize =
+            _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
+        if (positionSize == 0) return 0;
 
-        int256 positionSize = baseAvailable.sub(baseDebt);
-        uint160 twapSqrtMarkPriceX96 = getSqrtMarkTwapPrice(token, twapInterval);
+        uint160 twapSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[token], twapInterval);
         uint256 twapMarkPrice = _formatPrice(twapSqrtMarkPriceX96);
 
         return positionSize.mul(twapMarkPrice.toInt256());
@@ -826,8 +824,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingHistoryMap[baseToken].length;
     }
 
-    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapInterval);
+    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapIntervalArg) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapIntervalArg);
     }
 
     function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
