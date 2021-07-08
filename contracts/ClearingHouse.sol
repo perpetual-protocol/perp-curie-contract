@@ -154,7 +154,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
-    uint256 public twapInterval = 15 minutes; //
+    uint256 public twapInterval = 15 minutes;
 
     address public immutable collateralToken;
     address public immutable quoteToken;
