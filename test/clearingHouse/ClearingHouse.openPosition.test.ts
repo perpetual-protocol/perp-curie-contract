@@ -5,7 +5,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse openPosition", () => {
+describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -132,7 +132,7 @@ describe.only("ClearingHouse openPosition", () => {
         })
     })
 
-    describe.only("taker open position from zero", async () => {
+    describe("taker open position from zero", async () => {
         beforeEach(async () => {
             // deposit
             await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
@@ -149,7 +149,7 @@ describe.only("ClearingHouse openPosition", () => {
         describe("taker opens long ", () => {
             it("settle funding payment")
 
-            it("increase position from 0", async () => {
+            it("increase ? position when exact input", async () => {
                 // taker swap 1 USD for ? ETH
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
@@ -164,6 +164,24 @@ describe.only("ClearingHouse openPosition", () => {
                 expect(baseInfo.debt.eq(toWei(0))).to.be.true
                 expect(quoteInfo.available.eq(toWei(0))).to.be.true
                 expect(quoteInfo.debt.eq(toWei(1))).to.be.true
+            })
+
+            it.only("increase exact position when exact output", async () => {
+                // taker swap ? USD for 1 ETH
+                await clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: toWei(1),
+                    sqrtPriceLimitX96: 0,
+                })
+                const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                expect(baseInfo.available.eq(toWei(1))).to.be.true
+                expect(baseInfo.debt.eq(toWei(0))).to.be.true
+                console.log(quoteInfo.available.toString())
+                expect(quoteInfo.available.eq(toWei(0))).to.be.true
+                expect(quoteInfo.debt.gt(toWei(0))).to.be.true
             })
 
             it("mint missing amount of vUSD for swapping", async () => {
@@ -283,21 +301,80 @@ describe.only("ClearingHouse openPosition", () => {
         })
     })
 
+    describe("opening long first then", () => {
+        beforeEach(async () => {
+            // deposit
+            await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+            // taker swap 1 USD for ? ETH
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: toWei(2),
+                sqrtPriceLimitX96: 0,
+            })
+        })
+
+        it("increase position", async () => {
+            const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+
+            // taker swap 1 USD for ? ETH again
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: toWei(1),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // increase ? USD debt, increase 1 ETH available, the rest remains the same
+            const baseInfoAfter = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const quoteInfoAfter = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+            const increasedQuoteDebt = quoteInfoAfter.debt.sub(quoteInfoBefore.debt)
+            const increasedBaseAvailable = baseInfoAfter.available.sub(baseInfoBefore.available)
+            expect(increasedQuoteDebt).deep.eq(toWei(1))
+            expect(increasedBaseAvailable.gt(toWei(0))).to.be.true
+            expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
+            expect(quoteInfoAfter.available.sub(quoteInfoBefore.available)).deep.eq(toWei(0))
+        })
+
+        it("reduce position", async () => {
+            const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+
+            const reducedBase = baseInfoBefore.available.div(2)
+            // taker reduce 50% ETH position for ? USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: reducedBase,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // increase ? USD available, reduce 1 ETH available, the rest remains the same
+            const baseInfoAfter = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const quoteInfoAfter = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+            const increasedQuoteAvailable = quoteInfoAfter.available.sub(quoteInfoBefore.available)
+            const reducedBaseAvailable = baseInfoBefore.available.sub(baseInfoAfter.available)
+            expect(increasedQuoteAvailable.gt(toWei(0))).to.be.true
+            expect(reducedBaseAvailable).deep.eq(reducedBase)
+            expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
+            expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
+        })
+        it("close position")
+        it("open larger reverse position")
+    })
+
+    describe("opening short first then", () => {
+        it("increase position")
+        it("reduce position")
+        it("close position")
+        it("open larger reverse position")
+    })
+
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1258612497
-    describe("opening long first", () => {
-        it("increase position")
-        it("reduce position")
-        it("close position")
-        it("open larger reverse position")
-    })
-
-    describe("opening short first", () => {
-        it("increase position")
-        it("reduce position")
-        it("close position")
-        it("open larger reverse position")
-    })
-
     describe("maker has order out of price range", () => {
         it("will not affect her range order")
     })

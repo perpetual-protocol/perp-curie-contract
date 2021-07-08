@@ -19,6 +19,10 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
+// TODO change to ERC20Metadata for decimals
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "hardhat/console.sol";
+
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
@@ -191,7 +195,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     /**
      * @param amount the amount of debt to burn
      */
-    function burn(address token, uint256 amount) external nonReentrant() {
+    function burn(address token, uint256 amount) public nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
         // update internal states
@@ -288,6 +292,31 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         emit Minted(token, amount);
+    }
+
+    // ensure token is base or quote
+    function _mintMax(address token) private {
+        uint256 freeCollateral = getFreeCollateral(_msgSender());
+        console.log("freecOLL: %s", freeCollateral);
+        if (freeCollateral == 0) {
+            return;
+        }
+
+        // normalize free collateral from collateral decimals to quote decimals
+        uint256 collateralDecimals = ERC20(collateralToken).decimals();
+        uint256 quoteDecimals = ERC20(quoteToken).decimals();
+        console.log("collateralDecimals: %s", collateralDecimals);
+        console.log("quoteDecimals: %s", quoteDecimals);
+        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, 10**quoteDecimals, 10**collateralDecimals);
+        uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, 1 ether, imRatio);
+        console.log("mintableQuote: %s", mintableQuote);
+
+        if (token == quoteToken) {
+            _mint(token, mintableQuote, false);
+        } else {
+            // TODO: change the valuation method && align with baseDebt()
+            _mint(token, mintableQuote.div(getIndexPrice(token)), false);
+        }
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -399,54 +428,81 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function openPosition(OpenPositionParams memory params) external {
-        uint256 baseAvailable = getTokenInfo(_msgSender(), params.baseToken).available;
-        uint256 quoteAvailable = getTokenInfo(_msgSender(), quoteToken).available;
+        uint256 baseAvailableBefore = getTokenInfo(_msgSender(), params.baseToken).available;
+        uint256 quoteAvailableBefore = getTokenInfo(_msgSender(), quoteToken).available;
+
+        console.log("baseAvailableBefore=%s", baseAvailableBefore);
+        console.log("quoteAvailableBefore=%s", quoteAvailableBefore);
         // calculate if we need to mint more quote or base
         if (params.isExactInput) {
             if (params.isBaseToQuote) {
                 // check if taker has enough base to swap
-                if (baseAvailable < params.amount) {
-                    _mint(params.baseToken, params.amount.sub(baseAvailable), true);
+                if (baseAvailableBefore < params.amount) {
+                    _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
                 }
             } else {
                 // check if taker has enough quote to swap
-                if (quoteAvailable < params.amount) {
-                    _mint(quoteToken, params.amount.sub(quoteAvailable), true);
+                if (quoteAvailableBefore < params.amount) {
+                    _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
                 }
             }
         } else {
-            // // is exact output
-            // if (params.isBaseToQuote) {
-            //     // taker want to get exact quote from base
-            //     // calc how many base is needed for the exact quote
-            //     uint256 requiredBase = uni.getExactBaseFromQuote(amount);
-            //     // make sure taker has enough base to buy the desired quote
-            //     if (getBaseAvailable < requiredBase) {
-            //         // if it's reducing position to 0 we don't need to check margin
-            //         _mint(baseToken, insufficientBase, forceIsTrue);
-            //     }
-            // } else {
-            //     // taker want to get exact base from quote
-            //     // calc how many quote is needed for the exact base
-            //     uint256 requiredQuote = uni.getExactQuoteFromBase(amount);
-            //     // make sure taker has enough quote to buy the desired base
-            //     if (getQuoteAvailable < requiredQuote) {
-            //         // if it's reducing position to 0 we don't need to check margin
-            //         _mint(quoteToken, insufficientQuote, forceIsTrue);
-            //     }
-            // }
+            // is exact output
+            if (params.isBaseToQuote) {
+                // taker want to get exact quote from base
+                _mintMax(params.baseToken);
+            } else {
+                // taker want to get exact base from quote
+                _mintMax(quoteToken);
+            }
         }
 
-        swap(
-            SwapParams({
-                baseToken: params.baseToken,
-                quoteToken: quoteToken,
-                isBaseToQuote: params.isBaseToQuote,
-                isExactInput: params.isExactInput,
-                amount: params.amount,
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96
-            })
-        );
+        uint256 baseAvailableAfterMint = getTokenInfo(_msgSender(), params.baseToken).available;
+        uint256 quoteAvailableAfterMint = getTokenInfo(_msgSender(), quoteToken).available;
+
+        // 1, mint 2 -> -3 = 0
+        // 5, mint 0 -> -3 = 2
+        // actual swapped (3) - original(5) = required minted && extra minted > 0
+        // extra mint = actual mint - actual swapped - origin
+        // actual mint = available after mint but before swap - origin
+        // actual swapped (3) - original(1) = required minted && extra minted > 0
+        UniswapV3Broker.SwapResponse memory swapResponse =
+            swap(
+                SwapParams({
+                    baseToken: params.baseToken,
+                    quoteToken: quoteToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                })
+            );
+
+        // only mint/burn extra if exact output
+        if (!params.isExactInput) {
+            if (params.isBaseToQuote) {
+                // burn extra base
+                uint256 actualMinted = baseAvailableAfterMint.sub(baseAvailableBefore);
+                uint256 extraMinted = actualMinted.sub(swapResponse.base).sub(baseAvailableBefore);
+
+                if (swapResponse.base > baseAvailableBefore) {
+                    uint256 extraBase = swapResponse.base.sub(baseAvailableBefore);
+                    burn(params.baseToken, extraBase);
+                }
+            } else {
+                // burn extra quote
+                uint256 quoteAvailableAfter = getTokenInfo(_msgSender(), quoteToken).available;
+                console.log("quoteAvailable=%s", quoteAvailableAfter);
+                console.log("swapResponse.quote=%s", swapResponse.quote);
+                if (swapResponse.quote > quoteAvailableBefore) {
+                    uint256 extraQuote = swapResponse.quote.sub(quoteAvailableBefore);
+                    console.log("extraQuote=%s", extraQuote);
+                    burn(quoteToken, extraQuote);
+                }
+            }
+        }
+
+        // chekc margin ratio if its not close position
     }
 
     // @audit: review security and possible attacks (@detoo)
