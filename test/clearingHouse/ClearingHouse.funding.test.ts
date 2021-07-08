@@ -10,7 +10,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
-    const [admin, alice, bob] = waffle.provider.getWallets()
+    const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -181,10 +181,48 @@ describe("ClearingHouse.funding", () => {
             )
         })
 
-        it("get correct number when there is no positions", async () => {})
+        it("get correct number when there is no positions", async () => {
+            // carol mint token but not trading (zero positions)
+            await collateral.mint(carol.address, parseEther("10000"))
+            await collateral.connect(carol).approve(clearingHouse.address, parseEther("10000"))
+            await clearingHouse.connect(carol).deposit(parseEther("10000"))
+            await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
 
-        it("get correct number when base token does not exist", async () => {})
+            // update funding
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("152.403346", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
 
-        it("get correct number when trader does not exist", async () => {})
+            // carol
+            // position size = 0
+            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(0)
+            // funding payment = 0 * (154.4310961 - 152.403346) / 24 = 0
+            expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
+        })
+
+        it("get correct number when base token does not exist", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+
+            await clearingHouse.updateFunding(baseToken.address)
+
+            // alice
+            expect(await clearingHouse.getPendingFundingPayment(alice.address, quoteToken.address)).eq(0)
+        })
+
+        it("get correct number when trader does not exist", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("152.403346", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
+
+            // carol
+            // position size = 0
+            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(0)
+            // funding payment = 0 * (154.4310961 - 152.403346) / 24 = 0
+            expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
+        })
     })
 })
