@@ -18,9 +18,7 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-
-// TODO change to ERC20Metadata for decimals
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -158,6 +156,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
 
+        // TODO ensure collateral token must has decimals
+        // TODO store decimals for gas optimization
         collateralToken = collateralTokenArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
@@ -302,8 +302,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         // normalize free collateral from collateral decimals to quote decimals
-        uint256 collateralDecimals = ERC20(collateralToken).decimals();
-        uint256 quoteDecimals = ERC20(quoteToken).decimals();
+        uint256 collateralDecimals = IERC20Metadata(collateralToken).decimals();
+        uint256 quoteDecimals = IERC20Metadata(quoteToken).decimals();
         uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, 10**quoteDecimals, 10**collateralDecimals);
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, 1 ether, imRatio);
         uint256 minted;
