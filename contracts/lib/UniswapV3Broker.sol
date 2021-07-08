@@ -7,6 +7,8 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 /**
@@ -94,27 +96,19 @@ library UniswapV3Broker {
         }
 
         {
-            // fetch the fee growth state if this has liquidity
-            (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
-
             // call mint()
             bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
                 IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
 
-            // make base & quote into the right order
-            if (isBase0Quote1) {
-                response.base = addedAmount0;
-                response.quote = addedAmount1;
-                response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
-                response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
-            } else {
-                response.quote = addedAmount0;
-                response.base = addedAmount1;
-                response.feeGrowthInsideQuoteX128 = feeGrowthInside0LastX128;
-                response.feeGrowthInsideBaseX128 = feeGrowthInside1LastX128;
-            }
+            // fetch the fee growth state if this has liquidity
+            (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+
+            response.base = addedAmount0;
+            response.quote = addedAmount1;
+            response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
+            response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
         }
     }
 
@@ -256,10 +250,105 @@ library UniswapV3Broker {
 
     function _getPositionLiquidity(
         address pool,
-        int24 tickLower,
-        int24 tickUpper
+        int24 lowerTick,
+        int24 upperTick
     ) private view returns (uint128 liquidity) {
-        bytes32 positionKey = PositionKey.compute(address(this), tickLower, tickUpper);
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
         (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    // note this assumes token0 is always the base token
+    function getTick(address pool) internal view returns (int24 tick) {
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+    }
+
+    // note this assumes token0 is always the base token
+    function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
+        (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
+    }
+
+    // note this assumes token0 is always the base token
+    function getSqrtMarkTwapPriceX96(address pool, uint256 twapInterval) internal view returns (uint160) {
+        uint32[] memory secondsAgos = new uint32[](2);
+
+        // solhint-disable-next-line not-rely-on-time
+        secondsAgos[0] = uint32(twapInterval);
+        secondsAgos[1] = uint32(0);
+        (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
+
+        if (twapInterval == 0) {
+            return TickMath.getSqrtRatioAtTick(int24(tickCumulatives[0]));
+        } else {
+            return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / uint32(twapInterval)));
+        }
+    }
+
+    /// copied from UniswapV3-periphery
+    /// @notice Computes the amount of token0 for a given amount of liquidity and a price range
+    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
+    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
+    /// @param liquidity The liquidity being valued
+    /// @return amount0 The amount of token0
+    function getAmount0ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) internal pure returns (uint256 amount0) {
+        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+
+        return
+            FullMath.mulDiv(
+                uint256(liquidity) << FixedPoint96.RESOLUTION,
+                sqrtRatioBX96 - sqrtRatioAX96,
+                sqrtRatioBX96
+            ) / sqrtRatioAX96;
+    }
+
+    /// copied from UniswapV3-core
+    /// @notice Retrieves fee growth data
+    /// @param lowerTick The lower tick boundary of the position
+    /// @param upperTick The upper tick boundary of the position
+    /// @param currentTick The current tick
+    /// @return feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity,
+    ///         inside the position's tick boundaries
+    /// @return feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity,
+    ///         inside the position's tick boundaries
+    function getFeeGrowthInside(
+        address pool,
+        int24 lowerTick,
+        int24 upperTick,
+        int24 currentTick
+    ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
+        (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
+            IUniswapV3Pool(pool).ticks(lowerTick);
+        (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
+            IUniswapV3Pool(pool).ticks(upperTick);
+        uint256 feeGrowthGlobal0X128 = IUniswapV3Pool(pool).feeGrowthGlobal0X128();
+        uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
+
+        // calculate fee growth below
+        uint256 feeGrowthBelow0X128;
+        uint256 feeGrowthBelow1X128;
+        if (currentTick >= lowerTick) {
+            feeGrowthBelow0X128 = lowerFeeGrowthOutside0X128;
+            feeGrowthBelow1X128 = lowerFeeGrowthOutside1X128;
+        } else {
+            feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
+            feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
+        }
+
+        // calculate fee growth above
+        uint256 feeGrowthAbove0X128;
+        uint256 feeGrowthAbove1X128;
+        if (currentTick < upperTick) {
+            feeGrowthAbove0X128 = upperFeeGrowthOutside0X128;
+            feeGrowthAbove1X128 = upperFeeGrowthOutside1X128;
+        } else {
+            feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
+            feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
+        }
+
+        feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
+        feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
     }
 }
