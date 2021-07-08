@@ -5,7 +5,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe.only("ClearingHouse openPosition", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -166,22 +166,64 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteInfo.debt.eq(toWei(1))).to.be.true
             })
 
-            it.only("increase exact position when exact output", async () => {
-                // taker swap ? USD for 1 ETH
-                await clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: false,
-                    isExactInput: false,
-                    amount: toWei(1),
-                    sqrtPriceLimitX96: 0,
+            describe("open exact output position", () => {
+                it("mint more USD to buy exact 1 ETH", async () => {
+                    // taker swap ? USD for 1 ETH
+                    await clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: toWei(1),
+                        sqrtPriceLimitX96: 0,
+                    })
+                    const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                    const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                    expect(baseInfo.available.eq(toWei(1))).to.be.true
+                    expect(baseInfo.debt.eq(toWei(0))).to.be.true
+                    expect(quoteInfo.available.eq(toWei(0))).to.be.true
+                    expect(quoteInfo.debt.gt(toWei(0))).to.be.true
                 })
-                const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(baseInfo.available.eq(toWei(1))).to.be.true
-                expect(baseInfo.debt.eq(toWei(0))).to.be.true
-                console.log(quoteInfo.available.toString())
-                expect(quoteInfo.available.eq(toWei(0))).to.be.true
-                expect(quoteInfo.debt.gt(toWei(0))).to.be.true
+
+                it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
+                    await clearingHouse.connect(taker).mint(quoteToken.address, toWei(50))
+
+                    // taker swap ? USD for 1 ETH
+                    await clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: toWei(1),
+                        sqrtPriceLimitX96: 0,
+                    })
+                    const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                    const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                    expect(baseInfo.available.eq(toWei(1))).to.be.true
+                    expect(baseInfo.debt.eq(toWei(0))).to.be.true
+                    console.log(`quoteInfo.available.toString()= ${quoteInfo.available.toString()}`)
+                    expect(quoteInfo.available.eq(toWei(0))).to.be.true
+                    console.log(`quoteInfo.debt.toString()= ${quoteInfo.debt.toString()}`)
+                    expect(quoteInfo.debt.gt(toWei(0))).to.be.true
+                })
+
+                it("mint max but burn all of them after swap because there's enough available", async () => {
+                    await clearingHouse.connect(taker).mint(quoteToken.address, toWei(200))
+
+                    // taker swap ? USD for 1 ETH
+                    await clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: false,
+                        amount: toWei(1),
+                        sqrtPriceLimitX96: 0,
+                    })
+                    const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                    const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                    expect(baseInfo.available.eq(toWei(1))).to.be.true
+                    expect(baseInfo.debt.eq(toWei(0))).to.be.true
+                    console.log(quoteInfo.available.toString())
+                    expect(quoteInfo.available.toString()).eq("46832639745226588346") // around 200 - 151 with slippage
+                    expect(quoteInfo.debt.gt(toWei(0))).to.be.true
+                })
             })
 
             it("mint missing amount of vUSD for swapping", async () => {

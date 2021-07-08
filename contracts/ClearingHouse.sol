@@ -204,6 +204,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // CH_IA: invalid amount
         // can only burn the amount of debt that can be pay back with available
+        console.log("tokenInfo.debt,=%s", tokenInfo.debt);
+        console.log("tokenInfo.available,=%s", tokenInfo.available);
         require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
 
         // TODO: move to closePosition
@@ -272,7 +274,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address token,
         uint256 amount,
         bool checkMarginRatio
-    ) private {
+    ) private returns (uint256) {
         _requireTokenExistAndValidAmount(token, amount);
 
         IMintableERC20(token).mint(address(this), amount);
@@ -292,14 +294,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         emit Minted(token, amount);
+        return amount;
     }
 
     // ensure token is base or quote
-    function _mintMax(address token) private {
+    function _mintMax(address token) private returns (uint256) {
         uint256 freeCollateral = getFreeCollateral(_msgSender());
         console.log("freecOLL: %s", freeCollateral);
         if (freeCollateral == 0) {
-            return;
+            return 0;
         }
 
         // normalize free collateral from collateral decimals to quote decimals
@@ -311,12 +314,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, 1 ether, imRatio);
         console.log("mintableQuote: %s", mintableQuote);
 
+        uint256 minted;
         if (token == quoteToken) {
-            _mint(token, mintableQuote, false);
+            minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            _mint(token, mintableQuote.div(getIndexPrice(token)), false);
+            mintableQuote = mintableQuote.div(getIndexPrice(token));
         }
+        return _mint(token, minted, false);
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -430,42 +435,34 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function openPosition(OpenPositionParams memory params) external {
         uint256 baseAvailableBefore = getTokenInfo(_msgSender(), params.baseToken).available;
         uint256 quoteAvailableBefore = getTokenInfo(_msgSender(), quoteToken).available;
-
+        uint256 minted;
         console.log("baseAvailableBefore=%s", baseAvailableBefore);
         console.log("quoteAvailableBefore=%s", quoteAvailableBefore);
+
         // calculate if we need to mint more quote or base
         if (params.isExactInput) {
             if (params.isBaseToQuote) {
                 // check if taker has enough base to swap
                 if (baseAvailableBefore < params.amount) {
-                    _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
+                    minted = _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
                 }
             } else {
                 // check if taker has enough quote to swap
                 if (quoteAvailableBefore < params.amount) {
-                    _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
+                    minted = _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
                 }
             }
         } else {
             // is exact output
             if (params.isBaseToQuote) {
                 // taker want to get exact quote from base
-                _mintMax(params.baseToken);
+                minted = _mintMax(params.baseToken);
             } else {
                 // taker want to get exact base from quote
-                _mintMax(quoteToken);
+                minted = _mintMax(quoteToken);
             }
         }
 
-        uint256 baseAvailableAfterMint = getTokenInfo(_msgSender(), params.baseToken).available;
-        uint256 quoteAvailableAfterMint = getTokenInfo(_msgSender(), quoteToken).available;
-
-        // 1, mint 2 -> -3 = 0
-        // 5, mint 0 -> -3 = 2
-        // actual swapped (3) - original(5) = required minted && extra minted > 0
-        // extra mint = actual mint - actual swapped - origin
-        // actual mint = available after mint but before swap - origin
-        // actual swapped (3) - original(1) = required minted && extra minted > 0
         UniswapV3Broker.SwapResponse memory swapResponse =
             swap(
                 SwapParams({
@@ -478,31 +475,57 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 })
             );
 
-        // only mint/burn extra if exact output
-        if (!params.isExactInput) {
-            if (params.isBaseToQuote) {
-                // burn extra base
-                uint256 actualMinted = baseAvailableAfterMint.sub(baseAvailableBefore);
-                uint256 extraMinted = actualMinted.sub(swapResponse.base).sub(baseAvailableBefore);
+        // before = 0, mint max + 10000
+        // swap 1 eth need 1000 (assume we have quoter, mint 1000)
+        // quote 9000
+        // burn 9000 = actual mint (10000) - extra required mint (1000)
+        // extra mint (1000) = max((swapped (1000) - before (0)), 0)
 
-                if (swapResponse.base > baseAvailableBefore) {
-                    uint256 extraBase = swapResponse.base.sub(baseAvailableBefore);
-                    burn(params.baseToken, extraBase);
-                }
-            } else {
-                // burn extra quote
-                uint256 quoteAvailableAfter = getTokenInfo(_msgSender(), quoteToken).available;
-                console.log("quoteAvailable=%s", quoteAvailableAfter);
-                console.log("swapResponse.quote=%s", swapResponse.quote);
-                if (swapResponse.quote > quoteAvailableBefore) {
-                    uint256 extraQuote = swapResponse.quote.sub(quoteAvailableBefore);
-                    console.log("extraQuote=%s", extraQuote);
-                    burn(quoteToken, extraQuote);
-                }
+        // burn extra minted
+        // before = 100, mint max +9900, total 10000
+        // swap 1 ETH need 1000 (assume quoter, mint 900)
+        // quote = 9000
+        // burn 9000 = actual mint (9900) - extra required mint (900)
+        // extra mint (900) = max((swapped (1000) - before (100)), 0)
+
+        // before = 7000
+        // mint amx = 10000
+        // swap 1ETH need 1000 (assume quoter, mint 0)
+        // quote = 9000
+        // expect to be 6000
+        // burn 3000 = actual mint (3000) - extra required mint (0)
+        // extra mint (0) = max((swapped (1000) - before (7000), 0)
+
+        if (params.isBaseToQuote) {
+            uint256 exactInsufficientBase;
+            if (swapResponse.base > baseAvailableBefore) {
+                exactInsufficientBase = swapResponse.base.sub(baseAvailableBefore);
+            }
+
+            console.log("exactInsufficientBase= %s", exactInsufficientBase);
+            if (minted > exactInsufficientBase) {
+                console.log("minted.sub(exactInsufficientBase)= %s", minted.sub(exactInsufficientBase));
+                burn(params.baseToken, minted.sub(exactInsufficientBase));
+            }
+        } else {
+            uint256 exactInsufficientQuote;
+            if (swapResponse.quote > quoteAvailableBefore) {
+                exactInsufficientQuote = swapResponse.quote.sub(quoteAvailableBefore);
+            }
+
+            console.log("exactInsufficientQuote= %s", exactInsufficientQuote);
+            if (minted > exactInsufficientQuote) {
+                console.log("minted.sub(exactInsufficientQuote)= %s", minted.sub(exactInsufficientQuote));
+                burn(quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
 
         // chekc margin ratio if its not close position
+        // if (isPositionClosed()) {
+        //     _settle(msgSender());
+        // } else {
+        //     requiredInitMarginRequirement();
+        // }
     }
 
     // @audit: review security and possible attacks (@detoo)
