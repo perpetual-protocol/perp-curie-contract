@@ -744,7 +744,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
-        return FullMath.mulDiv(feeGrowthInsideNew.sub(feeGrowthInsideOld), liquidity, FixedPoint128.Q128);
+        // TODO can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
+        // which causes underflow but what we want is the difference only
+        return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
 
     function _emitLiquidityChanged(
