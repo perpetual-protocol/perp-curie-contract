@@ -1,4 +1,6 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
@@ -14,6 +16,7 @@ describe("ClearingHouse.burn", () => {
     let baseToken: TestERC20
     let quoteToken: TestERC20
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -21,7 +24,12 @@ describe("ClearingHouse.burn", () => {
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
+        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100", 6), 0, 0, 0]
+        })
 
         await clearingHouse.addPool(baseToken.address, "10000")
     })
