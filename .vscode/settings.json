@@ -45,6 +45,7 @@
         "SLOAD",
         "SPDX",
         "VUSD",
+        "abicoder",
         "bignumber",
         "bips",
         "bytecode",
