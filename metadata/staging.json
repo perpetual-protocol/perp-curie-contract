@@ -3,15 +3,23 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0x9dddCf87213210e5438Bf309148DdF0384556208"
+            "address": "0xdf069280eed4E12072e14d9A9626176C0373873a"
+        },
+        "ethChainlinkPriceFeed": {
+            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
+            "address": "0x88a4040952BDC6A0838ceA66B61951895cAfA32e"
+        },
+        "usdcChainlinkPriceFeed": {
+            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
+            "address": "0xed2271221560db4000AD3D889745A636f270960E"
         },
         "vETH": {
-            "name": "contracts/test/TestERC20.sol:TestERC20",
-            "address": "0x15828A3e7DBFbd98faC32a0936A248B088AA252D"
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0x7B6b585502A334373AdCE55529413502768E6618"
         },
         "vUSD": {
-            "name": "contracts/test/TestERC20.sol:TestERC20",
-            "address": "0xFDf05244f6a33e416700Cb65dBFeE032427bfD4C"
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0xaF72ADDAcb81B3dd6493af41CAC72E94e371f1e0"
         }
     },
     "externalContracts": {
