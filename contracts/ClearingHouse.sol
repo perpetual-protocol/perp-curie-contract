@@ -520,27 +520,28 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             // has profit
             _accountMap[trader].collateral = collateral.add(quoteTokenInfo.available).sub(quoteTokenInfo.debt);
             burn(quoteToken, quoteTokenInfo.debt);
-        } else {
-            // has loss or breakeven
-            uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
-            if (loss > 0) {
-                // quote's available is not enough for debt, trader will pay back the debt by collateral
-                if (collateral < loss) {
-                    // TODO bad debt occurs - need cover from insurance fund
-                    // _burnBadDebt(remainingDebt - collateral);
-                    _accountMap[trader].collateral = 0;
-
-                    // to be done
-                    revert("TBD");
-                } else {
-                    _accountMap[trader].collateral = collateral.sub(loss);
-                }
-
-                // realized loss by collateral or insurance fund
-                _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
-            }
-            burn(quoteToken, quoteTokenInfo.available);
+            return;
         }
+
+        // has loss or breakeven
+        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
+        if (loss > 0) {
+            // quote's available is not enough for debt, trader will pay back the debt by collateral
+            if (collateral < loss) {
+                // TODO bad debt occurs - need cover from insurance fund
+                // _burnBadDebt(remainingDebt - collateral);
+                _accountMap[trader].collateral = 0;
+
+                // to be done
+                revert("TBD");
+            } else {
+                _accountMap[trader].collateral = collateral.sub(loss);
+            }
+
+            // realized loss by collateral or insurance fund
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
+        }
+        burn(quoteToken, quoteTokenInfo.available);
     }
 
     // @audit: review security and possible attacks (@detoo)
