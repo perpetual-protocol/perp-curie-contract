@@ -224,7 +224,8 @@ describe("ClearingHouse.funding", () => {
         })
     })
 
-    describe("# settleFunding", () => {
+    describe.only("# settleFunding", () => {
+        let prevCostBasis
         beforeEach(async () => {
             // so bob has some liquidity to remove for a future test
             await clearingHouse.connect(bob).addLiquidity({
@@ -241,10 +242,10 @@ describe("ClearingHouse.funding", () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
+            prevCostBasis = await clearingHouse.getCostBasis(bob.address)
         })
 
         it("settle funding directly", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address))
                 .to.emit(clearingHouse, "FundingSettled")
                 .withArgs(
@@ -255,21 +256,19 @@ describe("ClearingHouse.funding", () => {
                 )
 
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
 
             // should not settle again
-
             prevCostBasis = await clearingHouse.getCostBasis(bob.address)
-
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
                 clearingHouse,
                 "FundingSettled",
             )
-
             expect(await clearingHouse.getCostBasis(bob.address)).eq(prevCostBasis)
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
         it("settle funding in mint()", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(clearingHouse.connect(bob).mint(baseToken.address, parseEther("1")))
                 .to.emit(clearingHouse, "FundingSettled")
                 .withArgs(
@@ -279,10 +278,10 @@ describe("ClearingHouse.funding", () => {
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
         it("settle funding in burn()", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(clearingHouse.connect(bob).burn(baseToken.address, parseEther("0.1")))
                 .to.emit(clearingHouse, "FundingSettled")
                 .withArgs(
@@ -292,10 +291,10 @@ describe("ClearingHouse.funding", () => {
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
         it("settle funding in swap()", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(
                 clearingHouse.connect(bob).swap({
                     // sell base
@@ -316,10 +315,10 @@ describe("ClearingHouse.funding", () => {
                 )
             // 1 + 0.01250000341
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
         it("settle funding in addLiquidity()", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
@@ -337,10 +336,10 @@ describe("ClearingHouse.funding", () => {
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
         it("settle funding in removeLiquidity()", async () => {
-            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
             await expect(
                 clearingHouse.connect(bob).removeLiquidity({
                     baseToken: baseToken.address,
@@ -359,6 +358,11 @@ describe("ClearingHouse.funding", () => {
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
+        })
+
+        it("force error, settle quote token", async () => {
+            await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
         })
     })
 })

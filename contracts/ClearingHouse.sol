@@ -631,6 +631,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return fundingPaymentAmount;
     }
 
+    function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
+        return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
+    }
+
     //
     // INTERNAL FUNCTIONS
     //
