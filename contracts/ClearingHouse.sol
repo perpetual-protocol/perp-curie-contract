@@ -702,7 +702,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function cancelExecessOrders(address maker, address baseToken) external nonReentrant() {
         // CH_EAV: enough account value
         // shouldn't cancel open orders
-        require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_XXX");
+        require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");
 
         bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
         for (uint256 i = 0; i < orderIds.length; i++) {
