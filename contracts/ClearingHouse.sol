@@ -414,13 +414,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
-        // load existing open order
         address trader = params.maker;
 
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
+        // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
         // CH_ZL non-existent openOrder
@@ -572,6 +572,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
     }
 
+    // @audit - review decimal conversion between collateral and quoteToken (@vinta)
     // caller must ensure taker's position is zero
     // settle pnl to trader's collateral when there's no position is being hold
     function _settle(address trader) private {
@@ -605,7 +606,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         burn(quoteToken, quoteTokenInfo.available);
     }
 
-    // @audit: review security and possible attacks (@detoo)
+    // @audit - review security and possible attacks (@detoo)
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
