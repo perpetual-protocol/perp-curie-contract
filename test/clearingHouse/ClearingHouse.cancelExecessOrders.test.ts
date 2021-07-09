@@ -8,7 +8,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExecessOrders()", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -65,10 +64,47 @@ describe("ClearingHouse cancelExecessOrders()", () => {
         ])
     })
 
-    it("cancel alice's all open orders", async () => {
+    it("cancel alice's all open orders (single order)", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100000", 6), 0, 0, 0]
         })
+
+        // bob as a keeper
+        await expect(
+            clearingHouse.connect(bob).cancelExecessOrders(alice.address, baseToken.address),
+        ).to.be.not.revertedWith("CH_EAV")
+
+        const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIds).to.deep.eq([])
+    })
+
+    it("cancel alice's all open orders (multiple orders)", async () => {
+        // alice adds another liquidity (base only) above the current price
+        const amount = toWei(10, await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
+        await collateral.connect(alice).approve(clearingHouse.address, amount)
+        await clearingHouse.connect(alice).deposit(amount)
+
+        const baseAmount = toWei(1, await baseToken.decimals())
+        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: baseAmount,
+            quote: 0,
+            lowerTick: 92600,
+            upperTick: 92800,
+        })
+        expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+            toWei(0), // available
+            toWei(2), // debt
+        ])
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100000", 6), 0, 0, 0]
+        })
+
+        const openOrderIdsBefore = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 2).to.be.true
 
         // bob as a keeper
         await expect(
@@ -84,7 +120,13 @@ describe("ClearingHouse cancelExecessOrders()", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
+        const openOrderIdsBefore = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 1).to.be.true
+
         // bob as a keeper
         await expect(clearingHouse.cancelExecessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
+
+        const openOrderIdsAfter = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
     })
 })
