@@ -117,6 +117,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint128 liquidity;
     }
 
+    struct InternalRemoveLiquidityParams {
+        address maker;
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+    }
+
     struct SwapParams {
         address baseToken;
         // @audit - this is not required (@wraecca)
@@ -405,8 +413,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
-    function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
-        address trader = _msgSender();
+    function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
+        // load existing open order
+        address trader = params.maker;
 
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
@@ -451,6 +460,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
+    }
+
+    function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
+        _removeLiquidity(
+            InternalRemoveLiquidityParams({
+                maker: _msgSender(),
+                baseToken: params.baseToken,
+                lowerTick: params.lowerTick,
+                upperTick: params.upperTick,
+                liquidity: params.liquidity
+            })
+        );
     }
 
     function openPosition(OpenPositionParams memory params) external {
@@ -676,6 +697,32 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
         return _settleFunding(trader, token);
+    }
+
+    function cancelExecessOrders(address maker, address baseToken) external nonReentrant() {
+        // CH_EAV: enough account value
+        // shouldn't cancel open orders
+        require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_XXX");
+
+        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            bytes32 orderId = orderIds[i];
+            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            _removeLiquidity(
+                InternalRemoveLiquidityParams(
+                    maker,
+                    baseToken,
+                    openOrder.lowerTick,
+                    openOrder.upperTick,
+                    openOrder.liquidity
+                )
+            );
+        }
+
+        // TODO: do we need this?
+        // reduced account value must be larger than initMarginRequirement
+        // and smaller than some number (set initMarginRequirement*2 for now)
+        // require(initMarginRequirement < accountValue(lp, pool) <= initMarginRequirement*2);
     }
 
     //
@@ -978,7 +1025,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function _emitLiquidityChanged(
         address maker,
-        RemoveLiquidityParams memory params,
+        InternalRemoveLiquidityParams memory params,
         UniswapV3Broker.RemoveLiquidityResponse memory response,
         uint256 baseFee,
         uint256 quoteFee
