@@ -224,7 +224,7 @@ describe("ClearingHouse.funding", () => {
         })
     })
 
-    describe.only("# settleFunding", () => {
+    describe("# settleFunding", () => {
         let prevCostBasis
         beforeEach(async () => {
             // so bob has some liquidity to remove for a future test

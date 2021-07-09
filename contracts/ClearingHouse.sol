@@ -19,6 +19,7 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
@@ -170,6 +171,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
 
+        // TODO ensure collateral token must has decimals
+        // TODO store decimals for gas optimization
         collateralToken = collateralTokenArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
@@ -206,7 +209,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     /**
      * @param amount the amount of debt to burn
      */
-    function burn(address token, uint256 amount) external nonReentrant() {
+    function burn(address token, uint256 amount) public nonReentrant() {
         _requireTokenExistAndValidAmount(token, amount);
 
         address trader = _msgSender();
@@ -222,22 +225,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // CH_IA: invalid amount
         // can only burn the amount of debt that can be pay back with available
         require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
-
-        // TODO: move to closePosition
-        // bool isQuote = token == quoteToken;
-        // if (amount > tokenInfo.debt) {
-        //     uint256 realizedProfit = amount - tokenInfo.debt;
-        //     // amount = amount - realizedProfit
-        //     amount = tokenInfo.debt;
-        //     if (isQuote) {
-        //         tokenInfo.available = tokenInfo.available.sub(realizedProfit);
-        //         _accountMap[trader].collateral = _accountMap[trader].collateral.add(realizedProfit);
-        //     } else {
-        //         // TODO how to do slippage protection
-        //         // realize base profit as quote
-        //         swap(SwapParams(token, quoteToken, true, false, realizedProfit, 0));
-        //     }
-        // }
 
         // pay back debt
         tokenInfo.available = tokenInfo.available.sub(amount);
@@ -284,32 +271,68 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return response;
     }
 
+    // @audit - change to token[] amount[] for minting both (@wraecca)
     // TODO should add modifier: whenNotPaused()
     function mint(address token, uint256 amount) external nonReentrant() {
+        // always check margin ratio
+        _mint(token, amount, true);
+    }
+
+    function _mint(
+        address token,
+        uint256 amount,
+        bool checkMarginRatio
+    ) private returns (uint256) {
         _requireTokenExistAndValidAmount(token, amount);
 
-        IMintableERC20(token).mint(address(this), amount);
-
-        address trader = _msgSender();
-
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
-        if (token != quoteToken) {
-            _settleFunding(trader, token);
-        }
-
         // update internal states
-        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        address account = _msgSender();
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
 
-        _registerToken(trader, token);
+        //  Revise after we have defined the user-facing functions.
+        if (token != quoteToken) {
+            _settleFunding(account, token);
+        }
 
-        // TODO: optimize when mint both
-        // CH_NEAV: not enough account value
-        require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
+        // register token if it's the first time
+        _registerToken(account, token);
 
-        emit Minted(trader, token, amount);
+        // check margin ratio must after minted
+        if (checkMarginRatio) {
+            _requireLargerThanInitialMarginRequirement(account);
+        }
+
+        IMintableERC20(token).mint(address(this), amount);
+
+        emit Minted(account, token, amount);
+        return amount;
+    }
+
+    // caller must ensure token is base or quote
+    // mint max base or quote until the free collateral is zero
+    function _mintMax(address token) private returns (uint256) {
+        uint256 freeCollateral = getFreeCollateral(_msgSender());
+        if (freeCollateral == 0) {
+            return 0;
+        }
+
+        // TODO store decimals for gas optimization
+        // normalize free collateral from collateral decimals to quote decimals
+        uint256 collateralDecimals = 10**IERC20Metadata(collateralToken).decimals();
+        uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
+        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, collateralDecimals);
+        uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
+        uint256 minted;
+        if (token == quoteToken) {
+            minted = mintableQuote;
+        } else {
+            // TODO: change the valuation method && align with baseDebt()
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
+        }
+
+        return _mint(token, minted, false);
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -430,9 +453,135 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
-    function openPosition(OpenPositionParams memory) external {
-        // TO BE DONE
-        revert("CH_TBD");
+    function openPosition(OpenPositionParams memory params) external {
+        address trader = _msgSender();
+        uint256 baseAvailableBefore = getTokenInfo(trader, params.baseToken).available;
+        uint256 quoteAvailableBefore = getTokenInfo(trader, quoteToken).available;
+        uint256 minted;
+
+        // calculate if trader need to mint more quote or base for exact input
+        if (params.isExactInput) {
+            if (params.isBaseToQuote) {
+                // check if trader has enough base to swap
+                if (baseAvailableBefore < params.amount) {
+                    minted = _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
+                }
+            } else {
+                // check if trader has enough quote to swap
+                if (quoteAvailableBefore < params.amount) {
+                    minted = _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
+                }
+            }
+        } else {
+            // for exact output: can't use quoter to get how many input we need
+            // but we'll know the exact input numbers after swap
+            // so we'll mint max first, do the swap
+            // then calculate how many input we need to mint if we have quoter
+            if (params.isBaseToQuote) {
+                minted = _mintMax(params.baseToken);
+            } else {
+                minted = _mintMax(quoteToken);
+            }
+        }
+
+        UniswapV3Broker.SwapResponse memory swapResponse =
+            swap(
+                SwapParams({
+                    baseToken: params.baseToken,
+                    quoteToken: quoteToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                })
+            );
+
+        // exactInsufficientAmount = max(actualSwapped - availableBefore, 0)
+        // shouldBurn = minted - exactInsufficientAmount
+        //
+        // examples:
+        //
+        // 1.
+        // before = 0, mint max +1000
+        // swap 1 eth required 100 (will mint 100 if we have quoter)
+        // quote = 900
+        // toBurn = minted(1000) - exactInsufficientAmount(100) = 900
+        // exactInsufficientAmount = max((swapped(100) - before (0)), 0) = 100
+        //
+        // 2.
+        // before = 50, mint max +950
+        // swap 1 eth required 100 (will mint 50 if we have quoter)
+        // quote = 900
+        // toBurn = minted(950) - exactInsufficientAmount(50) = 900
+        // exactInsufficientAmount = max((swapped(100) - before (50)), 0) = 50
+        //
+        // 3.
+        // before = 200, mint max +700
+        // swap 1 eth required 100 (will mint 0 if we have quoter)
+        // quote = 900
+        // toBurn = minted(700) - exactInsufficientAmount(0) = 700
+        // exactInsufficientAmount = max((swapped(100) - before (200)), 0) = 0
+        if (params.isBaseToQuote) {
+            uint256 exactInsufficientBase;
+            if (swapResponse.base > baseAvailableBefore) {
+                exactInsufficientBase = swapResponse.base.sub(baseAvailableBefore);
+            }
+
+            if (minted > exactInsufficientBase) {
+                burn(params.baseToken, minted.sub(exactInsufficientBase));
+            }
+        } else {
+            uint256 exactInsufficientQuote;
+            if (swapResponse.quote > quoteAvailableBefore) {
+                exactInsufficientQuote = swapResponse.quote.sub(quoteAvailableBefore);
+            }
+
+            if (minted > exactInsufficientQuote) {
+                burn(quoteToken, minted.sub(exactInsufficientQuote));
+            }
+        }
+
+        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        // if it's closing the position, settle the quote to realize pnl of that market
+        if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
+            _settle(_msgSender());
+        } else {
+            // it's not closing the position, check margin ratio
+            _requireLargerThanInitialMarginRequirement(trader);
+        }
+    }
+
+    // caller must ensure taker's position is zero
+    // settle pnl to trader's collateral when there's no position is being hold
+    function _settle(address trader) private {
+        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        uint256 collateral = _accountMap[trader].collateral;
+        if (quoteTokenInfo.available > quoteTokenInfo.debt) {
+            // has profit
+            _accountMap[trader].collateral = collateral.add(quoteTokenInfo.available).sub(quoteTokenInfo.debt);
+            burn(quoteToken, quoteTokenInfo.debt);
+            return;
+        }
+
+        // has loss or breakeven
+        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
+        if (loss > 0) {
+            // quote's available is not enough for debt, trader will pay back the debt by collateral
+            if (collateral < loss) {
+                // TODO bad debt occurs - need cover from insurance fund
+                // _burnBadDebt(remainingDebt - collateral);
+                _accountMap[trader].collateral = 0;
+
+                // to be done
+                revert("TBD");
+            } else {
+                _accountMap[trader].collateral = collateral.sub(loss);
+            }
+
+            // realized loss by collateral or insurance fund
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
+        }
+        burn(quoteToken, quoteTokenInfo.available);
     }
 
     // @audit: review security and possible attacks (@detoo)
@@ -532,8 +681,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPool(address baseToken) external view returns (address) {
-        return _poolMap[baseToken];
+    function getPool(address baseToken) public view returns (address poolAddress) {
+        poolAddress = _poolMap[baseToken];
+        // pool not found
+        require(poolAddress != address(0), "CH_PNF");
     }
 
     function getCollateral(address trader) external view returns (uint256) {
@@ -561,7 +712,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return BaseToken(token).getIndexPrice(twapInterval);
     }
 
-    function getTokenInfo(address trader, address token) external view returns (TokenInfo memory) {
+    function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
         return _accountMap[trader].tokenInfoMap[token];
     }
 
@@ -852,5 +1003,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
         // CH_IA: invalid amount
         require(amount > 0, "CH_IA");
+    }
+
+    function _requireLargerThanInitialMarginRequirement(address trader) private view {
+        // CH_NEAV: not enough account value
+        require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
     }
 }
