@@ -22,8 +22,11 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
 
+import "hardhat/console.sol";
+
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
+    using SafeMath for uint160;
     using SafeCast for uint256;
     using SafeCast for uint128;
     using SignedSafeMath for int256;
@@ -769,10 +772,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
         if (positionSize == 0) return 0;
 
-        uint160 twapSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[token], twapInterval);
-        uint256 twapMarkPrice = _formatPrice(twapSqrtMarkPriceX96);
+        // TODO: handle if the pool's history is less than twapInterval; decide on twapInterval's default value as well
+        uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[token], twapInterval);
+        uint256 markTwap = _formatSqrtPriceX96ToPriceX10_18(sqrtMarkTwapX96);
 
-        return positionSize.mul(twapMarkPrice.toInt256());
+        // console.log("------------");
+        // console.log("positionSize");
+        // console.logInt(positionSize);
+        // console.log("sqrtMarkTwapX96", sqrtMarkTwapX96);
+        // console.log("markTwap", markTwap);
+        // console.log("result");
+        // console.logInt(positionSize.mul(markTwap.toInt256()));
+        // console.log("------------");
+        return _formatPositionValue(positionSize.mul(markTwap.toInt256()));
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
@@ -1000,8 +1012,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _poolMap[baseToken] != address(0);
     }
 
-    function _formatPrice(uint160 sqrtPriceX96) internal pure returns (uint256) {
-        return (uint256(sqrtPriceX96).div(2**96))**2;
+    // Note: overflow inspection:
+    // say sqrtPriceX96 = 10000; the max value in this calculation process is: (10000 * (2 ^ 96)) ^ 2
+    // -> the max number of digits required is log((10000 * (2 ^ 96)) ^ 2)/log(2) = 218.57 < 256
+    function _formatSqrtPriceX96ToPriceX10_18(uint160 sqrtPriceX96) internal pure returns (uint256) {
+        // sqrtPriceX96 = sqrtPrice * (2 ^ 96)
+        // priceX96 = sqrtPriceX96 ^ 2 / (2 ^ 96) = ((sqrtPrice * (2 ^ 96)) ^ 2) / (2 ^ 96)
+        //          = (sqrtPrice ^ 2) * (2 ^ 96) = price * (2 ^ 96)
+        uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
+
+        // priceX10_18 = priceX96 * (10 ^ 18) / (2 ^ 96) = price * (2 ^ 96) * (10 ^ 18) / (2 ^ 96) = price * (10 ^ 18)
+        return FullMath.mulDiv(priceX96, 1 ether, FixedPoint96.Q96);
+    }
+
+    // both positionSize & markTwap are in 10^18 already
+    function _formatPositionValue(int256 valueX10_18) internal pure returns (int256) {
+        return valueX10_18.div(1 ether);
     }
 
     function _formatAbsPositionValue(int256 positionValue) internal pure returns (uint256) {
