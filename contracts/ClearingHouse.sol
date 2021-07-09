@@ -837,11 +837,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         fundingPayment = getPendingFundingPayment(trader, token);
         _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
-        _accountMap[trader].tokenInfoMap[quoteToken].available = _accountMap[trader].tokenInfoMap[quoteToken]
-            .available
-            .toInt256()
-            .sub(fundingPayment)
-            .toUint256();
+        uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
+
+        // TODO
+        // what if available < fundingPayment?
+        require(available.toInt256() > fundingPayment, "TBD");
+        _accountMap[trader].tokenInfoMap[quoteToken].available = available.toInt256().sub(fundingPayment).toUint256();
 
         emit FundingSettled(trader, token, historyLen, fundingPayment);
     }
