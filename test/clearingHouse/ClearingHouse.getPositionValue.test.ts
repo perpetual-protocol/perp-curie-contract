@@ -51,56 +51,71 @@ describe("ClearingHouse.funding", () => {
         await waffle.provider.send("evm_mine", [])
     }
 
+    // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
     describe("# getPositionValue", () => {
         beforeEach(async () => {
-            // price at 50400 == 154.4310961
-            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+            // price at 50200 == 151.3733069
+            await pool.initialize(encodePriceSqrt("151.3733069", "1"))
         })
 
-        it.only("value = 0, if the position = 0", async () => {
+        it("value = 0, if the position = 0", async () => {
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
             expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0"),
-                quote: parseEther("100"),
-                lowerTick: 50200,
-                upperTick: 50400,
+                quote: parseEther("122.414646"),
+                lowerTick: 50000,
+                upperTick: 50200,
             })
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
             expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
         })
 
-        it("swap 1 time", async () => {
+        it.only("swap 1 time", async () => {
+            // provide 1000 liquidity = 1000 * 0.122414646 = 122.414646
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0"),
-                quote: parseEther("100"),
-                lowerTick: 50200,
-                upperTick: 50400,
+                quote: parseEther("122.414646"),
+                lowerTick: 50000,
+                upperTick: 50200,
             })
 
-            // bob short
+            // bob short 0.4084104205 / 0.99 = 0.4125357783
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("0.1"),
+                amount: parseEther("0.4125357783"),
                 sqrtPriceLimitX96: 0,
             })
+            // mark price should be 149.863446 (tick = 50099.75001)
 
-            // mark price should be 153.9623330511 (tick ~= 50369)
+            // if we get SqrtMarkTwapPriceX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
+            // await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
+            // (11993028956124528295336454433927 / 2^96) = 151.3733068587
+            // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
 
-            // forward 3600 secs to get 1hr twap in UniV3 pool
-            await forward(3600)
+            await forward(900)
 
-            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-            //  check why is that the case
+            // await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).toString() = 969864706335398656864177991756
+            // (969864706335398656864177991756 / 2^96) ^ 2 = 149.8522069973
+            // 149.8522069973 != 149.863446, the reason is:
+            // tickCumulative inside their system uses integer tick
+            // thus, instead of expecting exact mark price 149.863446, whose tick index is 50099.75001
+            // the Twap price comes from floor(50099.75001) = 50099
+            // -> 1.0001 ^ (50099 * (900 - 0) / 900) = 149.8522069974 ~= 149.8522069973
+
+            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).eq(
+                "969864706335398656864177991756",
+            )
 
             // expect alice, bob, carol's value
+            // 99999999999999998
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
             expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
         })

@@ -11,6 +11,8 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
+import "hardhat/console.sol";
+
 /**
  * Uniswap's v3 pool: token0 & token1
  * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
@@ -275,6 +277,10 @@ library UniswapV3Broker {
         secondsAgos[0] = uint32(twapInterval);
         secondsAgos[1] = uint32(0);
         (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
+        console.log("tickCumulatives[0]");
+        console.logInt(tickCumulatives[0]);
+        console.log("tickCumulatives[1]");
+        console.logInt(tickCumulatives[1]);
 
         if (twapInterval == 0) {
             return TickMath.getSqrtRatioAtTick(int24(tickCumulatives[0]));
