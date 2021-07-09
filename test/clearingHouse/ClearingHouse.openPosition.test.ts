@@ -241,7 +241,7 @@ describe("ClearingHouse openPosition", () => {
                     }),
                 )
                     .to.emit(clearingHouse, "Minted")
-                    .withArgs(quoteToken.address, toWei(1))
+                    .withArgs(taker.address, quoteToken.address, toWei(1))
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -308,7 +308,7 @@ describe("ClearingHouse openPosition", () => {
                     }),
                 )
                     .to.emit(clearingHouse, "Minted")
-                    .withArgs(baseToken.address, toWei(1))
+                    .withArgs(taker.address, baseToken.address, toWei(1))
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
