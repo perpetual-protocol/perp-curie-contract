@@ -34,6 +34,7 @@
     "cSpell.enabled": true,
     "cSpell.enableFiletypes": ["solidity", "javascript", "typescript"],
     "cSpell.words": [
+        "Arbitrum",
         "Agos",
         "BUSL",
         "Cumulatives",
