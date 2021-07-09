@@ -699,7 +699,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _settleFunding(trader, token);
     }
 
-    function cancelExecessOrders(address maker, address baseToken) external nonReentrant() {
+    function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");

@@ -7,7 +7,7 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse cancelExecessOrders()", () => {
+describe("ClearingHouse cancelExcessOrders()", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -71,7 +71,7 @@ describe("ClearingHouse cancelExecessOrders()", () => {
 
         // bob as a keeper
         await expect(
-            clearingHouse.connect(bob).cancelExecessOrders(alice.address, baseToken.address),
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address),
         ).to.be.not.revertedWith("CH_EAV")
 
         const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
@@ -108,7 +108,7 @@ describe("ClearingHouse cancelExecessOrders()", () => {
 
         // bob as a keeper
         await expect(
-            clearingHouse.connect(bob).cancelExecessOrders(alice.address, baseToken.address),
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address),
         ).to.be.not.revertedWith("CH_EAV")
 
         const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
@@ -124,7 +124,7 @@ describe("ClearingHouse cancelExecessOrders()", () => {
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
-        await expect(clearingHouse.cancelExecessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
+        await expect(clearingHouse.cancelExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
 
         const openOrderIdsAfter = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
