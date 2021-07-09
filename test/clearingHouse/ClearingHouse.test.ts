@@ -75,7 +75,7 @@ describe("ClearingHouse", () => {
             const quoteAmount = toWei(10000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(quoteToken.address, quoteAmount)
+                .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
             // verify free collateral = 1000 - 10,000 * 0.1 = 0
@@ -88,7 +88,7 @@ describe("ClearingHouse", () => {
             const baseAmount = toWei(100, await baseToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
@@ -101,10 +101,10 @@ describe("ClearingHouse", () => {
             const baseAmount = toWei(50, await baseToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
@@ -118,10 +118,10 @@ describe("ClearingHouse", () => {
             const quoteAmount = toWei(10000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
             await expect(clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(quoteToken.address, quoteAmount)
+                .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
@@ -135,10 +135,10 @@ describe("ClearingHouse", () => {
             const quoteAmount = toWei(5000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
             await expect(clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(quoteToken.address, quoteAmount)
+                .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
@@ -152,10 +152,10 @@ describe("ClearingHouse", () => {
             const quoteAmount = toWei(4000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(baseToken.address, baseAmount)
+                .withArgs(alice.address, baseToken.address, baseAmount)
             await expect(clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount))
                 .to.emit(clearingHouse, "Minted")
-                .withArgs(quoteToken.address, quoteAmount)
+                .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(600 * 10, 4,000) * 0.1 = 400

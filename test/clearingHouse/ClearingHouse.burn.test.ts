@@ -54,7 +54,7 @@ describe("ClearingHouse.burn", () => {
         it("# burn quote 10 when debt = 10, available = 10", async () => {
             await expect(clearingHouse.connect(alice).burn(quoteToken.address, toWei(10)))
                 .to.emit(clearingHouse, "Burned")
-                .withArgs(quoteToken.address, toWei(10))
+                .withArgs(alice.address, quoteToken.address, toWei(10))
 
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(0), // available
@@ -147,7 +147,7 @@ describe("ClearingHouse.burn", () => {
             // TODO: move to closePosition's tests
             // await expect(clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter))
             //     .to.emit(clearingHouse, "Burned")
-            //     .withArgs(quoteToken.address, toWei(10))
+            //     .withArgs(alice.address, quoteToken.address, toWei(10))
 
             // expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
             //     toWei(0), // available
@@ -217,7 +217,7 @@ describe("ClearingHouse.burn", () => {
             const burnedAmount = aliceQuoteAvailableAfterSwap
             await expect(clearingHouse.connect(alice).burn(quoteToken.address, burnedAmount))
                 .to.emit(clearingHouse, "Burned")
-                .withArgs(quoteToken.address, burnedAmount)
+                .withArgs(alice.address, quoteToken.address, burnedAmount)
 
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(0), // available
@@ -253,7 +253,7 @@ describe("ClearingHouse.burn", () => {
         it("# burn base 10 when debt = 10, available = 10", async () => {
             await expect(clearingHouse.connect(alice).burn(baseToken.address, toWei(10)))
                 .to.emit(clearingHouse, "Burned")
-                .withArgs(baseToken.address, toWei(10))
+                .withArgs(alice.address, baseToken.address, toWei(10))
 
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 toWei(0), // available
@@ -329,7 +329,7 @@ describe("ClearingHouse.burn", () => {
             const burnedAmount = aliceBaseAvailableAfterSwap
             await expect(clearingHouse.connect(alice).burn(baseToken.address, burnedAmount))
                 .to.emit(clearingHouse, "Burned")
-                .withArgs(baseToken.address, burnedAmount)
+                .withArgs(alice.address, baseToken.address, burnedAmount)
 
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 toWei(0), // available
