@@ -29,6 +29,48 @@ describe("ClearingHouse.funding", () => {
         pool = _clearingHouseFixture.pool
 
         await clearingHouse.addPool(baseToken.address, "10000")
+
+        // alice add long limit order
+        await collateral.mint(alice.address, parseEther("10000"))
+        await collateral.connect(alice).approve(clearingHouse.address, parseEther("10000"))
+        await clearingHouse.connect(alice).deposit(parseEther("10000"))
+        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
+        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
+
+        // price at 50400 == 154.4310961
+        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseEther("0"),
+            quote: parseEther("100"),
+            lowerTick: 50200,
+            upperTick: 50400,
+        })
+
+        // bob short
+        await collateral.mint(bob.address, parseEther("1000"))
+        await collateral.connect(bob).approve(clearingHouse.address, parseEther("1000"))
+        await clearingHouse.connect(bob).deposit(parseEther("1000"))
+        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
+
+        await clearingHouse.connect(bob).swap({
+            // sell base
+            baseToken: baseToken.address,
+            quoteToken: quoteToken.address,
+            isBaseToQuote: true,
+            isExactInput: true,
+            amount: parseEther("0.1"),
+            sqrtPriceLimitX96: 0,
+        })
+
+        // mark price should be 153.9623330511 (tick ~= 50369)
+
+        // forward 3600 secs to get 1hr twap in UniV3 pool
+        await forward(3600)
+
+        // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
+        //  check why is that the case
     })
 
     async function forward(seconds: number) {
@@ -38,50 +80,6 @@ describe("ClearingHouse.funding", () => {
     }
 
     describe("# getPendingFundingPayment", () => {
-        beforeEach(async () => {
-            // alice add long limit order
-            await collateral.mint(alice.address, parseEther("10000"))
-            await collateral.connect(alice).approve(clearingHouse.address, parseEther("10000"))
-            await clearingHouse.connect(alice).deposit(parseEther("10000"))
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-
-            // price at 50400 == 154.4310961
-            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseEther("0"),
-                quote: parseEther("100"),
-                lowerTick: 50200,
-                upperTick: 50400,
-            })
-
-            // bob short
-            await collateral.mint(bob.address, parseEther("1000"))
-            await collateral.connect(bob).approve(clearingHouse.address, parseEther("1000"))
-            await clearingHouse.connect(bob).deposit(parseEther("1000"))
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
-
-            await clearingHouse.connect(bob).swap({
-                // sell base
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: parseEther("0.1"),
-                sqrtPriceLimitX96: 0,
-            })
-
-            // mark price should be 153.9623330511 (tick ~= 50369)
-
-            // forward 3600 secs to get 1hr twap in UniV3 pool
-            await forward(3600)
-
-            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-            //  check why is that the case
-        })
-
         it("get correct number for maker before any update funding", async () => {
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(0)
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
@@ -223,6 +221,144 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(0)
             // funding payment = 0 * (154.4310961 - 152.403346) / 24 = 0
             expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
+        })
+    })
+
+    describe("# settleFunding", () => {
+        beforeEach(async () => {
+            // so bob has some liquidity to remove for a future test
+            await clearingHouse.connect(bob).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("1"),
+                quote: parseEther("0"),
+                lowerTick: 50400,
+                upperTick: 50600,
+            })
+
+            // bob hold a short position 0.1
+            // (153.9531248192 - 150.953124) / 24 = 0.1250000341
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
+        })
+
+        it("settle funding directly", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(clearingHouse.settleFunding(bob.address, baseToken.address))
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+
+            // should not settle again
+
+            prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+
+            await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
+                clearingHouse,
+                "FundingSettled",
+            )
+
+            expect(await clearingHouse.getCostBasis(bob.address)).eq(prevCostBasis)
+        })
+
+        it("settle funding in mint()", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(clearingHouse.connect(bob).mint(baseToken.address, parseEther("1")))
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+        })
+
+        it("settle funding in burn()", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(clearingHouse.connect(bob).burn(baseToken.address, parseEther("0.1")))
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+        })
+
+        it("settle funding in swap()", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(
+                clearingHouse.connect(bob).swap({
+                    // sell base
+                    baseToken: baseToken.address,
+                    quoteToken: quoteToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    amount: parseEther("1"), // swap to exactly 1 quote token
+                    sqrtPriceLimitX96: 0,
+                }),
+            )
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+            // 1 + 0.01250000341
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012500003413325814")
+        })
+
+        it("settle funding in addLiquidity()", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.1"),
+                    quote: parseEther("0"),
+                    lowerTick: 50400,
+                    upperTick: 50600,
+                }),
+            )
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+        })
+
+        it("settle funding in removeLiquidity()", async () => {
+            let prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            await expect(
+                clearingHouse.connect(bob).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50400,
+                    upperTick: 50600,
+                    liquidity: (
+                        await clearingHouse.getOpenOrder(bob.address, baseToken.address, 50400, 50600)
+                    ).liquidity,
+                }),
+            )
+                .to.emit(clearingHouse, "FundingSettled")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    1, // one funding history item
+                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                )
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
         })
     })
 })

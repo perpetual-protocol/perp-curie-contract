@@ -54,6 +54,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     event FundingSettled(
         address indexed trader,
         address indexed token,
+        uint256 nextPremiumFractionIndex,
         int256 amount // +: trader pays, -: trader receives
     );
 
@@ -210,10 +211,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         address trader = _msgSender();
 
-        // start update internal states
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
-        _settleFunding(trader, token);
+        if (token != quoteToken) {
+            _settleFunding(trader, token);
+        }
 
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
 
@@ -249,7 +251,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
         address trader = _msgSender();
 
-        // start update internal states
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
@@ -291,11 +292,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         address trader = _msgSender();
 
-        // start update internal states
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
-        _settleFunding(trader, token);
+        if (token != quoteToken) {
+            _settleFunding(trader, token);
+        }
 
+        // update internal states
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
@@ -312,11 +315,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
         address trader = _msgSender();
 
-        // start update internal states
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
+        // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         uint256 baseAvailable = baseTokenInfo.available;
@@ -380,10 +383,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
-        // load existing open order
         address trader = _msgSender();
 
-        // start update internal states
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
@@ -524,6 +525,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             : minNextValidFundingTime;
     }
 
+    function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
+        return _settleFunding(trader, token);
+    }
+
     //
     // EXTERNAL VIEW FUNCTIONS
     //
@@ -580,6 +585,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
     }
 
+    function getCostBasis(address trader) external view returns (int256) {
+        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        return quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256());
+    }
+
     function getNextFundingTime(address baseToken) external view returns (uint256) {
         return _nextFundingTimeMap[baseToken];
     }
@@ -604,6 +614,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingHistoryMap[baseToken][idx].sqrtMarkPricesX96;
     }
 
+    /// @dev +: trader pays, -: trader receives
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         Account storage account = _accountMap[trader];
         int256 fundingPaymentAmount;
@@ -661,22 +672,23 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function _settleFunding(address trader, address token) private returns (int256 fundingPayment) {
-        if (
-            token == quoteToken ||
-            _accountMap[trader].nextPremiumFractionIndexMap[token] == _fundingHistoryMap[token].length
-        ) {
+        // CH_QT should settle only base tokens
+        require(token != quoteToken, "CH_QT");
+
+        uint256 historyLen = _fundingHistoryMap[token].length;
+        if (_accountMap[trader].nextPremiumFractionIndexMap[token] == historyLen) {
             return 0;
         }
 
         fundingPayment = getPendingFundingPayment(trader, token);
-        _accountMap[trader].nextPremiumFractionIndexMap[token] = _fundingHistoryMap[token].length;
-        _accountMap[trader].tokenInfoMap[token].available = _accountMap[trader].tokenInfoMap[token]
+        _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
+        _accountMap[trader].tokenInfoMap[quoteToken].available = _accountMap[trader].tokenInfoMap[quoteToken]
             .available
             .toInt256()
             .sub(fundingPayment)
             .toUint256();
 
-        emit FundingSettled(trader, token, fundingPayment);
+        emit FundingSettled(trader, token, historyLen, fundingPayment);
     }
 
     //

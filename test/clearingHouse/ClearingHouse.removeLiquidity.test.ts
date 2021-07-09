@@ -346,7 +346,7 @@ describe("ClearingHouse", () => {
             it("force error, pool does not exist", async () => {
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
-                        baseToken: quoteToken.address,
+                        baseToken: collateral.address, // can't use quote token because _settleFunding would revert first
                         lowerTick: 0,
                         upperTick: 200,
                         liquidity: BigNumber.from(1),
