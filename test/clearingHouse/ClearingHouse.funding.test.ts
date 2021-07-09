@@ -364,5 +364,33 @@ describe("ClearingHouse.funding", () => {
         it("force error, settle quote token", async () => {
             await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
         })
+
+        // TODO should not be force error. Need revision
+        it("force error, not enough quote token available", async () => {
+            // carol long
+            await collateral.mint(carol.address, parseEther("1000"))
+            await collateral.connect(carol).approve(clearingHouse.address, parseEther("1000"))
+            await clearingHouse.connect(carol).deposit(parseEther("1000"))
+            await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
+            await clearingHouse.connect(carol).swap({
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("100"),
+                sqrtPriceLimitX96: 0,
+            })
+            // current price = 156.0922973283
+
+            await forward(3600)
+
+            // carol hold a long position ~0.6
+            // (156.0922973283 - 150.953124) / 24 = 0.1250000341
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+            await clearingHouse.updateFunding(baseToken.address)
+            await expect(clearingHouse.settleFunding(carol.address, baseToken.address)).to.revertedWith("TBD")
+        })
     })
 })
