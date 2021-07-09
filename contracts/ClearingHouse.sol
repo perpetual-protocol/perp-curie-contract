@@ -282,7 +282,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // TODO test it
         _updatePremiumFractionsIndex(account, token);
-        
+
         // register token if it's the first time
         _registerToken(account, token);
 
