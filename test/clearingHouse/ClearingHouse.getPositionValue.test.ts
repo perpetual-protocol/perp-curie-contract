@@ -7,7 +7,7 @@ import { BaseToken } from "../../typechain/BaseToken"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse.funding", () => {
+describe("ClearingHouse.getPositionSize", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -66,7 +66,7 @@ describe("ClearingHouse.funding", () => {
 
         it("value = 0, if position size = 0", async () => {
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -77,7 +77,7 @@ describe("ClearingHouse.funding", () => {
             })
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
         })
 
         it("bob(taker) swaps 1 time", async () => {
@@ -124,13 +124,13 @@ describe("ClearingHouse.funding", () => {
                 parseEther("0.412535778299999998"),
             )
             // 149.8522069974 * 0.412535778299999998 = 61.8193968436
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
                 parseEther("61.819396843654672493"),
             )
 
             expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357783"))
             // 149.8522069974 * -0.4125357783 = -61.8193968436
-            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
                 parseEther("-61.819396843654672792"),
             )
         })
@@ -182,14 +182,14 @@ describe("ClearingHouse.funding", () => {
                 parseEther("0.412535778399999998"),
             )
             // 150.0921504352 * 0.412535778399999998 = 61.9183821115
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
                 parseEther("61.918382111520063461"),
             )
 
             // short
             expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357784"))
             // 150.0921504352 * -0.4125357784 = -61.9183821115
-            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
                 parseEther("-61.918382111520063761"),
             )
         })
@@ -237,13 +237,13 @@ describe("ClearingHouse.funding", () => {
             console.log("getPositionSize")
             console.log((await clearingHouse.getPositionSize(alice.address, baseToken.address)).toString())
             console.log("getPositionValue")
-            console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address)).toString())
+            console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).toString())
 
             console.log("bob")
             console.log("getPositionSize")
             console.log((await clearingHouse.getPositionSize(bob.address, baseToken.address)).toString())
             console.log("getPositionValue")
-            console.log((await clearingHouse.getPositionValue(bob.address, baseToken.address)).toString())
+            console.log((await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).toString())
 
             // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
@@ -256,14 +256,14 @@ describe("ClearingHouse.funding", () => {
                 parseEther("0.412535778399999998"),
             )
             // 150.0921504352 * 0.412535778399999998 = 61.9183821115
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
                 parseEther("61.918382111520063461"),
             )
 
             // short
             expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357784"))
             // 150.0921504352 * -0.4125357784 = -61.9183821115
-            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
                 parseEther("-61.918382111520063761"),
             )
         })

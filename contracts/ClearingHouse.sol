@@ -37,7 +37,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // events
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event TwapIntervalSet(uint256 twapInterval);
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
@@ -157,7 +156,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
-    uint256 public twapInterval = 15 minutes;
 
     address public immutable collateralToken;
     address public immutable quoteToken;
@@ -208,13 +206,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
-    }
-
-    function setTwapInterval(uint256 twapIntervalArg) external onlyOwner {
-        // invalid input of TwapInterval
-        require(twapIntervalArg != 0, "CH_II_TI");
-        twapInterval = twapIntervalArg;
-        emit TwapIntervalSet(twapInterval);
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -760,14 +751,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _accountMap[trader].tokens;
     }
 
-    function getFreeCollateral(address trader) public returns (uint256) {
+    function getFreeCollateral(address trader) public view returns (uint256) {
         int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
         return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
     // TODO: whether this is public or internal or private
-    function getPositionValue(address trader, address token) public view returns (int256 positionValue) {
+    function getPositionValue(
+        address trader,
+        address token,
+        uint256 twapInterval
+    ) public view returns (int256 positionValue) {
         int256 positionSize =
             _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
         if (positionSize == 0) return 0;
@@ -836,8 +831,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingHistoryMap[baseToken].length;
     }
 
-    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapIntervalArg) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapIntervalArg);
+    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapInterval);
     }
 
     function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
@@ -937,7 +932,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return 0; // TODO WIP
     }
 
-    function _getTotalInitialMarginRequirement(address trader) internal returns (uint256) {
+    function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
 
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
@@ -950,7 +945,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             if (_isPoolExistent(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
                 // will not use negative value in this case
-                uint256 positionValue = _formatAbsPositionValue(getPositionValue(trader, baseToken));
+                uint256 positionValue = _formatAbsInt256(getPositionValue(trader, baseToken, 0));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
@@ -1030,7 +1025,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return valueX10_18.div(1 ether);
     }
 
-    function _formatAbsPositionValue(int256 positionValue) internal pure returns (uint256) {
+    function _formatAbsInt256(int256 positionValue) internal pure returns (uint256) {
         return positionValue > 0 ? positionValue.toUint256() : (-positionValue).toUint256();
     }
 
