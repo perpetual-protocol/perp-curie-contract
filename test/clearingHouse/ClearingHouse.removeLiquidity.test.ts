@@ -1115,7 +1115,7 @@ describe("ClearingHouse", () => {
                     })
                 })
 
-                it("out of maker's range; alice receives more fee as the price goes beyond carol's range'", async () => {
+                it("out of maker's range; alice receives more fee as the price goes beyond carol's range", async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -1171,6 +1171,7 @@ describe("ClearingHouse", () => {
                     await clearingHouse.connect(bob).swap(swapParams1)
 
                     // To achieve the same price after two swaps, Bob is using more base than he gets from the previous swap
+                    // NOTE: thus, after this tx, the price becomes extremely small while does not affect us testing the tx fee
                     // base: 0.002281886641 / 0.99 = 0.002304936001
                     // to quote: 0.3437451895
                     const swapParams2 = {
