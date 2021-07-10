@@ -101,8 +101,8 @@ describe("ClearingHouse.getPositionSize", () => {
             })
             // mark price should be 149.863446 (tick = 50099.75001)
 
-            // if we get SqrtMarkTwapPriceX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
-            // await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
+            // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
+            // await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
             // (11993028956124528295336454433927 / 2^96) = 151.3733068587
             // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
 
@@ -116,9 +116,7 @@ describe("ClearingHouse.getPositionSize", () => {
             // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
             // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
             // -> 1.0001 ^ 50099 = 149.8522069974
-            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).eq(
-                "969864706335398656864177991756",
-            )
+            expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("969864706335398656864177991756")
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.412535778299999998"),
@@ -179,9 +177,7 @@ describe("ClearingHouse.getPositionSize", () => {
             // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
             // -> 1.0001 ^ 50115 = 150.0921504352
-            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).eq(
-                "970640869716903962852171321230",
-            )
+            expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.412535778399999998"),
@@ -268,9 +264,7 @@ describe("ClearingHouse.getPositionSize", () => {
             // (979072907636267862275708019389 / 2^96) ^ 2 = 152.7112031757
             // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288
             // -> 1.0001 ^ 50288 = 152.7112031757
-            expect(await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).eq(
-                "979072907636267862275708019389",
-            )
+            expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
             // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
@@ -301,8 +295,8 @@ describe("ClearingHouse.getPositionSize", () => {
 })
 
 // // === useful console.log for verifying stats ===
-// console.log("getSqrtMarkTwapPriceX96")
-// console.log((await clearingHouse.getSqrtMarkTwapPriceX96(baseToken.address, 900)).toString())
+// console.log("getSqrtMarkTwapX96")
+// console.log((await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).toString())
 
 // console.log("alice")
 // console.log("getPositionSize")

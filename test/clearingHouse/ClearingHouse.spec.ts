@@ -100,7 +100,7 @@ describe("ClearingHouse Spec", () => {
                 false, // unused
             ])
             mockedPool.smocked.observe.will.return.with([
-                [0, 165600000], // markTwapPrice = 1.0001 ^ ((165600000 - 0) / 3600) = 99.4614384055 ~ 100
+                [0, 165600000], // markTwap = 1.0001 ^ ((165600000 - 0) / 3600) = 99.4614384055 ~ 100
                 [0, 0],
             ])
 
@@ -110,7 +110,7 @@ describe("ClearingHouse Spec", () => {
 
         it("register positive premium fraction when mark price > index price", async () => {
             mockedPool.smocked.observe.will.return.with([
-                [0, 166320000], // markTwapPrice = 1.0001 ^ ((166320000 - 0) / 3600) = 101.4705912784
+                [0, 166320000], // markTwap = 1.0001 ^ ((166320000 - 0) / 3600) = 101.4705912784
                 [0, 0],
             ])
 
@@ -133,7 +133,7 @@ describe("ClearingHouse Spec", () => {
 
         it("register negative premium fraction when mark price < index price", async () => {
             mockedPool.smocked.observe.will.return.with([
-                [0, 164880000], // markTwapPrice = 1.0001 ^ ((164880000 - 0) / 3600) = 97.4920674557
+                [0, 164880000], // markTwap = 1.0001 ^ ((164880000 - 0) / 3600) = 97.4920674557
                 [0, 0],
             ])
 

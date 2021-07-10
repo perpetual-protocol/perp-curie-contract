@@ -268,7 +268,7 @@ library UniswapV3Broker {
     }
 
     // note this assumes token0 is always the base token
-    function getSqrtMarkTwapPriceX96(address pool, uint256 twapInterval) internal view returns (uint160) {
+    function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
             (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
             return sqrtPriceX96;

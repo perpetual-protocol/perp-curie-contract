@@ -22,8 +22,6 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
 
-import "hardhat/console.sol";
-
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     using SafeMath for uint160;
@@ -101,7 +99,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     struct FundingHistory {
         int256 premiumFractions;
-        uint160 sqrtMarkPricesX96;
+        uint160 sqrtMarkPriceX96;
     }
 
     struct AddLiquidityParams {
@@ -665,28 +663,26 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // CH_UFTE update funding too early
         require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
 
-        // premium = twapMarketPrice - twapIndexPrice
+        // premium = markTwap - indexTwap
         // timeFraction = fundingPeriod(1 hour) / 1 day
         // premiumFraction = premium * timeFraction
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
         int256 premiumFraction;
         {
-            uint160 sqrtMarkTwapPriceX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], fundingPeriod);
-            uint256 markTwapPriceX96 =
-                FullMath.mulDiv(uint160(sqrtMarkTwapPriceX96), uint160(sqrtMarkTwapPriceX96), FixedPoint96.Q96);
-            uint256 markTwapPriceIn18Digit = FullMath.mulDiv(markTwapPriceX96, 1 ether, FixedPoint96.Q96);
-            uint256 indexTwapPrice = getIndexTwapPrice(baseToken, fundingPeriod);
+            uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
+            uint256 markTwap = _formatSqrtPriceX96ToPriceX10_18(sqrtMarkTwapX96);
+            uint256 indexTwap = getIndexTwap(baseToken, fundingPeriod);
 
-            int256 premium = markTwapPriceIn18Digit.toInt256().sub(indexTwapPrice.toInt256());
+            int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
-            emit FundingRateUpdated(premiumFraction.mul(1 ether).div(indexTwapPrice.toInt256()), indexTwapPrice);
+            emit FundingRateUpdated(premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
         }
 
         // register primitives for funding calculations so we can settle it later
-        (uint160 sqrtMarkPricesX96, , , , , , ) = pool.slot0();
+        (uint160 sqrtMarkPriceX96, , , , , , ) = pool.slot0();
         FundingHistory memory fundingHistory =
-            FundingHistory({ premiumFractions: premiumFraction, sqrtMarkPricesX96: sqrtMarkPricesX96 });
+            FundingHistory({ premiumFractions: premiumFraction, sqrtMarkPriceX96: sqrtMarkPriceX96 });
         _fundingHistoryMap[baseToken].push(fundingHistory);
 
         // update next funding time requirements so we can prevent multiple funding settlement
@@ -767,26 +763,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
         if (positionSize == 0) return 0;
 
-        // TODO: handle if the pool's history is less than twapInterval; decide on twapInterval's default value as well
-        uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[token], twapInterval);
+        // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
+        uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
         uint256 markTwap = _formatSqrtPriceX96ToPriceX10_18(sqrtMarkTwapX96);
 
-        // console.log("------------");
-        // console.log("positionSize");
-        // console.logInt(positionSize);
-        // console.log("sqrtMarkTwapX96", sqrtMarkTwapX96);
-        // console.log("markTwap", markTwap);
-        // console.log("result");
-        // console.logInt(positionSize.mul(markTwap.toInt256()));
-        // console.log("------------");
-        return _formatPositionValue(positionSize.mul(markTwap.toInt256()));
+        // both positionSize & markTwap are in 10^18 already
+        return _divideInt256By10_18(positionSize.mul(markTwap.toInt256()));
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
         return BaseToken(token).getIndexPrice(0);
     }
 
-    function getIndexTwapPrice(address token, uint256 twapInterval) public view returns (uint256) {
+    function getIndexTwap(address token, uint256 twapInterval) public view returns (uint256) {
         return BaseToken(token).getIndexPrice(twapInterval);
     }
 
@@ -831,8 +820,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _fundingHistoryMap[baseToken].length;
     }
 
-    function getSqrtMarkTwapPriceX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapPriceX96(_poolMap[baseToken], twapInterval);
+    function getSqrtMarkTwapX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
     }
 
     function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
@@ -840,7 +829,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
-        return _fundingHistoryMap[baseToken][idx].sqrtMarkPricesX96;
+        return _fundingHistoryMap[baseToken][idx].sqrtMarkPriceX96;
     }
 
     /// @dev +: trader pays, -: trader receives
@@ -851,9 +840,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
-                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPricesX96, false);
+                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96, false);
                 fundingPaymentAmount = fundingPaymentAmount.add(
-                    fundingHistory[i].premiumFractions.mul(posSize).div(1 ether)
+                    _divideInt256By10_18(fundingHistory[i].premiumFractions.mul(posSize))
                 );
             }
         }
@@ -945,17 +934,20 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             if (_isPoolExistent(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
                 // will not use negative value in this case
-                uint256 positionValue = _formatAbsInt256(getPositionValue(trader, baseToken, 0));
+                uint256 positionValue = _formatInt256ToAbs(getPositionValue(trader, baseToken, 0));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
         }
 
-        return Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio).div(1 ether);
+        return
+            _divideUint256By10_18(
+                Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio)
+            );
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return amount.mul(getIndexPrice(token)).div(1 ether);
+        return _divideUint256By10_18(amount.mul(getIndexPrice(token)));
     }
 
     function _getPositionSize(
@@ -1020,13 +1012,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return FullMath.mulDiv(priceX96, 1 ether, FixedPoint96.Q96);
     }
 
-    // both positionSize & markTwap are in 10^18 already
-    function _formatPositionValue(int256 valueX10_18) internal pure returns (int256) {
-        return valueX10_18.div(1 ether);
+    function _formatInt256ToAbs(int256 value) internal pure returns (uint256) {
+        return value > 0 ? value.toUint256() : (-value).toUint256();
     }
 
-    function _formatAbsInt256(int256 positionValue) internal pure returns (uint256) {
-        return positionValue > 0 ? positionValue.toUint256() : (-positionValue).toUint256();
+    function _divideInt256By10_18(int256 value) internal pure returns (int256) {
+        return value.div(1 ether);
+    }
+
+    function _divideUint256By10_18(uint256 value) internal pure returns (uint256) {
+        return value.div(1 ether);
     }
 
     function _getOrderId(
