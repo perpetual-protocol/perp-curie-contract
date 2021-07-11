@@ -1,11 +1,13 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe.only("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -13,6 +15,7 @@ describe("ClearingHouse openPosition", () => {
     let baseToken: TestERC20
     let quoteToken: TestERC20
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
     const upperTick: number = 100000
@@ -23,8 +26,13 @@ describe("ClearingHouse openPosition", () => {
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
+        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100", 6), 0, 0, 0]
+        })
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
@@ -412,6 +420,94 @@ describe("ClearingHouse openPosition", () => {
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
 
             // taker close 2 USD worth ETH
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: posSize,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // base debt and available will be 0
+            {
+                const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                expect(baseTokenInfo.available).deep.eq(toWei(0))
+                expect(baseTokenInfo.debt).deep.eq(toWei(0))
+                const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                expect(quoteTokenInfo.available).deep.eq(toWei(0))
+                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+            }
+
+            // collateral will be less than original number bcs of fees
+            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            expect(freeCollateral.lt(toWei(1000))).to.be.true
+        })
+
+        it("close position with profit", async () => {
+            // expect taker has 2 USD worth ETH
+            const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+
+            // prepare collateral for carol
+            const carolAmount = toWei(1000, collateralDecimals)
+            await collateral.connect(admin).mint(carol.address, carolAmount)
+            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
+            await clearingHouse.connect(carol).deposit(carolAmount)
+
+            // carol takes $1000 worth ETH long
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: carolAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // taker closes 2 USD worth ETH which should have some profit
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: posSize,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // base debt and available will be 0
+            {
+                const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                expect(baseTokenInfo.available).deep.eq(toWei(0))
+                expect(baseTokenInfo.debt).deep.eq(toWei(0))
+                const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                expect(quoteTokenInfo.available).deep.eq(toWei(0))
+                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+            }
+
+            // collateral will be less than original number bcs of fees
+            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            expect(freeCollateral.gt(toWei(1000))).to.be.true
+        })
+
+        it("close position with loss", async () => {
+            // expect taker has 2 USD worth ETH
+            const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+
+            // prepare collateral for carol
+            const carolAmount = toWei(1000, collateralDecimals)
+            await collateral.connect(admin).mint(carol.address, carolAmount)
+            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
+            await clearingHouse.connect(carol).deposit(carolAmount)
+
+            // carol takes $1000 worth ETH short
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: carolAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
+            // taker closes 2 USD worth ETH which should have some loss
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
