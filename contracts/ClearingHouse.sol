@@ -740,10 +740,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _accountMap[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
     }
 
-    function getAccountTokens(address trader) public view returns (address[] memory) {
-        return _accountMap[trader].tokens;
-    }
-
     function getFreeCollateral(address trader) public view returns (uint256) {
         int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
         return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
