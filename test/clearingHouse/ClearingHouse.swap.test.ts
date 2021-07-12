@@ -57,7 +57,6 @@ describe("ClearingHouse.swap", () => {
             await clearingHouse.connect(bob).swap({
                 // sell base
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: toWei(0.01),
