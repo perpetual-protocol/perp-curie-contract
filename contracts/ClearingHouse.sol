@@ -337,7 +337,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, _getIndexPrice(token, 0));
         }
 
         return _mint(token, minted, false);
@@ -672,7 +672,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         {
             uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
             uint256 markTwap = _formatSqrtPriceX96ToPriceX10_18(sqrtMarkTwapX96);
-            uint256 indexTwap = getIndexTwap(baseToken, fundingPeriod);
+            uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
 
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
@@ -772,11 +772,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _divideInt256By10_18(positionSize.mul(markTwap.toInt256()));
     }
 
-    function getIndexPrice(address token) public view returns (uint256) {
-        return IIndexPrice(token).getIndexPrice(0);
-    }
-
-    function getIndexTwap(address token, uint256 twapInterval) public view returns (uint256) {
+    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
         return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
@@ -948,7 +944,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return _divideUint256By10_18(amount.mul(getIndexPrice(token)));
+        return _divideUint256By10_18(amount.mul(_getIndexPrice(token, 0)));
     }
 
     function _getPositionSize(
