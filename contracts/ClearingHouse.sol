@@ -732,10 +732,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPool(address baseToken) public view returns (address poolAddress) {
-        poolAddress = _poolMap[baseToken];
-        // pool not found
-        require(poolAddress != address(0), "CH_PNF");
+    function getPool(address baseToken) external view returns (address poolAddress) {
+        return _poolMap[baseToken];
     }
 
     function getCollateral(address trader) external view returns (uint256) {
