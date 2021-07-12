@@ -1,6 +1,7 @@
 import "@nomiclabs/hardhat-ethers"
 import "@nomiclabs/hardhat-waffle"
 import "@typechain/hardhat"
+import "hardhat-contract-sizer"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import { HardhatUserConfig } from "hardhat/config"
@@ -41,6 +42,11 @@ const config: HardhatUserConfig = {
                 artifacts: "node_modules/@openzeppelin/contracts/build",
             },
         ],
+    },
+    contractSizer: {
+        alphaSort: true,
+        runOnCompile: true,
+        disambiguatePaths: false,
     },
 }
 
