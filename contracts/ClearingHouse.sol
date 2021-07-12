@@ -578,9 +578,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     function _settle(address trader) private {
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         uint256 collateral = _accountMap[trader].collateral;
+
+        // has profit
         if (quoteTokenInfo.available > quoteTokenInfo.debt) {
-            // has profit
-            _accountMap[trader].collateral = collateral.add(quoteTokenInfo.available).sub(quoteTokenInfo.debt);
+            uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
+            _accountMap[trader].collateral = collateral.add(profit);
+            _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
             burn(quoteToken, quoteTokenInfo.debt);
             return;
         }
