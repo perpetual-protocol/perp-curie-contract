@@ -21,6 +21,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
+import { IVault } from "./interface/IVault.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -35,7 +36,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // events
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
     event LiquidityChanged(
@@ -65,7 +65,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
 
     struct Account {
-        uint256 collateral;
         address[] tokens; // all tokens (incl. quote and base) this account is in debt of
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
@@ -155,9 +154,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
-    address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
+    address public vault;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -171,19 +170,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     mapping(address => FundingHistory[]) private _fundingHistoryMap;
 
     constructor(
-        address collateralTokenArg,
+        address vaultArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         uint256 fundingPeriodArg
     ) {
         // CH_II: invalid input
-        require(collateralTokenArg != address(0), "CH_II_C");
+        require(vaultArg != address(0), "CH_II_C");
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
 
         // TODO ensure collateral token must has decimals
         // TODO store decimals for gas optimization
-        collateralToken = collateralTokenArg;
+        vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
@@ -206,14 +205,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
-    // TODO should add modifier: whenNotPaused()
+    // TODO remove after test fixed, now it's just for temporary test case compatible
     function deposit(uint256 amount) external nonReentrant() {
-        address trader = _msgSender();
-        Account storage account = _accountMap[trader];
-        account.collateral = account.collateral.add(amount);
-        TransferHelper.safeTransferFrom(collateralToken, trader, address(this), amount);
+        // address trader = _msgSender();
+        // Account storage account = _accountMap[trader];
+        // account.collateral = account.collateral.add(amount);
 
-        emit Deposited(collateralToken, trader, amount);
+        // emit Deposited(collateralToken, trader, amount);
+        IVault vaultInstance = IVault(vault);
+        address settlementToken = vaultInstance.settlementToken();
+        TransferHelper.safeTransferFrom(settlementToken, _msgSender(), address(this), amount);
+        TransferHelper.safeApprove(settlementToken, vault, amount);
+        vaultInstance.deposit(_msgSender(), settlementToken, amount);
     }
 
     /**
@@ -330,9 +333,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // TODO store decimals for gas optimization
         // normalize free collateral from collateral decimals to quote decimals
-        uint256 collateralDecimals = 10**IERC20Metadata(collateralToken).decimals();
+        uint256 vaultDecimals = 10**IVault(vault).decimals();
         uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
-        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, collateralDecimals);
+        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, vaultDecimals);
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
         uint256 minted;
         if (token == quoteToken) {
@@ -579,35 +582,28 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // settle pnl to trader's collateral when there's no position is being hold
     function _settle(address trader) private {
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        uint256 collateral = _accountMap[trader].collateral;
 
         // has profit
         if (quoteTokenInfo.available > quoteTokenInfo.debt) {
             uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
-            _accountMap[trader].collateral = collateral.add(profit);
             _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
             burn(quoteToken, quoteTokenInfo.debt);
+
+            // TODO deal with decimals
+            IVault(vault).realizeProfit(trader, profit);
             return;
         }
 
         // has loss or breakeven
         uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
         if (loss > 0) {
-            // quote's available is not enough for debt, trader will pay back the debt by collateral
-            if (collateral < loss) {
-                // TODO bad debt occurs - need cover from insurance fund
-                // _burnBadDebt(remainingDebt - collateral);
-                _accountMap[trader].collateral = 0;
-
-                // to be done
-                revert("TBD");
-            } else {
-                _accountMap[trader].collateral = collateral.sub(loss);
-            }
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
 
             // realized loss by collateral or insurance fund
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
+            // TODO deal with decimals
+            IVault(vault).realizeLoss(trader, loss);
         }
+
         burn(quoteToken, quoteTokenInfo.available);
     }
 
@@ -736,18 +732,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _poolMap[baseToken];
     }
 
-    function getCollateral(address trader) external view returns (uint256) {
-        return _accountMap[trader].collateral;
-    }
-
     function getAccountValue(address trader) public view returns (int256) {
-        return _accountMap[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
+        return IVault(vault).balanceOf(trader).toInt256().add(_getTotalMarketPnl(trader));
     }
 
     function getAccountTokens(address trader) public view returns (address[] memory) {
         return _accountMap[trader].tokens;
     }
 
+    // TODO move to vault
     function getFreeCollateral(address trader) public view returns (uint256) {
         int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
         return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
@@ -922,6 +915,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return 0; // TODO WIP
     }
 
+    // TODO change to public and called by vault.getFreeCollateral
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
 
