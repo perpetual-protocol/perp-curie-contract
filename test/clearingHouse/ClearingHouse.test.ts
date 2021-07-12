@@ -38,18 +38,15 @@ describe("ClearingHouse", () => {
         await collateral.connect(alice).approve(clearingHouse.address, amount)
     })
 
-    describe("# deposit", () => {
-        // @SAMPLE - deposit
-        it("alice deposit and sends an event", async () => {
+    describe("# free collateral", () => {
+        it("increase free collateral after deposit to vault", async () => {
             const amount = toWei(100, await collateral.decimals())
 
-            // check event has been sent
-            await expect(clearingHouse.connect(alice).deposit(amount))
-                .to.emit(clearingHouse, "Deposited")
-                .withArgs(collateral.address, alice.address, amount)
+            // TODO change to vault
+            await clearingHouse.connect(alice).deposit(amount)
 
             // check collateral status
-            expect(await clearingHouse.getCollateral(alice.address)).to.eq(amount)
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.deep.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
