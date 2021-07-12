@@ -16,11 +16,10 @@ import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
-import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -29,7 +28,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     using SafeCast for uint128;
     using SignedSafeMath for int256;
     using SafeCast for int256;
-    using Tick for mapping(int24 => Tick.Info);
 
     //
     // events
@@ -775,11 +773,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getIndexPrice(address token) public view returns (uint256) {
-        return BaseToken(token).getIndexPrice(0);
+        return IIndexPrice(token).getIndexPrice(0);
     }
 
     function getIndexTwap(address token, uint256 twapInterval) public view returns (uint256) {
-        return BaseToken(token).getIndexPrice(twapInterval);
+        return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
