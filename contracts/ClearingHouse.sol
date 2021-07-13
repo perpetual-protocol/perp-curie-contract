@@ -829,6 +829,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             }
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        console.log("quoteTokenInfo.available: %s", quoteTokenInfo.available);
+        console.log("quoteInPool: %s", quoteInPool);
+        console.log("quoteTokenInfo.debt: %s", quoteTokenInfo.debt);
         return quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
     }
 
@@ -1068,12 +1071,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint160 sqrtMarkPriceX96,
         bool includeBaseFee
     ) private view returns (int256) {
+        console.log("_getPositionSize");
         Account storage account = _accountMap[trader];
+        console.log("base available: %s", account.tokenInfoMap[baseToken].available);
+        console.log(
+            "base availableInPool: %s",
+            _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
+        );
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
                 _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
             );
-
+        console.log("vBaseAmount: %s", vBaseAmount);
+        console.log("base debt: %s", account.tokenInfoMap[baseToken].debt);
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
     }
 
