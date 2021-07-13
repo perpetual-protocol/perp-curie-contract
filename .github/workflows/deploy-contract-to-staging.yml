@@ -45,8 +45,8 @@ jobs:
             - name: Deploy contract
               run: npm run deploy-staging
               env:
-                RINKEBY_WEB3_ENDPOINT: ${{ secrets.RINKEBY_WEB3_ENDPOINT }}
-                RINKEBY_DEPLOYER_MNEMONIC: ${{ secrets.RINKEBY_DEPLOYER_MNEMONIC }}
+                ARBITRUM_RINKEBY_WEB3_ENDPOINT: ${{ secrets.ARBITRUM_RINKEBY_WEB3_ENDPOINT }}
+                ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC: ${{ secrets.ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC }}
                 CI: true
 
             - name: Publish npm package
