@@ -21,6 +21,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -208,6 +209,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     // TODO should add modifier: whenNotPaused()
     function deposit(uint256 amount) external nonReentrant() {
+        console.log("deposit amount: %s", amount);
         address trader = _msgSender();
         Account storage account = _accountMap[trader];
         account.collateral = account.collateral.add(amount);
@@ -220,6 +222,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
      * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) public nonReentrant() {
+        console.log("burn:");
         _requireTokenExistAndValidAmount(token, amount);
 
         address trader = _msgSender();
@@ -267,6 +270,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             );
 
         // update internal states
+        _registerToken(trader, params.baseToken);
+
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
 
@@ -293,6 +298,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 amount,
         bool checkMarginRatio
     ) private returns (uint256) {
+        console.log("mint:");
         _requireTokenExistAndValidAmount(token, amount);
 
         // update internal states
@@ -477,6 +483,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function openPosition(OpenPositionParams memory params) external {
+        console.log("openPosition:");
         address trader = _msgSender();
         uint256 baseAvailableBefore = getTokenInfo(trader, params.baseToken).available;
         uint256 quoteAvailableBefore = getTokenInfo(trader, quoteToken).available;
@@ -741,7 +748,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return _accountMap[trader].collateral.toInt256().add(getTotalMarketPnl(trader));
+        int256 totalMarketPnl = getTotalMarketPnl(trader);
+        console.log("totalMarketPnl");
+        console.logInt(totalMarketPnl);
+        int256 av = _accountMap[trader].collateral.toInt256().add(totalMarketPnl);
+        console.log("getAccountValue");
+        console.logInt(av);
+        return av;
     }
 
     function getAccountTokens(address trader) public view returns (address[] memory) {
@@ -762,6 +775,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     ) public view returns (int256 positionValue) {
         int256 positionSize =
             _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
+        console.log("positionSize");
+        console.logInt(positionSize);
+
         if (positionSize == 0) return 0;
 
         // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
@@ -805,8 +821,25 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getCostBasis(address trader) public view returns (int256) {
+        uint256 quoteInPool;
+        uint256 tokenLen = _accountMap[trader].tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _accountMap[trader].tokens[i];
+            // TODO: remove quoteToken from _accountMap[trader].tokens?
+            if (_isPoolExistent(baseToken)) {
+                quoteInPool = quoteInPool.add(
+                    _getTokenAmountInPool(
+                        trader,
+                        baseToken,
+                        UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
+                        true,
+                        false
+                    )
+                );
+            }
+        }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        return quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256());
+        return quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -855,22 +888,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getTotalMarketPnl(address trader) public view returns (int256) {
-        // int256 totalPositionValue;
-        // uint256 tokenLen = _accountMap[trader].tokens.length;
-        // for (uint256 i = 0; i < tokenLen; i++) {
-        //     address baseToken = _accountMap[trader].tokens[i];
-        //     if (_isPoolExistent(baseToken)) {
-        //         totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
-        //     }
-        // }
+        // return 0;
 
-        // console.log("costBasis");
-        // console.logInt(getCostBasis(trader));
-        // console.log("totalPositionValue");
-        // console.logInt(totalPositionValue);
+        int256 totalPositionValue;
+        uint256 tokenLen = _accountMap[trader].tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _accountMap[trader].tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+            }
+        }
 
-        // return getCostBasis(trader).add(totalPositionValue);
-        return 0;
+        console.log("costBasis");
+        console.logInt(getCostBasis(trader));
+        console.log("totalPositionValue");
+        console.logInt(totalPositionValue);
+        return getCostBasis(trader).add(totalPositionValue);
     }
 
     //
@@ -881,6 +914,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
+            TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
+            if (tokenInfo.available != 0 || tokenInfo.debt != 0) {
+                return;
+            }
+
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -957,10 +995,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             }
         }
 
-        return
+        uint256 mr =
             _divideUint256By10_18(
                 Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio)
             );
+        console.log("totalInitialMarginRequirement");
+        console.logInt(mr.toInt256());
+        return mr;
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
