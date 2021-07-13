@@ -1,37 +1,37 @@
 {
-    "network": "rinkeby",
+    "network": "arbitrumRinkeby",
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0xdf069280eed4E12072e14d9A9626176C0373873a"
-        },
-        "btcChainlinkPriceFeed": {
-            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0xB89045B5C6B7c54bFC07903Dcee996a7E05F2cD4"
+            "address": "0xF63b64bc687e0C6584369ce1896BF27305A8Aab5"
         },
         "ethChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0x88a4040952BDC6A0838ceA66B61951895cAfA32e"
+            "address": "0xb11F3346825eF693318fd39db0EAa68CfDF3b7f7"
         },
         "usdcChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0xed2271221560db4000AD3D889745A636f270960E"
-        },
-        "vBTC": {
-            "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0x276E96A884836627e062bdEcAD1e3f6029d239b3"
+            "address": "0xaB9656Bbfe95Cf0afd07126778E306eaA89957Fc"
         },
         "vETH": {
             "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0x7B6b585502A334373AdCE55529413502768E6618"
+            "address": "0x754fe16B833F17441Eafc4FC99668F79CdCa0ea5"
         },
         "vUSD": {
             "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0xaF72ADDAcb81B3dd6493af41CAC72E94e371f1e0"
+            "address": "0xcd1B4F023277F58e01ae77f9aCAee8b653bBa645"
+        },
+        "btcChainlinkPriceFeed": {
+            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
+            "address": "0x1f0705CbEb76335a0170E431b6535f5505b1a244"
+        },
+        "vBTC": {
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0xc725B12cD3A268f172231aF0E7fC4E32f8961c74"
         }
     },
     "externalContracts": {
-        "USDC": "0xad648355bE8fa45b8f81553227De562DA9b21bFf",
+        "USDC": "0xCE6CB429BefeCeE5BD25a5e68820681ceBfC2BdE",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     }
 }
