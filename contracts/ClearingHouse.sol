@@ -741,7 +741,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return _accountMap[trader].collateral.toInt256().add(_getTotalMarketPnl(trader));
+        return _accountMap[trader].collateral.toInt256().add(getTotalMarketPnl(trader));
     }
 
     function getAccountTokens(address trader) public view returns (address[] memory) {
@@ -804,7 +804,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
     }
 
-    function getCostBasis(address trader) external view returns (int256) {
+    function getCostBasis(address trader) public view returns (int256) {
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         return quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256());
     }
@@ -852,6 +852,19 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
+    }
+
+    function getTotalMarketPnl(address trader) public view returns (int256) {
+        int256 totalPositionValue;
+        uint256 tokenLen = _accountMap[trader].tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _accountMap[trader].tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+            }
+        }
+
+        return getCostBasis(trader).add(totalPositionValue);
     }
 
     //
@@ -918,9 +931,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // INTERNAL VIEW FUNCTIONS
     //
-    function _getTotalMarketPnl(address trader) internal pure returns (int256) {
-        return 0; // TODO WIP
-    }
 
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
