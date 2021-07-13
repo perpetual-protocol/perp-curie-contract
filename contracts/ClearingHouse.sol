@@ -855,16 +855,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getTotalMarketPnl(address trader) public view returns (int256) {
-        int256 totalPositionValue;
-        uint256 tokenLen = _accountMap[trader].tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
-            }
-        }
+        // int256 totalPositionValue;
+        // uint256 tokenLen = _accountMap[trader].tokens.length;
+        // for (uint256 i = 0; i < tokenLen; i++) {
+        //     address baseToken = _accountMap[trader].tokens[i];
+        //     if (_isPoolExistent(baseToken)) {
+        //         totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+        //     }
+        // }
 
-        return getCostBasis(trader).add(totalPositionValue);
+        // console.log("costBasis");
+        // console.logInt(getCostBasis(trader));
+        // console.log("totalPositionValue");
+        // console.logInt(totalPositionValue);
+
+        // return getCostBasis(trader).add(totalPositionValue);
+        return 0;
     }
 
     //
@@ -961,6 +967,77 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _divideUint256By10_18(amount.mul(getIndexPrice(token)));
     }
 
+    function _getTokenAmountInPool(
+        address trader,
+        address baseToken,
+        uint160 sqrtMarkPriceX96,
+        bool includeBaseFee,
+        bool isFetchBase
+    ) private view returns (uint256 tokenAmount) {
+        Account storage account = _accountMap[trader];
+        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+
+        //
+        // tick:     lower            upper
+        //       -+---+-----------------+---+--
+        //      case1                      case2
+        // case 1 : current price below the lower tick
+        //  --> maker only has base token
+        //
+        // case 2 : current price above the upper tick)
+        //  --> maker only has quote token
+        //
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+
+            {
+                uint256 amount;
+                uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
+                uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
+                if (isFetchBase) {
+                    if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
+                        if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
+                            sqrtPriceAtLowerTick = sqrtMarkPriceX96;
+                        }
+                        amount = UniswapV3Broker.getAmount0ForLiquidity(
+                            sqrtPriceAtLowerTick,
+                            sqrtPriceAtUpperTick,
+                            order.liquidity
+                        );
+                    }
+                } else {
+                    if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
+                        if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
+                            sqrtPriceAtUpperTick = sqrtMarkPriceX96;
+                        }
+                        amount = UniswapV3Broker.getAmount1ForLiquidity(
+                            sqrtPriceAtLowerTick,
+                            sqrtPriceAtUpperTick,
+                            order.liquidity
+                        );
+                    }
+                }
+                tokenAmount = tokenAmount.add(amount);
+            }
+
+            if (includeBaseFee) {
+                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
+                // include uncollected fee base tokens
+                (uint256 feeGrowthInsideBaseX128, uint256 feeGrowthInsideQuoteX128) =
+                    UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
+                uint256 feeGrowthInsideX128 = feeGrowthInsideQuoteX128;
+                uint256 feeGrowthInsideOldX128 = order.feeGrowthInsideQuoteX128;
+                if (isFetchBase) {
+                    feeGrowthInsideX128 = feeGrowthInsideBaseX128;
+                    feeGrowthInsideOldX128 = order.feeGrowthInsideBaseX128;
+                }
+                tokenAmount = tokenAmount.add(
+                    _calcOwedFee(order.liquidity, feeGrowthInsideX128, feeGrowthInsideOldX128)
+                );
+            }
+        }
+    }
+
     function _getPositionSize(
         address trader,
         address baseToken,
@@ -968,40 +1045,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         bool includeBaseFee
     ) private view returns (int256) {
         Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
-        uint256 vBaseAmount = account.tokenInfoMap[baseToken].available;
-
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
-
-            uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-            if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
-                uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
-                vBaseAmount = vBaseAmount.add(
-                    (sqrtMarkPriceX96 > sqrtPriceAtLowerTick)
-                        ? UniswapV3Broker.getAmount0ForLiquidity(
-                            sqrtMarkPriceX96,
-                            sqrtPriceAtUpperTick,
-                            order.liquidity
-                        )
-                        : UniswapV3Broker.getAmount0ForLiquidity(
-                            sqrtPriceAtLowerTick,
-                            sqrtPriceAtUpperTick,
-                            order.liquidity
-                        )
-                );
-            }
-
-            if (includeBaseFee) {
-                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
-                // include uncollected fee base tokens
-                (uint256 feeGrowthInsideBaseX128, ) =
-                    UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
-                vBaseAmount = vBaseAmount.add(
-                    _calcOwedFee(order.liquidity, feeGrowthInsideBaseX128, order.feeGrowthInsideBaseX128)
-                );
-            }
-        }
+        uint256 vBaseAmount =
+            account.tokenInfoMap[baseToken].available.add(
+                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
+            );
 
         return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
     }
