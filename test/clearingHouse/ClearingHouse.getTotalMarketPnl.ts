@@ -7,8 +7,8 @@ import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse getTotalMarketPnl", () => {
-    const [admin, maker, taker, carol] = waffle.provider.getWallets()
+describe("ClearingHouse getTotalMarketPnl", () => {
+    const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -36,7 +36,7 @@ describe.only("ClearingHouse getTotalMarketPnl", () => {
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
-        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        await pool.initialize(encodePriceSqrt("100", "1"))
 
         // prepare collateral for maker
         const makerCollateralAmount = toWei(1000000, collateralDecimals)
@@ -65,19 +65,41 @@ describe.only("ClearingHouse getTotalMarketPnl", () => {
         await clearingHouse.connect(taker).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,
-            isExactInput: false,
-            amount: parseEther("0.1"),
+            isExactInput: true,
+            amount: parseEther("100"),
             sqrtPriceLimitX96: 0,
         })
-        // price after swap: 151.7952162543
+        // price after swap: 101.8550797108
+        // position size = 0.980943170969551031
+        // position value = 0.980943170969551031 * 101.8550797 = 99.9140448603
+        // cost basis = -100
+        // pnl = -100 + 99.9140448603 = -0.0859551397
+        expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-85955129155713749")
 
-        const pos = await clearingHouse.getPositionSize(taker.address, baseToken.address)
-        const sqrtPrice = await clearingHouse.getSqrtMarkPriceX96(baseToken.address)
-        console.log("pos", pos.toString(), "sqrt", sqrtPrice.toString())
+        // prepare collateral for taker2
+        await collateral.mint(taker2.address, takerCollateral)
+        await collateral.connect(taker2).approve(clearingHouse.address, takerCollateral)
+        await clearingHouse.connect(taker2).deposit(takerCollateral)
     })
 
     it("taker open a position and pnl is positive", async () => {
-        expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("0"))
+        // taker2 open a long position
+        await clearingHouse.connect(taker2).openPosition({
+            baseToken: baseToken.address,
+            isBaseToQuote: false,
+            isExactInput: true,
+            amount: parseEther("100"),
+            sqrtPriceLimitX96: 0,
+        })
+
+        const sqrtPrice = await clearingHouse.getSqrtMarkPriceX96(baseToken.address)
+        console.log("sqrt", sqrtPrice.toString())
+
+        // price after swap: 103.7272082538
+        // taker1
+        // position value = 0.980943170969551031 * 103.7272082538 = 101.7504965803
+        // pnl = -100 + 101.7504965803 = 1.7504965803
+        expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("1750496580332248211")
     })
 
     it("taker open a position and pnl is negative", async () => {})

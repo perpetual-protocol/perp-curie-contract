@@ -78,7 +78,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         expect(openOrderIds).to.deep.eq([])
     })
 
-    it("cancel alice's all open orders (multiple orders)", async () => {
+    it.only("cancel alice's all open orders (multiple orders)", async () => {
         // alice adds another liquidity (base only) above the current price
         const amount = toWei(10, await collateral.decimals())
         await collateral.transfer(alice.address, amount)
@@ -86,6 +86,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         await clearingHouse.connect(alice).deposit(amount)
 
         const baseAmount = toWei(1, await baseToken.decimals())
+        console.log("MINT")
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
