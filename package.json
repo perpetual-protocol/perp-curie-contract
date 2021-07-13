@@ -20,7 +20,7 @@
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
-    "deploy-staging": "hardhat deploy --network rinkeby",
+    "deploy-staging": "hardhat deploy --network arbitrumRinkeby",
     "upload-metadata-staging": "aws s3 cp ./metadata/staging.json s3://metadata.perp.fi/lushan/staging.json --cache-control=no-store --acl public-read --profile perp",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"

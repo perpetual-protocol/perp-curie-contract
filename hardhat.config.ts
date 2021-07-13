@@ -40,7 +40,6 @@ const config: HardhatUserConfig = {
             accounts: {
                 mnemonic: ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
             },
-            gasPrice: 0,
             chainId: ChainId.ARBITRUM_RINKEBY_CHAIN_ID,
         },
         rinkeby: {
