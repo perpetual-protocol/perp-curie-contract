@@ -5,7 +5,6 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -17,13 +16,12 @@ import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint12
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 
-contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
+contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using SafeMath for uint160;
     using SafeCast for uint256;
@@ -33,7 +31,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
-    using Tick for mapping(int24 => Tick.Info);
 
     //
     // events
@@ -132,8 +129,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     struct SwapParams {
         address baseToken;
-        // @audit - this is not required (@wraecca)
-        address quoteToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
@@ -280,7 +275,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 UniswapV3Broker.SwapParams(
                     pool,
                     params.baseToken,
-                    params.quoteToken,
+                    quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
@@ -290,7 +285,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
         if (params.isBaseToQuote) {
             baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
@@ -428,7 +423,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             swap(
                 SwapParams({
                     baseToken: params.baseToken,
-                    quoteToken: quoteToken,
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
@@ -555,7 +549,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         {
             uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
             uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
-            uint256 indexTwap = getIndexTwap(baseToken, fundingPeriod);
+            uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
 
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
@@ -619,16 +613,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _poolMap[baseToken];
     }
 
-    function getCollateral(address trader) external view returns (uint256) {
-        return _accountMap[trader].collateral;
-    }
-
     function getAccountValue(address trader) public view returns (int256) {
         return _accountMap[trader].collateral.toInt256().add(getTotalMarketPnl(trader));
-    }
-
-    function getAccountTokens(address trader) public view returns (address[] memory) {
-        return _accountMap[trader].tokens;
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
@@ -655,12 +641,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return positionSize.mul(markTwap.toInt256()).divideBy10_18();
     }
 
-    function getIndexPrice(address token) public view returns (uint256) {
-        return BaseToken(token).getIndexPrice(0);
-    }
-
-    function getIndexTwap(address token, uint256 twapInterval) public view returns (uint256) {
-        return BaseToken(token).getIndexPrice(twapInterval);
+    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
+        return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
@@ -857,7 +839,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, _getIndexPrice(token, 0));
         }
 
         return _mint(token, minted, false);
@@ -1002,7 +984,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return amount.mul(getIndexPrice(token)).divideBy10_18();
+        return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
     }
 
     function _getTokenAmountInPool(

@@ -49,7 +49,7 @@ describe("ClearingHouse", () => {
                 .withArgs(collateral.address, alice.address, amount)
 
             // check collateral status
-            expect(await clearingHouse.getCollateral(alice.address)).to.eq(amount)
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
@@ -162,6 +162,7 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
         })
 
+        // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)
         it("registers each base token once at most", async () => {
             const connectedClearingHouse = clearingHouse.connect(alice)
             // assume imRatio = 0.1, price = 100
@@ -172,7 +173,10 @@ describe("ClearingHouse", () => {
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
 
-            expect(await clearingHouse.getAccountTokens(alice.address)).to.deep.eq([baseToken.address])
+            expect((await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).available).deep.eq(quoteAmount)
+            expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).available).deep.eq(
+                baseAmount.add(baseAmount),
+            )
         })
 
         it("force error, alice mint too many quote", async () => {

@@ -1,6 +1,7 @@
 import "@nomiclabs/hardhat-ethers"
 import "@nomiclabs/hardhat-waffle"
 import "@typechain/hardhat"
+import "hardhat-contract-sizer"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import { HardhatUserConfig } from "hardhat/config"
@@ -21,7 +22,7 @@ const config: HardhatUserConfig = {
     solidity: {
         version: "0.7.6",
         settings: {
-            optimizer: { enabled: true, runs: 200 },
+            optimizer: { enabled: true, runs: 0 },
             evmVersion: "berlin",
             // for smock to mock contracts
             outputSelection: {
@@ -79,6 +80,11 @@ const config: HardhatUserConfig = {
                 artifacts: "node_modules/@openzeppelin/contracts/build",
             },
         ],
+    },
+    contractSizer: {
+        alphaSort: true,
+        runOnCompile: true,
+        disambiguatePaths: false,
     },
 }
 

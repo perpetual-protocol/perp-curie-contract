@@ -469,7 +469,6 @@ describe("ClearingHouse", () => {
                     // to quote: 0.06151334176
                     const swapParams = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
                         amount: parseEther("0.0004125357783"),
@@ -569,7 +568,6 @@ describe("ClearingHouse", () => {
                     // to base: 0.0007507052579
                     const swapParams = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
                         amount: parseEther("0.1135501475"),
@@ -663,7 +661,6 @@ describe("ClearingHouse", () => {
                     // to base: 0.0007507052579
                     const swapParams1 = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
                         amount: parseEther("0.1135501475"),
@@ -676,7 +673,6 @@ describe("ClearingHouse", () => {
                     // to quote: ~= 0.112414646
                     const swapParams2 = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
                         amount: parseEther("0.0007582881393"),
@@ -800,7 +796,6 @@ describe("ClearingHouse", () => {
                         // to base: 0.0007558893279
                         const swapParams1 = {
                             baseToken: baseToken.address,
-                            quoteToken: quoteToken.address,
                             isBaseToQuote: false,
                             isExactInput: true,
                             amount: parseEther("0.1135501475"),
@@ -813,7 +808,6 @@ describe("ClearingHouse", () => {
                         // to quote: ~= 0.1116454419
                         const swapParams2 = {
                             baseToken: baseToken.address,
-                            quoteToken: quoteToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
                             amount: parseEther("0.0007582881393"),
@@ -1002,7 +996,6 @@ describe("ClearingHouse", () => {
                         // to base: 0.0007553097871
                         const swapParams1 = {
                             baseToken: baseToken.address,
-                            quoteToken: quoteToken.address,
                             isBaseToQuote: false,
                             isExactInput: true,
                             amount: parseEther("0.1135501475"),
@@ -1015,7 +1008,6 @@ describe("ClearingHouse", () => {
                         // to quote: ~= 0.1117314313
                         const swapParams2 = {
                             baseToken: baseToken.address,
-                            quoteToken: quoteToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
                             amount: parseEther("0.0007582881393"),
@@ -1162,7 +1154,6 @@ describe("ClearingHouse", () => {
                     // to base: 0.001633641682 + 0.0006482449586 = 0.002281886641
                     const swapParams1 = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
                         amount: parseEther("0.3472173631"),
@@ -1176,7 +1167,6 @@ describe("ClearingHouse", () => {
                     // to quote: 0.3437451895
                     const swapParams2 = {
                         baseToken: baseToken.address,
-                        quoteToken: quoteToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
                         amount: parseEther("0.002304936001"),

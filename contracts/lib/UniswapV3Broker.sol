@@ -74,21 +74,16 @@ library UniswapV3Broker {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
-        // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
-
         {
             // get current price
             (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
+                TickMath.getSqrtRatioAtTick(params.lowerTick),
+                TickMath.getSqrtRatioAtTick(params.upperTick),
+                params.base,
+                params.quote
             );
             // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
             // UB_ZL: zero liquidity
@@ -99,7 +94,13 @@ library UniswapV3Broker {
             // call mint()
             bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
-                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
+                IUniswapV3Pool(params.pool).mint(
+                    address(this),
+                    params.lowerTick,
+                    params.upperTick,
+                    response.liquidity,
+                    data
+                );
 
             // fetch the fee growth state if this has liquidity
             (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
@@ -189,48 +190,6 @@ library UniswapV3Broker {
     ) internal view returns (address) {
         PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
         return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
-    }
-
-    function _isBase0Quote1(
-        address pool,
-        address baseToken,
-        address quoteToken
-    ) private view returns (bool) {
-        address token0 = IUniswapV3Pool(pool).token0();
-        address token1 = IUniswapV3Pool(pool).token1();
-        if (baseToken == token0 && quoteToken == token1) return true;
-        if (baseToken == token1 && quoteToken == token0) return false;
-        // pool token mismatched. should throw from earlier check
-        revert("UB_PTM");
-    }
-
-    function _baseQuoteToToken01(
-        bool isBase0Quote1,
-        uint256 base,
-        uint256 quote,
-        int24 baseQuoteLowerTick,
-        int24 baseQuoteUpperTick
-    )
-        private
-        pure
-        returns (
-            uint256 token0,
-            uint256 token1,
-            int24 lowerTick,
-            int24 upperTick
-        )
-    {
-        if (isBase0Quote1) {
-            lowerTick = baseQuoteLowerTick;
-            upperTick = baseQuoteUpperTick;
-            token0 = base;
-            token1 = quote;
-        } else {
-            lowerTick = -baseQuoteUpperTick;
-            upperTick = -baseQuoteLowerTick;
-            token0 = quote;
-            token1 = base;
-        }
     }
 
     function _getFeeGrowthInside(

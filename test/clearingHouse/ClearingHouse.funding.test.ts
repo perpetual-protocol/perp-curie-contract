@@ -57,7 +57,6 @@ describe("ClearingHouse.funding", () => {
         await clearingHouse.connect(bob).swap({
             // sell base
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: true,
             isExactInput: true,
             amount: parseEther("0.1"),
@@ -149,7 +148,6 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.connect(bob).swap({
                 // sell base
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: parseEther("1"),
@@ -299,7 +297,6 @@ describe("ClearingHouse.funding", () => {
                 clearingHouse.connect(bob).swap({
                     // sell base
                     baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     amount: parseEther("1"), // swap to exactly 1 quote token
@@ -374,7 +371,6 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: parseEther("100"),
