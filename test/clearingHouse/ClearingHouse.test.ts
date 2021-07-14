@@ -172,10 +172,7 @@ describe("ClearingHouse", () => {
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
 
-            expect(await clearingHouse.getAccountTokens(alice.address)).to.deep.eq([
-                quoteToken.address,
-                baseToken.address,
-            ])
+            expect(await clearingHouse.getAccountTokens(alice.address)).to.deep.eq([baseToken.address])
         })
 
         it("force error, alice mint too many quote", async () => {
