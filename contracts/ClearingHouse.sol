@@ -22,6 +22,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -309,7 +310,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader = _msgSender();
 
         // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
+        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // update internal states
@@ -868,6 +869,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
+            // if available and debt are not 0,
+            // token is already registered by one of external functions (ex: mint, burn, swap)
             TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
             if (tokenInfo.available != 0 && tokenInfo.debt != 0) {
                 return;
@@ -1016,15 +1019,17 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
 
         //
-        // tick:     lower            upper
-        //       -+---+-----------------+---+--
-        //      case1                      case2
-        // case 1 : current price below the lower tick
+        // tick:    lower             upper
+        //       -|---+-----------------+---|--
+        //     case 1                    case 2
+        //
+        // if current price < upper tick, maker has base
+        // case 1 : current price < lower tick
         //  --> maker only has base token
         //
-        // case 2 : current price above the upper tick)
+        // if current price > lower tick, maker has quote
+        // case 2 : current price > upper tick
         //  --> maker only has quote token
-        //
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
@@ -1088,6 +1093,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeFee, true)
             );
 
+        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
+        // for instance, maker adds liquidity with 2 base (2000000000000000000),
+        // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
         return positionSize.abs() < DUST ? 0 : positionSize;
     }
