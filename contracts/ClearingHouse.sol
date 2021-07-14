@@ -31,7 +31,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
-    using Tick for mapping(int24 => Tick.Info);
 
     //
     // events
@@ -550,7 +549,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         {
             uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
             uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
-            uint256 indexTwap = getIndexTwap(baseToken, fundingPeriod);
+            uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
 
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
@@ -840,7 +839,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             minted = mintableQuote;
         } else {
             // TODO: change the valuation method && align with baseDebt()
-            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, _getIndexPrice(token, 0));
         }
 
         return _mint(token, minted, false);
@@ -985,7 +984,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return amount.mul(getIndexPrice(token)).divideBy10_18();
+        return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
     }
 
     function _getTokenAmountInPool(
