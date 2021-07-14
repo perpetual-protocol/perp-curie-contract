@@ -66,8 +66,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     struct Account {
         uint256 collateral;
-        address[] tokens; // all tokens (incl. quote and base) this account is in debt of
-        // key: token address, e.g. vETH, vUSDC...
+        address[] tokens; // all tokens (base only) this account is in debt of
+        // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
         // @audit - suggest to flatten the mapping by keep an orderIds[] here
         // and create another _openOrderMap global state
@@ -223,7 +223,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
      * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) public nonReentrant() {
-        _requireTokenExistAndValidAmount(token, amount);
+        _requireTokenExistent(token);
+        _requireValidAmount(amount);
 
         address trader = _msgSender();
 
@@ -251,7 +252,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
+        _requireTokenExistent(params.baseToken);
+
         address trader = _msgSender();
+
+        _registerBaseToken(trader, params.baseToken);
 
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
@@ -272,8 +277,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             );
 
         // update internal states
-        _registerToken(trader, params.baseToken);
-
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[params.quoteToken];
 
@@ -291,6 +294,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     // @audit - change to token[] amount[] for minting both (@wraecca)
     // TODO should add modifier: whenNotPaused()
     function mint(address token, uint256 amount) external nonReentrant() {
+        _requireTokenExistent(token);
         // always check margin ratio
         _mint(token, amount, true);
     }
@@ -300,7 +304,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 amount,
         bool checkMarginRatio
     ) private returns (uint256) {
-        _requireTokenExistAndValidAmount(token, amount);
+        _requireValidAmount(amount);
 
         // update internal states
         address account = _msgSender();
@@ -311,10 +315,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         //  Revise after we have defined the user-facing functions.
         if (token != quoteToken) {
             _settleFunding(account, token);
+            // register base token if it's the first time
+            _registerBaseToken(account, token);
         }
-
-        // register token if it's the first time
-        _registerToken(account, token);
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
@@ -353,6 +356,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
+        _requireTokenExistent(params.baseToken);
+
         address trader = _msgSender();
 
         // TODO could be optimized by letting the caller trigger it.
@@ -411,7 +416,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         // register token if it's the first time
-        _registerToken(trader, params.baseToken);
+        _registerBaseToken(trader, params.baseToken);
 
         // update token info
         baseTokenInfo.available = baseAvailable.add(baseFee).sub(response.base);
@@ -475,6 +480,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
+        _requireTokenExistent(params.baseToken);
         _removeLiquidity(
             InternalRemoveLiquidityParams({
                 maker: _msgSender(),
@@ -487,6 +493,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function openPosition(OpenPositionParams memory params) external {
+        _requireTokenExistent(params.baseToken);
+
         address trader = _msgSender();
         uint256 baseAvailableBefore = getTokenInfo(trader, params.baseToken).available;
         uint256 quoteAvailableBefore = getTokenInfo(trader, quoteToken).available;
@@ -669,6 +677,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
      * @param baseToken base token address
      */
     function updateFunding(address baseToken) external {
+        _requireTokenExistent(baseToken);
         // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
@@ -710,10 +719,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
+        _requireTokenExistent(token);
         return _settleFunding(trader, token);
     }
 
     function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
+        _requireTokenExistent(baseToken);
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");
@@ -820,17 +831,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             // TODO: remove quoteToken from _accountMap[trader].tokens?
-            if (_isPoolExistent(baseToken)) {
-                quoteInPool = quoteInPool.add(
-                    _getTokenAmountInPool(
-                        trader,
-                        baseToken,
-                        UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
-                        true,
-                        false
-                    )
-                );
-            }
+            quoteInPool = quoteInPool.add(
+                _getTokenAmountInPool(
+                    trader,
+                    baseToken,
+                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
+                    true,
+                    false
+                )
+            );
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         int256 costBasis =
@@ -899,11 +908,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // INTERNAL FUNCTIONS
     //
-    function _registerToken(address trader, address token) private {
+    function _registerBaseToken(address trader, address token) private {
         address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
+            TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
+            if (tokenInfo.available != 0 && tokenInfo.debt != 0) {
+                return;
+            }
+
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -1167,13 +1181,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         );
     }
 
-    function _requireTokenExistAndValidAmount(address token, uint256 amount) private view {
+    function _requireValidAmount(uint256 amount) private pure {
+        // CH_IA: invalid amount
+        require(amount > 0, "CH_IA");
+    }
+
+    function _requireTokenExistent(address token) private view {
         if (quoteToken != token) {
             // CH_TNF: token not found
             require(_isPoolExistent(token), "CH_TNF");
         }
-        // CH_IA: invalid amount
-        require(amount > 0, "CH_IA");
     }
 
     function _requireLargerThanInitialMarginRequirement(address trader) private view {
