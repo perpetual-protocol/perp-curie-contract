@@ -354,7 +354,7 @@ describe("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).deposit(toWei(100))
 
             // bob mints 100 quote for swap
-            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(1000))
+            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.1 base leaves the pool

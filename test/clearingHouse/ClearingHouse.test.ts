@@ -162,7 +162,7 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
         })
 
-        it.only("registers each base token once at most", async () => {
+        it("registers each base token once at most", async () => {
             const connectedClearingHouse = clearingHouse.connect(alice)
             // assume imRatio = 0.1, price = 100
             // alice collateral = 1000, freeCollateral = 10,000, mint 10000 quote once and then mint 50 base twice
@@ -172,8 +172,7 @@ describe("ClearingHouse", () => {
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
 
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address))
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address))
+            expect(await clearingHouse.getAccountTokens(alice.address)).to.deep.eq([baseToken.address])
         })
 
         it("force error, alice mint too many quote", async () => {

@@ -86,6 +86,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         await clearingHouse.connect(alice).deposit(amount)
 
         const baseAmount = toWei(1, await baseToken.decimals())
+        console.log("MINT")
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,

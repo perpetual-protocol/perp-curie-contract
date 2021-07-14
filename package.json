@@ -1,6 +1,6 @@
 {
   "name": "@perp/lushan",
-  "version": "0.0.9",
+  "version": "0.0.12",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
@@ -19,7 +19,8 @@
     "prepare": "husky install",
     "lint": "solhint 'contracts/**/*.sol'",
     "lint-staged": "lint-staged",
-    "deploy-staging": "hardhat deploy --network rinkeby",
+    "dev": "hardhat deploy --network hardhat",
+    "deploy-staging": "hardhat deploy --network arbitrumRinkeby",
     "upload-metadata-staging": "aws s3 cp ./metadata/staging.json s3://metadata.perp.fi/lushan/staging.json --cache-control=no-store --acl public-read --profile perp",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"

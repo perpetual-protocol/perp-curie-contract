@@ -264,6 +264,22 @@ library UniswapV3Broker {
             ) / sqrtRatioAX96;
     }
 
+    /// copied from UniswapV3-periphery
+    /// @notice Computes the amount of token1 for a given amount of liquidity and a price range
+    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
+    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
+    /// @param liquidity The liquidity being valued
+    /// @return amount1 The amount of token1
+    function getAmount1ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) internal pure returns (uint256 amount1) {
+        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+
+        return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
+    }
+
     /// copied from UniswapV3-core
     /// @notice Retrieves fee growth data
     /// @param lowerTick The lower tick boundary of the position
