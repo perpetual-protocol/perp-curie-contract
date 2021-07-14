@@ -22,7 +22,6 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
@@ -272,7 +271,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _registerBaseToken(trader, params.baseToken);
 
         // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
+        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
@@ -308,6 +307,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _requireTokenExistent(params.baseToken);
 
         address trader = _msgSender();
+
+        // register token if it's the first time
+        _registerBaseToken(trader, params.baseToken);
 
         // TODO could be optimized by letting the caller trigger it.
         // Revise after we have defined the user-facing functions.
@@ -363,9 +365,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 openOrder.feeGrowthInsideQuoteX128
             );
         }
-
-        // register token if it's the first time
-        _registerBaseToken(trader, params.baseToken);
 
         // update token info
         baseTokenInfo.available = baseAvailable.add(baseFee).sub(response.base);
@@ -821,11 +820,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
 
-        //  Revise after we have defined the user-facing functions.
         if (token != quoteToken) {
-            _settleFunding(account, token);
             // register base token if it's the first time
             _registerBaseToken(account, token);
+
+            // Revise after we have defined the user-facing functions.
+            _settleFunding(account, token);
         }
 
         // check margin ratio must after minted
