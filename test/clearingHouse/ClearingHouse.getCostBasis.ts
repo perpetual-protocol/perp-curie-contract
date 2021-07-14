@@ -9,7 +9,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe.only("ClearingHouse getCostBasis", () => {
-    const [admin, maker, taker, taker2] = waffle.provider.getWallets()
+    const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let collateral: TestERC20
@@ -49,7 +49,7 @@ describe.only("ClearingHouse getCostBasis", () => {
         await clearingHouse.connect(taker).deposit(takerCollateral)
     })
 
-    describe("no swaps", async () => {
+    describe("no swaps, costBasis should be 0", async () => {
         it("taker has no position", async () => {
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(0))
@@ -62,7 +62,7 @@ describe.only("ClearingHouse getCostBasis", () => {
             expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(0))
         })
 
-        it.only("maker adds liquidity below price with quote only", async () => {
+        it("maker adds liquidity below price with quote only", async () => {
             console.log("maker adds liquidity below price with quote only")
             await pool.initialize(encodePriceSqrt("200", "1"))
 
@@ -75,13 +75,8 @@ describe.only("ClearingHouse getCostBasis", () => {
                 upperTick: 50200, // 151.3733069
             })
 
-            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
-            // TODO
-            console.log("==getCostBasis==")
-            console.log("base addr", baseToken.address)
-            const tokens = await clearingHouse.getAccountTokens(maker.address)
-            console.log(tokens)
-            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(-100))
+            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(0)
+            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(0)
         })
 
         it("maker adds liquidity above price with base only", async () => {
@@ -117,7 +112,7 @@ describe.only("ClearingHouse getCostBasis", () => {
 
             await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
             await clearingHouse.connect(maker).mint(baseToken.address, toWei(1))
-            const liquidityChanged = await runTxAndReturnEvent(
+            await runTxAndReturnEvent(
                 clearingHouse.connect(maker).addLiquidity({
                     baseToken: baseToken.address,
                     base: toWei(1),
@@ -127,7 +122,6 @@ describe.only("ClearingHouse getCostBasis", () => {
                 }),
                 "LiquidityChanged",
             )
-            const addedQuote = liquidityChanged.args.quote // 96504015080269510470
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)
         })

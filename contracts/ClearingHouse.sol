@@ -245,6 +245,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
+        // FIXME remove token from account.tokens if available & debt is zero
+
         IMintableERC20(token).burn(amount);
 
         emit Burned(trader, token, amount);
@@ -409,6 +411,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 openOrder.feeGrowthInsideQuoteX128
             );
         }
+
+        // register token if it's the first time
+        _registerToken(trader, params.baseToken);
 
         // update token info
         baseTokenInfo.available = baseAvailable.add(baseFee).sub(response.base);
@@ -895,8 +900,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
             }
         }
-        // console.log("totalPositionValue");
-        // console.logInt(totalPositionValue);
 
         return getCostBasis(trader).add(totalPositionValue);
     }
