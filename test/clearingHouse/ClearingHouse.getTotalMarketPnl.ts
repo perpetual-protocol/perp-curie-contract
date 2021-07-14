@@ -92,9 +92,6 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             sqrtPriceLimitX96: 0,
         })
 
-        const sqrtPrice = await clearingHouse.getSqrtMarkPriceX96(baseToken.address)
-        console.log("sqrt", sqrtPrice.toString())
-
         // price after swap: 103.7272082538
         // taker1
         // position value = 0.980943170969551031 * 103.7272082538 = 101.7504965803
@@ -102,5 +99,20 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("1750496580332248211")
     })
 
-    it("taker open a position and pnl is negative", async () => {})
+    it("taker open a position and pnl is negative", async () => {
+        // taker2 open a short position
+        await clearingHouse.connect(taker2).openPosition({
+            baseToken: baseToken.address,
+            isBaseToQuote: true,
+            isExactInput: false,
+            amount: parseEther("200"),
+            sqrtPriceLimitX96: 0,
+        })
+
+        // price after swap: 98.125012874
+        // taker1
+        // position value = 0.980943170969551031 * 98.125012874 = 96.25506128
+        // pnl = -100 + 96.25506128 = -3.74493872
+        expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-3744938719958505346")
+    })
 })
