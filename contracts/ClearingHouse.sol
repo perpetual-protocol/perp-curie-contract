@@ -1009,8 +1009,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
-        bool includeBaseFee,
-        bool isFetchBase
+        bool includeFee,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) private view returns (uint256 tokenAmount) {
         Account storage account = _accountMap[trader];
         bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
@@ -1032,7 +1032,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 uint256 amount;
                 uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                 uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-                if (isFetchBase) {
+                if (fetchBase) {
                     if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
                         if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
                             sqrtPriceAtLowerTick = sqrtMarkPriceX96;
@@ -1058,14 +1058,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 tokenAmount = tokenAmount.add(amount);
             }
 
-            if (includeBaseFee) {
+            if (includeFee) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
                 // include uncollected fee base tokens
                 (uint256 feeGrowthInsideBaseX128, uint256 feeGrowthInsideQuoteX128) =
                     UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
                 uint256 feeGrowthInsideX128 = feeGrowthInsideQuoteX128;
                 uint256 feeGrowthInsideOldX128 = order.feeGrowthInsideQuoteX128;
-                if (isFetchBase) {
+                if (fetchBase) {
                     feeGrowthInsideX128 = feeGrowthInsideBaseX128;
                     feeGrowthInsideOldX128 = order.feeGrowthInsideBaseX128;
                 }
@@ -1080,12 +1080,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
-        bool includeBaseFee
+        bool includeFee
     ) private view returns (int256) {
         Account storage account = _accountMap[trader];
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
-                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
+                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeFee, true)
             );
 
         int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
