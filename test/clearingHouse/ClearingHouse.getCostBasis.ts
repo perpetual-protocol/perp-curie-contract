@@ -62,7 +62,8 @@ describe.only("ClearingHouse getCostBasis", () => {
             expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(0))
         })
 
-        it("maker adds liquidity below price with quote only", async () => {
+        it.only("maker adds liquidity below price with quote only", async () => {
+            console.log("maker adds liquidity below price with quote only")
             await pool.initialize(encodePriceSqrt("200", "1"))
 
             await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
@@ -75,6 +76,11 @@ describe.only("ClearingHouse getCostBasis", () => {
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
+            // TODO
+            console.log("==getCostBasis==")
+            console.log("base addr", baseToken.address)
+            const tokens = await clearingHouse.getAccountTokens(maker.address)
+            console.log(tokens)
             expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(-100))
         })
 
@@ -82,6 +88,7 @@ describe.only("ClearingHouse getCostBasis", () => {
             await pool.initialize(encodePriceSqrt("100", "1"))
 
             await clearingHouse.connect(maker).mint(baseToken.address, toWei(5))
+
             await clearingHouse.connect(maker).addLiquidity({
                 baseToken: baseToken.address,
                 base: toWei(2),
@@ -90,13 +97,22 @@ describe.only("ClearingHouse getCostBasis", () => {
                 upperTick: 50200, // 151.3733069
             })
 
-            // TODO
-            // what does -1 mean?
-            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq("-1")
+            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
+            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(0))
+
+            await clearingHouse.connect(maker).addLiquidity({
+                baseToken: baseToken.address,
+                base: toWei(3),
+                quote: toWei(0),
+                lowerTick: 49000,
+                upperTick: 50400,
+            })
+
+            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(0))
         })
 
-        it.only("maker adds liquidity with both quote and base", async () => {
+        it("maker adds liquidity with both quote and base", async () => {
             await pool.initialize(encodePriceSqrt("100", "1"))
 
             await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
@@ -112,8 +128,8 @@ describe.only("ClearingHouse getCostBasis", () => {
                 "LiquidityChanged",
             )
             const addedQuote = liquidityChanged.args.quote // 96504015080269510470
-            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq("-1") // TODO
-            expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(`-${addedQuote}`)
+            expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
+            expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)
         })
 
         it("", async () => {})

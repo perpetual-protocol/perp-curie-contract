@@ -151,6 +151,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address payer;
     }
 
+    // 10 wei
+    uint256 private constant DUST = 10;
+
     //
     // state variables
     //
@@ -767,8 +770,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         int256 positionSize =
             _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
         if (positionSize == 0) return 0;
-        console.log("positionSize");
-        console.logInt(positionSize);
+        // console.log("positionSize");
+        // console.logInt(positionSize);
 
         // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
         uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
@@ -815,6 +818,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
+            console.logAddress(baseToken);
             // TODO: remove quoteToken from _accountMap[trader].tokens?
             if (_isPoolExistent(baseToken)) {
                 quoteInPool = quoteInPool.add(
@@ -832,7 +836,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         console.log("quoteTokenInfo.available: %s", quoteTokenInfo.available);
         console.log("quoteInPool: %s", quoteInPool);
         console.log("quoteTokenInfo.debt: %s", quoteTokenInfo.debt);
-        return quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
+        int256 costBasis =
+            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
+        return _formatInt256ToAbs(costBasis) < DUST ? 0 : costBasis;
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -889,8 +895,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
             }
         }
-        console.log("totalPositionValue");
-        console.logInt(totalPositionValue);
+        // console.log("totalPositionValue");
+        // console.logInt(totalPositionValue);
 
         return getCostBasis(trader).add(totalPositionValue);
     }
@@ -903,11 +909,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
-            TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-            if (tokenInfo.available != 0 || tokenInfo.debt != 0) {
-                return;
-            }
-
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -1033,6 +1034,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                         );
                     }
                 } else {
+                    // await pool.initialize(encodePriceSqrt("200", "1"))
+                    // await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
+                    // await clearingHouse.connect(maker).addLiquidity({
+                    //     baseToken: baseToken.address,
+                    //     base: toWei(0),
+                    //     quote: toWei(100),
+                    //     lowerTick: 50000, // 148.3760629
+                    //     upperTick: 50200, // 151.3733069
+                    // })
                     if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
                         if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
                             sqrtPriceAtUpperTick = sqrtMarkPriceX96;
@@ -1063,6 +1073,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 );
             }
         }
+
+        console.log("tokenAmount: %s", tokenAmount);
     }
 
     function _getPositionSize(
@@ -1071,20 +1083,21 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         uint160 sqrtMarkPriceX96,
         bool includeBaseFee
     ) private view returns (int256) {
-        console.log("_getPositionSize");
+        // console.log("_getPositionSize");
         Account storage account = _accountMap[trader];
-        console.log("base available: %s", account.tokenInfoMap[baseToken].available);
-        console.log(
-            "base availableInPool: %s",
-            _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
-        );
+        // console.log("base available: %s", account.tokenInfoMap[baseToken].available);
+        // console.log(
+        //     "base availableInPool: %s",
+        //     _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
+        // );
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
                 _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
             );
-        console.log("vBaseAmount: %s", vBaseAmount);
-        console.log("base debt: %s", account.tokenInfoMap[baseToken].debt);
-        return vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
+        // console.log("vBaseAmount: %s", vBaseAmount);
+        // console.log("base debt: %s", account.tokenInfoMap[baseToken].debt);
+        int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
+        return _formatInt256ToAbs(positionSize) < DUST ? 0 : positionSize;
     }
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
@@ -1188,8 +1201,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function _requireLargerThanInitialMarginRequirement(address trader) private view {
         // CH_NEAV: not enough account value
-        console.logInt(getAccountValue(trader));
-        console.log("_getTotalInitialMarginRequirement", _getTotalInitialMarginRequirement(trader));
+        // console.logInt(getAccountValue(trader));
+        // console.log("_getTotalInitialMarginRequirement", _getTotalInitialMarginRequirement(trader));
         require(getAccountValue(trader) >= _getTotalInitialMarginRequirement(trader).toInt256(), "CH_NEAV");
     }
 }
