@@ -219,6 +219,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         emit Deposited(collateralToken, trader, amount);
     }
 
+    // @audit - change to token[] amount[] for minting both (@wraecca)
+    // TODO should add modifier: whenNotPaused()
+    function mint(address token, uint256 amount) external nonReentrant() {
+        _requireTokenExistent(token);
+        // always check margin ratio
+        _mint(token, amount, true);
+    }
+
     /**
      * @param amount the amount of debt to burn
      */
@@ -289,70 +297,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         return response;
-    }
-
-    // @audit - change to token[] amount[] for minting both (@wraecca)
-    // TODO should add modifier: whenNotPaused()
-    function mint(address token, uint256 amount) external nonReentrant() {
-        _requireTokenExistent(token);
-        // always check margin ratio
-        _mint(token, amount, true);
-    }
-
-    function _mint(
-        address token,
-        uint256 amount,
-        bool checkMarginRatio
-    ) private returns (uint256) {
-        _requireValidAmount(amount);
-
-        // update internal states
-        address account = _msgSender();
-        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
-        tokenInfo.available = tokenInfo.available.add(amount);
-        tokenInfo.debt = tokenInfo.debt.add(amount);
-
-        //  Revise after we have defined the user-facing functions.
-        if (token != quoteToken) {
-            _settleFunding(account, token);
-            // register base token if it's the first time
-            _registerBaseToken(account, token);
-        }
-
-        // check margin ratio must after minted
-        if (checkMarginRatio) {
-            _requireLargerThanInitialMarginRequirement(account);
-        }
-
-        IMintableERC20(token).mint(address(this), amount);
-
-        emit Minted(account, token, amount);
-        return amount;
-    }
-
-    // caller must ensure token is base or quote
-    // mint max base or quote until the free collateral is zero
-    function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = getFreeCollateral(_msgSender());
-        if (freeCollateral == 0) {
-            return 0;
-        }
-
-        // TODO store decimals for gas optimization
-        // normalize free collateral from collateral decimals to quote decimals
-        uint256 collateralDecimals = 10**IERC20Metadata(collateralToken).decimals();
-        uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
-        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, collateralDecimals);
-        uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
-        uint256 minted;
-        if (token == quoteToken) {
-            minted = mintableQuote;
-        } else {
-            // TODO: change the valuation method && align with baseDebt()
-            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
-        }
-
-        return _mint(token, minted, false);
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -426,55 +370,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         openOrder.liquidity = openOrder.liquidity.toUint256().add(response.liquidity.toUint256()).toUint128();
         openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
         openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
-
-        _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
-    }
-
-    function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
-        address trader = params.maker;
-
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
-        _settleFunding(trader, params.baseToken);
-
-        // load existing open order
-        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
-        // CH_ZL non-existent openOrder
-        require(openOrder.liquidity > 0, "CH_NEO");
-        // CH_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "CH_NEL");
-
-        UniswapV3Broker.RemoveLiquidityResponse memory response =
-            UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(
-                    _poolMap[params.baseToken],
-                    params.lowerTick,
-                    params.upperTick,
-                    params.liquidity
-                )
-            );
-
-        // TODO add slippage protection
-
-        // update token info based on existing open order
-        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        uint256 baseFee =
-            _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideBaseX128, openOrder.feeGrowthInsideBaseX128);
-        uint256 quoteFee =
-            _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideQuoteX128, openOrder.feeGrowthInsideQuoteX128);
-        baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(response.quote);
-
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
-        if (openOrder.liquidity == 0) {
-            _removeOrder(trader, params.baseToken, orderId);
-        } else {
-            openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
-            openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
-        }
 
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
@@ -590,43 +485,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
         }
-    }
-
-    // @audit - review decimal conversion between collateral and quoteToken (@vinta)
-    // caller must ensure taker's position is zero
-    // settle pnl to trader's collateral when there's no position is being hold
-    function _settle(address trader) private {
-        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        uint256 collateral = _accountMap[trader].collateral;
-
-        // has profit
-        if (quoteTokenInfo.available > quoteTokenInfo.debt) {
-            uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
-            _accountMap[trader].collateral = collateral.add(profit);
-            _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
-            burn(quoteToken, quoteTokenInfo.debt);
-            return;
-        }
-
-        // has loss or breakeven
-        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
-        if (loss > 0) {
-            // quote's available is not enough for debt, trader will pay back the debt by collateral
-            if (collateral < loss) {
-                // TODO bad debt occurs - need cover from insurance fund
-                // _burnBadDebt(remainingDebt - collateral);
-                _accountMap[trader].collateral = 0;
-
-                // to be done
-                revert("TBD");
-            } else {
-                _accountMap[trader].collateral = collateral.sub(loss);
-            }
-
-            // realized loss by collateral or insurance fund
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
-        }
-        burn(quoteToken, quoteTokenInfo.available);
     }
 
     // @audit - review security and possible attacks (@detoo)
@@ -908,6 +766,99 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     //
     // INTERNAL FUNCTIONS
     //
+    // @audit - review decimal conversion between collateral and quoteToken (@vinta)
+    // caller must ensure taker's position is zero
+    // settle pnl to trader's collateral when there's no position is being hold
+    function _settle(address trader) private {
+        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        uint256 collateral = _accountMap[trader].collateral;
+
+        // has profit
+        if (quoteTokenInfo.available > quoteTokenInfo.debt) {
+            uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
+            _accountMap[trader].collateral = collateral.add(profit);
+            _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
+            burn(quoteToken, quoteTokenInfo.debt);
+            return;
+        }
+
+        // has loss or breakeven
+        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
+        if (loss > 0) {
+            // quote's available is not enough for debt, trader will pay back the debt by collateral
+            if (collateral < loss) {
+                // TODO bad debt occurs - need cover from insurance fund
+                // _burnBadDebt(remainingDebt - collateral);
+                _accountMap[trader].collateral = 0;
+
+                // to be done
+                revert("TBD");
+            } else {
+                _accountMap[trader].collateral = collateral.sub(loss);
+            }
+
+            // realized loss by collateral or insurance fund
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
+        }
+        burn(quoteToken, quoteTokenInfo.available);
+    }
+
+    function _mint(
+        address token,
+        uint256 amount,
+        bool checkMarginRatio
+    ) private returns (uint256) {
+        _requireValidAmount(amount);
+
+        // update internal states
+        address account = _msgSender();
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.add(amount);
+        tokenInfo.debt = tokenInfo.debt.add(amount);
+
+        //  Revise after we have defined the user-facing functions.
+        if (token != quoteToken) {
+            _settleFunding(account, token);
+            // register base token if it's the first time
+            _registerBaseToken(account, token);
+        }
+
+        // check margin ratio must after minted
+        if (checkMarginRatio) {
+            _requireLargerThanInitialMarginRequirement(account);
+        }
+
+        IMintableERC20(token).mint(address(this), amount);
+
+        emit Minted(account, token, amount);
+        return amount;
+    }
+
+    // caller must ensure token is base or quote
+    // mint max base or quote until the free collateral is zero
+    function _mintMax(address token) private returns (uint256) {
+        uint256 freeCollateral = getFreeCollateral(_msgSender());
+        if (freeCollateral == 0) {
+            return 0;
+        }
+
+        // TODO store decimals for gas optimization
+        // normalize free collateral from collateral decimals to quote decimals
+        uint256 collateralDecimals = 10**IERC20Metadata(collateralToken).decimals();
+        uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
+        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, collateralDecimals);
+        uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
+        uint256 minted;
+        if (token == quoteToken) {
+            minted = mintableQuote;
+        } else {
+            // TODO: change the valuation method && align with baseDebt()
+            minted = FullMath.mulDiv(mintableQuote, 1 ether, getIndexPrice(token));
+        }
+
+        return _mint(token, minted, false);
+    }
+
     function _registerBaseToken(address trader, address token) private {
         address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
@@ -929,6 +880,55 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 _accountMap[trader].tokens.push(token);
             }
         }
+    }
+
+    function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
+        address trader = params.maker;
+
+        // TODO could be optimized by letting the caller trigger it.
+        //  Revise after we have defined the user-facing functions.
+        _settleFunding(trader, params.baseToken);
+
+        // load existing open order
+        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        // CH_ZL non-existent openOrder
+        require(openOrder.liquidity > 0, "CH_NEO");
+        // CH_NEL not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "CH_NEL");
+
+        UniswapV3Broker.RemoveLiquidityResponse memory response =
+            UniswapV3Broker.removeLiquidity(
+                UniswapV3Broker.RemoveLiquidityParams(
+                    _poolMap[params.baseToken],
+                    params.lowerTick,
+                    params.upperTick,
+                    params.liquidity
+                )
+            );
+
+        // TODO add slippage protection
+
+        // update token info based on existing open order
+        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        uint256 baseFee =
+            _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideBaseX128, openOrder.feeGrowthInsideBaseX128);
+        uint256 quoteFee =
+            _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideQuoteX128, openOrder.feeGrowthInsideQuoteX128);
+        baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(response.base);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(response.quote);
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
+        if (openOrder.liquidity == 0) {
+            _removeOrder(trader, params.baseToken, orderId);
+        } else {
+            openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
+            openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
+        }
+
+        _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
     function _removeOrder(
