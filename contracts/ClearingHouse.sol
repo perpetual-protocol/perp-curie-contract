@@ -180,6 +180,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     ) {
         // CH_II: invalid input
         require(collateralTokenArg != address(0), "CH_II_C");
+
+        // TODO: add missing full error messages
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
 
@@ -599,11 +601,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 )
             );
         }
-
-        // TODO: do we need this?
-        // reduced account value must be larger than initMarginRequirement
-        // and smaller than some number (set initMarginRequirement*2 for now)
-        // require(initMarginRequirement < accountValue(lp, pool) <= initMarginRequirement*2);
     }
 
     //
@@ -613,6 +610,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _poolMap[baseToken];
     }
 
+    // FIXME should include pending funding payment
     function getAccountValue(address trader) public view returns (int256) {
         return _accountMap[trader].collateral.toInt256().add(getTotalMarketPnl(trader));
     }
@@ -669,6 +667,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
     }
 
+    // @audit do we need to expose the following function until the end of this section?
+    // suggest to expose as less as we can (@wraecca)
     function getCostBasis(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
@@ -1074,6 +1074,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return positionSize.abs() < DUST ? 0 : positionSize;
     }
 
+    // @audit suggest to rename to hasPool or isPoolExist
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
     }
@@ -1097,6 +1098,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
 
+    // @audit - suggest not separating into a call if it's not called by different places and only 1LOC (@wraecca)
     function _emitLiquidityChanged(
         address maker,
         AddLiquidityParams memory params,
@@ -1118,6 +1120,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         );
     }
 
+    // @audit - suggest not separating into a call if it's not called by different places and only 1LOC (@wraecca)
     function _emitLiquidityChanged(
         address maker,
         InternalRemoveLiquidityParams memory params,
@@ -1144,6 +1147,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         require(amount > 0, "CH_IA");
     }
 
+    // @audit - suggest rename to _requireHasToken or _requireTokenExist
     function _requireTokenExistent(address token) private view {
         if (quoteToken != token) {
             // CH_TNF: token not found

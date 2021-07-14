@@ -207,20 +207,6 @@ library UniswapV3Broker {
         (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
-    function _getPositionLiquidity(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick
-    ) private view returns (uint128 liquidity) {
-        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-        (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
-    }
-
-    // note this assumes token0 is always the base token
-    function getTick(address pool) internal view returns (int24 tick) {
-        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
-    }
-
     // note this assumes token0 is always the base token
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
