@@ -3,7 +3,6 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
-import { runTxAndReturnEvent } from "../helper/events"
 import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -63,7 +62,6 @@ describe("ClearingHouse getCostBasis", () => {
         })
 
         it("maker adds liquidity below price with quote only", async () => {
-            console.log("maker adds liquidity below price with quote only")
             await pool.initialize(encodePriceSqrt("200", "1"))
 
             await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
@@ -112,20 +110,15 @@ describe("ClearingHouse getCostBasis", () => {
 
             await clearingHouse.connect(maker).mint(quoteToken.address, toWei(100))
             await clearingHouse.connect(maker).mint(baseToken.address, toWei(1))
-            await runTxAndReturnEvent(
-                clearingHouse.connect(maker).addLiquidity({
-                    baseToken: baseToken.address,
-                    base: toWei(1),
-                    quote: toWei(100),
-                    lowerTick: 0, // $1
-                    upperTick: 100000, // $22015.4560485522
-                }),
-                "LiquidityChanged",
-            )
+            await clearingHouse.connect(maker).addLiquidity({
+                baseToken: baseToken.address,
+                base: toWei(1),
+                quote: toWei(100),
+                lowerTick: 0, // $1
+                upperTick: 100000, // $22015.4560485522
+            })
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)
         })
-
-        it("", async () => {})
     })
 })
