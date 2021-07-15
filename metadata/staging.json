@@ -3,35 +3,54 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0xF63b64bc687e0C6584369ce1896BF27305A8Aab5"
-        },
-        "ethChainlinkPriceFeed": {
-            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0xb11F3346825eF693318fd39db0EAa68CfDF3b7f7"
-        },
-        "usdcChainlinkPriceFeed": {
-            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0xaB9656Bbfe95Cf0afd07126778E306eaA89957Fc"
-        },
-        "vETH": {
-            "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0x754fe16B833F17441Eafc4FC99668F79CdCa0ea5"
-        },
-        "vUSD": {
-            "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0xcd1B4F023277F58e01ae77f9aCAee8b653bBa645"
+            "address": "0x5709e99d8689Ee4d951fC30D11FB81Fb8001d821"
         },
         "btcChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
-            "address": "0x1f0705CbEb76335a0170E431b6535f5505b1a244"
+            "address": "0x1EC63Fb31A6D3696a7CCd4913fd0207e84e4391b"
+        },
+        "ethChainlinkPriceFeed": {
+            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
+            "address": "0x188DdE1f3FCD5c42d3a396410a62cE6882b4dE30"
+        },
+        "usdcChainlinkPriceFeed": {
+            "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
+            "address": "0xb4Da4D4746191b83d5EeE1f8360149f2774C2fc1"
         },
         "vBTC": {
             "name": "contracts/BaseToken.sol:BaseToken",
-            "address": "0xc725B12cD3A268f172231aF0E7fC4E32f8961c74"
+            "address": "0x908199C12Ebc09a99F498fCa9C17f8ca780dc528"
+        },
+        "vETH": {
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0xAb663B15339151E52228Acc169ACe64E7510DC55"
+        },
+        "vUSD": {
+            "name": "contracts/BaseToken.sol:BaseToken",
+            "address": "0xf3064D4DD8537d5d688f09b7aFF90bD8EFBDa3D0"
         }
     },
+    "pools": [
+        {
+            "address": "0x2f09252433341Ed9070928737C2b6a53c85682a1",
+            "baseSymbol": "vETH",
+            "baseAddress": "0xAb663B15339151E52228Acc169ACe64E7510DC55",
+            "quoteSymbol": "vUSD",
+            "quoteAddress": "0xf3064D4DD8537d5d688f09b7aFF90bD8EFBDa3D0"
+        },
+        {
+            "address": "0x346E5Fb23f9437804C5540aa915735a31728E1AA",
+            "baseSymbol": "vBTC",
+            "baseAddress": "0x908199C12Ebc09a99F498fCa9C17f8ca780dc528",
+            "quoteSymbol": "vUSD",
+            "quoteAddress": "0xf3064D4DD8537d5d688f09b7aFF90bD8EFBDa3D0"
+        }
+    ],
     "externalContracts": {
-        "USDC": "0xCE6CB429BefeCeE5BD25a5e68820681ceBfC2BdE",
-        "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+        "USDC": "0x7E87caCCc8D44beDfffeaaD02a3Da5EA3D7Ab6cd",
+        "UniswapV3Broker": "0xA6770233d8381cb053de51C3989A8C0bEfd3fF28",
+        "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "vBTCvUSDCUniswapV3Pool": "0x346E5Fb23f9437804C5540aa915735a31728E1AA",
+        "vETHvUSDCUniswapV3Pool": "0x2f09252433341Ed9070928737C2b6a53c85682a1"
     }
 }
