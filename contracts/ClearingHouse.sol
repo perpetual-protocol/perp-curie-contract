@@ -266,7 +266,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         _registerBaseToken(trader, params.baseToken);
 
         // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
+        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
@@ -303,8 +303,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         address trader = _msgSender();
 
+        // register token if it's the first time
+        _registerBaseToken(trader, params.baseToken);
+
         // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
+        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // update internal states
@@ -357,9 +360,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 openOrder.feeGrowthInsideQuoteX128
             );
         }
-
-        // register token if it's the first time
-        _registerBaseToken(trader, params.baseToken);
 
         // update token info
         baseTokenInfo.available = baseAvailable.add(baseFee).sub(response.base);
@@ -802,11 +802,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
 
-        //  Revise after we have defined the user-facing functions.
         if (token != quoteToken) {
-            _settleFunding(account, token);
             // register base token if it's the first time
             _registerBaseToken(account, token);
+
+            // Revise after we have defined the user-facing functions.
+            _settleFunding(account, token);
         }
 
         // check margin ratio must after minted
@@ -850,8 +851,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
+            // if available or debt are not 0,
+            // token is already registered by one of external functions (ex: mint, burn, swap)
             TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-            if (tokenInfo.available != 0 && tokenInfo.debt != 0) {
+            if (tokenInfo.available != 0 || tokenInfo.debt != 0) {
                 return;
             }
 
@@ -991,22 +994,24 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
-        bool includeBaseFee,
-        bool isFetchBase
+        bool includeFee,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) private view returns (uint256 tokenAmount) {
         Account storage account = _accountMap[trader];
         bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
 
         //
-        // tick:     lower            upper
-        //       -+---+-----------------+---+--
-        //      case1                      case2
-        // case 1 : current price below the lower tick
+        // tick:    lower             upper
+        //       -|---+-----------------+---|--
+        //     case 1                    case 2
+        //
+        // if current price < upper tick, maker has base
+        // case 1 : current price < lower tick
         //  --> maker only has base token
         //
-        // case 2 : current price above the upper tick)
+        // if current price > lower tick, maker has quote
+        // case 2 : current price > upper tick
         //  --> maker only has quote token
-        //
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
@@ -1014,7 +1019,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 uint256 amount;
                 uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                 uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-                if (isFetchBase) {
+                if (fetchBase) {
                     if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
                         if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
                             sqrtPriceAtLowerTick = sqrtMarkPriceX96;
@@ -1040,14 +1045,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
                 tokenAmount = tokenAmount.add(amount);
             }
 
-            if (includeBaseFee) {
+            if (includeFee) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
                 // include uncollected fee base tokens
                 (uint256 feeGrowthInsideBaseX128, uint256 feeGrowthInsideQuoteX128) =
                     UniswapV3Broker.getFeeGrowthInside(_poolMap[baseToken], order.lowerTick, order.upperTick, tick);
                 uint256 feeGrowthInsideX128 = feeGrowthInsideQuoteX128;
                 uint256 feeGrowthInsideOldX128 = order.feeGrowthInsideQuoteX128;
-                if (isFetchBase) {
+                if (fetchBase) {
                     feeGrowthInsideX128 = feeGrowthInsideBaseX128;
                     feeGrowthInsideOldX128 = order.feeGrowthInsideBaseX128;
                 }
@@ -1062,14 +1067,17 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
-        bool includeBaseFee
+        bool includeFee
     ) private view returns (int256) {
         Account storage account = _accountMap[trader];
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
-                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeBaseFee, true)
+                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeFee, true)
             );
 
+        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
+        // for instance, maker adds liquidity with 2 base (2000000000000000000),
+        // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
         return positionSize.abs() < DUST ? 0 : positionSize;
     }
