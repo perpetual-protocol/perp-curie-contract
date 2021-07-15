@@ -61,6 +61,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         int256 amount // +: trader pays, -: trader receives
     );
 
+    event Swapped(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 costBasis,
+        uint256 fee,
+        int256 fundingPayment,
+        uint256 badDebt
+    );
+
     //
     // Struct
     //
@@ -267,7 +277,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // TODO could be optimized by letting the caller trigger it.
         // Revise after we have defined the user-facing functions.
-        _settleFunding(trader, params.baseToken);
+        int256 settledFundingPayment = _settleFunding(trader, params.baseToken);
 
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[params.baseToken]);
         UniswapV3Broker.SwapResponse memory response =
@@ -294,6 +304,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         }
+
+        emit Swapped(
+            trader, // trader
+            params.baseToken, // baseToken
+            params.isBaseToQuote ? -response.base.toInt256() : response.base.toInt256(), // exchangedPositionSize
+            params.isBaseToQuote ? response.quote.toInt256() : -response.quote.toInt256(), // costBasis
+            response.fee, // fee
+            settledFundingPayment, // fundingPayment,
+            0 // TODO: badDebt
+        );
 
         return response;
     }
