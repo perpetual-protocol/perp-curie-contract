@@ -869,10 +869,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
         } else {
-            // if available and debt are not 0,
+            // if available or debt are not 0,
             // token is already registered by one of external functions (ex: mint, burn, swap)
             TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-            if (tokenInfo.available != 0 && tokenInfo.debt != 0) {
+            if (tokenInfo.available != 0 || tokenInfo.debt != 0) {
                 return;
             }
 
