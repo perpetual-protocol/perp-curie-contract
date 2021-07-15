@@ -372,6 +372,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         openOrder.feeGrowthInsideBaseX128 = response.feeGrowthInsideBaseX128;
         openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
 
+        // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
@@ -914,6 +915,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             openOrder.feeGrowthInsideQuoteX128 = response.feeGrowthInsideQuoteX128;
         }
 
+        // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
@@ -1098,7 +1100,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
 
-    // @audit - suggest not separating into a call if it's not called by different places and only 1LOC (@wraecca)
     function _emitLiquidityChanged(
         address maker,
         AddLiquidityParams memory params,
@@ -1120,7 +1121,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         );
     }
 
-    // @audit - suggest not separating into a call if it's not called by different places and only 1LOC (@wraecca)
     function _emitLiquidityChanged(
         address maker,
         InternalRemoveLiquidityParams memory params,
