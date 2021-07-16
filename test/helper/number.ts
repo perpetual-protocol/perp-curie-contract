@@ -10,3 +10,6 @@ export function toWei(val: BigNumberish, decimals = 18): BigNumber {
 export function fromWei(val: BigNumberish, decimals = 18): bn {
     return new bn(formatEther(val))
 }
+
+export const getMinTick = (tickSpacing: number) => Math.ceil(-887272 / tickSpacing) * tickSpacing
+export const getMaxTick = (tickSpacing: number) => Math.floor(887272 / tickSpacing) * tickSpacing
