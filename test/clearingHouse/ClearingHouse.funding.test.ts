@@ -310,6 +310,17 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
+                .to.emit(clearingHouse, "Swapped")
+                .withArgs(
+                    bob.address, // trader
+                    baseToken.address, // baseToken
+                    "-6561355980537526", // exchangedPositionSize
+                    parseEther("1"), // costBasis
+                    "65613559805375", // fee: base
+                    "-12500003413325814", // fundingPayment
+                    parseEther("0"), // badDebt
+                )
+
             // 1 + 0.01250000341
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012500003413325814")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)

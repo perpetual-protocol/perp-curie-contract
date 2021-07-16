@@ -10,6 +10,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -20,6 +21,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
  */
 library UniswapV3Broker {
     using SafeCast for uint256;
+    using SafeMath for uint256;
     using SafeCast for uint128;
     using SafeCast for int256;
 
@@ -68,6 +70,7 @@ library UniswapV3Broker {
     struct SwapResponse {
         uint256 base;
         uint256 quote;
+        uint256 fee;
     }
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
@@ -179,7 +182,8 @@ library UniswapV3Broker {
         // incorrect output amount
         if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
 
-        (response.base, response.quote) = (amount0, amount1);
+        uint256 amountForFee = params.isBaseToQuote ? amount0 : amount1;
+        (response.base, response.quote, response.fee) = (amount0, amount1, calcFee(address(params.pool), amountForFee));
     }
 
     function getPool(
@@ -312,5 +316,9 @@ library UniswapV3Broker {
 
         feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
         feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
+    }
+
+    function calcFee(address pool, uint256 amount) internal view returns (uint256) {
+        return amount.mul(IUniswapV3Pool(pool).fee()).div(1e6);
     }
 }
