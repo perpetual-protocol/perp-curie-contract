@@ -316,7 +316,7 @@ describe("ClearingHouse.funding", () => {
                     baseToken.address, // baseToken
                     "-6561355980537526", // exchangedPositionSize
                     parseEther("1"), // costBasis
-                    "65613559805375", // fee: base
+                    "65613559805376", // fee: base
                     "-12500003413325814", // fundingPayment
                     parseEther("0"), // badDebt
                 )

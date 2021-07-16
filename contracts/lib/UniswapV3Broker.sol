@@ -78,11 +78,9 @@ library UniswapV3Broker {
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         {
-            // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
+                getSqrtMarkPriceX96(params.pool),
                 TickMath.getSqrtRatioAtTick(params.lowerTick),
                 TickMath.getSqrtRatioAtTick(params.upperTick),
                 params.base,
@@ -219,8 +217,7 @@ library UniswapV3Broker {
     // note this assumes token0 is always the base token
     function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-            return sqrtPriceX96;
+            return getSqrtMarkPriceX96(pool);
         }
 
         uint32[] memory secondsAgos = new uint32[](2);
@@ -319,6 +316,6 @@ library UniswapV3Broker {
     }
 
     function calcFee(address pool, uint256 amount) internal view returns (uint256) {
-        return amount.mul(IUniswapV3Pool(pool).fee()).div(1e6);
+        return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
     }
 }
