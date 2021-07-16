@@ -173,8 +173,8 @@ describe("ClearingHouse openPosition", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         "6539527905092835", // exchangedPositionSize
-                        toWei(-0.99), // costBasis w/o fee
-                        toWei(0.01), // fee
+                        toWei(-1), // costBasis
+                        toWei(1 * 0.01), // fee
                         toWei(0), // fundingPayment
                         toWei(0), // badDebt
                     )
@@ -204,7 +204,7 @@ describe("ClearingHouse openPosition", () => {
                             taker.address, // trader
                             baseToken.address, // baseToken
                             toWei(1), // exchangedPositionSize
-                            "-153508143394151325060", // costBasis w/o fee
+                            "-155058730701162954606", // costBasis
                             "1550587307011629546", // fee
                             toWei(0), // fundingPayment
                             toWei(0), // badDebt
@@ -323,9 +323,9 @@ describe("ClearingHouse openPosition", () => {
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
-                        toWei(-0.99), // exchangedPositionSize
+                        toWei(-1), // exchangedPositionSize
                         "147824339785748605988", // costBasis
-                        toWei(0.01), // fee: base
+                        toWei(0.01), // fee
                         toWei(0), // fundingPayment
                         toWei(0), // badDebt
                     )

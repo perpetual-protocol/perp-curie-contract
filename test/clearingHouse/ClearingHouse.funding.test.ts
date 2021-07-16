@@ -145,26 +145,14 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.updateFunding(baseToken.address)
 
             // bob short
-            await expect(
-                clearingHouse.connect(bob).swap({
-                    // sell base
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    amount: parseEther("1"),
-                    sqrtPriceLimitX96: 0,
-                }),
-            )
-                .to.emit(clearingHouse, "Swapped")
-                .withArgs(
-                    bob.address, // trader
-                    baseToken.address, // baseToken
-                    parseEther("-0.99"), // exchangedPositionSize
-                    "150146532923359906769", // costBasis,
-                    parseEther("0.01"), // fee: base
-                    "-12500003413325814", // fundingPayment
-                    parseEther("0"), // badDebt
-                )
+            await clearingHouse.connect(bob).swap({
+                // sell base
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
 
             // afterwards, mark price = 149.403346446539268519
 
@@ -326,7 +314,7 @@ describe("ClearingHouse.funding", () => {
                 .withArgs(
                     bob.address, // trader
                     baseToken.address, // baseToken
-                    "-6495742420732151", // exchangedPositionSize
+                    "-6561355980537526", // exchangedPositionSize
                     parseEther("1"), // costBasis
                     "65613559805375", // fee: base
                     "-12500003413325814", // fundingPayment

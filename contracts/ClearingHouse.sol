@@ -305,15 +305,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         }
 
-        int256 costBasisWithoutFee =
-            params.isBaseToQuote ? response.quote.toInt256() : -response.quote.sub(response.fee).toInt256();
-        int256 exchangedPosSizeWithoutFee =
-            params.isBaseToQuote ? -response.base.sub(response.fee).toInt256() : response.base.toInt256();
         emit Swapped(
             trader, // trader
             params.baseToken, // baseToken
-            exchangedPosSizeWithoutFee, // exchangedPositionSize
-            costBasisWithoutFee, // costBasis
+            params.isBaseToQuote ? -response.base.toInt256() : response.base.toInt256(), // exchangedPositionSize
+            params.isBaseToQuote ? response.quote.toInt256() : -response.quote.toInt256(), // costBasis
             response.fee, // fee
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
