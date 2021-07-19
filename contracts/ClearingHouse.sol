@@ -166,7 +166,7 @@ contract ClearingHouse is
     }
 
     // 10 wei
-    uint256 private constant DUST = 10;
+    uint256 private constant _DUST = 10;
 
     //
     // state variables
@@ -642,7 +642,7 @@ contract ClearingHouse is
         return IERC20Metadata(vault).balanceOf(trader).toInt256().add(getTotalMarketPnl(trader));
     }
 
-    function _getFreeCollateral(address account) public view returns (uint256) {
+    function _getFreeCollateral(address account) private view returns (uint256) {
         int256 requiredCollateral = getRequiredCollateral(account);
         int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
         if (requiredCollateral >= totalCollateralValue) {
@@ -721,7 +721,7 @@ contract ClearingHouse is
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         int256 costBasis =
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
-        return costBasis.abs() < DUST ? 0 : costBasis;
+        return costBasis.abs() < _DUST ? 0 : costBasis;
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -1085,7 +1085,7 @@ contract ClearingHouse is
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
-        return positionSize.abs() < DUST ? 0 : positionSize;
+        return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
     // @audit suggest to rename to hasPool or isPoolExist
