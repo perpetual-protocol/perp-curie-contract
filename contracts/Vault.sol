@@ -3,20 +3,33 @@ pragma solidity 0.7.6;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { IVault } from "./interface/IVault.sol";
+import { ISettlement } from "./interface/ISettlement.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
-contract Vault is IVault, ReentrancyGuard, Ownable {
+contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
+    using SafeCast for uint256;
+    using SafeCast for int256;
+    using SignedSafeMath for int256;
 
-    address public immutable override settlementToken;
+    address public immutable settlementToken;
     address public clearingHouse;
 
-    uint8 public immutable override decimals;
+    uint8 public immutable decimals;
+
+    // TODO when multi collateral
+    uint256 public maxCloseFactor;
+    uint256 public minCloseFactor;
+    uint256 public liquidationDiscount;
+    address[] private _liquidationAssetOrder;
 
     // key: trader, token address
     mapping(address => mapping(address => uint256)) private _balance;
+    // key: trader
+    mapping(address => uint256) private _debt;
 
     // key: token
     // TODO: change bool to collateral factor
@@ -41,7 +54,7 @@ contract Vault is IVault, ReentrancyGuard, Ownable {
         address from,
         address token,
         uint256 amount
-    ) external override nonReentrant() {
+    ) external nonReentrant() {
         // collateralToken not found
         require(_collateralTokenMap[token], "V_CNF");
 
@@ -53,21 +66,25 @@ contract Vault is IVault, ReentrancyGuard, Ownable {
         emit Deposited(token, from, amount);
     }
 
-    function realizeProfit(address account, uint256 profit) external override onlyClearingHouse {
-        _increaseBalance(account, settlementToken, profit);
+    function withdraw(address token, uint256 amount) external nonReentrant() {
+        int256 pnl = ISettlement(clearingHouse).settle(_msgSender());
+        // TODO add profit to balance, or decrease balance if loss. if settlement token is not enough, add to debt
+        revert("TBD");
     }
 
-    function realizeLoss(address account, uint256 loss) external override onlyClearingHouse {
-        uint256 settlementTokenBalance = _getBalance(account, settlementToken);
-        if (settlementTokenBalance > loss) {
-            _decreaseBalance(account, settlementToken, settlementTokenBalance.sub(loss));
-            return;
+    function getFreeCollateral(address account) public view returns (uint256) {
+        int256 requiredCollateral = ISettlement(clearingHouse).requiredCollateral(account);
+        int256 totalCollateralValue = balanceOf(account).toInt256();
+
+        if (requiredCollateral >= totalCollateralValue) {
+            return 0;
         }
 
-        _liquidate(account, loss.sub(settlementTokenBalance));
+        // totalCollateralValue > requiredCollateral
+        return totalCollateralValue.sub(requiredCollateral).toUint256();
     }
 
-    function balanceOf(address account) external view override returns (uint256) {
+    function balanceOf(address account) public view returns (uint256) {
         uint256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
@@ -105,26 +122,15 @@ contract Vault is IVault, ReentrancyGuard, Ownable {
         _balance[account][token] = _getBalance(account, token).sub(amount);
     }
 
-    function _liquidate(address account, uint256 amount) private {
-        for (uint256 i = 0; i < _collateralTokens.length; i++) {
-            address token = _collateralTokens[i];
-            if (settlementToken == token) {
-                // during liquidation, there is no more settlement token
-                continue;
-            }
-            // TODO swap token to settlement token until amount is 0
-            _decreaseBalance(account, token, 0);
-        }
+    function _liquidate(
+        address account,
+        address collateralToken,
+        uint256 amount
+    ) private {
         revert("TBD");
     }
 
     function _getBalance(address account, address token) private view returns (uint256) {
         return _balance[account][token];
-    }
-
-    modifier onlyClearingHouse() {
-        // not clearing house
-        require(clearingHouse == _msgSender(), "V_NCH");
-        _;
     }
 }
