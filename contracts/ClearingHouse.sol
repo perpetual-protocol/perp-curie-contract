@@ -20,10 +20,20 @@ import { BaseToken } from "./BaseToken.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { ISettlement } from "./interface/ISettlement.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
-import { IVault } from "./interface/IVault.sol";
 
-contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Context, Ownable {
+// TODO remove after finish multi collateral
+import { Vault } from "./Vault.sol";
+
+contract ClearingHouse is
+    IUniswapV3MintCallback,
+    IUniswapV3SwapCallback,
+    ISettlement,
+    ReentrancyGuard,
+    Context,
+    Ownable
+{
     using SafeMath for uint256;
     using SafeMath for uint160;
     using SafeCast for uint256;
@@ -212,7 +222,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // account.collateral = account.collateral.add(amount);
 
         // emit Deposited(collateralToken, trader, amount);
-        IVault vaultInstance = IVault(vault);
+        Vault vaultInstance = Vault(vault);
         address settlementToken = vaultInstance.settlementToken();
         TransferHelper.safeTransferFrom(settlementToken, _msgSender(), address(this), amount);
         TransferHelper.safeApprove(settlementToken, vault, amount);
@@ -333,7 +343,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
         // TODO store decimals for gas optimization
         // normalize free collateral from collateral decimals to quote decimals
-        uint256 vaultDecimals = 10**IVault(vault).decimals();
+        uint256 vaultDecimals = 10**IERC20Metadata(vault).decimals();
         uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
         uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, vaultDecimals);
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
@@ -568,43 +578,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         }
 
         TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
-        // if it's closing the position, settle the quote to realize pnl of that market
-        if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            _settle(_msgSender());
-        } else {
+        if (baseTokenInfo.available > 0 || baseTokenInfo.debt > 0) {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
         }
-    }
-
-    // @audit - review decimal conversion between collateral and quoteToken (@vinta)
-    // caller must ensure taker's position is zero
-    // settle pnl to trader's collateral when there's no position is being hold
-    function _settle(address trader) private {
-        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-
-        // has profit
-        if (quoteTokenInfo.available > quoteTokenInfo.debt) {
-            uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
-            _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
-            burn(quoteToken, quoteTokenInfo.debt);
-
-            // TODO deal with decimals
-            IVault(vault).realizeProfit(trader, profit);
-            return;
-        }
-
-        // has loss or breakeven
-        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
-        if (loss > 0) {
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
-
-            // realized loss by collateral or insurance fund
-            // TODO deal with decimals
-            IVault(vault).realizeLoss(trader, loss);
-        }
-
-        burn(quoteToken, quoteTokenInfo.available);
     }
 
     // @audit - review security and possible attacks (@detoo)
@@ -725,6 +702,21 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // require(initMarginRequirement < accountValue(lp, pool) <= initMarginRequirement*2);
     }
 
+    function settle(address account) external override returns (int256 pnl) {
+        // only vault
+        require(_msgSender() == vault, "CH_OV");
+
+        TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
+        if (quoteInfo.available >= quoteInfo.debt) {
+            pnl = quoteInfo.available.sub(quoteInfo.debt).toInt256();
+        } else {
+            pnl = -quoteInfo.debt.sub(quoteInfo.available).toInt256();
+        }
+
+        quoteInfo.available = 0;
+        quoteInfo.debt = 0;
+    }
+
     //
     // EXTERNAL VIEW FUNCTIONS
     //
@@ -733,7 +725,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
     }
 
     function getAccountValue(address trader) public view returns (int256) {
-        return IVault(vault).balanceOf(trader).toInt256().add(_getTotalMarketPnl(trader));
+        return IERC20Metadata(vault).balanceOf(trader).toInt256().add(_getTotalMarketPnl(trader));
     }
 
     function getAccountTokens(address trader) public view returns (address[] memory) {
@@ -845,6 +837,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
 
     function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
+    }
+
+    function requiredCollateral(address account) external view override returns (int256) {
+        TokenInfo memory quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
+        int256 quotePnl = quoteInfo.available.toInt256().sub(quoteInfo.debt.toInt256());
+        int256 positionPnl = _getTotalMarketPnl(account);
+        int256 initMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
+        return -(quotePnl.add(positionPnl).sub(initMarginRequirement));
     }
 
     //
