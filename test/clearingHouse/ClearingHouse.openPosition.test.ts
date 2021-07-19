@@ -491,7 +491,9 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral.lt(toWei(1000))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with profit", async () => {
@@ -537,7 +539,9 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral.gt(toWei(1000))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -583,7 +587,9 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral.lt(toWei(1000))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         // TODO: blocked by TWAP based _getDebtValue
