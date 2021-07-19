@@ -14,14 +14,15 @@ import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
-import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 
-contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ReentrancyGuard, Ownable {
+contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using SafeMath for uint160;
     using SafeCast for uint256;
@@ -560,7 +561,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, Reentr
         // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
-        uint256 nowTimestamp = block.timestamp;
+        uint256 nowTimestamp = _blockTimestamp();
         // CH_UFTE update funding too early
         require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
 

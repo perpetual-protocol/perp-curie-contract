@@ -3,8 +3,9 @@ pragma solidity 0.7.6;
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import { IPriceFeed } from "../interface/IPriceFeed.sol";
+import { ArbBlockContext } from "../util/ArbBlockContext.sol";
 
-contract ChainlinkPriceFeed is IPriceFeed {
+contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext {
     using SafeMath for uint256;
 
     AggregatorV3Interface private immutable _aggregator;
@@ -40,7 +41,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
             return latestPrice;
         }
 
-        uint256 baseTimestamp = block.timestamp.sub(interval);
+        uint256 baseTimestamp = _blockTimestamp().sub(interval);
         // if latest updated timestamp is earlier than target timestamp, return the latest price.
         if (latestTimestamp < baseTimestamp || round == 0) {
             return latestPrice;
@@ -48,7 +49,7 @@ contract ChainlinkPriceFeed is IPriceFeed {
 
         // rounds are like snapshots, latestRound means the latest price snapshot. follow chainlink naming
         uint256 previousTimestamp = latestTimestamp;
-        uint256 cumulativeTime = block.timestamp.sub(previousTimestamp);
+        uint256 cumulativeTime = _blockTimestamp().sub(previousTimestamp);
         uint256 weightedPrice = latestPrice.mul(cumulativeTime);
         while (true) {
             if (round == 0) {
