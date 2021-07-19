@@ -1,7 +1,8 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -12,6 +13,7 @@ describe("ClearingHouse with makers within same range", () => {
     const thousand = toWei(1000)
     const ten = toWei(10)
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -20,6 +22,7 @@ describe("ClearingHouse with makers within same range", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -33,15 +36,9 @@ describe("ClearingHouse with makers within same range", () => {
         collateral.mint(bob.address, million)
         collateral.mint(carol.address, million)
 
-        // approve
-        await collateral.connect(alice).approve(clearingHouse.address, million)
-        await collateral.connect(bob).approve(clearingHouse.address, million)
-        await collateral.connect(carol).approve(clearingHouse.address, million)
-
-        // deposit
-        await clearingHouse.connect(alice).deposit(million)
-        await clearingHouse.connect(bob).deposit(million)
-        await clearingHouse.connect(carol).deposit(million)
+        await deposit(alice, vault, 1000000, collateral)
+        await deposit(bob, vault, 1000000, collateral)
+        await deposit(carol, vault, 1000000, collateral)
 
         // mint quote
         await clearingHouse.connect(alice).mint(quoteToken.address, thousand)

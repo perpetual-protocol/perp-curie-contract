@@ -4,6 +4,7 @@ import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -43,8 +44,7 @@ describe("ClearingHouse openPosition", () => {
         // prepare collateral for maker
         const makerCollateralAmount = toWei(1000000, collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
-        await collateral.connect(maker).approve(clearingHouse.address, makerCollateralAmount)
-        await clearingHouse.connect(maker).deposit(makerCollateralAmount)
+        await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
         await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
@@ -66,7 +66,7 @@ describe("ClearingHouse openPosition", () => {
     describe("invalid input", () => {
         describe("taker has enough collateral", () => {
             beforeEach(async () => {
-                await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+                await deposit(taker, vault, 1000, collateral)
             })
 
             it("force error due to invalid baseToken", async () => {
@@ -146,8 +146,7 @@ describe("ClearingHouse openPosition", () => {
 
     describe("taker open position from zero", async () => {
         beforeEach(async () => {
-            // deposit
-            await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+            await deposit(taker, vault, 1000, collateral)
 
             // expect all available and debt are zero
             const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -355,8 +354,8 @@ describe("ClearingHouse openPosition", () => {
 
     describe("opening long first then", () => {
         beforeEach(async () => {
-            // deposit
-            await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+            await deposit(taker, vault, 1000, collateral)
+
             // taker swap 2 USD for ? ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
@@ -453,8 +452,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol takes $1000 worth ETH long
             await clearingHouse.connect(carol).openPosition({
@@ -497,8 +495,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol takes $1000 worth ETH short
             await clearingHouse.connect(carol).openPosition({
@@ -538,8 +535,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol open short to make taker under collateral
             await clearingHouse.connect(carol).openPosition({

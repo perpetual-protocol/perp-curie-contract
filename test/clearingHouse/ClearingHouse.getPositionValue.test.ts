@@ -1,17 +1,18 @@
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
-
-import { BaseToken } from "../../typechain/BaseToken"
-import { encodePriceSqrt } from "../shared/utilities"
-import { expect } from "chai"
 import { parseEther } from "@ethersproject/units"
+import { expect } from "chai"
 import { waffle } from "hardhat"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { BaseToken } from "../../typechain/BaseToken"
+import { deposit } from "../helper/token"
+import { encodePriceSqrt } from "../shared/utilities"
+import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getPositionValue", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: BaseToken
@@ -20,6 +21,7 @@ describe("ClearingHouse.getPositionValue", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -29,22 +31,20 @@ describe("ClearingHouse.getPositionValue", () => {
 
         // alice
         await collateral.mint(alice.address, parseEther("10000"))
-        await collateral.connect(alice).approve(clearingHouse.address, parseEther("10000"))
-        await clearingHouse.connect(alice).deposit(parseEther("10000"))
+        await deposit(alice, vault, 10000, collateral)
+
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
         // bob
         await collateral.mint(bob.address, parseEther("1000"))
-        await collateral.connect(bob).approve(clearingHouse.address, parseEther("1000"))
-        await clearingHouse.connect(bob).deposit(parseEther("1000"))
+        await deposit(bob, vault, 1000, collateral)
         await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
 
         // carol
         await collateral.mint(carol.address, parseEther("1000"))
-        await collateral.connect(carol).approve(clearingHouse.address, parseEther("1000"))
-        await clearingHouse.connect(carol).deposit(parseEther("1000"))
+        await deposit(carol, vault, 1000, collateral)
         await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
     })
 

@@ -3,8 +3,9 @@ import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -13,6 +14,7 @@ describe("ClearingHouse", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -21,6 +23,7 @@ describe("ClearingHouse", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -32,8 +35,7 @@ describe("ClearingHouse", () => {
         // prepare collateral for alice
         const amount = toWei(1000, await collateral.decimals())
         await collateral.transfer(alice.address, amount)
-        await collateral.connect(alice).approve(clearingHouse.address, amount)
-        await clearingHouse.connect(alice).deposit(amount)
+        await deposit(alice, vault, 1000, collateral)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)

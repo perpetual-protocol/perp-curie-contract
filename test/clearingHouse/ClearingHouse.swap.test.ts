@@ -1,7 +1,8 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -10,6 +11,7 @@ describe("ClearingHouse.swap", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -18,6 +20,7 @@ describe("ClearingHouse.swap", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -29,11 +32,11 @@ describe("ClearingHouse.swap", () => {
     describe("swap", () => {
         beforeEach(async () => {
             await collateral.mint(alice.address, toWei(10))
-            await collateral.connect(alice).approve(clearingHouse.address, toWei(10))
-            await clearingHouse.connect(alice).deposit(toWei(10))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
+
+            await deposit(alice, vault, 10, collateral)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
             await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(9))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(9))
         })
 
         it("# swap should update TokenInfos", async () => {
@@ -50,8 +53,8 @@ describe("ClearingHouse.swap", () => {
             })
 
             await collateral.mint(bob.address, toWei(100))
-            await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
-            await clearingHouse.connect(bob).deposit(toWei(100))
+            await deposit(bob, vault, 100, collateral)
+
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
 
             await clearingHouse.connect(bob).swap({

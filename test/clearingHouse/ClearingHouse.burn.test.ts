@@ -2,8 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -12,6 +13,7 @@ describe("ClearingHouse.burn", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -21,6 +23,7 @@ describe("ClearingHouse.burn", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -38,13 +41,12 @@ describe("ClearingHouse.burn", () => {
         beforeEach(async () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, toWei(10))
-            await collateral.connect(alice).approve(clearingHouse.address, toWei(10))
-            await clearingHouse.connect(alice).deposit(toWei(10))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
+            await deposit(alice, vault, 10, collateral)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
 
             // alice mints 10 quote
             await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(9))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(9))
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(10), // available
                 toWei(10), // debt
@@ -61,7 +63,7 @@ describe("ClearingHouse.burn", () => {
                 toWei(0), // debt
             ])
 
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -88,8 +90,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, toWei(100))
-            await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
-            await clearingHouse.connect(bob).deposit(toWei(100))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
@@ -155,7 +156,7 @@ describe("ClearingHouse.burn", () => {
             // ])
 
             // const profit = aliceQuoteAvailableAfter.sub(aliceQuoteAvailableBefore)
-            // expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(10).add(profit))
+            // expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10).add(profit))
         })
 
         it("# burn quote 10 when debt = 10, available < 10", async () => {
@@ -177,8 +178,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, toWei(100))
-            await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
-            await clearingHouse.connect(bob).deposit(toWei(100))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
@@ -237,13 +237,12 @@ describe("ClearingHouse.burn", () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, toWei(1000))
             await collateral.connect(alice).approve(clearingHouse.address, toWei(1000))
-            await clearingHouse.connect(alice).deposit(toWei(1000))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(1000))
+            await deposit(alice, vault, 1000, collateral)
 
             // alice mints 10 base
             await clearingHouse.connect(alice).mint(baseToken.address, toWei(10))
             // TODO: the index price of base is hardcoded as $100
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(900))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(900))
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 toWei(10), // available
                 toWei(10), // debt
@@ -260,7 +259,7 @@ describe("ClearingHouse.burn", () => {
                 toWei(0), // debt
             ])
 
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(1000))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(1000))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -289,8 +288,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, toWei(100))
-            await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
-            await clearingHouse.connect(bob).deposit(toWei(100))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 100 quote for swap
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
@@ -354,8 +352,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, toWei(100))
-            await collateral.connect(bob).approve(clearingHouse.address, toWei(100))
-            await clearingHouse.connect(bob).deposit(toWei(100))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 100 quote for swap
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(1000))
