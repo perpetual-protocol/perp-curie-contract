@@ -21,6 +21,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
+import { Tick } from "./lib/Tick.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -32,6 +33,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
+    using Tick for mapping(int24 => uint256);
 
     //
     // events
@@ -177,6 +179,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
     // key: trader
     mapping(address => Account) private _accountMap;
+
+    // first key: base token, second key: tick index
+    // value: the accumulator of **quote fee transformed from base fee** outside each tick of each pool
+    mapping(address => mapping(int24 => uint256)) private _feeGrowthOutsideTickMap;
+
+    // value: the global accumulator of **quote fee transformed from base fee** of each pool
+    // key: base token, value: pool
+    mapping(address => uint256) private _feeGrowthGlobalMap;
 
     uint256 public immutable fundingPeriod;
     // key: base token
@@ -343,11 +353,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         // CH_NEB: not enough available quote amount
         require(quoteAvailable >= params.quote, "CH_NEQ");
 
+        address pool = _poolMap[params.baseToken];
+        bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
+        bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
+
         // add liquidity to liquidity pool
         UniswapV3Broker.AddLiquidityResponse memory response =
             UniswapV3Broker.addLiquidity(
                 UniswapV3Broker.AddLiquidityParams(
-                    _poolMap[params.baseToken],
+                    pool,
                     params.baseToken,
                     quoteToken,
                     params.lowerTick,
@@ -356,6 +370,24 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     params.quote
                 )
             );
+
+        int24 currentTick = UniswapV3Broker.getTick(pool);
+        // initialize tick info
+        if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+            _feeGrowthOutsideTickMap[params.baseToken].initialize(
+                params.lowerTick,
+                currentTick,
+                _feeGrowthGlobalMap[params.baseToken]
+            );
+        }
+        if (!initializedBeforeUpper && UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+            _feeGrowthOutsideTickMap[params.baseToken].initialize(
+                params.upperTick,
+                currentTick,
+                _feeGrowthGlobalMap[params.baseToken]
+            );
+        }
+
         // mint callback
         // TODO add slippage protection
 
@@ -908,15 +940,21 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         // CH_NEL not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "CH_NEL");
 
+        address pool = _poolMap[params.baseToken];
+        bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
+        bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(
-                    _poolMap[params.baseToken],
-                    params.lowerTick,
-                    params.upperTick,
-                    params.liquidity
-                )
+                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
             );
+
+        // if flipped from initialized to uninitialized, clear the tick info
+        if (initializedBeforeLower && !UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+            _feeGrowthOutsideTickMap[params.baseToken].clear(params.lowerTick);
+        }
+        if (initializedBeforeUpper && !UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+            _feeGrowthOutsideTickMap[params.baseToken].clear(params.upperTick);
+        }
 
         // TODO add slippage protection
 

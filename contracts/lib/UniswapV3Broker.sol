@@ -209,12 +209,22 @@ library UniswapV3Broker {
         (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
-    // note this assumes token0 is always the base token
+    // note assuming base token == token0
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
-    // note this assumes token0 is always the base token
+    // note assuming base token == token0
+    function getTick(address pool) internal view returns (int24 tick) {
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+    }
+
+    // note assuming base token == token0
+    function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
+        (, , , , , , , initialized) = IUniswapV3Pool(pool).ticks(tick);
+    }
+
+    // note assuming base token == token0
     function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
             return getSqrtMarkPriceX96(pool);
