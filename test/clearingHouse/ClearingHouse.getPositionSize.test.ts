@@ -88,7 +88,6 @@ describe("ClearingHouse.getPositionSize", () => {
         // bob short 0.4084104205 / 0.99 = 0.4125357783
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: true,
             isExactInput: true,
             amount: parseEther("0.4125357783"),
@@ -121,7 +120,6 @@ describe("ClearingHouse.getPositionSize", () => {
         // bob shorts 0.2042052103 / 0.99 = 0.2062678892
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: true,
             isExactInput: true,
             amount: parseEther("0.2062678892"),
@@ -132,7 +130,6 @@ describe("ClearingHouse.getPositionSize", () => {
         // bob shorts 0.2042052103 / 0.99 = 0.2062678892
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: true,
             isExactInput: true,
             amount: parseEther("0.2062678892"),
@@ -189,7 +186,6 @@ describe("ClearingHouse.getPositionSize", () => {
         // first swap: 247.3023151515 quote to 1.633641682 base
         const swapParams1 = {
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: false,
             isExactInput: true,
             amount: parseEther("247.3023151515"),
@@ -201,7 +197,6 @@ describe("ClearingHouse.getPositionSize", () => {
         // second swap: 99.9150479293 quote to 0.6482449586 base
         const swapParams2 = {
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: false,
             isExactInput: true,
             amount: parseEther("99.9150479293"),

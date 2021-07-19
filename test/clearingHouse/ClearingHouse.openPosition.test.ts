@@ -158,18 +158,28 @@ describe("ClearingHouse openPosition", () => {
         })
 
         describe("long", () => {
-            // TODO
-            it("settle funding payment")
-
             it("increase ? position when exact input", async () => {
                 // taker swap 1 USD for ? ETH
-                await clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: false,
-                    isExactInput: true,
-                    amount: toWei(1),
-                    sqrtPriceLimitX96: 0,
-                })
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: true,
+                        amount: toWei(1),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                )
+                    .to.emit(clearingHouse, "Swapped")
+                    .withArgs(
+                        taker.address, // trader
+                        baseToken.address, // baseToken
+                        "6539527905092835", // exchangedPositionSize
+                        toWei(-1), // costBasis
+                        toWei(1 * 0.01), // fee
+                        toWei(0), // fundingPayment
+                        toWei(0), // badDebt
+                    )
+
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(baseInfo.available.gt(toWei(0))).to.be.true
@@ -181,13 +191,26 @@ describe("ClearingHouse openPosition", () => {
             describe("exact output", () => {
                 it("mint more USD to buy exact 1 ETH", async () => {
                     // taker swap ? USD for 1 ETH
-                    await clearingHouse.connect(taker).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: false,
-                        isExactInput: false,
-                        amount: toWei(1),
-                        sqrtPriceLimitX96: 0,
-                    })
+                    await expect(
+                        clearingHouse.connect(taker).openPosition({
+                            baseToken: baseToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: false,
+                            amount: toWei(1),
+                            sqrtPriceLimitX96: 0,
+                        }),
+                    )
+                        .to.emit(clearingHouse, "Swapped")
+                        .withArgs(
+                            taker.address, // trader
+                            baseToken.address, // baseToken
+                            toWei(1), // exchangedPositionSize
+                            "-155058730701162954606", // costBasis
+                            "1550587307011629547", // fee
+                            toWei(0), // fundingPayment
+                            toWei(0), // badDebt
+                        )
+
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                     expect(baseInfo.available).be.deep.eq(toWei(1))
@@ -288,13 +311,26 @@ describe("ClearingHouse openPosition", () => {
             it("settle funding payment")
             it("increase position from 0", async () => {
                 // taker swap 1 ETH for ? USD
-                await clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    amount: toWei(1),
-                    sqrtPriceLimitX96: 0,
-                })
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        amount: toWei(1),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                )
+                    .to.emit(clearingHouse, "Swapped")
+                    .withArgs(
+                        taker.address, // trader
+                        baseToken.address, // baseToken
+                        toWei(-1), // exchangedPositionSize
+                        "147824339785748605988", // costBasis
+                        toWei(0.01), // fee
+                        toWei(0), // fundingPayment
+                        toWei(0), // badDebt
+                    )
+
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(baseInfo.available.eq(toWei(0))).to.be.true
@@ -388,12 +424,17 @@ describe("ClearingHouse openPosition", () => {
             expect(increasedBaseAvailable.gt(toWei(0))).to.be.true
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
             expect(quoteInfoAfter.available.sub(quoteInfoBefore.available)).deep.eq(toWei(0))
+
+            // pos size: 0.01961501593
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
+            expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(-3))
         })
 
         it("reduce position", async () => {
             const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
 
+            // reduced base = 0.006538933220746360
             const reducedBase = baseInfoBefore.available.div(2)
             // taker reduce 50% ETH position for ? USD
             await clearingHouse.connect(taker).openPosition({
@@ -413,6 +454,12 @@ describe("ClearingHouse openPosition", () => {
             expect(reducedBaseAvailable).deep.eq(reducedBase)
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
             expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
+
+            // pos size: 0.006538933220746361
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
+            expect(await clearingHouse.getCostBasis(taker.address)).to.eq(
+                quoteInfoAfter.available.sub(quoteInfoAfter.debt),
+            )
         })
 
         it("close position, base's available/debt will be 0, collateral will be the origin number", async () => {
@@ -442,6 +489,9 @@ describe("ClearingHouse openPosition", () => {
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with profit", async () => {
@@ -485,6 +535,9 @@ describe("ClearingHouse openPosition", () => {
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.gt(toWei(1000))).to.be.true
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -528,6 +581,9 @@ describe("ClearingHouse openPosition", () => {
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         // TODO: blocked by TWAP based _getDebtValue

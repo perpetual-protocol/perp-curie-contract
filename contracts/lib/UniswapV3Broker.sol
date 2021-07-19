@@ -10,6 +10,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -20,6 +21,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
  */
 library UniswapV3Broker {
     using SafeCast for uint256;
+    using SafeMath for uint256;
     using SafeCast for uint128;
     using SafeCast for int256;
 
@@ -68,27 +70,21 @@ library UniswapV3Broker {
     struct SwapResponse {
         uint256 base;
         uint256 quote;
+        uint256 fee;
     }
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
-        // make base & quote into the right order
-        bool isBase0Quote1 = _isBase0Quote1(params.pool, params.baseToken, params.quoteToken);
-        (uint256 token0, uint256 token1, int24 lowerTick, int24 upperTick) =
-            _baseQuoteToToken01(isBase0Quote1, params.base, params.quote, params.lowerTick, params.upperTick);
-
         {
-            // get current price
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(params.pool).slot0();
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
             response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(lowerTick),
-                TickMath.getSqrtRatioAtTick(upperTick),
-                token0,
-                token1
+                getSqrtMarkPriceX96(params.pool),
+                TickMath.getSqrtRatioAtTick(params.lowerTick),
+                TickMath.getSqrtRatioAtTick(params.upperTick),
+                params.base,
+                params.quote
             );
             // TODO revision needed. We might not want to revert on zero liquidity but not sure atm
             // UB_ZL: zero liquidity
@@ -99,7 +95,13 @@ library UniswapV3Broker {
             // call mint()
             bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
-                IUniswapV3Pool(params.pool).mint(address(this), lowerTick, upperTick, response.liquidity, data);
+                IUniswapV3Pool(params.pool).mint(
+                    address(this),
+                    params.lowerTick,
+                    params.upperTick,
+                    response.liquidity,
+                    data
+                );
 
             // fetch the fee growth state if this has liquidity
             (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
@@ -178,7 +180,8 @@ library UniswapV3Broker {
         // incorrect output amount
         if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
 
-        (response.base, response.quote) = (amount0, amount1);
+        uint256 amountForFee = params.isBaseToQuote ? amount0 : amount1;
+        (response.base, response.quote, response.fee) = (amount0, amount1, calcFee(address(params.pool), amountForFee));
     }
 
     function getPool(
@@ -189,48 +192,6 @@ library UniswapV3Broker {
     ) internal view returns (address) {
         PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
         return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
-    }
-
-    function _isBase0Quote1(
-        address pool,
-        address baseToken,
-        address quoteToken
-    ) private view returns (bool) {
-        address token0 = IUniswapV3Pool(pool).token0();
-        address token1 = IUniswapV3Pool(pool).token1();
-        if (baseToken == token0 && quoteToken == token1) return true;
-        if (baseToken == token1 && quoteToken == token0) return false;
-        // pool token mismatched. should throw from earlier check
-        revert("UB_PTM");
-    }
-
-    function _baseQuoteToToken01(
-        bool isBase0Quote1,
-        uint256 base,
-        uint256 quote,
-        int24 baseQuoteLowerTick,
-        int24 baseQuoteUpperTick
-    )
-        private
-        pure
-        returns (
-            uint256 token0,
-            uint256 token1,
-            int24 lowerTick,
-            int24 upperTick
-        )
-    {
-        if (isBase0Quote1) {
-            lowerTick = baseQuoteLowerTick;
-            upperTick = baseQuoteUpperTick;
-            token0 = base;
-            token1 = quote;
-        } else {
-            lowerTick = -baseQuoteUpperTick;
-            upperTick = -baseQuoteLowerTick;
-            token0 = quote;
-            token1 = base;
-        }
     }
 
     function _getFeeGrowthInside(
@@ -248,20 +209,6 @@ library UniswapV3Broker {
         (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
-    function _getPositionLiquidity(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick
-    ) private view returns (uint128 liquidity) {
-        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-        (liquidity, , , , ) = IUniswapV3Pool(pool).positions(positionKey);
-    }
-
-    // note this assumes token0 is always the base token
-    function getTick(address pool) internal view returns (int24 tick) {
-        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
-    }
-
     // note this assumes token0 is always the base token
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
@@ -270,8 +217,7 @@ library UniswapV3Broker {
     // note this assumes token0 is always the base token
     function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-            return sqrtPriceX96;
+            return getSqrtMarkPriceX96(pool);
         }
 
         uint32[] memory secondsAgos = new uint32[](2);
@@ -303,6 +249,22 @@ library UniswapV3Broker {
                 sqrtRatioBX96 - sqrtRatioAX96,
                 sqrtRatioBX96
             ) / sqrtRatioAX96;
+    }
+
+    /// copied from UniswapV3-periphery
+    /// @notice Computes the amount of token1 for a given amount of liquidity and a price range
+    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
+    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
+    /// @param liquidity The liquidity being valued
+    /// @return amount1 The amount of token1
+    function getAmount1ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) internal pure returns (uint256 amount1) {
+        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+
+        return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
     }
 
     /// copied from UniswapV3-core
@@ -351,5 +313,9 @@ library UniswapV3Broker {
 
         feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
         feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
+    }
+
+    function calcFee(address pool, uint256 amount) internal view returns (uint256) {
+        return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
     }
 }

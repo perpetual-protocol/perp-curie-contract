@@ -75,7 +75,6 @@ describe("ClearingHouse with makers within same range", () => {
             // generate 0.1 ETH fee and around 10-15 USD fee, shared by alice and bob
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: ten,
@@ -83,7 +82,6 @@ describe("ClearingHouse with makers within same range", () => {
             })
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
                 amount: ten,

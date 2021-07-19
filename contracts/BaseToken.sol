@@ -3,11 +3,12 @@ pragma solidity 0.7.6;
 import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 
 // TODO: maybe we could rename it to VToken or something?
 // TODO: Ownable
 // TODO: only keep what we need in ERC20PresetMinterPauser
-contract BaseToken is ERC20PresetMinterPauser {
+contract BaseToken is IIndexPrice, ERC20PresetMinterPauser {
     using SafeMath for uint256;
     address public immutable priceFeed;
     uint8 private immutable _priceFeedDecimals;
@@ -34,7 +35,7 @@ contract BaseToken is ERC20PresetMinterPauser {
         grantRole(MINTER_ROLE, minter);
     }
 
-    function getIndexPrice(uint256 interval) external view returns (uint256) {
+    function getIndexPrice(uint256 interval) external view override returns (uint256) {
         return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
     }
 

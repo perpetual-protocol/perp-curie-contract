@@ -60,7 +60,6 @@ describe("ClearingHouse.funding", () => {
         await clearingHouse.connect(bob).swap({
             // sell base
             baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             isBaseToQuote: true,
             isExactInput: true,
             amount: parseEther("0.1"),
@@ -152,7 +151,6 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.connect(bob).swap({
                 // sell base
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: parseEther("1"),
@@ -302,7 +300,6 @@ describe("ClearingHouse.funding", () => {
                 clearingHouse.connect(bob).swap({
                     // sell base
                     baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     amount: parseEther("1"), // swap to exactly 1 quote token
@@ -316,6 +313,17 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
                 )
+                .to.emit(clearingHouse, "Swapped")
+                .withArgs(
+                    bob.address, // trader
+                    baseToken.address, // baseToken
+                    "-6561355980537526", // exchangedPositionSize
+                    parseEther("1"), // costBasis
+                    "65613559805376", // fee: base
+                    "-12500003413325814", // fundingPayment
+                    parseEther("0"), // badDebt
+                )
+
             // 1 + 0.01250000341
             expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012500003413325814")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
@@ -377,7 +385,6 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: parseEther("100"),

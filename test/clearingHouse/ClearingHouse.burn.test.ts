@@ -99,7 +99,6 @@ describe("ClearingHouse.burn", () => {
             // 0.1 quote leaves the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
                 amount: toWei(0.1), // the amount of quote
@@ -113,7 +112,6 @@ describe("ClearingHouse.burn", () => {
             // 0.2 quote enters the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: toWei(0.2), // the amount of quote
@@ -186,7 +184,6 @@ describe("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).swap({
                 // sell base
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: toWei(0.001),
@@ -296,7 +293,6 @@ describe("ClearingHouse.burn", () => {
             // bob swaps quote for base (buy base), so alice receives quote as fee and has less base
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
                 amount: toWei(0.01), // the amount of base to buy
@@ -355,13 +351,12 @@ describe("ClearingHouse.burn", () => {
             await deposit(bob, vault, 100, collateral)
 
             // bob mints 100 quote for swap
-            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(1000))
+            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.1 base leaves the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
                 amount: toWei(0.1), // the amount of base
@@ -375,7 +370,6 @@ describe("ClearingHouse.burn", () => {
             // 0.2 base enters the pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: toWei(0.2), // the amount of base
