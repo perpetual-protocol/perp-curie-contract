@@ -7,5 +7,5 @@ interface ISettlement {
     function settle(address account) external returns (int256 pnl);
 
     // negative means unrealized pnl
-    function requiredCollateral(address account) external view returns (int256);
+    function getRequiredCollateral(address account) external view returns (int256);
 }

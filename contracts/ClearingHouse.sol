@@ -23,9 +23,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { Tick } from "@uniswap/v3-core/contracts/libraries/Tick.sol";
 
-// TODO remove after finish multi collateral
-import { Vault } from "./Vault.sol";
-
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
@@ -190,8 +187,7 @@ contract ClearingHouse is
         require(quoteTokenArg != address(0), "CH_II_Q");
         require(uniV3FactoryArg != address(0), "CH_II_U");
 
-        // TODO ensure collateral token must has decimals
-        // TODO store decimals for gas optimization
+        // TODO: store vault.decimals for optimizing gas
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
@@ -213,20 +209,6 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
-    }
-
-    // TODO remove after test fixed, now it's just for temporary test case compatible
-    function deposit(uint256 amount) external nonReentrant() {
-        // address trader = _msgSender();
-        // Account storage account = _accountMap[trader];
-        // account.collateral = account.collateral.add(amount);
-
-        // emit Deposited(collateralToken, trader, amount);
-        Vault vaultInstance = Vault(vault);
-        address settlementToken = vaultInstance.settlementToken();
-        TransferHelper.safeTransferFrom(settlementToken, _msgSender(), address(this), amount);
-        TransferHelper.safeApprove(settlementToken, vault, amount);
-        vaultInstance.deposit(_msgSender(), settlementToken, amount);
     }
 
     /**
@@ -336,7 +318,7 @@ contract ClearingHouse is
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
     function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = getFreeCollateral(_msgSender());
+        uint256 freeCollateral = _getFreeCollateral(_msgSender());
         if (freeCollateral == 0) {
             return 0;
         }
@@ -732,10 +714,15 @@ contract ClearingHouse is
         return _accountMap[trader].tokens;
     }
 
-    // TODO move to vault
-    function getFreeCollateral(address trader) public view returns (uint256) {
-        int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
-        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
+    function _getFreeCollateral(address account) public view returns (uint256) {
+        int256 requiredCollateral = getRequiredCollateral(account);
+        int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
+        if (requiredCollateral >= totalCollateralValue) {
+            return 0;
+        }
+
+        // totalCollateralValue > requiredCollateral
+        return totalCollateralValue.sub(requiredCollateral).toUint256();
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
@@ -839,7 +826,7 @@ contract ClearingHouse is
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
     }
 
-    function requiredCollateral(address account) external view override returns (int256) {
+    function getRequiredCollateral(address account) public view override returns (int256) {
         TokenInfo memory quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
         int256 quotePnl = quoteInfo.available.toInt256().sub(quoteInfo.debt.toInt256());
         int256 positionPnl = _getTotalMarketPnl(account);
@@ -915,7 +902,6 @@ contract ClearingHouse is
         return 0; // TODO WIP
     }
 
-    // TODO change to public and called by vault.getFreeCollateral
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
 

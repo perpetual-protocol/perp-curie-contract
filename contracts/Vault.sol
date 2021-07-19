@@ -24,7 +24,7 @@ contract Vault is ReentrancyGuard, Ownable {
     uint256 public maxCloseFactor;
     uint256 public minCloseFactor;
     uint256 public liquidationDiscount;
-    address[] private _liquidationAssetOrder;
+    address[] private _assetLiquidationOrder;
 
     // key: trader, token address
     mapping(address => mapping(address => uint256)) private _balance;
@@ -59,9 +59,7 @@ contract Vault is ReentrancyGuard, Ownable {
         require(_collateralTokenMap[token], "V_CNF");
 
         _increaseBalance(from, token, amount);
-
-        // TODO change msgSender to "from" after tests fixed
-        TransferHelper.safeTransferFrom(token, _msgSender(), address(this), amount);
+        TransferHelper.safeTransferFrom(token, from, address(this), amount);
 
         emit Deposited(token, from, amount);
     }
@@ -73,7 +71,7 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     function getFreeCollateral(address account) public view returns (uint256) {
-        int256 requiredCollateral = ISettlement(clearingHouse).requiredCollateral(account);
+        int256 requiredCollateral = ISettlement(clearingHouse).getRequiredCollateral(account);
         int256 totalCollateralValue = balanceOf(account).toInt256();
 
         if (requiredCollateral >= totalCollateralValue) {
