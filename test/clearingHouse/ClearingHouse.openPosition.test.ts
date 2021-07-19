@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,6 +11,7 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -23,6 +24,7 @@ describe("ClearingHouse openPosition", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -414,7 +416,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
         })
 
-        it("close position, base/quote available debt will be 0, collateral will be the origin number", async () => {
+        it("close position, base's available/debt will be 0, collateral will be the origin number", async () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
@@ -434,12 +436,12 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq("1960203565096419597") // 2 USD minus portion of fees, will changed once we switch to quote-only fees
+                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
         })
 
@@ -478,12 +480,12 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq("2332884948673233926") // 2 principle + some profit
+                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.gt(toWei(1000))).to.be.true
         })
 
@@ -522,12 +524,12 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq("1616658620586843745") // $2 principle minus loss
+                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
         })
 

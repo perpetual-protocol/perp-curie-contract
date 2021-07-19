@@ -25,6 +25,31 @@ describe("Vault spec", () => {
         it("equals to settlement token's decimal")
     })
 
+    describe("admin only simple setter", () => {
+        it("setClearingHouse")
+        it("setCloseFactor")
+        it("setLiquidationIncentive")
+        it("setLiquidationOrder")
+        it("force error by non-admin")
+    })
+
+    describe.skip("setLiquidationOrder", () => {
+        it("updated liquidationOrder")
+        it("force error, the numbers of asset did not match")
+        it("force error by non-admin")
+    })
+
+    describe.skip("addCollateral", () => {
+        it("add an ERC20 with totalWeight, initWeight and IMF-Factor")
+        it("force error, none of the input can be 0")
+        it("can't add native ETH")
+        it("can't add existed collateral")
+        it("force error, ERC20 without decimals")
+        it("force error by non-admin")
+    })
+
+    describe.skip("isCollateral", () => {})
+
     describe("deposit", () => {
         // @SAMPLE - deposit
         it("sends event", async () => {
@@ -45,50 +70,58 @@ describe("Vault spec", () => {
             expect(await vault.balanceOf(alice.address)).to.eq(toWei(100, await usdc.decimals()))
         })
 
-        it("can't add token not supported")
+        it.skip("non-standard ERC20 (USDT) is supported")
+
+        it("can't add collateral not supported")
     })
 
-    describe("getFreeCollateral")
-
-    describe("balanceOf", () => {
-        it("is zero by default", async () => {
-            expect(await vault.balanceOf(alice.address)).eq(0)
-        })
-
-        it("equals multi collateral's USDC value")
+    describe("getFreeCollateral", () => {
+        it("equals to total collateral value + locked collateral value (0)")
+        it("equals to total collateral value + locked collateral value ( > 0)")
+        it("force error, clearingHouse not found")
     })
 
-    describe("withdraw", () => {
+    describe("withdraw settlement token", () => {
+        it("reduce vault's token balance")
+        it("increase sender's token balance")
+        it("increase usdcDebt if USDC collateral is not enough")
+        it("update ClearingHouse's quote debt to 0")
+        it("force error if the freeCollateral is not enough")
+    })
+
+    describe.skip("withdraw non-settlement token", () => {
         it("reduce vault's token balance")
         it("increase sender's token balance")
         it("force error if the freeCollateral is not enough")
     })
 
-    describe("addCollateral", () => {
-        it("only by admin")
-        it("can't add existed collateral")
-    })
-
-    describe("realizeProfit", () => {
-        it("only by ClearingHouse")
-        it("increase account's balance")
-    })
-
-    describe("realizeLoss", () => {
-        it("only by ClearingHouse")
-
-        describe("over collateral", () => {
-            it("decrease account's settlement token balance")
-            it("loss all settlement token and part of other collateral")
+    // TODO not sure if this is needed
+    describe("balanceOf", () => {
+        it("is zero by default", async () => {
+            expect(await vault.balanceOf(alice.address)).eq(0)
         })
 
-        describe("under collateral", () => {
-            it("loss all settlement token and part of other collateral")
-            it("loss all collateral and occurs bad debt")
-        })
+        it("equals to USDC balance if it's the only collateral")
+        it("equals multi collateral's USDC value")
     })
 
-    describe("setClearingHouse", () => {
-        it("only by admin")
+    describe.skip("liquidate", () => {
+        it("force error, close more than maxCloseFactor")
+        it("force error, close less than minCloseFactor")
+        it("force error, liquidator can't be the same as the position owner")
+        describe("no bad debt", () => {
+            it("reduce USDC balance")
+            it("increase liquidation asset, WETH")
+            it("get cheaper WETH compare to UniswapV3 TWAP")
+        })
+
+        describe("has bad debt", () => {
+            it("reduce USDC balance")
+            it("increase liquidation asset, WETH")
+            it("get cheaper WETH compare to UniswapV3 TWAP")
+            it("reduce usdcDebt if usdc debt > bad debt")
+            it("reduce usdcDebt to 0 if usdc debt <= bad debt, insurance fund cover extra bad debt")
+            it("insurance fund cover full bad debt when usdcDebt is 0")
+        })
     })
 })
