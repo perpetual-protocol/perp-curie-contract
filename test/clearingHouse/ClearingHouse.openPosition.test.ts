@@ -482,8 +482,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).eq("1960203565096419597") // 2 USD minus portion of fees, will changed once we switch to quote-only fees
-                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
+                expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).deep.eq("39796434903580403") // loss, will changed once we switch to quote-only fees
             }
 
             // collateral will be less than original number bcs of fees
@@ -530,14 +530,13 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).eq("2332884948673233926") // 2 principle + some profit
-                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
+                expect(quoteTokenInfo.available).eq("332884948673233926") // profit
+                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
             }
 
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.gt(toWei(1000))).to.be.true
-
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
             // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
@@ -578,8 +577,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).eq("1616658620586843745") // $2 principle minus loss
-                expect(quoteTokenInfo.debt).deep.eq(toWei(2))
+                expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).deep.eq("383341379413156255") // loss
             }
 
             // collateral will be less than original number bcs of fees

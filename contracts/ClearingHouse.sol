@@ -493,7 +493,13 @@ contract ClearingHouse is
         }
 
         TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
-        if (baseTokenInfo.available > 0 || baseTokenInfo.debt > 0) {
+        // if it's closing the position, settle the quote to realize pnl of that market
+        if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
+            TokenInfo memory quoteTokenInfo = getTokenInfo(_msgSender(), quoteToken);
+            uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
+            // TODO combine 2 potential burn into 1
+            burn(quoteToken, burnableAmount);
+        } else {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
         }
@@ -770,11 +776,7 @@ contract ClearingHouse is
     }
 
     function getRequiredCollateral(address account) public view override returns (int256) {
-        TokenInfo memory quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
-        int256 quotePnl = quoteInfo.available.toInt256().sub(quoteInfo.debt.toInt256());
-        int256 positionPnl = getTotalMarketPnl(account);
-        int256 initMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
-        return -(quotePnl.add(positionPnl).sub(initMarginRequirement));
+        return _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
     }
 
     function getTotalMarketPnl(address trader) public view returns (int256) {
