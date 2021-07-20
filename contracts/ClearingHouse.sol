@@ -346,12 +346,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        uint256 baseAvailable = baseTokenInfo.available;
-        uint256 quoteAvailable = quoteTokenInfo.available;
         // CH_NEB: not enough available base amount
-        require(baseAvailable >= params.base, "CH_NEB");
+        require(baseTokenInfo.available >= params.base, "CH_NEB");
         // CH_NEB: not enough available quote amount
-        require(quoteAvailable >= params.quote, "CH_NEQ");
+        require(quoteTokenInfo.available >= params.quote, "CH_NEQ");
 
         address pool = _poolMap[params.baseToken];
         bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
@@ -417,8 +415,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         }
 
         // update token info
-        baseTokenInfo.available = baseAvailable.add(baseFee).sub(response.base);
-        quoteTokenInfo.available = quoteAvailable.add(quoteFee).sub(response.quote);
+        baseTokenInfo.available = baseTokenInfo.available.add(baseFee).sub(response.base);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).sub(response.quote);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().add(response.liquidity.toUint256()).toUint128();
