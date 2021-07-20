@@ -15,6 +15,9 @@ contract Vault is ReentrancyGuard, Ownable {
     using SafeCast for int256;
     using SignedSafeMath for int256;
 
+    event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
+    event Withdrawn(address indexed collateralToken, address indexed account, uint256 amount);
+
     address public immutable settlementToken;
     address public clearingHouse;
 
@@ -36,7 +39,11 @@ contract Vault is ReentrancyGuard, Ownable {
     mapping(address => bool) private _collateralTokenMap;
     address[] private _collateralTokens;
 
-    event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
+    modifier onlyClearingHouse() {
+        // V_OCH only ClearingHouse
+        require(clearingHouse == _msgSender(), "V_OCH");
+        _;
+    }
 
     constructor(address settlementTokenArg) {
         settlementToken = settlementTokenArg;
@@ -64,10 +71,18 @@ contract Vault is ReentrancyGuard, Ownable {
         emit Deposited(token, from, amount);
     }
 
-    function withdraw(address token, uint256 amount) external nonReentrant() {
-        int256 pnl = ISettlement(clearingHouse).settle(_msgSender());
-        // TODO add profit to balance, or decrease balance if loss. if settlement token is not enough, add to debt
-        revert("TBD");
+    function withdraw(
+        address token,
+        uint256 amount,
+        address account
+    ) external nonReentrant() onlyClearingHouse() {
+        // TODO if the balanceOf(token) is less than amount, should swap or revert?
+
+        // V_NEB: not enough balance
+        require(_getBalance(account, token) >= amount, "V_NEB");
+        _decreaseBalance(account, token, amount);
+        TransferHelper.safeTransfer(token, account, amount);
+        emit Withdrawn(token, account, amount);
     }
 
     function getFreeCollateral(address account) public view returns (uint256) {
