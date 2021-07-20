@@ -2,8 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -11,6 +12,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -23,6 +25,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -41,8 +44,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         // prepare collateral for maker
         const makerCollateralAmount = toWei(1000000, collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
-        await collateral.connect(maker).approve(clearingHouse.address, makerCollateralAmount)
-        await clearingHouse.connect(maker).deposit(makerCollateralAmount)
+        await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
         await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
@@ -58,13 +60,11 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         // prepare collateral for taker
         const takerCollateral = toWei(10000, collateralDecimals)
         await collateral.mint(taker.address, takerCollateral)
-        await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
-        await clearingHouse.connect(taker).deposit(takerCollateral)
+        await deposit(taker, vault, 10000, collateral)
 
         // prepare collateral for taker2
         await collateral.mint(taker2.address, takerCollateral)
-        await collateral.connect(taker2).approve(clearingHouse.address, takerCollateral)
-        await clearingHouse.connect(taker2).deposit(takerCollateral)
+        await deposit(taker2, vault, 10000, collateral)
     })
 
     describe("taker", () => {

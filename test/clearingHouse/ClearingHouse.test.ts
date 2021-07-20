@@ -2,8 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
@@ -11,6 +12,7 @@ describe("ClearingHouse", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -20,6 +22,7 @@ describe("ClearingHouse", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -38,18 +41,14 @@ describe("ClearingHouse", () => {
         await collateral.connect(alice).approve(clearingHouse.address, amount)
     })
 
-    describe("# deposit", () => {
-        // @SAMPLE - deposit
-        it("alice deposit and sends an event", async () => {
+    describe("# free collateral", () => {
+        it("increase free collateral after deposit to vault", async () => {
             const amount = toWei(100, await collateral.decimals())
 
-            // check event has been sent
-            await expect(clearingHouse.connect(alice).deposit(amount))
-                .to.emit(clearingHouse, "Deposited")
-                .withArgs(collateral.address, alice.address, amount)
+            await deposit(alice, vault, 100, collateral)
 
             // check collateral status
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(amount)
+            expect(await vault.getFreeCollateral(alice.address)).to.deep.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
@@ -61,8 +60,7 @@ describe("ClearingHouse", () => {
     describe("# mint", () => {
         beforeEach(async () => {
             // prepare collateral
-            const amount = toWei(1000, await collateral.decimals())
-            await clearingHouse.connect(alice).deposit(amount)
+            await deposit(alice, vault, 1000, collateral)
 
             // add pool
             await clearingHouse.addPool(baseToken.address, 10000)
@@ -79,7 +77,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
             // verify free collateral = 1000 - 10,000 * 0.1 = 0
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint base and sends an event", async () => {
@@ -92,7 +90,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint base twice", async () => {
@@ -108,7 +106,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint both and sends an event", async () => {
@@ -125,7 +123,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(0)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint equivalent base and quote", async () => {
@@ -142,7 +140,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
         })
 
         it("alice mint non-equivalent base and quote", async () => {
@@ -159,7 +157,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
             // verify free collateral = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
         })
 
         // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)

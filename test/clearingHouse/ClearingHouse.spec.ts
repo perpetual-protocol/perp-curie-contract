@@ -80,6 +80,16 @@ describe("ClearingHouse Spec", () => {
             await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("CH_IB")
         })
     })
+
+    describe("# getRequiredCollateral", () => {})
+
+    describe("# settle", () => {
+        it("force error, caller is not vault")
+        it("return available - debt")
+        it("burn available")
+    })
+
+    // TODO move to another spec
     describe("# updateFunding", async () => {
         let fundingBufferPeriod
         let mockedPool: MockContract

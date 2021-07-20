@@ -2,8 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -11,6 +12,7 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -23,6 +25,7 @@ describe("ClearingHouse openPosition", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -41,8 +44,7 @@ describe("ClearingHouse openPosition", () => {
         // prepare collateral for maker
         const makerCollateralAmount = toWei(1000000, collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
-        await collateral.connect(maker).approve(clearingHouse.address, makerCollateralAmount)
-        await clearingHouse.connect(maker).deposit(makerCollateralAmount)
+        await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
         await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
@@ -64,7 +66,7 @@ describe("ClearingHouse openPosition", () => {
     describe("invalid input", () => {
         describe("taker has enough collateral", () => {
             beforeEach(async () => {
-                await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+                await deposit(taker, vault, 1000, collateral)
             })
 
             it("force error due to invalid baseToken", async () => {
@@ -144,8 +146,7 @@ describe("ClearingHouse openPosition", () => {
 
     describe("taker open position from zero", async () => {
         beforeEach(async () => {
-            // deposit
-            await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+            await deposit(taker, vault, 1000, collateral)
 
             // expect all available and debt are zero
             const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -389,8 +390,8 @@ describe("ClearingHouse openPosition", () => {
 
     describe("opening long first then", () => {
         beforeEach(async () => {
-            // deposit
-            await clearingHouse.connect(taker).deposit(toWei(1000, collateralDecimals))
+            await deposit(taker, vault, 1000, collateral)
+
             // taker swap 2 USD for ? ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
@@ -461,7 +462,7 @@ describe("ClearingHouse openPosition", () => {
             )
         })
 
-        it("close position, base/quote available debt will be 0, collateral will be the origin number", async () => {
+        it("close position, base's available/debt will be 0, collateral will be the origin number", async () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
@@ -481,16 +482,18 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).deep.eq("39796434903580403") // loss, will changed once we switch to quote-only fees
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with profit", async () => {
@@ -501,8 +504,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol takes $1000 worth ETH long
             await clearingHouse.connect(carol).openPosition({
@@ -528,16 +530,17 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq("332884948673233926") // profit
                 expect(quoteTokenInfo.debt).deep.eq(toWei(0))
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.gt(toWei(1000))).to.be.true
-
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -548,8 +551,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol takes $1000 worth ETH short
             await clearingHouse.connect(carol).openPosition({
@@ -575,16 +577,18 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                expect(quoteTokenInfo.available).deep.eq(toWei(0))
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).deep.eq("383341379413156255") // loss
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.getFreeCollateral(taker.address)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral.lt(toWei(1000))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
+
+            // getCostBasis shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
+            // expect(await clearingHouse.getCostBasis(taker.address)).to.eq("0")
         })
 
         // TODO: blocked by TWAP based _getDebtValue
@@ -592,8 +596,7 @@ describe("ClearingHouse openPosition", () => {
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
-            await collateral.connect(carol).approve(clearingHouse.address, carolAmount)
-            await clearingHouse.connect(carol).deposit(carolAmount)
+            await deposit(carol, vault, 1000, collateral)
 
             // carol open short to make taker under collateral
             await clearingHouse.connect(carol).openPosition({

@@ -2,8 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -11,6 +12,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -20,6 +22,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -36,8 +39,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         // prepare collateral for alice
         const amount = toWei(10, await collateral.decimals())
         await collateral.transfer(alice.address, amount)
-        await collateral.connect(alice).approve(clearingHouse.address, amount)
-        await clearingHouse.connect(alice).deposit(amount)
+        await deposit(alice, vault, 10, collateral)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
@@ -82,8 +84,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         // alice adds another liquidity (base only) above the current price
         const amount = toWei(10, await collateral.decimals())
         await collateral.transfer(alice.address, amount)
-        await collateral.connect(alice).approve(clearingHouse.address, amount)
-        await clearingHouse.connect(alice).deposit(amount)
+        await deposit(alice, vault, 10, collateral)
 
         const baseAmount = toWei(1, await baseToken.decimals())
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
