@@ -625,15 +625,22 @@ contract ClearingHouse is
         // only vault
         require(_msgSender() == vault, "CH_OV");
 
+        // calculate pnl
         TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
         if (quoteInfo.available >= quoteInfo.debt) {
-            pnl = quoteInfo.available.sub(quoteInfo.debt).toInt256();
-        } else {
-            pnl = -quoteInfo.debt.sub(quoteInfo.available).toInt256();
-        }
+            // profit
+            uint256 profit = quoteInfo.available.sub(quoteInfo.debt);
+            quoteInfo.available = quoteInfo.available.sub(profit);
+            pnl = profit.toInt256();
 
-        quoteInfo.available = 0;
-        quoteInfo.debt = 0;
+            // burn profit in quote and add to collateral
+            IMintableERC20(quoteToken).burn(profit);
+        } else {
+            // loss
+            uint256 loss = quoteInfo.debt.sub(quoteInfo.available);
+            quoteInfo.debt = quoteInfo.debt.sub(loss);
+            pnl = -(loss.toInt256());
+        }
     }
 
     //

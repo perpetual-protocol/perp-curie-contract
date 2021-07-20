@@ -83,6 +83,12 @@ describe("ClearingHouse Spec", () => {
 
     describe("# getRequiredCollateral", () => {})
 
+    describe("# settle", () => {
+        it("force error, caller is not vault")
+        it("return available - debt")
+        it("burn available")
+    })
+
     // TODO move to another spec
     describe("# updateFunding", async () => {
         let fundingBufferPeriod
