@@ -58,7 +58,7 @@ library UniswapV3Broker {
     }
 
     struct SwapParams {
-        IUniswapV3Pool pool;
+        address pool;
         address baseToken;
         address quoteToken;
         bool isBaseToQuote;
@@ -155,7 +155,7 @@ library UniswapV3Broker {
         // > 0: pool gets; user pays
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =
-            params.pool.swap(
+            IUniswapV3Pool(params.pool).swap(
                 address(this),
                 params.isBaseToQuote,
                 specifiedAmount,
@@ -207,6 +207,14 @@ library UniswapV3Broker {
         // get feeGrowthInside{0,1}LastX128
         // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
         (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    function getTickSpacing(address pool) internal view returns (int24 tickSpacing) {
+        tickSpacing = IUniswapV3Pool(pool).tickSpacing();
+    }
+
+    function getLiquidity(address pool) internal view returns (uint128 liquidity) {
+        liquidity = IUniswapV3Pool(pool).liquidity();
     }
 
     // note assuming base token == token0
