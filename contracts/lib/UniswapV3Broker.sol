@@ -9,6 +9,7 @@ import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/Liqu
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
@@ -188,33 +189,18 @@ library UniswapV3Broker {
         address factory,
         address quoteToken,
         address baseToken,
-        uint24 feeRatio
+        uint24 uniswapFeeRatio
     ) internal view returns (address) {
-        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
-        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
-    }
-
-    function _getFeeGrowthInside(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick
-    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
-        // FIXME
-        // check if the case sensitive of address(this) break the PositionKey computing
-        // get this' positionKey
-        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-        // get feeGrowthInside{0,1}LastX128
-        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
-        (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, uniswapFeeRatio);
+        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, uniswapFeeRatio);
     }
 
     function getTickSpacing(address pool) internal view returns (int24 tickSpacing) {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
-    function getFeeTier(address pool) internal view returns (uint24 feeTier) {
-        feeTier = IUniswapV3Pool(pool).fee();
+    function getUniswapFeeRatio(address pool) internal view returns (uint24 feeRatio) {
+        feeRatio = IUniswapV3Pool(pool).fee();
     }
 
     function getLiquidity(address pool) internal view returns (uint128 liquidity) {
@@ -237,7 +223,7 @@ library UniswapV3Broker {
     }
 
     // note assuming base token == token0
-    function getTickLiquidityNet(address pool, int24 tick) internal view returns (bool initialized) {
+    function getTickLiquidityNet(address pool, int24 tick) internal view returns (int128 liquidityNet) {
         (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
     }
 
@@ -344,5 +330,52 @@ library UniswapV3Broker {
 
     function calcFee(address pool, uint256 amount) internal view returns (uint256) {
         return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
+    }
+
+    // note assuming base token == token0
+    function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {
+        return IUniswapV3Pool(pool).tickBitmap(wordPos);
+    }
+
+    // copied from UniswapV3-core
+    function getNextInitializedTickWithinOneWordBaseToQuote(
+        address pool,
+        int24 tick,
+        int24 tickSpacing
+    ) internal view returns (int24 next, bool initialized) {
+        int24 compressed = tick / tickSpacing;
+        if (tick < 0 && tick % tickSpacing != 0) compressed--; // round towards negative infinity
+
+        (int16 wordPos, uint8 bitPos) = _position(compressed);
+        // all the 1s at or to the right of the current bitPos
+        uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
+        uint256 masked = getTickBitmap(pool, wordPos) & mask;
+
+        // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
+        initialized = masked != 0;
+        // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+        next = initialized
+            ? (compressed - int24(bitPos - BitMath.mostSignificantBit(masked))) * tickSpacing
+            : (compressed - int24(bitPos)) * tickSpacing;
+    }
+
+    function _getFeeGrowthInside(
+        address pool,
+        int24 lowerTick,
+        int24 upperTick
+    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
+        // FIXME
+        // check if the case sensitive of address(this) break the PositionKey computing
+        // get this' positionKey
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+
+        // get feeGrowthInside{0,1}LastX128
+        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
+        (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    function _position(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {
+        wordPos = int16(tick >> 8);
+        bitPos = uint8(tick % 256);
     }
 }
