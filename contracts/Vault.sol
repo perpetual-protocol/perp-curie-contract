@@ -85,7 +85,7 @@ contract Vault is ReentrancyGuard, Ownable {
         emit Withdrawn(token, account, amount);
     }
 
-    function getFreeCollateral(address account) public view returns (uint256) {
+    function buyingPower(address account) public view returns (uint256) {
         int256 requiredCollateral = ISettlement(clearingHouse).getRequiredCollateral(account);
         int256 totalCollateralValue = balanceOf(account).toInt256();
 

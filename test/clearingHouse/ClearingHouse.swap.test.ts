@@ -34,9 +34,9 @@ describe("ClearingHouse.swap", () => {
             await collateral.mint(alice.address, toWei(10))
 
             await deposit(alice, vault, 10, collateral)
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
+            expect(await vault.buyingPower(alice.address)).to.eq(toWei(10))
             await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(9))
+            expect(await vault.buyingPower(alice.address)).to.eq(toWei(9))
         })
 
         it("# swap should update TokenInfos", async () => {
