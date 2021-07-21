@@ -150,6 +150,22 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
 
+    struct SwapStep {
+        uint160 initialSqrtPriceX96;
+        int24 nextTick;
+        bool isNextTickInitialized;
+        uint160 nextSqrtPriceX96;
+        uint256 amountOut;
+    }
+
+    struct SwapState {
+        int256 amountSpecifiedRemaining;
+        uint160 sqrtPriceX96;
+        int24 tick;
+        uint256 feeGrowthGlobalX128;
+        uint128 liquidity;
+    }
+
     struct OpenPositionParams {
         address baseToken;
         bool isBaseToQuote;
@@ -172,7 +188,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
-    uint256 public feeRatio = 1000; // 1000000 * 0.1%
+    // setting feeRatio as 1% for now as Uniswap deploy fixture
+    // TODO if we can modify the feeRatio, there should be setFeeRatio()
+    uint256 public feeRatio = 10000; // 1000000 * 1%
 
     address public immutable collateralToken;
     address public immutable quoteToken;
@@ -285,25 +303,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         emit Burned(trader, token, amount);
     }
 
-    struct SwapStep {
-        uint160 initialSqrtPriceX96;
-        int24 nextTick;
-        bool isNextTickInitialized;
-        uint160 nextSqrtPriceX96;
-        // TODO review if they are all needed
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
-    }
-
-    struct SwapState {
-        int256 amountSpecifiedRemaining;
-        uint160 sqrtPriceX96;
-        int24 tick;
-        uint256 feeGrowthGlobalX128;
-        uint128 liquidity;
-    }
-
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
         _requireTokenExistent(params.baseToken);
 
@@ -330,7 +329,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 )
             );
         } else {
-            // isBaseToQuote
+            // isBaseToQuote -> change base fee to quote fee
             int24 initialTick = UniswapV3Broker.getTick(pool);
             uint160 initialSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
             uint128 initialLiquidity = UniswapV3Broker.getLiquidity(pool);
@@ -342,15 +341,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
-                    params.amount,
+                    // base fee to quote fee
+                    _calcScaledAmount(params.amount, true),
                     params.sqrtPriceLimitX96
                 )
             );
-
             uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+
             SwapState memory state =
                 // we are going to reply by swapping "exactOut" with the quote received
-                // TODO Broker makes the value uint256; see if that's unnecessary
+                // TODO in UniswapV3Broker, response.quote is forced into uint256; see if that's unnecessary
                 SwapState({
                     amountSpecifiedRemaining: -(response.quote.toInt256()),
                     sqrtPriceX96: initialSqrtMarkPriceX96,
@@ -430,8 +430,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
         if (params.isBaseToQuote) {
-            baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-            quoteTokenInfo.available = quoteTokenInfo.available.add(response.quote);
+            baseTokenInfo.available = baseTokenInfo.available.sub(_calcScaledAmount(response.base, false));
+            quoteTokenInfo.available = quoteTokenInfo.available.add(_calcScaledAmount(response.quote, false));
         } else {
             quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
@@ -440,8 +440,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         emit Swapped(
             trader, // trader
             params.baseToken, // baseToken
-            params.isBaseToQuote ? -response.base.toInt256() : response.base.toInt256(), // exchangedPositionSize
-            params.isBaseToQuote ? response.quote.toInt256() : -response.quote.toInt256(), // costBasis
+            // exchangedPositionSize
+            params.isBaseToQuote ? -_calcScaledAmount(response.base, false).toInt256() : response.base.toInt256(),
+            // costBasis
+            params.isBaseToQuote ? _calcScaledAmount(response.quote, false).toInt256() : -response.quote.toInt256(),
             response.fee, // fee
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
@@ -1272,6 +1274,13 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         int24 upperTick
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
+    }
+
+    function _calcScaledAmount(uint256 amount, bool isScaledUp) private view returns (uint256) {
+        return
+            isScaledUp
+                ? FullMath.mulDiv(amount, 1e6, uint256(1e6).sub(feeRatio))
+                : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
     }
 
     function _calcOwedFee(
