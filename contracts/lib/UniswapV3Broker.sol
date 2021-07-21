@@ -213,6 +213,10 @@ library UniswapV3Broker {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
+    function getFeeTier(address pool) internal view returns (uint24 feeTier) {
+        feeTier = IUniswapV3Pool(pool).fee();
+    }
+
     function getLiquidity(address pool) internal view returns (uint128 liquidity) {
         liquidity = IUniswapV3Pool(pool).liquidity();
     }
@@ -230,6 +234,11 @@ library UniswapV3Broker {
     // note assuming base token == token0
     function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
         (, , , , , , , initialized) = IUniswapV3Pool(pool).ticks(tick);
+    }
+
+    // note assuming base token == token0
+    function getTickLiquidityNet(address pool, int24 tick) internal view returns (bool initialized) {
+        (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
     }
 
     // note assuming base token == token0

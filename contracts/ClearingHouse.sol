@@ -170,6 +170,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
+    uint256 public feeRatio = 1000; // 1000000 * 0.1%
+
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
@@ -286,6 +288,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         int24 nextTick;
         bool isNextTickInitialized;
         uint160 nextSqrtPriceX96;
+        // TODO review if they are all needed
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 feeAmount;
     }
 
     struct SwapState {
@@ -325,6 +331,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             // isBaseToQuote
             int24 initialTick = UniswapV3Broker.getTick(pool);
             uint160 initialSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+            uint128 initialLiquidity = UniswapV3Broker.getLiquidity(pool);
 
             response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -343,55 +350,82 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
 
             SwapState memory state =
+                // we are going to reply by swapping "exactOut" with the quote received
                 SwapState({
-                    amountSpecifiedRemaining: response.base.toInt256(), // amountSpecified
+                    amountSpecifiedRemaining: -(response.quote.toInt256()),
                     sqrtPriceX96: initialSqrtMarkPriceX96, // slot0Start.sqrtPriceX96
                     tick: initialTick, // slot0Start.tick
                     feeGrowthGlobalX128: _feeGrowthGlobalMap[params.baseToken], // feeGrowthGlobal0X128
-                    liquidity: UniswapV3Broker.getLiquidity(pool) // cache.liquidityStart
+                    liquidity: initialLiquidity
                 });
             int24 tickSpacing = UniswapV3Broker.getTickSpacing(pool);
+            uint24 feeTier = UniswapV3Broker.getFeeTier(pool);
 
-            while (true) {
+            while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
                 SwapStep memory step;
                 step.initialSqrtPriceX96 = state.sqrtPriceX96;
 
                 // find next tick
                 // note the search is bounded in one word
                 // TODO see if we also need a tickBitmap mapping
-                // (step.nextTick, step.isNextTickInitialized) = tickBitmap.nextInitializedTickWithinOneWord(
-                //     state.tick,
-                //     tickSpacing,
-                //     true // zeroForOne == isBaseToQuote
-                // );
+                (step.nextTick, step.isNextTickInitialized) = tickBitmap.nextInitializedTickWithinOneWord(
+                    state.tick,
+                    tickSpacing,
+                    true // zeroForOne == isBaseToQuote
+                );
 
+                // get the next price of this step (either next tick's price or the ending price)
                 step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-                // using sqrtPrices instead of ticks for precision
-                if (step.nextSqrtPriceX96 < endingSqrtMarkPriceX96) break;
+                if (step.nextSqrtPriceX96 < endingSqrtMarkPriceX96) {
+                    step.nextSqrtPriceX96 = endingSqrtMarkPriceX96;
+                }
 
-                // // calculate quote amount received
-                // var swapFromTick = tick // range upper bound?
-                // var swapToTick = (nextTick < tickAfter)? tickAfter : nextTick
-                // var sqrtRatioSwapToTick = TickMath.getSqrtRatioAtTick(swapToTick)
-                // var sqrtRatioNextTick = TickMath.getSqrtRatioAtTick(nextTick)
-                // // token1 amount per liquidity = liquidity * (sqrtPriceCur - sqrtPriceRangeLower)
-                // var quoteAmountReceived = LiquidityAmounts.getAmount1ForLiquidity(
-                //     sqrtRatioSwapToTick,
-                //     sqrtRatioSwapFromTick, // range upper bound
-                //     liquidity,
-                // )
+                // find the next swap checkpoint
+                // (either reached the next price of this step, or exhausted remaining amount specified)
+                (state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+                    state.sqrtPriceX96,
+                    step.sqrtPriceNextX96,
+                    state.liquidity,
+                    state.amountSpecifiedRemaining,
+                    feeTier
+                );
 
-                // calculate fee
-                // var fee = quoteAmountReceived * chFeeRate / liquidity
-                // feeGrowthGlobal += fee
-                // 50001 -> 50000
-                // swap 0.1 ETH -> 10 USDC
-                // what if swap 0.05 ETH -> 5 USDC
-                // slot0.tick = 50000 -> 50000.5
+                state.amountSpecifiedRemaining += step.amountOut.toInt256();
 
-                // cross and update info
-                // tick = nextTick
+                // update global fee growth if there is liquidity in this range
+                if (state.liquidity > 0) {
+                    // TODO does it need rounding up?
+                    state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                        // TODO does it need rounding up?
+                        FullMath.mulDiv(step.amountOut, feeRatio, 1e6),
+                        FixedPoint128.Q128,
+                        state.liquidity
+                    );
+                }
+
+                if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
+                    // we have reached the tick's boundary
+
+                    if (step.initialized) {
+                        // update the tick if it has been initialized
+                        ticks.cross(step.tickNext, state.feeGrowthGlobalX128);
+                        state.liquidity = LiquidityMath.addDelta(
+                            state.liquidity,
+                            // we are crossing the tick from right to left
+                            -UniswapV3Broker.getTickLiquidityNet(pool, step.tickNext)
+                        );
+                    }
+
+                    // we've crossed the tick boundary from now on
+                    state.tick = step.nextTick - 1;
+                } else {
+                    // otherwise, update the current state's tick accordingly
+                    state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+                }
             }
+
+            // swap state transitions are all done, update the global states
+            _feeGrowthGlobalMap[params.baseToken] = state.feeGrowthGlobalX128;
         }
 
         // update internal states
