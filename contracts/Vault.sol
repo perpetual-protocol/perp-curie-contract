@@ -77,9 +77,12 @@ contract Vault is ReentrancyGuard, Ownable {
 
         address trader = _msgSender();
         // CH_NEFC: not enough free collateral
-        require(ClearingHouse(clearingHouse).getFreeCollateral(trader) >= amount, "V_NEFC");
-        // V_NEB: not enough collateral
-        require(_getBalance(trader, token) >= amount, "V_NEC");
+        require(
+            ClearingHouse(clearingHouse).getFreeCollateral(trader) >= _getValueInSettlementToken(token, amount),
+            "V_NEFC"
+        );
+        // V_NEB: not enough balance
+        require(_getBalance(trader, token) >= amount, "V_NEB");
 
         _decreaseBalance(trader, token, amount);
         TransferHelper.safeTransfer(token, trader, amount);
@@ -134,5 +137,12 @@ contract Vault is ReentrancyGuard, Ownable {
 
     function _getBalance(address account, address token) private view returns (uint256) {
         return _balance[account][token];
+    }
+
+    function _getValueInSettlementToken(address token, uint256 amount) private view returns (uint256) {
+        // TODO support non-settlement tokens, need a Oracle
+        // V_NS: only settlement token for now
+        require(token == settlementToken, "V_OSTFN");
+        return amount;
     }
 }

@@ -41,14 +41,14 @@ describe("ClearingHouse", () => {
         await collateral.connect(alice).approve(clearingHouse.address, amount)
     })
 
-    describe("# free collateral", () => {
-        it("increase free collateral after deposit to vault", async () => {
+    describe("# buying power", () => {
+        it("increase buying power after deposit to vault", async () => {
             const amount = toWei(100, await collateral.decimals())
 
             await deposit(alice, vault, 100, collateral)
 
             // check collateral status
-            expect(await vault.buyingPower(alice.address)).to.deep.eq(amount)
+            expect(await clearingHouse.buyingPower(alice.address)).to.deep.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
@@ -76,8 +76,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
-            // verify free collateral = 1000 - 10,000 * 0.1 = 0
-            expect(await vault.buyingPower(alice.address)).to.eq(0)
+            // verify buying power = 1000 - 10,000 * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint base and sends an event", async () => {
@@ -89,8 +89,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await vault.buyingPower(alice.address)).to.eq(0)
+            // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint base twice", async () => {
@@ -105,8 +105,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await vault.buyingPower(alice.address)).to.eq(0)
+            // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint both and sends an event", async () => {
@@ -122,8 +122,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
-            expect(await vault.buyingPower(alice.address)).to.eq(0)
+            // verify buying power = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint equivalent base and quote", async () => {
@@ -139,8 +139,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
-            expect(await vault.buyingPower(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
+            // verify buying power = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
         })
 
         it("alice mint non-equivalent base and quote", async () => {
@@ -156,8 +156,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify free collateral = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
-            expect(await vault.buyingPower(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
+            // verify buying power = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
         })
 
         // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)
