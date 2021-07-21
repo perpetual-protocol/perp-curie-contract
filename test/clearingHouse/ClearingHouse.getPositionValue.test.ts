@@ -86,15 +86,17 @@ describe("ClearingHouse.getPositionValue", () => {
             upperTick: 50200,
         })
 
-        // bob short 0.4084104205 / 0.99 = 0.4125357783
+        // bob short 0.4084104205
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.4125357783"),
+            amount: parseEther("0.4084104205"),
             sqrtPriceLimitX96: 0,
         })
-        // mark price should be 149.863446 (tick = 50099.75001)
+
+        // because of base to quote fee, bob actually shorts 0.4084104205 / 0.99 = 0.4125357783,
+        // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
         // await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
@@ -114,17 +116,19 @@ describe("ClearingHouse.getPositionValue", () => {
         expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("969864706335398656864177991756")
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778299999998"),
+            parseEther("0.412535778282828280"),
         )
-        // 149.8522069974 * 0.412535778299999998 = 61.8193968436
+        // 149.8522069974 * 0.412535778282828280 = 61.8193968411
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.819396843654672493"),
+            parseEther("61.819396841081452652"),
         )
 
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357783"))
-        // 149.8522069974 * -0.4125357783 = -61.8193968436
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
+            parseEther("-0.408410420499999999"),
+        )
+        // 149.8522069974 * -0.408410420499999999 = -61.2012028727
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.819396843654672792"),
+            parseEther("-61.201202872670638396"),
         )
     })
 
@@ -143,27 +147,29 @@ describe("ClearingHouse.getPositionValue", () => {
             upperTick: 50200,
         })
 
-        // bob shorts 0.2042052103 / 0.99 = 0.2062678892
+        // bob shorts 0.2042052103
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.2062678892"),
+            amount: parseEther("0.2042052103"),
             sqrtPriceLimitX96: 0,
         })
         // mark price should be 150.6155385 (tick = 50149.8122)
 
         await forward(300)
 
-        // bob shorts 0.2042052103 / 0.99 = 0.2062678892
+        // bob shorts 0.2042052103
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.2062678892"),
+            amount: parseEther("0.2042052103"),
             sqrtPriceLimitX96: 0,
         })
-        // mark price should be 149.863446 (tick = 50099.75001)
+
+        // because of base to quote fee, bob actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784,
+        // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         await forward(600)
 
@@ -173,18 +179,20 @@ describe("ClearingHouse.getPositionValue", () => {
         expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778399999998"),
+            parseEther("0.412535778383838380"),
         )
-        // 150.0921504352 * 0.412535778399999998 = 61.9183821115
+        // 150.0921504352 * 0.412535778383838380 = 61.9183821091
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.918382111520063461"),
+            parseEther("61.918382109094331461"),
         )
 
         // short
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357784"))
-        // 150.0921504352 * -0.4125357784 = -61.9183821115
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
+            parseEther("-0.408410420599999998"),
+        )
+        // 150.0921504352 * -0.408410420599999998 = -61.299198288
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.918382111520063761"),
+            parseEther("-61.299198288003388416"),
         )
     })
 
