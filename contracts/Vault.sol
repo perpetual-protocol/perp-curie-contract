@@ -8,6 +8,7 @@ import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { ClearingHouse } from "./ClearingHouse.sol";
 
 contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -71,30 +72,18 @@ contract Vault is ReentrancyGuard, Ownable {
         emit Deposited(token, from, amount);
     }
 
-    function withdraw(
-        address token,
-        uint256 amount,
-        address account
-    ) external nonReentrant() onlyClearingHouse() {
+    function withdraw(address token, uint256 amount) external nonReentrant() {
         // TODO if the balanceOf(token) is less than amount, should swap or revert?
 
-        // V_NEB: not enough balance
-        require(_getBalance(account, token) >= amount, "V_NEB");
-        _decreaseBalance(account, token, amount);
-        TransferHelper.safeTransfer(token, account, amount);
-        emit Withdrawn(token, account, amount);
-    }
+        address trader = _msgSender();
+        // CH_NEFC: not enough free collateral
+        require(ClearingHouse(clearingHouse).getFreeCollateral(trader) >= amount, "V_NEFC");
+        // V_NEB: not enough collateral
+        require(_getBalance(trader, token) >= amount, "V_NEC");
 
-    function buyingPower(address account) public view returns (uint256) {
-        int256 requiredCollateral = ISettlement(clearingHouse).getRequiredCollateral(account);
-        int256 totalCollateralValue = balanceOf(account).toInt256();
-
-        if (requiredCollateral >= totalCollateralValue) {
-            return 0;
-        }
-
-        // totalCollateralValue > requiredCollateral
-        return totalCollateralValue.sub(requiredCollateral).toUint256();
+        _decreaseBalance(trader, token, amount);
+        TransferHelper.safeTransfer(token, trader, amount);
+        emit Withdrawn(token, trader, amount);
     }
 
     function balanceOf(address account) public view returns (uint256) {

@@ -315,14 +315,6 @@ contract ClearingHouse is
         return response;
     }
 
-    function withdraw(address token, uint256 amount) external {
-        address trader = _msgSender();
-
-        // CH_NEFC: not enough free collateral
-        require(_getFreeCollateral(trader) >= amount, "CH_NEFC");
-        Vault(vault).withdraw(token, amount, trader);
-    }
-
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
         _requireTokenExistent(params.baseToken);
 
@@ -664,7 +656,7 @@ contract ClearingHouse is
         return IERC20Metadata(vault).balanceOf(trader).toInt256().add(getTotalMarketPnl(trader));
     }
 
-    function _buyingPower(address account) private view returns (uint256) {
+    function buyingPower(address account) public view returns (uint256) {
         int256 requiredCollateral = getRequiredCollateral(account);
         int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
         if (requiredCollateral >= totalCollateralValue) {
@@ -673,6 +665,36 @@ contract ClearingHouse is
 
         // totalCollateralValue > requiredCollateral
         return totalCollateralValue.sub(requiredCollateral).toUint256();
+    }
+
+    function getFreeCollateral(address trader) external view returns (uint256) {
+        // min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
+
+        // calculate openOrderMarginRequirement = max(totalBaseDebt, totalQuoteDebt)
+        Account storage account = _accountMap[trader];
+        uint256 totalBaseDebtValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                // will not use negative value in this case
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            }
+        }
+        uint256 openOrderMarginRequirement =
+            Math.max(totalBaseDebtValue, account.tokenInfoMap[quoteToken].debt).mul(imRatio).divideBy10_18();
+
+        // calculate minAccountValue = min(collateral, accountValue)
+        int256 accountValue = getAccountValue(trader);
+        uint256 minAccountValue;
+        if (accountValue > 0) {
+            minAccountValue = Math.min(Vault(vault).balanceOf(trader), accountValue.toUint256());
+        }
+
+        if (minAccountValue < openOrderMarginRequirement) return 0;
+
+        return minAccountValue.sub(openOrderMarginRequirement);
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
@@ -847,7 +869,7 @@ contract ClearingHouse is
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
     function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = _buyingPower(_msgSender());
+        uint256 freeCollateral = buyingPower(_msgSender());
         if (freeCollateral == 0) {
             return 0;
         }
@@ -1008,36 +1030,6 @@ contract ClearingHouse is
         }
 
         return Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio).divideBy10_18();
-    }
-
-    function _getFreeCollateral(address trader) internal view returns (uint256) {
-        // min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-
-        // calculate openOrderMarginRequirement = max(totalBaseDebt, totalQuoteDebt)
-        Account storage account = _accountMap[trader];
-        uint256 totalBaseDebtValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                // will not use negative value in this case
-                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
-            }
-        }
-        uint256 openOrderMarginRequirement =
-            Math.max(totalBaseDebtValue, account.tokenInfoMap[quoteToken].debt).mul(imRatio).divideBy10_18();
-
-        // caculate minAccountValue = min(collateral, accountValue)
-        int256 accountValue = getAccountValue(trader);
-        uint256 minAccountValue;
-        if (accountValue > 0) {
-            minAccountValue = Math.min(Vault(vault).balanceOf(trader), accountValue.toUint256());
-        }
-
-        if (minAccountValue < openOrderMarginRequirement) return 0;
-
-        return minAccountValue.sub(openOrderMarginRequirement);
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
