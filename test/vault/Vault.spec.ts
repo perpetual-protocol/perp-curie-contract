@@ -84,9 +84,12 @@ describe("Vault spec", () => {
     describe("withdraw settlement token", () => {
         it("reduce vault's token balance")
         it("increase sender's token balance")
-        it("increase usdcDebt if USDC collateral is not enough")
         it("update ClearingHouse's quote debt to 0")
         it("force error if the freeCollateral is not enough")
+
+        describe("USDC collateral is not enough", () => {
+            it("borrow from insuranceFund, increase usdcDebt")
+        })
     })
 
     describe.skip("withdraw non-settlement token", () => {
