@@ -69,28 +69,58 @@ describe("ClearingHouse liquidate", () => {
     describe("alice took long in ETH, bob took short", () => {
         describe("carol liquidate alice's position", () => {
             describe.skip("carol takeover the position", () => {
-                it("close alice's base debt and available to quote")
-                it("transfer liquidated position to carol in a discount (size * marketTWAP * liquidationDiscount)")
-                it("transfer liquidationDiscount (liquidatedNotional * liquidationDiscount) to carol")
+                it("swap carol's quote to alice's base in a discount (size * marketTWAP * liquidationDiscount)")
+                it("close alice's position")
+                it("force error, carol's quote balance is insufficient")
             })
 
             describe("carol send order to pool", () => {
-                it("close alice's base debt and available to quote")
-                it("transfer liquidationDiscount (liquidatedNotional * liquidationDiscount) to carol")
+                it("force close alice's base to quote by carol")
+                it("transfer liquidationDiscount (liquidatedNotional * liquidationDiscount) to carol after swap")
             })
 
-            it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund")
+            it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund after swap")
         })
 
-        describe("price go down further, alice's price impact is too high if total close", () => {
+        describe("price goes down further, alice's price impact is too high if total close", () => {
             it.skip("liquidate alice's position partially by carol")
         })
 
         it("force error, can't liquidate herself")
-        it("force error, carol doesn't has enough quoteToken")
+    })
+
+    // TODO copy the sheet above and make another scenario for short
+    describe("alice took short in ETH, bob took long", () => {
+        describe("carol liquidate alice's position", () => {
+            describe.skip("carol takeover the position", () => {
+                it("swap carol's base to alice's quote in a discount (size * marketTWAP * liquidationDiscount)")
+                it("close alice's position")
+                it("force error, carol's base balance is insufficient")
+            })
+
+            describe("carol send order to pool", () => {
+                it(
+                    "force mint alice's quote to buy base (the cost will be liquidationNotional) and repay base-debt by carol",
+                )
+                it("transfer liquidationDiscount (liquidatedNotional * liquidationDiscount) to carol before swap")
+            })
+
+            it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund before swap")
+        })
+
+        describe("price goes up further, alice's price impact is too high if total close", () => {
+            it.skip("liquidate alice's position partially by carol")
+        })
+
+        it("force error, can't liquidate herself")
     })
 
     describe("alice took long in ETH and BTC, price go down", () => {
+        it("liquidate alice's ETH by carol")
+        it("liquidate alice's BTC by carol")
+    })
+
+    describe("alice took short in ETH and BTC, price go down", () => {
         it("liquidate alice's ETH by carol")
         it("liquidate alice's BTC by carol")
     })
