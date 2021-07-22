@@ -59,7 +59,7 @@ describe("ClearingHouse withdraw", () => {
 
         it("taker do nothing and then withdraw", async () => {
             const amount = toWei(1000, await collateral.decimals())
-            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq(amount)
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(amount)
 
             await expect(vault.connect(bob).withdraw(collateral.address, amount))
                 .to.emit(vault, "Withdrawn")
@@ -81,7 +81,7 @@ describe("ClearingHouse withdraw", () => {
 
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
             // min(1000, 1000 - 0.998049666(fee)) - (0 + 100) * 10% = 989.001950334009680713
-            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("989001950334009680713")
+            expect(await vault.getFreeCollateral(bob.address)).to.eq("989001950334009680713")
 
             await expect(vault.connect(bob).withdraw(collateral.address, "989001950334009680713"))
                 .to.emit(vault, "Withdrawn")
@@ -93,16 +93,14 @@ describe("ClearingHouse withdraw", () => {
             // collateral = 20,000, base debt = 500, quote debt = 50,000
             // position size = 0.6539993895
             // free collateral = min(20,000, 20,000.998) - (500 * 100 + 50,000) * 0.1 = 10,000
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(
-                toWei(10000, await collateral.decimals()),
-            )
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10000, await collateral.decimals()))
         })
 
         it("maker withdraw after adding liquidity", async () => {
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
             // min(20000, 20000) - (500 * 100 + 50000, 0) * 10% = 10000
             const amount = toWei(10000, await collateral.decimals())
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(amount)
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(amount)
 
             await expect(vault.connect(alice).withdraw(collateral.address, amount))
                 .to.emit(vault, "Withdrawn")
@@ -114,7 +112,7 @@ describe("ClearingHouse withdraw", () => {
         it("force error, withdraw without deposit", async () => {
             await expect(
                 vault.connect(carol).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
-            ).to.be.revertedWith("V_NEFC")
+            ).to.be.revertedWith("V_NEB")
         })
 
         it("force error, margin requirement is larger than accountValue", async () => {
@@ -131,7 +129,7 @@ describe("ClearingHouse withdraw", () => {
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
             // min(1000, accountValue) < (0 + 10,000) * 10% = 1000
             // accountValue = 1000 + PnL, PnL is negative due to fee
-            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("0")
+            expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
             ).to.be.revertedWith("V_NEFC")
@@ -169,7 +167,7 @@ describe("ClearingHouse withdraw", () => {
 
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
             // min(1000, 1000 + profit) < (0 + 100 * 110) * 10% = 1100
-            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("0")
+            expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
             ).to.be.revertedWith("V_NEFC")
@@ -178,7 +176,7 @@ describe("ClearingHouse withdraw", () => {
         it("force error, withdrawal amount is more than collateral", async () => {
             await expect(
                 vault.connect(carol).withdraw(collateral.address, toWei(5000, await collateral.decimals())),
-            ).to.be.revertedWith("V_NEFC")
+            ).to.be.revertedWith("V_NEB")
         })
     })
 })

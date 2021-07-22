@@ -2,6 +2,7 @@ pragma solidity 0.7.6;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
@@ -40,12 +41,6 @@ contract Vault is ReentrancyGuard, Ownable {
     mapping(address => bool) private _collateralTokenMap;
     address[] private _collateralTokens;
 
-    modifier onlyClearingHouse() {
-        // V_OCH only ClearingHouse
-        require(clearingHouse == _msgSender(), "V_OCH");
-        _;
-    }
-
     constructor(address settlementTokenArg) {
         settlementToken = settlementTokenArg;
         decimals = IERC20Metadata(settlementTokenArg).decimals();
@@ -73,18 +68,13 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
-        // TODO if the balanceOf(token) is less than amount, should swap or revert?
-
         address trader = _msgSender();
-        // CH_NEFC: not enough free collateral
-        require(
-            ClearingHouse(clearingHouse).getFreeCollateral(trader) >= _getValueInSettlementToken(token, amount),
-            "V_NEFC"
-        );
         // V_NEB: not enough balance
         require(_getBalance(trader, token) >= amount, "V_NEB");
-
         _decreaseBalance(trader, token, amount);
+
+        // V_NEFC: not enough free collateral
+        require(_getFreeCollateral(trader) >= 0, "V_NEFC");
         TransferHelper.safeTransfer(token, trader, amount);
         emit Withdrawn(token, trader, amount);
     }
@@ -102,6 +92,11 @@ contract Vault is ReentrancyGuard, Ownable {
         }
 
         return settlementTokenValue;
+    }
+
+    function getFreeCollateral(address account) external view returns (uint256) {
+        int256 freeCollateral = _getFreeCollateral(account);
+        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
     }
 
     function _addCollateralToken(address token) private {
@@ -139,10 +134,16 @@ contract Vault is ReentrancyGuard, Ownable {
         return _balance[account][token];
     }
 
-    function _getValueInSettlementToken(address token, uint256 amount) private view returns (uint256) {
-        // TODO support non-settlement tokens, need a Oracle
-        // V_NS: only settlement token for now
-        require(token == settlementToken, "V_OSTFN");
-        return amount;
+    function _getFreeCollateral(address trader) internal view returns (int256) {
+        // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
+
+        // calculate minAccountValue = min(collateral, accountValue)
+        int256 accountValue = ClearingHouse(clearingHouse).getAccountValue(trader);
+        uint256 minAccountValue;
+        if (accountValue > 0) {
+            minAccountValue = Math.min(balanceOf(trader), accountValue.toUint256());
+        }
+        return minAccountValue.toInt256().sub(openOrderMarginRequirement.toInt256());
     }
 }
