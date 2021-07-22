@@ -38,8 +38,8 @@ describe("ClearingHouse withdraw", () => {
 
     describe("# withdraw", () => {
         beforeEach(async () => {
-            await collateral.mint(alice.address, toWei(10000, await collateral.decimals()))
-            await deposit(alice, vault, 10000, collateral)
+            await collateral.mint(alice.address, toWei(20000, await collateral.decimals()))
+            await deposit(alice, vault, 20000, collateral)
             const collateralAmount = toWei(1000, await collateral.decimals())
             await collateral.mint(bob.address, collateralAmount)
             await deposit(bob, vault, 1000, collateral)
@@ -68,7 +68,7 @@ describe("ClearingHouse withdraw", () => {
             expect(await vault.balanceOf(bob.address)).to.eq("0")
         })
 
-        it("taker swap then withdraw", async () => {
+        it("taker swap then withdraw and verify maker's free collateral ", async () => {
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
             await clearingHouse.connect(bob).swap({
                 // buy base
@@ -79,21 +79,29 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // free collateral = min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-            // min(1000, 1000 -1 (fee)) - max(0, 100) * 10% = 989.006442135
-            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("989006442135012510374")
+            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // min(1000, 1000 - 0.998049666(fee)) - (0 + 100) * 10% = 989.001950334009680713
+            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("989001950334009680713")
 
-            await expect(vault.connect(bob).withdraw(collateral.address, "989006442135012510374"))
+            await expect(vault.connect(bob).withdraw(collateral.address, "989001950334009680713"))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, "989006442135012510374")
-            expect(await collateral.balanceOf(bob.address)).to.eq("989006442135012510374")
-            expect(await vault.balanceOf(bob.address)).to.eq("10993557864987489626")
+                .withArgs(collateral.address, bob.address, "989001950334009680713")
+            expect(await collateral.balanceOf(bob.address)).to.eq("989001950334009680713")
+            expect(await vault.balanceOf(bob.address)).to.eq("10998049665990319287")
+
+            // verify maker's free collateral
+            // collateral = 20,000, base debt = 500, quote debt = 50,000
+            // position size = 0.6539993895
+            // free collateral = min(20,000, 20,000.998) - (500 * 100 + 50,000) * 0.1 = 10,000
+            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(
+                toWei(10000, await collateral.decimals()),
+            )
         })
 
         it("maker withdraw after adding liquidity", async () => {
-            // free collateral = min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-            // min(1000, 1000) - max(50 * 100, 0) * 10% = 500
-            const amount = toWei(500, await collateral.decimals())
+            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // min(20000, 20000) - (500 * 100 + 50000, 0) * 10% = 10000
+            const amount = toWei(10000, await collateral.decimals())
             expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(amount)
 
             await expect(vault.connect(alice).withdraw(collateral.address, amount))
@@ -120,12 +128,12 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // free collateral = min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-            // min(1000, accountValue) < max(0, 10,000) * 10% = 1000
+            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // min(1000, accountValue) < (0 + 10,000) * 10% = 1000
             // accountValue = 1000 + PnL, PnL is negative due to fee
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq("0")
+            expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
-                vault.connect(carol).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
+                vault.connect(bob).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
             ).to.be.revertedWith("V_NEFC")
         })
 
@@ -159,8 +167,8 @@ describe("ClearingHouse withdraw", () => {
                 return [0, parseUnits("110", 6), 0, 0, 0]
             })
 
-            // free collateral = min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-            // min(1000, 1000 + profit) < max(0, 100 * 110) * 10% = 1100
+            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // min(1000, 1000 + profit) < (0 + 100 * 110) * 10% = 1100
             expect(await clearingHouse.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, toWei(1000, await collateral.decimals())),
@@ -171,14 +179,6 @@ describe("ClearingHouse withdraw", () => {
             await expect(
                 vault.connect(carol).withdraw(collateral.address, toWei(5000, await collateral.decimals())),
             ).to.be.revertedWith("V_NEFC")
-        })
-
-        it("force error, mint both base and quote with max of buying power in different market", async () => {
-            // ETH 1000,  deposit 1000
-            // case C
-            // ETH, mint quote 5,000 USDC --> buying power = 5000
-            // BTC, mint base 1 BTC --> buying power = 1000, free collateral = 1000
-            // --> withdraw 5 (should not be able to withdraw)
         })
     })
 })

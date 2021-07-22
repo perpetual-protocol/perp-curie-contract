@@ -683,7 +683,7 @@ contract ClearingHouse is
             }
         }
         uint256 openOrderMarginRequirement =
-            Math.max(totalBaseDebtValue, account.tokenInfoMap[quoteToken].debt).mul(imRatio).divideBy10_18();
+            totalBaseDebtValue.add(account.tokenInfoMap[quoteToken].debt).mul(imRatio).divideBy10_18();
 
         // calculate minAccountValue = min(collateral, accountValue)
         int256 accountValue = getAccountValue(trader);
