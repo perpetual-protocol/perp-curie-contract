@@ -95,7 +95,7 @@ describe("ClearingHouse.getPositionValue", () => {
             sqrtPriceLimitX96: 0,
         })
 
-        // because of base to quote fee, bob actually shorts 0.4084104205 / 0.99 = 0.4125357783,
+        // B2QFee: CH actually shorts 0.4084104205 / 0.99 = 0.4125357783,
         // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
@@ -168,7 +168,7 @@ describe("ClearingHouse.getPositionValue", () => {
             sqrtPriceLimitX96: 0,
         })
 
-        // because of base to quote fee, bob actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784,
+        // B2QFee: CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784,
         // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         await forward(600)
