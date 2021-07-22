@@ -324,8 +324,10 @@ describe("ClearingHouse openPosition", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         toWei(-1), // exchangedPositionSize
-                        "147824339785748605988", // costBasis
-                        toWei(0.01), // fee
+                        "147804063843875548949", // costBasis
+                        // B2QFee: 0.01 / 0.99 = 0.0101010101
+                        // the fee emitted by Uniswap > the real amount user pays
+                        toWei("0.010101010101010102"), // fee
                         toWei(0), // fundingPayment
                         toWei(0), // badDebt
                     )

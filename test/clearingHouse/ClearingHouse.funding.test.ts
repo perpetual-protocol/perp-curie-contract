@@ -59,7 +59,7 @@ describe("ClearingHouse.funding", () => {
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.1"),
+            amount: parseEther("0.099"),
             sqrtPriceLimitX96: 0,
         })
 
@@ -99,11 +99,11 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
                 "12375003379192555",
             )
-            //   position size = -0.1
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.1"))
-            //   funding payment = -0.1 * (153.9531248192 - 150.953124) / 24 = 0.012500000341
+            // position size = -0.099
+            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
+            // funding payment = -0.099 * (153.9531248192 - 150.953124) / 24 = -0.01237500338
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
-                "-12500003413325814",
+                "-12375003379192555",
             )
         })
 
@@ -122,10 +122,10 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
                 "-12374996620807443",
             )
-            //   position size = -0.1
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.1"))
-            //   funding payment = -0.1 * (153.9531248192 - 156.953124) / 24 = 0.01249999659
-            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq("12499996586674185")
+            // position size = -0.099
+            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
+            // funding payment = -0.099 * (153.9531248192 - 156.953124) / 24 = 0.01237499662
+            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq("12374996620807443")
         })
 
         it("get correct number for maker in multiple orders and funding rates", async () => {
