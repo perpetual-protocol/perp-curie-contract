@@ -1279,9 +1279,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         uint256 amount,
         bool isScaledUp
     ) private view returns (uint256) {
+        // when scaling up, round up to avoid imprecision; it's okay as long as we round down later
         return
             isScaledUp
-                ? FullMath.mulDiv(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
+                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
                 : FullMath.mulDiv(amount, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)), 1e6);
     }
 

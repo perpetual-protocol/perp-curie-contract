@@ -97,13 +97,11 @@ describe("ClearingHouse.getPositionSize", () => {
         // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.41253577828282828"),
+            parseEther("0.412535778282828281"),
         )
 
         // 0.4084104205
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
-            parseEther("-0.408410420499999999"),
-        )
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
     })
 
     it("bob swaps 2 time", async () => {
@@ -143,13 +141,11 @@ describe("ClearingHouse.getPositionSize", () => {
         // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778383838380"),
+            parseEther("0.412535778383838382"),
         )
 
         // 0.2042052103 * 2 = 0.4084104206
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
-            parseEther("-0.408410420599999998"),
-        )
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
     })
 
     // see "out of maker's range; alice receives more fee as the price goes beyond carol's range" in ClearingHouse.removeLiquidity.test.ts
