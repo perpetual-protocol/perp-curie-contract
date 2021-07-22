@@ -1029,21 +1029,8 @@ contract ClearingHouse is
             }
         }
 
-        return Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio).divideBy10_18();
+        return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
     }
-
-    // deposit 2,000 --> buying power = 2,000
-    // ETH = 1,000, BTC = 10,000
-    // case A
-    // ETH, mint quote 20,000 USDC --> buying power = 0
-    // X BTC, mint base 1 BTC
-    // case B
-    // ETH, mint quote 10,000 USDC --> buying power = 1000
-    // BTC, mint base 2 BTC --> buying power = 0
-    // case C
-    // ETH, mint quote 10,000 USDC --> buying power = 1000
-    // BTC, mint base 1 BTC --> buying power = 1000, free collateral = 1000
-    // --> withdraw 1000
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
         return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();

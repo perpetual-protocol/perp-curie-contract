@@ -111,9 +111,9 @@ describe("ClearingHouse", () => {
 
         it("alice mint both and sends an event", async () => {
             // assume imRatio = 0.1, price = 100
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base, 1,0000 quote
-            const baseAmount = toWei(100, await baseToken.decimals())
-            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            // alice collateral = 1000, freeCollateral = 10,000, mint 50 base, 5,000 quote
+            const baseAmount = toWei(50, await baseToken.decimals())
+            const quoteAmount = toWei(5000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, baseToken.address, baseAmount)
@@ -139,8 +139,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify buying power = 1,000 - max(500 * 10, 5,000) * 0.1 = 500
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(500, await baseToken.decimals()))
+            // verify buying power = 1,000 - (500 * 10 + 5,000) * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint non-equivalent base and quote", async () => {
@@ -156,17 +156,17 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
-            // verify buying power = 1,000 - max(600 * 10, 4,000) * 0.1 = 400
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(400, await baseToken.decimals()))
+            // verify buying power = 1,000 - (600 * 10 + 4,000) * 0.1 = 0
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
 
         // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)
         it("registers each base token once at most", async () => {
             const connectedClearingHouse = clearingHouse.connect(alice)
             // assume imRatio = 0.1, price = 100
-            // alice collateral = 1000, freeCollateral = 10,000, mint 10000 quote once and then mint 50 base twice
-            const baseAmount = toWei(50, await baseToken.decimals())
-            const quoteAmount = toWei(10000, await quoteToken.decimals())
+            // alice collateral = 1000, freeCollateral = 10,000, mint 5000 quote once and then mint 25 base twice
+            const baseAmount = toWei(25, await baseToken.decimals())
+            const quoteAmount = toWei(5000, await quoteToken.decimals())
             await connectedClearingHouse.mint(quoteToken.address, quoteAmount)
             await connectedClearingHouse.mint(baseToken.address, baseAmount)
             await connectedClearingHouse.mint(baseToken.address, baseAmount)

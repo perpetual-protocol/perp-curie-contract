@@ -40,12 +40,6 @@ contract Vault is ReentrancyGuard, Ownable {
     mapping(address => bool) private _collateralTokenMap;
     address[] private _collateralTokens;
 
-    modifier onlyClearingHouse() {
-        // V_OCH only ClearingHouse
-        require(clearingHouse == _msgSender(), "V_OCH");
-        _;
-    }
-
     constructor(address settlementTokenArg) {
         settlementToken = settlementTokenArg;
         decimals = IERC20Metadata(settlementTokenArg).decimals();
