@@ -257,10 +257,35 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
             })
+
+            // maker before swap:
+            //              base    quote
+            //   pool       100     10000
+            //   pool.fee   n/a     0
+            //   CH         9900    0
+            //   CH.fee     n/a     0
+            //   debt       10000   10000
+            //
+            //   position size = 100 + 9900 - 10000 = 0
+            //   cost basis = 10000 + 0 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+            //
+            // maker after swap:
+            //              base            quote
+            //   pool       99.0099009901   10099
+            //   pool.fee   n/a             1
+            //   CH         9900.9900990099 0
+            //   CH.fee     n/a             0
+            // TODO verify quote debt did increase by 100
+            //   debt       10000           10100
+            //
+            //   position size = 99.0099009901 + 9900.9900990099 - 10000 = 0
+            //   cost basis = 10099 + 1 - 10100 = 0
+            //   pnl = 0 + 0 = 0
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
 
-        it("maker open a short position then verify maker's pnl", async () => {
+        it.only("maker open a short position then verify maker's pnl", async () => {
             // maker open a short position
             await clearingHouse.connect(maker).openPosition({
                 baseToken: baseToken.address,
@@ -269,8 +294,32 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
             })
-            // B2QFee: CH actually shorts 99 / 0.99 = 100
 
+            // maker before swap:
+            //              base        quote
+            //   pool       100         10000
+            //   pool.fee   n/a         0
+            //   CH         9900        0
+            //   CH.fee     n/a         0
+            //   debt       10000       10000
+            //
+            //   position size = 100 + 9900 - 10000 = 0
+            //   cost basis = 10000 + 0 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+            //
+            // maker after swap:
+            //              base            quote
+            //   pool       101.0101010101  9900
+            //   pool.fee   n/a             0
+            //   CH         9898.9898989899 99
+            //   CH.fee     n/a             1
+            //   debt       10000           10000
+            //
+            //   position size = 101.0101010101 + 9898.9898989899 - 10000 = 0
+            //   cost basis = 9900 + 99 + 1 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+
+            // TODO this would fail atm because getCostBasis() does not include CH quote fee yet
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
     })

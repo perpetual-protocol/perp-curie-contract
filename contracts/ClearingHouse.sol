@@ -855,6 +855,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             );
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        // TODO need include CH quote fees
         int256 costBasis =
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
         return costBasis.abs() < DUST ? 0 : costBasis;
