@@ -95,7 +95,7 @@ describe("ClearingHouse", () => {
 
         it("alice mint base twice", async () => {
             // assume imRatio = 0.1, price = 100
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            // alice collateral = 1000, freeCollateral = 5,000, mint 50 base
             const baseAmount = toWei(50, await baseToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
                 .to.emit(clearingHouse, "Minted")
@@ -111,7 +111,7 @@ describe("ClearingHouse", () => {
 
         it("alice mint both and sends an event", async () => {
             // assume imRatio = 0.1, price = 100
-            // alice collateral = 1000, freeCollateral = 10,000, mint 50 base, 5,000 quote
+            // alice collateral = 1000, freeCollateral = 5,000, mint 50 base, 5,000 quote
             const baseAmount = toWei(50, await baseToken.decimals())
             const quoteAmount = toWei(5000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))
@@ -145,7 +145,7 @@ describe("ClearingHouse", () => {
 
         it("alice mint non-equivalent base and quote", async () => {
             // assume imRatio = 0.1, price = 100
-            // alice collateral = 1000, freeCollateral = 10,000, mint 50 base, 5000 quote
+            // alice collateral = 1000, freeCollateral = 10,000, mint 60 base, 4000 quote
             const baseAmount = toWei(60, await baseToken.decimals())
             const quoteAmount = toWei(4000, await quoteToken.decimals())
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount))

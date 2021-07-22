@@ -667,11 +667,12 @@ contract ClearingHouse is
         return totalCollateralValue.sub(requiredCollateral).toUint256();
     }
 
-    function getFreeCollateral(address trader) external view returns (uint256) {
-        // min(collateral, accountValue) - max(totalBaseDebt, totalQuoteDebt) * imRatio
-
-        // calculate openOrderMarginRequirement = max(totalBaseDebt, totalQuoteDebt)
+    // TODO have a better naming
+    function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         Account storage account = _accountMap[trader];
+
+        // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
+        uint256 quoteDebtValue = account.tokenInfoMap[quoteToken].debt;
         uint256 totalBaseDebtValue;
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
@@ -682,19 +683,8 @@ contract ClearingHouse is
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
         }
-        uint256 openOrderMarginRequirement =
-            totalBaseDebtValue.add(account.tokenInfoMap[quoteToken].debt).mul(imRatio).divideBy10_18();
 
-        // calculate minAccountValue = min(collateral, accountValue)
-        int256 accountValue = getAccountValue(trader);
-        uint256 minAccountValue;
-        if (accountValue > 0) {
-            minAccountValue = Math.min(Vault(vault).balanceOf(trader), accountValue.toUint256());
-        }
-
-        if (minAccountValue < openOrderMarginRequirement) return 0;
-
-        return minAccountValue.sub(openOrderMarginRequirement);
+        return totalBaseDebtValue.add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
