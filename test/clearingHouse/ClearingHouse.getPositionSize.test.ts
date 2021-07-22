@@ -93,11 +93,15 @@ describe("ClearingHouse.getPositionSize", () => {
             sqrtPriceLimitX96: 0,
         })
 
-        // B2QFee: CH actually shorts 0.4084104205 / 0.99 = 0.4125357783,
-        // which makes the mark price become 149.863446 (tick = 50099.75001)
+        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+        // Note CH actually shorts 0.4084104205 / 0.99 = 0.4125357783 base tokens
+        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
+        // The swap pushes the mark price to 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778282828281"),
+            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            parseEther("0.408410420499999999"),
         )
 
         // 0.4084104205
@@ -137,11 +141,15 @@ describe("ClearingHouse.getPositionSize", () => {
             sqrtPriceLimitX96: 0,
         })
 
-        // B2QFee: CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784,
+        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+        // Note CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784 base tokens
+        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
         // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778383838382"),
+            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            parseEther("0.408410420599999999"),
         )
 
         // 0.2042052103 * 2 = 0.4084104206

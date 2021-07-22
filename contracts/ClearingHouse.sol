@@ -797,8 +797,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         address token,
         uint256 twapInterval
     ) public view returns (int256 positionValue) {
-        int256 positionSize =
-            _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]), true);
+        int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
         if (positionSize == 0) return 0;
 
         // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
@@ -834,7 +833,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     }
 
     function getPositionSize(address trader, address baseToken) external view returns (int256) {
-        return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
+        return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
 
     // @audit do we need to expose the following function until the end of this section?
@@ -850,8 +849,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     trader,
                     baseToken,
                     UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
-                    true,
-                    false
+                    true, // include fee (quote)
+                    false // fetch quote token amount
                 )
             );
         }
@@ -893,7 +892,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
-                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96, false);
+                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96);
                 fundingPaymentAmount = fundingPaymentAmount.add(
                     fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18()
                 );
@@ -1243,13 +1242,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     function _getPositionSize(
         address trader,
         address baseToken,
-        uint160 sqrtMarkPriceX96,
-        bool includeFee
+        uint160 sqrtMarkPriceX96
     ) private view returns (int256) {
         Account storage account = _accountMap[trader];
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
-                _getTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, includeFee, true)
+                _getTokenAmountInPool(
+                    trader,
+                    baseToken,
+                    sqrtMarkPriceX96,
+                    false, // don't include base token fee
+                    true // get base token amount
+                )
             );
 
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
