@@ -188,10 +188,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
-    // setting feeRatio as 1% for now as Uniswap deploy fixture
-    // TODO if we can modify the feeRatio, there should be setFeeRatio()
-    uint256 public feeRatio = 10000; // 1000000 * 1%
-
     address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
@@ -239,18 +235,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     //
     // EXTERNAL FUNCTIONS
     //
-    function addPool(address baseToken, uint24 uniswapFeeRatio) external onlyOwner {
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
         // to ensure the base is always token0 and quote is always token1
         // CH_IB: invalid baseToken
         require(baseToken < quoteToken, "CH_IB");
-        address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, uniswapFeeRatio);
+        address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");
         // CH_EP: existent pool in ClearingHouse
         require(pool != _poolMap[baseToken], "CH_EP");
 
         _poolMap[baseToken] = pool;
-        emit PoolAdded(baseToken, uniswapFeeRatio, pool);
+        emit PoolAdded(baseToken, feeRatio, pool);
     }
 
     // TODO should add modifier: whenNotPaused()
@@ -341,8 +337,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
-                    // base fee to quote fee
-                    _calcScaledAmount(params.amount, true),
+                    _calcScaledAmount(pool, params.amount, true),
                     params.sqrtPriceLimitX96
                 )
             );
@@ -396,7 +391,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 // update global fee growth if there is liquidity in this range
                 if (state.liquidity > 0) {
                     state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                        FullMath.mulDiv(step.amountOut, feeRatio, 1e6),
+                        FullMath.mulDiv(step.amountOut, UniswapV3Broker.getUniswapFeeRatio(pool), 1e6),
                         FixedPoint128.Q128,
                         state.liquidity
                     );
@@ -430,8 +425,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
         if (params.isBaseToQuote) {
-            baseTokenInfo.available = baseTokenInfo.available.sub(_calcScaledAmount(response.base, false));
-            quoteTokenInfo.available = quoteTokenInfo.available.add(_calcScaledAmount(response.quote, false));
+            baseTokenInfo.available = baseTokenInfo.available.sub(_calcScaledAmount(pool, response.base, false));
+            quoteTokenInfo.available = quoteTokenInfo.available.add(_calcScaledAmount(pool, response.quote, false));
         } else {
             quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
@@ -441,9 +436,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             trader, // trader
             params.baseToken, // baseToken
             // exchangedPositionSize
-            params.isBaseToQuote ? -_calcScaledAmount(response.base, false).toInt256() : response.base.toInt256(),
+            params.isBaseToQuote ? -_calcScaledAmount(pool, response.base, false).toInt256() : response.base.toInt256(),
             // costBasis
-            params.isBaseToQuote ? _calcScaledAmount(response.quote, false).toInt256() : -response.quote.toInt256(),
+            params.isBaseToQuote
+                ? _calcScaledAmount(pool, response.quote, false).toInt256()
+                : -response.quote.toInt256(),
             response.fee, // fee
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
@@ -1276,11 +1273,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 
-    function _calcScaledAmount(uint256 amount, bool isScaledUp) private view returns (uint256) {
+    // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
+    function _calcScaledAmount(
+        address pool,
+        uint256 amount,
+        bool isScaledUp
+    ) private view returns (uint256) {
         return
             isScaledUp
-                ? FullMath.mulDiv(amount, 1e6, uint256(1e6).sub(feeRatio))
-                : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
+                ? FullMath.mulDiv(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
+                : FullMath.mulDiv(amount, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)), 1e6);
     }
 
     function _calcOwedFee(
