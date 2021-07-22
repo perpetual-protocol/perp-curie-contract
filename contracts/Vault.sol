@@ -8,12 +8,16 @@ import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { ClearingHouse } from "./ClearingHouse.sol";
 
 contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for int256;
     using SignedSafeMath for int256;
+
+    event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
+    event Withdrawn(address indexed collateralToken, address indexed account, uint256 amount);
 
     address public immutable settlementToken;
     address public clearingHouse;
@@ -36,7 +40,11 @@ contract Vault is ReentrancyGuard, Ownable {
     mapping(address => bool) private _collateralTokenMap;
     address[] private _collateralTokens;
 
-    event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
+    modifier onlyClearingHouse() {
+        // V_OCH only ClearingHouse
+        require(clearingHouse == _msgSender(), "V_OCH");
+        _;
+    }
 
     constructor(address settlementTokenArg) {
         settlementToken = settlementTokenArg;
@@ -65,21 +73,20 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
-        int256 pnl = ISettlement(clearingHouse).settle(_msgSender());
-        // TODO add profit to balance, or decrease balance if loss. if settlement token is not enough, add to debt
-        revert("TBD");
-    }
+        // TODO if the balanceOf(token) is less than amount, should swap or revert?
 
-    function getFreeCollateral(address account) public view returns (uint256) {
-        int256 requiredCollateral = ISettlement(clearingHouse).getRequiredCollateral(account);
-        int256 totalCollateralValue = balanceOf(account).toInt256();
+        address trader = _msgSender();
+        // CH_NEFC: not enough free collateral
+        require(
+            ClearingHouse(clearingHouse).getFreeCollateral(trader) >= _getValueInSettlementToken(token, amount),
+            "V_NEFC"
+        );
+        // V_NEB: not enough balance
+        require(_getBalance(trader, token) >= amount, "V_NEB");
 
-        if (requiredCollateral >= totalCollateralValue) {
-            return 0;
-        }
-
-        // totalCollateralValue > requiredCollateral
-        return totalCollateralValue.sub(requiredCollateral).toUint256();
+        _decreaseBalance(trader, token, amount);
+        TransferHelper.safeTransfer(token, trader, amount);
+        emit Withdrawn(token, trader, amount);
     }
 
     function balanceOf(address account) public view returns (uint256) {
@@ -130,5 +137,12 @@ contract Vault is ReentrancyGuard, Ownable {
 
     function _getBalance(address account, address token) private view returns (uint256) {
         return _balance[account][token];
+    }
+
+    function _getValueInSettlementToken(address token, uint256 amount) private view returns (uint256) {
+        // TODO support non-settlement tokens, need a Oracle
+        // V_NS: only settlement token for now
+        require(token == settlementToken, "V_OSTFN");
+        return amount;
     }
 }

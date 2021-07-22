@@ -42,11 +42,11 @@ describe("ClearingHouse.burn", () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, toWei(10))
             await deposit(alice, vault, 10, collateral)
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(10))
 
             // alice mints 10 quote
             await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(9))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(9))
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 toWei(10), // available
                 toWei(10), // debt
@@ -63,7 +63,7 @@ describe("ClearingHouse.burn", () => {
                 toWei(0), // debt
             ])
 
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(10))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -154,7 +154,7 @@ describe("ClearingHouse.burn", () => {
             // ])
 
             // const profit = aliceQuoteAvailableAfter.sub(aliceQuoteAvailableBefore)
-            // expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10).add(profit))
+            // expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(10).add(profit))
         })
 
         it("# burn quote 10 when debt = 10, available < 10", async () => {
@@ -239,7 +239,7 @@ describe("ClearingHouse.burn", () => {
             // alice mints 10 base
             await clearingHouse.connect(alice).mint(baseToken.address, toWei(10))
             // TODO: the index price of base is hardcoded as $100
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(900))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(900))
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 toWei(10), // available
                 toWei(10), // debt
@@ -256,7 +256,7 @@ describe("ClearingHouse.burn", () => {
                 toWei(0), // debt
             ])
 
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(1000))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(1000))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
