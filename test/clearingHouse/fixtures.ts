@@ -2,7 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool, Vault } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
-import { tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: ClearingHouse
@@ -14,6 +14,9 @@ interface ClearingHouseFixture {
     quoteToken: BaseToken
     baseToken: BaseToken
     mockedBaseAggregator: MockContract
+    baseToken2: BaseToken
+    mockedBaseAggregator2: MockContract
+    pool2: UniswapV3Pool
 }
 
 interface UniswapV3BrokerFixture {
@@ -65,15 +68,36 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         await baseToken.setMinter(clearingHouse.address)
         await quoteToken.setMinter(clearingHouse.address)
 
-        // deploy a pool
+        // prepare uniswap factory
         const feeTier = 10000
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
-        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
-
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+
+        // deploy a pool
+        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
-        return { clearingHouse, vault, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken, mockedBaseAggregator }
+        // deploy another pool
+        const _token0Fixture = await token0Fixture(quoteToken.address)
+        const baseToken2 = _token0Fixture.baseToken
+        const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
+        const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)
+        const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
+
+        return {
+            clearingHouse,
+            vault,
+            uniV3Factory,
+            pool,
+            feeTier,
+            USDC,
+            quoteToken,
+            baseToken,
+            mockedBaseAggregator,
+            baseToken2,
+            mockedBaseAggregator2,
+            pool2,
+        }
     }
 }
 
