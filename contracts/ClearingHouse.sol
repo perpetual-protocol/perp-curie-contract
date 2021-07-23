@@ -285,9 +285,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
         TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
 
-        // CH_IA: invalid amount
-        // can only burn the amount of debt that can be pay back with available
-        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
+        // CH_BTM: burn too much; can only burn the amount of debt that can be paid back with available
+        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_BTM");
 
         // pay back debt
         tokenInfo.available = tokenInfo.available.sub(amount);
