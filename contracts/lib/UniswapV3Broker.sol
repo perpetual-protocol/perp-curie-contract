@@ -304,7 +304,7 @@ library UniswapV3Broker {
     }
 
     // copied from UniswapV3-core
-    function getNextInitializedTickWithinOneWordBaseToQuote(
+    function getNextInitializedTickWithinOneWord(
         address pool,
         int24 tick,
         int24 tickSpacing

@@ -40,8 +40,8 @@ library Tick {
     function cross(
         mapping(int24 => uint256) storage self,
         int24 tick,
-        uint256 feeGrowthGlobalBaseToQuoteX128
+        uint256 feeGrowthGlobalX128
     ) internal {
-        self[tick] = feeGrowthGlobalBaseToQuoteX128 - self[tick];
+        self[tick] = feeGrowthGlobalX128 - self[tick];
     }
 }

@@ -342,6 +342,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     params.sqrtPriceLimitX96
                 )
             );
+            int24 endingTick = UniswapV3Broker.getTick(pool);
             uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
 
             SwapState memory state =
@@ -363,18 +364,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
                 // find next tick
                 // note the search is bounded in one word
-                // TODO see if we also need a tickBitmap mapping
-                (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker
-                    .getNextInitializedTickWithinOneWordBaseToQuote(
+                (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
                     pool,
                     state.tick,
                     UniswapV3Broker.getTickSpacing(pool)
                 );
 
                 // get the next price of this step (either next tick's price or the ending price)
+                // use sqrtPrice instead of tick is more precise
                 step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
                 if (step.nextSqrtPriceX96 < endingSqrtMarkPriceX96) {
                     step.nextSqrtPriceX96 = endingSqrtMarkPriceX96;
+                    step.nextTick = endingTick;
                 }
 
                 // find the next swap checkpoint
