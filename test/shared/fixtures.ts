@@ -82,6 +82,14 @@ export async function tokensFixture(): Promise<TokensFixture> {
     }
 }
 
+export async function token0Fixture(token1Addr: string): Promise<BaseTokenFixture> {
+    let token0Fixture: BaseTokenFixture
+    while (!token0Fixture || !isAscendingTokenOrder(token0Fixture.baseToken.address, token1Addr)) {
+        token0Fixture = await createTokenFixture("RandomTestToken0", "randomToken0")()
+    }
+    return token0Fixture
+}
+
 export async function base0Quote1PoolFixture(): Promise<PoolFixture> {
     const { token0, token1 } = await tokensFixture()
     const factory = await uniswapV3FactoryFixture()
