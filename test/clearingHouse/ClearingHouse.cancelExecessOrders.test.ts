@@ -66,7 +66,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         ])
     })
 
-    describe.only("cancel alice's all open orders (single order)", () => {
+    describe("cancel alice's all open orders (single order)", () => {
         beforeEach(async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
