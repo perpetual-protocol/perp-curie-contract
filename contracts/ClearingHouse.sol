@@ -1196,28 +1196,18 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 uint256 amount;
                 uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                 uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-                if (fetchBase) {
-                    if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
-                        if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
-                            sqrtPriceAtLowerTick = sqrtMarkPriceX96;
-                        }
-                        amount = UniswapV3Broker.getAmount0ForLiquidity(
-                            sqrtPriceAtLowerTick,
-                            sqrtPriceAtUpperTick,
-                            order.liquidity
-                        );
-                    }
-                } else {
-                    if (sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
-                        if (sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
-                            sqrtPriceAtUpperTick = sqrtMarkPriceX96;
-                        }
-                        amount = UniswapV3Broker.getAmount1ForLiquidity(
-                            sqrtPriceAtLowerTick,
-                            sqrtPriceAtUpperTick,
-                            order.liquidity
-                        );
-                    }
+                if (fetchBase && sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
+                    amount = UniswapV3Broker.getAmount0ForLiquidity(
+                        sqrtMarkPriceX96 > sqrtPriceAtLowerTick ? sqrtMarkPriceX96 : sqrtPriceAtLowerTick,
+                        sqrtPriceAtUpperTick,
+                        order.liquidity
+                    );
+                } else if (!fetchBase && sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
+                    amount = UniswapV3Broker.getAmount1ForLiquidity(
+                        sqrtPriceAtLowerTick,
+                        sqrtMarkPriceX96 < sqrtPriceAtUpperTick ? sqrtMarkPriceX96 : sqrtPriceAtUpperTick,
+                        order.liquidity
+                    );
                 }
                 tokenAmount = tokenAmount.add(amount);
             }
