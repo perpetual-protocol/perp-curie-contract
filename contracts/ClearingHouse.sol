@@ -456,7 +456,7 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientBase) {
-                burn(params.baseToken, minted.sub(exactInsufficientBase));
+                _burn(trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
         } else {
             uint256 exactInsufficientQuote;
@@ -465,7 +465,7 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientQuote) {
-                burn(quoteToken, minted.sub(exactInsufficientQuote));
+                _burn(trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
 
@@ -475,7 +475,7 @@ contract ClearingHouse is
             TokenInfo memory quoteTokenInfo = getTokenInfo(_msgSender(), quoteToken);
             uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
             // TODO combine 2 potential burn into 1
-            burn(quoteToken, burnableAmount);
+            _burn(trader, quoteToken, burnableAmount);
         } else {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
@@ -842,6 +842,7 @@ contract ClearingHouse is
         address token,
         uint256 amount
     ) private {
+        // @audit i think we can remove this (@wraecca)
         _requireValidAmount(amount);
 
         // TODO could be optimized by letting the caller trigger it.
