@@ -40,7 +40,6 @@ library UniswapV3Broker {
         uint256 base;
         uint256 quote;
         uint128 liquidity;
-        uint256 feeGrowthInsideBaseX128;
         uint256 feeGrowthInsideQuoteX128;
     }
 
@@ -54,7 +53,6 @@ library UniswapV3Broker {
     struct RemoveLiquidityResponse {
         uint256 base; // amount of base token received from burning the liquidity (excl. fee)
         uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
-        uint256 feeGrowthInsideBaseX128;
         uint256 feeGrowthInsideQuoteX128;
     }
 
@@ -105,12 +103,10 @@ library UniswapV3Broker {
                 );
 
             // fetch the fee growth state if this has liquidity
-            (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+            uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
 
             response.base = addedAmount0;
             response.quote = addedAmount1;
-            response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
             response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
         }
     }
@@ -134,13 +130,11 @@ library UniswapV3Broker {
 
         // TODO: feeGrowthInside{01}LastX128 would be reset to 0 after pool.burn(0)?
         // fetch the fee growth state if this has liquidity
-        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+        uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
         response.base = amount0Burned;
         response.quote = amount1Burned;
-        response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
         response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
     }
 
@@ -280,52 +274,24 @@ library UniswapV3Broker {
         return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
     }
 
-    /// copied from UniswapV3-core
-    /// @notice Retrieves fee growth data
-    /// @param lowerTick The lower tick boundary of the position
-    /// @param upperTick The upper tick boundary of the position
-    /// @param currentTick The current tick
-    /// @return feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity,
-    ///         inside the position's tick boundaries
-    /// @return feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity,
-    ///         inside the position's tick boundaries
-    function getFeeGrowthInside(
+    // assuming token1 == quote token
+    function getFeeGrowthInsideQuote(
         address pool,
         int24 lowerTick,
         int24 upperTick,
         int24 currentTick
-    ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
-        (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
-            IUniswapV3Pool(pool).ticks(lowerTick);
-        (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
-            IUniswapV3Pool(pool).ticks(upperTick);
-        uint256 feeGrowthGlobal0X128 = IUniswapV3Pool(pool).feeGrowthGlobal0X128();
+    ) internal view returns (uint256 feeGrowthInsideQuoteX128) {
+        (, , , uint256 lowerFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(lowerTick);
+        (, , , uint256 upperFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(upperTick);
         uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
 
-        // calculate fee growth below
-        uint256 feeGrowthBelow0X128;
-        uint256 feeGrowthBelow1X128;
-        if (currentTick >= lowerTick) {
-            feeGrowthBelow0X128 = lowerFeeGrowthOutside0X128;
-            feeGrowthBelow1X128 = lowerFeeGrowthOutside1X128;
-        } else {
-            feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
-            feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
-        }
+        uint256 feeGrowthBelow =
+            currentTick >= lowerTick ? lowerFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
+        uint256 feeGrowthAbove =
+            currentTick < upperTick ? upperFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
 
-        // calculate fee growth above
-        uint256 feeGrowthAbove0X128;
-        uint256 feeGrowthAbove1X128;
-        if (currentTick < upperTick) {
-            feeGrowthAbove0X128 = upperFeeGrowthOutside0X128;
-            feeGrowthAbove1X128 = upperFeeGrowthOutside1X128;
-        } else {
-            feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
-            feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
-        }
-
-        feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
-        feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
+        // this value can underflow per feeGrowthOutside specs
+        return feeGrowthGlobal1X128 - feeGrowthBelow - feeGrowthAbove;
     }
 
     function calcFee(address pool, uint256 amount) internal view returns (uint256) {
@@ -359,11 +325,11 @@ library UniswapV3Broker {
             : (compressed - int24(bitPos)) * tickSpacing;
     }
 
-    function _getFeeGrowthInside(
+    function _getFeeGrowthInsideLast(
         address pool,
         int24 lowerTick,
         int24 upperTick
-    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
+    ) private view returns (uint256 feeGrowthInside1LastX128) {
         // FIXME
         // check if the case sensitive of address(this) break the PositionKey computing
         // get this' positionKey
@@ -371,7 +337,7 @@ library UniswapV3Broker {
 
         // get feeGrowthInside{0,1}LastX128
         // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
-        (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+        (, , feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
     function _position(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {

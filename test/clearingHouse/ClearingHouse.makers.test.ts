@@ -111,7 +111,6 @@ describe("ClearingHouse with makers within same range", () => {
                     0,
                     "-999999999999999999999", // ~= -1,000
                     liquidity.mul(-1).toString(),
-                    "49999999999999999", // ~half of the total vETH fee
                     "7512656479464227918", // TODO need a spreadsheet to verify
                 )
         })

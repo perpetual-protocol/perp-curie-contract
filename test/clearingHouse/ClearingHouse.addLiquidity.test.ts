@@ -79,7 +79,6 @@ describe("ClearingHouse", () => {
                         toWei(10000, await quoteToken.decimals()),
                         "81689571696303801037492",
                         0,
-                        0,
                     )
 
                 // verify account states
@@ -139,7 +138,6 @@ describe("ClearingHouse", () => {
                         0,
                         toWei(10000, await quoteToken.decimals()),
                         "81689571696303801037492",
-                        0,
                         0,
                     )
 
@@ -202,7 +200,6 @@ describe("ClearingHouse", () => {
                         0,
                         "123656206035422669342231",
                         0,
-                        0,
                     )
 
                 // verify account states
@@ -263,7 +260,6 @@ describe("ClearingHouse", () => {
                         0,
                         "123656206035422669342231",
                         0,
-                        0,
                     )
 
                 // verify account states
@@ -323,7 +319,6 @@ describe("ClearingHouse", () => {
                         toWei("66.061845430469484023", await baseToken.decimals()),
                         toWei(10000, await quoteToken.decimals()),
                         "81689571696303801018159",
-                        0,
                         0,
                     )
 
@@ -386,7 +381,6 @@ describe("ClearingHouse", () => {
                         toWei(50, await baseToken.decimals()),
                         "7568665342936161336147",
                         "61828103017711334685748",
-                        0,
                         0,
                     )
 

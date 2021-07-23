@@ -102,7 +102,6 @@ describe("ClearingHouse", () => {
                         0,
                         "-123656206035422669342231",
                         0,
-                        0,
                     )
 
                 // WIP verify account states
@@ -167,7 +166,6 @@ describe("ClearingHouse", () => {
                         "-9999999999999999999999", // ~= -10,000
                         "-81689571696303801037492",
                         0,
-                        0,
                     )
 
                 // verify account states
@@ -230,7 +228,6 @@ describe("ClearingHouse", () => {
                         toWei("-66.061845430469484022", await baseToken.decimals()),
                         "-9999999999999999999999",
                         "-81689571696303801018159",
-                        0,
                         0,
                     )
 
@@ -406,7 +403,7 @@ describe("ClearingHouse", () => {
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
-                    .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0, 0)
+                    .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
@@ -496,7 +493,6 @@ describe("ClearingHouse", () => {
                             "0",
                             "0",
                             "0",
-                            "4125357782999",
                             "0",
                         )
 
@@ -593,7 +589,6 @@ describe("ClearingHouse", () => {
                             quoteToken.address,
                             Number(lowerTick),
                             Number(upperTick),
-                            "0",
                             "0",
                             "0",
                             "0",
@@ -702,7 +697,6 @@ describe("ClearingHouse", () => {
                             "0",
                             "0",
                             "0",
-                            parseEther("0.000007582881392999"),
                             parseEther("0.001135501474999999"),
                         )
 
@@ -836,7 +830,6 @@ describe("ClearingHouse", () => {
                                 "0",
                                 "0",
                                 "0",
-                                parseEther("0.000005687161044749"),
                                 parseEther("0.000851626106249999"),
                             )
 
@@ -853,7 +846,6 @@ describe("ClearingHouse", () => {
                                 "0",
                                 "0",
                                 "0",
-                                parseEther("0.000001895720348249"),
                                 parseEther("0.000283875368749999"),
                             )
 
@@ -988,7 +980,6 @@ describe("ClearingHouse", () => {
                                 // can also use: "-" + liquidityCarol.toString()
                                 "-999999999994411796",
                                 "0",
-                                "0",
                             )
 
                         // bob swap
@@ -1035,7 +1026,6 @@ describe("ClearingHouse", () => {
                                 "0",
                                 "0",
                                 "0",
-                                parseEther("0.000007582881392999"),
                                 parseEther("0.001135501474999999"),
                             )
 
@@ -1199,7 +1189,6 @@ describe("ClearingHouse", () => {
                             "0",
                             "0",
                             "0",
-                            parseEther("0.000014798644443168"),
                             parseEther("0.002235662055384689"),
                         )
 
@@ -1224,7 +1213,6 @@ describe("ClearingHouse", () => {
                             "0",
                             "0",
                             "0",
-                            parseEther("0.000008250715565656"),
                             parseEther("0.001236511575615311"),
                         )
 

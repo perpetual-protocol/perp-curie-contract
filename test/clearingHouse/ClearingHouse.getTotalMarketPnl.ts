@@ -285,7 +285,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
 
-        it.only("maker open a short position then verify maker's pnl", async () => {
+        it("maker open a short position then verify maker's pnl", async () => {
             // maker open a short position
             await clearingHouse.connect(maker).openPosition({
                 baseToken: baseToken.address,
