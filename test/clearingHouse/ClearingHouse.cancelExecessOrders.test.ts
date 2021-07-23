@@ -66,18 +66,24 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         ])
     })
 
-    it("cancel alice's all open orders (single order)", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
+    describe.only("cancel alice's all open orders (single order)", () => {
+        beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100000", 6), 0, 0, 0]
+            })
+
+            await clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address)
         })
 
-        // bob as a keeper
-        await expect(
-            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address),
-        ).to.be.not.revertedWith("CH_EAV")
+        it("has 0 open orders left", async () => {
+            const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+            expect(openOrderIds).to.deep.eq([])
+        })
 
-        const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIds).to.deep.eq([])
+        it("has either 0 base-available or 0 base-debt left", async () => {
+            const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(toWei(0))
+        })
     })
 
     it("cancel alice's all open orders (multiple orders)", async () => {
