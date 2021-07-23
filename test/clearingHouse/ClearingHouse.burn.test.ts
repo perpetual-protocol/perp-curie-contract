@@ -224,8 +224,6 @@ describe("ClearingHouse.burn", () => {
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(quoteToken.address, 0)).to.be.revertedWith("CH_AI0")
         })
     })
 
@@ -404,8 +402,6 @@ describe("ClearingHouse.burn", () => {
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(baseToken.address, 0)).to.be.revertedWith("CH_AI0")
         })
     })
 })
