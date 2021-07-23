@@ -469,13 +469,10 @@ contract ClearingHouse is
             }
         }
 
-        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        TokenInfo memory baseTokenInfo = getTokenInfo(trader, params.baseToken);
         // if it's closing the position, settle the quote to realize pnl of that market
         if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            TokenInfo memory quoteTokenInfo = getTokenInfo(_msgSender(), quoteToken);
-            uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
-            // TODO combine 2 potential burn into 1
-            _burn(trader, quoteToken, burnableAmount);
+            _burnMax(trader, quoteToken);
         } else {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
@@ -597,9 +594,11 @@ contract ClearingHouse is
             );
 
             // burn maker's debt to reduce maker's init margin requirement
-            TokenInfo memory baseTokenInfo = getTokenInfo(maker, baseToken);
-            _burn(maker, baseToken, Math.min(baseTokenInfo.available, baseTokenInfo.debt));
+            _burnMax(maker, baseToken);
         }
+
+        // burn maker's quote to reduce maker's init margin requirement
+        _burnMax(maker, quoteToken);
     }
 
     function settle(address account) external override returns (int256 pnl) {
@@ -809,7 +808,9 @@ contract ClearingHouse is
         uint256 amount,
         bool checkMarginRatio
     ) private returns (uint256) {
-        _requireValidAmount(amount);
+        if (amount == 0) {
+            return 0;
+        }
 
         // update internal states
         address account = _msgSender();
@@ -842,13 +843,14 @@ contract ClearingHouse is
         address token,
         uint256 amount
     ) private {
-        // @audit i think we can remove this (@wraecca)
-        _requireValidAmount(amount);
-
         // TODO could be optimized by letting the caller trigger it.
         //  Revise after we have defined the user-facing functions.
         if (token != quoteToken) {
             _settleFunding(account, token);
+        }
+
+        if (amount == 0) {
+            return;
         }
 
         TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
@@ -891,6 +893,11 @@ contract ClearingHouse is
         }
 
         return _mint(token, minted, false);
+    }
+
+    function _burnMax(address account, address token) private {
+        TokenInfo memory tokenInfo = getTokenInfo(account, token);
+        _burn(account, token, Math.min(tokenInfo.available, tokenInfo.debt));
     }
 
     function _registerBaseToken(address trader, address token) private {
@@ -1194,11 +1201,6 @@ contract ClearingHouse is
             baseFee,
             quoteFee
         );
-    }
-
-    function _requireValidAmount(uint256 amount) private pure {
-        // CH_IA: amount is 0
-        require(amount > 0, "CH_AI0");
     }
 
     // @audit - suggest rename to _requireHasToken or _requireTokenExist
