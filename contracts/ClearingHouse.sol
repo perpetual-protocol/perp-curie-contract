@@ -399,10 +399,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 if (step.isNextTickInitialized) {
                     // update the tick if it has been initialized
                     mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
-
-                    // note here should be feeGrowthGlobalX128 instead of state.feeGrowthGlobalX128
-                    // tickMap.cross(step.nextTick, feeGrowthGlobalX128);
-                    tickMap.cross(step.nextTick, isBaseToQuote ? feeGrowthGlobalX128 : state.feeGrowthGlobalX128);
+                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
                     if (isBaseToQuote) liquidityNet = -liquidityNet;
@@ -1097,6 +1094,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
         console.log("openOrder.liquidity", openOrder.liquidity);
+        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
         uint256 quoteFeeClearingHouse =
             _calcOwedFee(
                 openOrder.liquidity,

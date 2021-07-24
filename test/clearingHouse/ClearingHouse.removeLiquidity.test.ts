@@ -745,7 +745,7 @@ describe("ClearingHouse", () => {
 
             describe("multi makers", () => {
                 // expect to have more tests
-                it.only("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
+                it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -995,10 +995,10 @@ describe("ClearingHouse", () => {
                     }
 
                     // B2QFee: expect 50% of 1% of quote in range (50000, 50200) in ClearingHouse = 0.244829292 * 0.5 * 0.01 = 0.00122414646
-                    // eB2QFee: expect 100% of 1% of base in range (50200, 50400) in ClearingHouse = 0.09891589745 * 0.01 = 0.0009891589745
-                    // base sum: 0.00122414646 + 0.0009891589745 = 0.002213305435
-                    // expect 50% of 1% of quote in range (50000, 50200) = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
-                    // expect 100% of 1% of quote in range (50200, 50400) = 0.09891589745 / 0.99 * 0.01 = 0.0009991504793
+                    // B2QFee: expect 100% of 1% of quote in range (50200, 50400) in ClearingHouse = 0.09891589745 * 0.01 = 0.0009891589745
+                    // quote fee sum: 0.00122414646 + 0.0009891589745 = 0.002213305435
+                    // Q2BFee: expect 50% of 1% of quote in range (50000, 50200) in Uniswap = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
+                    // Q2BFee: expect 100% of 1% of quote in range (50200, 50400) in Uniswap = 0.09891589745 / 0.99 * 0.01 = 0.0009991504793
                     // quote sum: 0.001236511576 + 0.0009991504793 = 0.002235662055
                     // 0.002213305435 + 0.002235662055 = 0.00444896749
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParamsAlice))
@@ -1024,7 +1024,7 @@ describe("ClearingHouse", () => {
                     }
 
                     // B2QFee: expect 50% of 1% of quote in range (50000, 50200) in ClearingHouse = 0.244829292 * 0.5 * 0.01 = 0.00122414646
-                    // B2QFee: expect 50% of 1% of quote in range (50000, 50200) in Uniswap = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
+                    // Q2BFee: expect 50% of 1% of quote in range (50000, 50200) in Uniswap = 0.244829292 / 0.99 * 0.5 * 0.01 = 0.001236511576
                     // 0.00122414646 + 0.001236511576 = 0.002460658036
                     await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
                         .to.emit(clearingHouse, "LiquidityChanged")
@@ -1037,7 +1037,7 @@ describe("ClearingHouse", () => {
                             "0",
                             "0",
                             "0",
-                            parseEther("0.001236511575615311"),
+                            parseEther("0.002460658034826346"),
                         )
 
                     console.log("alice stats:")
