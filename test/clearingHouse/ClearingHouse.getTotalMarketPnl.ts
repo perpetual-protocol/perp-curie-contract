@@ -203,7 +203,6 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         })
     })
 
-    // TODO: maker's pnl
     describe("maker", () => {
         it("verify maker's pnl when price goes up", async () => {
             // taker1 open a long position
@@ -319,7 +318,6 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             //   cost basis = 9900 + 99 + 1 - 10000 = 0
             //   pnl = 0 + 0 = 0
 
-            // TODO this would fail atm because getCostBasis() does not include CH quote fee yet
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
     })

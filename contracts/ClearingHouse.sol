@@ -24,6 +24,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Tick } from "./lib/Tick.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -160,9 +161,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     }
 
     struct SwapState {
-        int256 amountSpecifiedRemaining;
-        uint160 sqrtPriceX96;
         int24 tick;
+        uint160 sqrtPriceX96;
+        int256 amountSpecifiedRemaining;
         uint256 feeGrowthGlobalX128;
         uint128 liquidity;
     }
@@ -300,132 +301,128 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
-        _requireTokenExistent(params.baseToken);
+        address baseTokenAddr = params.baseToken;
+        _requireTokenExistent(baseTokenAddr);
 
         address trader = _msgSender();
-
-        _registerBaseToken(trader, params.baseToken);
+        _registerBaseToken(trader, baseTokenAddr);
 
         // TODO could be optimized by letting the caller trigger it.
         // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(trader, params.baseToken);
+        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
 
-        address pool = _poolMap[params.baseToken];
-        UniswapV3Broker.SwapResponse memory response;
-        if (!params.isBaseToQuote) {
-            response = UniswapV3Broker.swap(
+        address pool = _poolMap[baseTokenAddr];
+        bool isBaseToQuote = params.isBaseToQuote;
+
+        uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseTokenAddr];
+        uint160 initialSqrtPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        SwapState memory state =
+            // we are going to replay by swapping "exactOutput" with the quote received
+            // TODO in UniswapV3Broker, response.quote is forced into uint256; see if that's unnecessary
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: initialSqrtPriceX96,
+                amountSpecifiedRemaining: 0,
+                feeGrowthGlobalX128: feeGrowthGlobalX128,
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        UniswapV3Broker.SwapResponse memory response =
+            UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
-                    params.baseToken,
+                    baseTokenAddr,
                     quoteToken,
-                    false,
+                    isBaseToQuote,
                     params.isExactInput,
-                    params.amount,
+                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
             );
-        } else {
-            // isBaseToQuote -> change base fee to quote fee
-            int24 initialTick = UniswapV3Broker.getTick(pool);
-            uint160 initialSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
-            uint128 initialLiquidity = UniswapV3Broker.getLiquidity(pool);
+        state.amountSpecifiedRemaining = -(response.quote.toInt256());
+        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
 
-            response = UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    pool,
-                    params.baseToken,
-                    quoteToken,
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    _calcScaledAmount(pool, params.amount, true),
-                    params.sqrtPriceLimitX96
-                )
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                state.tick,
+                isBaseToQuote,
+                UniswapV3Broker.getTickSpacing(pool)
             );
-            int24 endingTick = UniswapV3Broker.getTick(pool);
-            uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
 
-            SwapState memory state =
-                // we are going to reply by swapping "exactOut" with the quote received
-                // TODO in UniswapV3Broker, response.quote is forced into uint256; see if that's unnecessary
-                SwapState({
-                    amountSpecifiedRemaining: -(response.quote.toInt256()),
-                    sqrtPriceX96: initialSqrtMarkPriceX96,
-                    tick: initialTick,
-                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: initialLiquidity
-                });
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
 
-            // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
-            // which is safer for the system
-            while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
-                SwapStep memory step;
-                step.initialSqrtPriceX96 = state.sqrtPriceX96;
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
+                state.sqrtPriceX96,
+                (
+                    isBaseToQuote
+                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
+                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
+                )
+                    ? endingSqrtMarkPriceX96
+                    : step.nextSqrtPriceX96,
+                // step.nextSqrtPriceX96,
+                state.liquidity,
+                state.amountSpecifiedRemaining,
+                UniswapV3Broker.getUniswapFeeRatio(pool)
+            );
 
-                // find next tick
-                // note the search is bounded in one word
-                (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                    pool,
-                    state.tick,
-                    UniswapV3Broker.getTickSpacing(pool)
+            state.amountSpecifiedRemaining += step.amountOut.toInt256();
+
+            // update global fee growth if there is liquidity in this range
+            if (state.liquidity > 0) {
+                state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                    FullMath.mulDiv(step.amountOut, UniswapV3Broker.getUniswapFeeRatio(pool), 1e6),
+                    FixedPoint128.Q128,
+                    state.liquidity
                 );
-
-                // get the next price of this step (either next tick's price or the ending price)
-                // use sqrtPrice instead of tick is more precise
-                step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-                if (step.nextSqrtPriceX96 < endingSqrtMarkPriceX96) {
-                    step.nextSqrtPriceX96 = endingSqrtMarkPriceX96;
-                    step.nextTick = endingTick;
-                }
-
-                // find the next swap checkpoint
-                // (either reached the next price of this step, or exhausted remaining amount specified)
-                (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
-                    state.sqrtPriceX96,
-                    step.nextSqrtPriceX96,
-                    state.liquidity,
-                    state.amountSpecifiedRemaining,
-                    UniswapV3Broker.getUniswapFeeRatio(pool)
-                );
-
-                state.amountSpecifiedRemaining += step.amountOut.toInt256();
-
-                // update global fee growth if there is liquidity in this range
-                if (state.liquidity > 0) {
-                    state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                        FullMath.mulDiv(step.amountOut, UniswapV3Broker.getUniswapFeeRatio(pool), 1e6),
-                        FixedPoint128.Q128,
-                        state.liquidity
-                    );
-                }
-
-                // we have reached the tick's boundary
-                if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
-                    if (step.isNextTickInitialized) {
-                        // update the tick if it has been initialized
-                        mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
-                        tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
-
-                        state.liquidity = LiquidityMath.addDelta(
-                            state.liquidity,
-                            // we are crossing the tick from right to left
-                            -UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick)
-                        );
-                    }
-
-                    // we've crossed the tick boundary from now on
-                    state.tick = step.nextTick - 1;
-                }
             }
 
-            // swap state transitions are all done, update the global states
-            _feeGrowthGlobalX128Map[params.baseToken] = state.feeGrowthGlobalX128;
+            // we have reached the tick's boundary
+            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                if (step.isNextTickInitialized) {
+                    // update the tick if it has been initialized
+                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
+
+                    // note here should be feeGrowthGlobalX128 instead of state.feeGrowthGlobalX128
+                    // tickMap.cross(step.nextTick, feeGrowthGlobalX128);
+                    tickMap.cross(step.nextTick, isBaseToQuote ? feeGrowthGlobalX128 : state.feeGrowthGlobalX128);
+
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    if (isBaseToQuote) liquidityNet = -liquidityNet;
+                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+                }
+
+                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (state.sqrtPriceX96 != initialSqrtPriceX96) {
+                // TODO verify is this is necessary
+                // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
+                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+            }
+        }
+
+        // TODO confirm whether the condition is necessary
+        if (isBaseToQuote) {
+            // update global states since swap state transitions are all done
+            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
         }
 
         // update internal states
-        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
-        if (params.isBaseToQuote) {
+        if (isBaseToQuote) {
             baseTokenInfo.available = baseTokenInfo.available.sub(_calcScaledAmount(pool, response.base, false));
             quoteTokenInfo.available = quoteTokenInfo.available.add(_calcScaledAmount(pool, response.quote, false));
         } else {
@@ -435,13 +432,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
         emit Swapped(
             trader, // trader
-            params.baseToken, // baseToken
+            baseTokenAddr, // baseToken
             // exchangedPositionSize
-            params.isBaseToQuote ? -_calcScaledAmount(pool, response.base, false).toInt256() : response.base.toInt256(),
+            isBaseToQuote ? -_calcScaledAmount(pool, response.base, false).toInt256() : response.base.toInt256(),
             // costBasis
-            params.isBaseToQuote
-                ? _calcScaledAmount(pool, response.quote, false).toInt256()
-                : -response.quote.toInt256(),
+            isBaseToQuote ? _calcScaledAmount(pool, response.quote, false).toInt256() : -response.quote.toInt256(),
             response.fee, // fee
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
@@ -1094,6 +1089,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 UniswapV3Broker.getTick(pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
+        console.log("openOrder.liquidity", openOrder.liquidity);
         uint256 quoteFeeClearingHouse =
             _calcOwedFee(
                 openOrder.liquidity,
@@ -1106,6 +1102,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 response.feeGrowthInsideQuoteX128,
                 openOrder.feeGrowthInsideUniswapLastX128
             );
+
+        console.log("feeGrowthInsideClearingHouseX128", feeGrowthInsideClearingHouseX128);
+        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
+        console.log("quoteFeeClearingHouse", quoteFeeClearingHouse);
+        console.log("quoteFeeUniswap", quoteFeeUniswap);
 
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(

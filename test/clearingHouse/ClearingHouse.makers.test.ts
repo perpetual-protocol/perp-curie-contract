@@ -58,7 +58,7 @@ describe("ClearingHouse with makers within same range", () => {
         it("get 50% of token if maker owns 50% of the liquidity", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
 
-            // alice bob as maker
+            // alice and bob are makers
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: 0,

@@ -1,4 +1,5 @@
 pragma solidity 0.7.6;
+import "hardhat/console.sol";
 
 library Tick {
     function getFeeGrowthInside(
@@ -15,6 +16,17 @@ library Tick {
             currentTick >= lowerTick ? lowerFeeGrowthOutside : feeGrowthGlobalX128 - lowerFeeGrowthOutside;
         uint256 feeGrowthAbove =
             currentTick < upperTick ? upperFeeGrowthOutside : feeGrowthGlobalX128 - upperFeeGrowthOutside;
+
+        console.log("--------------------");
+        console.log("lowerTick", uint256(lowerTick));
+        console.log("upperTick", uint256(upperTick));
+        console.log("currentTick", uint256(currentTick));
+        console.log("feeGrowthGlobalX128", feeGrowthGlobalX128);
+        console.log("lowerFeeGrowthOutside", lowerFeeGrowthOutside);
+        console.log("upperFeeGrowthOutside", upperFeeGrowthOutside);
+        console.log("feeGrowthBelow", feeGrowthBelow);
+        console.log("feeGrowthAbove", feeGrowthAbove);
+        console.log("--------------------");
 
         // this value can underflow per feeGrowthOutside specs
         return feeGrowthGlobalX128 - feeGrowthBelow - feeGrowthAbove;
@@ -42,6 +54,15 @@ library Tick {
         int24 tick,
         uint256 feeGrowthGlobalX128
     ) internal {
+        // console.log("");
+        // console.log("CH");
+        // console.log("cross start");
+        // console.log("tick", uint256(tick));
+        // console.log("feeGrowthGlobalX128", feeGrowthGlobalX128);
+        // console.log("before cross", self[tick]);
         self[tick] = feeGrowthGlobalX128 - self[tick];
+        // console.log("after cross", self[tick]);
+        // console.log("cross end");
+        // console.log("");
     }
 }

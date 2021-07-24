@@ -307,22 +307,38 @@ library UniswapV3Broker {
     function getNextInitializedTickWithinOneWord(
         address pool,
         int24 tick,
+        bool lte,
         int24 tickSpacing
     ) internal view returns (int24 next, bool initialized) {
         int24 compressed = tick / tickSpacing;
         if (tick < 0 && tick % tickSpacing != 0) compressed--; // round towards negative infinity
 
-        (int16 wordPos, uint8 bitPos) = _position(compressed);
-        // all the 1s at or to the right of the current bitPos
-        uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
-        uint256 masked = getTickBitmap(pool, wordPos) & mask;
+        if (lte) {
+            (int16 wordPos, uint8 bitPos) = _position(compressed);
+            // all the 1s at or to the right of the current bitPos
+            uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
+            uint256 masked = getTickBitmap(pool, wordPos) & mask;
 
-        // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
-        initialized = masked != 0;
-        // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
-        next = initialized
-            ? (compressed - int24(bitPos - BitMath.mostSignificantBit(masked))) * tickSpacing
-            : (compressed - int24(bitPos)) * tickSpacing;
+            // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
+            initialized = masked != 0;
+            // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+            next = initialized
+                ? (compressed - int24(bitPos - BitMath.mostSignificantBit(masked))) * tickSpacing
+                : (compressed - int24(bitPos)) * tickSpacing;
+        } else {
+            // start from the word of the next tick, since the current tick state doesn't matter
+            (int16 wordPos, uint8 bitPos) = _position(compressed + 1);
+            // all the 1s at or to the left of the bitPos
+            uint256 mask = ~((1 << bitPos) - 1);
+            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+
+            // if there are no initialized ticks to the left of the current tick, return leftmost in the word
+            initialized = masked != 0;
+            // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+            next = initialized
+                ? (compressed + 1 + int24(BitMath.leastSignificantBit(masked) - bitPos)) * tickSpacing
+                : (compressed + 1 + int24(type(uint8).max - bitPos)) * tickSpacing;
+        }
     }
 
     function _getFeeGrowthInsideLast(
