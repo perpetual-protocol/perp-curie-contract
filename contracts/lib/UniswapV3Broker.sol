@@ -307,8 +307,8 @@ library UniswapV3Broker {
     function getNextInitializedTickWithinOneWord(
         address pool,
         int24 tick,
-        bool lte,
-        int24 tickSpacing
+        int24 tickSpacing,
+        bool lte
     ) internal view returns (int24 next, bool initialized) {
         int24 compressed = tick / tickSpacing;
         if (tick < 0 && tick % tickSpacing != 0) compressed--; // round towards negative infinity

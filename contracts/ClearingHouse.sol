@@ -317,8 +317,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseTokenAddr];
         uint160 initialSqrtPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         SwapState memory state =
-            // we are going to replay by swapping "exactOutput" with the quote received
-            // TODO in UniswapV3Broker, response.quote is forced into uint256; see if that's unnecessary
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
                 sqrtPriceX96: initialSqrtPriceX96,
@@ -339,7 +337,14 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     params.sqrtPriceLimitX96
                 )
             );
-        state.amountSpecifiedRemaining = -(response.quote.toInt256());
+
+        // we are going to replay by swapping "exactOutput" with the output token received
+        if (isBaseToQuote) {
+            state.amountSpecifiedRemaining = -(response.quote.toInt256());
+        } else {
+            state.amountSpecifiedRemaining = -(response.base.toInt256());
+        }
+
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
@@ -353,8 +358,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
                 pool,
                 state.tick,
-                isBaseToQuote,
-                UniswapV3Broker.getTickSpacing(pool)
+                UniswapV3Broker.getTickSpacing(pool),
+                isBaseToQuote
             );
 
             // get the next price of this step (either next tick's price or the ending price)
@@ -372,7 +377,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 )
                     ? endingSqrtMarkPriceX96
                     : step.nextSqrtPriceX96,
-                // step.nextSqrtPriceX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
                 UniswapV3Broker.getUniswapFeeRatio(pool)
@@ -380,8 +384,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
             state.amountSpecifiedRemaining += step.amountOut.toInt256();
 
-            // update global fee growth if there is liquidity in this range
-            if (state.liquidity > 0) {
+            // update CH's global fee growth if there is liquidity in this range
+            // note CH only collects quote fee when swapping base -> quote
+            if (state.liquidity > 0 && isBaseToQuote) {
                 state.feeGrowthGlobalX128 += FullMath.mulDiv(
                     FullMath.mulDiv(step.amountOut, UniswapV3Broker.getUniswapFeeRatio(pool), 1e6),
                     FixedPoint128.Q128,
@@ -389,8 +394,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 );
             }
 
-            // we have reached the tick's boundary
             if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                // we have reached the tick's boundary
                 if (step.isNextTickInitialized) {
                     // update the tick if it has been initialized
                     mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
@@ -405,14 +410,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 }
 
                 state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (state.sqrtPriceX96 != initialSqrtPriceX96) {
+            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
                 // TODO verify is this is necessary
-                // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
+                // update state's tick if we are not on the boundary but the price has changed anyways since
+                // the start of this step
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
             }
         }
 
-        // TODO confirm whether the condition is necessary
+        // only update global CH fee growth when swapping base -> quote
+        // because otherwise the fee is collected by the uniswap pool instead
         if (isBaseToQuote) {
             // update global states since swap state transitions are all done
             _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
