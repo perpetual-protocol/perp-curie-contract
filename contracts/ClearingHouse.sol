@@ -333,6 +333,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     quoteToken,
                     isBaseToQuote,
                     params.isExactInput,
+                    // TODO should consider the cases for exact output
+                    // TODO should mint extra base token before swap
                     isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
@@ -538,6 +540,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         }
 
         // update token info
+        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).sub(
             response.quote
@@ -1113,6 +1116,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         console.log("quoteFeeClearingHouse", quoteFeeClearingHouse);
         console.log("quoteFeeUniswap", quoteFeeUniswap);
 
+        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(
             response.quote
