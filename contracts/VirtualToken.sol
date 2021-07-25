@@ -5,8 +5,9 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { IMintableERC20, IERC20Metadata } from "./interface/IMintableERC20.sol";
 
-contract VirtualToken is IIndexPrice, Ownable, ERC20 {
+contract VirtualToken is IIndexPrice, IMintableERC20, Ownable, ERC20 {
     using SafeMath for uint256;
 
     address public priceFeed;
@@ -30,11 +31,11 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
      *
      * See {ERC20-_burn}.
      */
-    function burn(uint256 amount) external {
+    function burn(uint256 amount) external override {
         _burn(_msgSender(), amount);
     }
 
-    function mint(address to, uint256 amount) external virtual {
+    function mint(address to, uint256 amount) external override {
         // only minter
         require(_msgSender() == minter, "VT_OM");
         _mint(to, amount);
@@ -46,6 +47,18 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
 
     function getIndexPrice(uint256 interval) external view override returns (uint256) {
         return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
+    }
+
+    function name() public view override(IERC20, IERC20Metadata) returns (string memory) {
+        return ERC20.name();
+    }
+
+    function symbol() public view override(ERC20, IERC20Metadata) returns (string memory) {
+        return ERC20.symbol();
+    }
+
+    function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
+        return ERC20.decimals();
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
