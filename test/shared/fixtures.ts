@@ -1,6 +1,6 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { TestERC20, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { UniswapV3Factory, UniswapV3Pool } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
 import { isAscendingTokenOrder } from "./utilities"
 
@@ -14,8 +14,8 @@ interface TokensFixture {
 interface PoolFixture {
     factory: UniswapV3Factory
     pool: UniswapV3Pool
-    baseToken: TestERC20
-    quoteToken: TestERC20
+    baseToken: BaseToken
+    quoteToken: BaseToken
 }
 
 interface BaseTokenFixture {
