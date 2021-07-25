@@ -6,7 +6,7 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 
-contract BaseToken is IIndexPrice, Ownable, ERC20 {
+contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     using SafeMath for uint256;
 
     address public priceFeed;
