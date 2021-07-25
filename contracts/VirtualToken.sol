@@ -49,7 +49,7 @@ contract VirtualToken is IIndexPrice, IMintableERC20, Ownable, ERC20 {
         return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
     }
 
-    function name() public view override(IERC20, IERC20Metadata) returns (string memory) {
+    function name() public view override(ERC20, IERC20Metadata) returns (string memory) {
         return ERC20.name();
     }
 
