@@ -141,7 +141,7 @@ describe("ClearingHouse.burn", () => {
 
             await expect(
                 clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter),
-            ).to.be.revertedWith("CH_IA")
+            ).to.be.revertedWith("CH_IBTB")
 
             // TODO: move to closePosition's tests
             // await expect(clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter))
@@ -224,8 +224,6 @@ describe("ClearingHouse.burn", () => {
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(quoteToken.address, 0)).to.be.revertedWith("CH_IA")
         })
     })
 
@@ -399,13 +397,11 @@ describe("ClearingHouse.burn", () => {
 
             await expect(
                 clearingHouse.connect(alice).burn(baseToken.address, aliceBaseAvailableAfter),
-            ).to.be.revertedWith("CH_IA")
+            ).to.be.revertedWith("CH_IBTB")
         })
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(baseToken.address, 0)).to.be.revertedWith("CH_IA")
         })
     })
 })

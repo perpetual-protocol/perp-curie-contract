@@ -191,9 +191,9 @@ describe("ClearingHouse", () => {
             await expect(clearingHouse.connect(alice).mint(baseToken.address, baseAmount)).to.be.revertedWith("CH_NEAV")
         })
 
-        it("force error, alice mint without specifying amount", async () => {
-            await expect(clearingHouse.connect(alice).mint(baseToken.address, 0)).to.be.revertedWith("CH_IA")
-            await expect(clearingHouse.connect(alice).mint(quoteToken.address, 0)).to.be.revertedWith("CH_IA")
+        it("mint 0 token", async () => {
+            await clearingHouse.connect(alice).mint(baseToken.address, 0)
+            expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).available).eq("0")
         })
 
         it("force error, alice mint base without specifying baseToken", async () => {

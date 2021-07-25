@@ -238,31 +238,7 @@ contract ClearingHouse is
      */
     function burn(address token, uint256 amount) public nonReentrant() {
         _requireTokenExistent(token);
-        _requireValidAmount(amount);
-
-        address trader = _msgSender();
-
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
-        if (token != quoteToken) {
-            _settleFunding(trader, token);
-        }
-
-        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
-
-        // CH_IA: invalid amount
-        // can only burn the amount of debt that can be pay back with available
-        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IA");
-
-        // pay back debt
-        tokenInfo.available = tokenInfo.available.sub(amount);
-        tokenInfo.debt = tokenInfo.debt.sub(amount);
-
-        // FIXME remove token from account.tokens if available & debt is zero
-
-        IMintableERC20(token).burn(amount);
-
-        emit Burned(trader, token, amount);
+        _burn(_msgSender(), token, amount);
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
@@ -480,7 +456,7 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientBase) {
-                burn(params.baseToken, minted.sub(exactInsufficientBase));
+                _burn(trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
         } else {
             uint256 exactInsufficientQuote;
@@ -489,17 +465,14 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientQuote) {
-                burn(quoteToken, minted.sub(exactInsufficientQuote));
+                _burn(trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
 
-        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        TokenInfo memory baseTokenInfo = getTokenInfo(trader, params.baseToken);
         // if it's closing the position, settle the quote to realize pnl of that market
         if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            TokenInfo memory quoteTokenInfo = getTokenInfo(_msgSender(), quoteToken);
-            uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
-            // TODO combine 2 potential burn into 1
-            burn(quoteToken, burnableAmount);
+            _burnMax(trader, quoteToken);
         } else {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
@@ -619,7 +592,13 @@ contract ClearingHouse is
                     openOrder.liquidity
                 )
             );
+
+            // burn maker's debt to reduce maker's init margin requirement
+            _burnMax(maker, baseToken);
         }
+
+        // burn maker's quote to reduce maker's init margin requirement
+        _burnMax(maker, quoteToken);
     }
 
     function settle(address account) external override returns (int256 pnl) {
@@ -829,7 +808,9 @@ contract ClearingHouse is
         uint256 amount,
         bool checkMarginRatio
     ) private returns (uint256) {
-        _requireValidAmount(amount);
+        if (amount == 0) {
+            return 0;
+        }
 
         // update internal states
         address account = _msgSender();
@@ -856,6 +837,39 @@ contract ClearingHouse is
         return amount;
     }
 
+    // caller must ensure the token is valid
+    function _burn(
+        address account,
+        address token,
+        uint256 amount
+    ) private {
+        // TODO could be optimized by letting the caller trigger it.
+        //  Revise after we have defined the user-facing functions.
+        if (token != quoteToken) {
+            _settleFunding(account, token);
+        }
+
+        if (amount == 0) {
+            return;
+        }
+
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
+
+        // CH_IA: insufficient balance to burn
+        // can only burn the amount of debt that can be pay back with available
+        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IBTB");
+
+        // pay back debt
+        tokenInfo.available = tokenInfo.available.sub(amount);
+        tokenInfo.debt = tokenInfo.debt.sub(amount);
+
+        // FIXME remove token from account.tokens if available & debt is zero
+
+        IMintableERC20(token).burn(amount);
+
+        emit Burned(account, token, amount);
+    }
+
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
     function _mintMax(address token) private returns (uint256) {
@@ -879,6 +893,11 @@ contract ClearingHouse is
         }
 
         return _mint(token, minted, false);
+    }
+
+    function _burnMax(address account, address token) private {
+        TokenInfo memory tokenInfo = getTokenInfo(account, token);
+        _burn(account, token, Math.min(tokenInfo.available, tokenInfo.debt));
     }
 
     function _registerBaseToken(address trader, address token) private {
@@ -1182,11 +1201,6 @@ contract ClearingHouse is
             baseFee,
             quoteFee
         );
-    }
-
-    function _requireValidAmount(uint256 amount) private pure {
-        // CH_IA: invalid amount
-        require(amount > 0, "CH_IA");
     }
 
     // @audit - suggest rename to _requireHasToken or _requireTokenExist
