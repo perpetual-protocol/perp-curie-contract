@@ -1,25 +1,25 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { UniswapV3Factory, UniswapV3Pool } from "../../typechain"
-import { BaseToken } from "../../typechain/BaseToken"
+import { VirtualToken } from "../../typechain/VirtualToken"
 import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
-    token0: BaseToken
+    token0: VirtualToken
     mockedAggregator0: MockContract
-    token1: BaseToken
+    token1: VirtualToken
     mockedAggregator1: MockContract
 }
 
 interface PoolFixture {
     factory: UniswapV3Factory
     pool: UniswapV3Pool
-    baseToken: BaseToken
-    quoteToken: BaseToken
+    baseToken: VirtualToken
+    quoteToken: VirtualToken
 }
 
 interface BaseTokenFixture {
-    baseToken: BaseToken
+    baseToken: VirtualToken
     mockedAggregator: MockContract
 }
 
@@ -36,8 +36,8 @@ export function createTokenFixture(name: string, symbol: string): () => Promise<
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
         const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
 
-        const baseTokenFactory = await ethers.getContractFactory("BaseToken")
-        const baseToken = (await baseTokenFactory.deploy(name, symbol, chainlinkPriceFeed.address)) as BaseToken
+        const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
+        const baseToken = (await virtualTokenFactory.deploy(name, symbol, chainlinkPriceFeed.address)) as VirtualToken
 
         return { baseToken, mockedAggregator }
     }
@@ -59,8 +59,8 @@ export async function tokensFixture(): Promise<TokensFixture> {
         "randomToken1",
     )()
 
-    let token0: BaseToken
-    let token1: BaseToken
+    let token0: VirtualToken
+    let token1: VirtualToken
     let mockedAggregator0: MockContract
     let mockedAggregator1: MockContract
     if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {

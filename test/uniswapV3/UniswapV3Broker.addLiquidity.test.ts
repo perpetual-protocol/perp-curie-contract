@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
+import { TestERC20, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -9,8 +9,8 @@ describe("UniswapV3Broker addLiquidity", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let uniswapV3Broker: TestUniswapV3Broker
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918

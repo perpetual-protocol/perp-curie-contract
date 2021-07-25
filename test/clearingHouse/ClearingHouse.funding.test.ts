@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { BaseToken } from "../../typechain/BaseToken"
+import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -16,8 +16,8 @@ describe("ClearingHouse.funding", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: BaseToken
-    let quoteToken: BaseToken
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
 

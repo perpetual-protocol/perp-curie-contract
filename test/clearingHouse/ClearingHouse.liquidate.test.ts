@@ -1,5 +1,5 @@
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -13,10 +13,10 @@ describe("ClearingHouse liquidate", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let pool: UniswapV3Pool
-    let baseToken2: TestERC20
+    let baseToken2: VirtualToken
     let pool2: UniswapV3Pool
 
     beforeEach(async () => {
