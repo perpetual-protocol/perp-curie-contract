@@ -88,9 +88,6 @@ contract ClearingHouse is
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
-        // @audit - suggest to flatten the mapping by keep an orderIds[] here
-        // and create another _openOrderMap global state
-        // because the orderId already contains the baseTokenAddr (@wraecca).
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
@@ -196,12 +193,15 @@ contract ClearingHouse is
         address uniV3FactoryArg,
         uint256 fundingPeriodArg
     ) {
-        // TODO: add missing full error messages
-        require(vaultArg != address(0), "CH_II_C");
-        require(quoteTokenArg != address(0), "CH_II_Q");
-        require(uniV3FactoryArg != address(0), "CH_II_U");
+        // vault is 0
+        require(vaultArg != address(0), "CH_VI0");
 
-        // TODO: store vault.decimals for optimizing gas
+        // quoteToken is 0
+        require(quoteTokenArg != address(0), "CH_QI0");
+
+        // uniV3Factory is 0
+        require(uniV3FactoryArg != address(0), "CH_U10");
+
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
@@ -225,8 +225,6 @@ contract ClearingHouse is
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
-    // @audit - change to token[] amount[] for minting both (@wraecca)
-    // TODO should add modifier: whenNotPaused()
     function mint(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistent(token);
         // always check margin ratio
@@ -479,7 +477,6 @@ contract ClearingHouse is
         }
     }
 
-    // @audit - review security and possible attacks (@detoo)
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -646,7 +643,6 @@ contract ClearingHouse is
         return totalCollateralValue.sub(requiredCollateral).toUint256();
     }
 
-    // TODO have a better naming
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         Account storage account = _accountMap[trader];
 
@@ -713,8 +709,6 @@ contract ClearingHouse is
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]), true);
     }
 
-    // @audit do we need to expose the following function until the end of this section?
-    // suggest to expose as less as we can (@wraecca)
     function getCostBasis(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
@@ -1137,7 +1131,6 @@ contract ClearingHouse is
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
-    // @audit suggest to rename to hasPool or isPoolExist
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
     }
@@ -1156,7 +1149,7 @@ contract ClearingHouse is
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
-        // TODO can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
+        // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
         // which causes underflow but what we want is the difference only
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
@@ -1203,7 +1196,6 @@ contract ClearingHouse is
         );
     }
 
-    // @audit - suggest rename to _requireHasToken or _requireTokenExist
     function _requireTokenExistent(address token) private view {
         if (quoteToken != token) {
             // CH_TNF: token not found
