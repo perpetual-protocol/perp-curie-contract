@@ -68,7 +68,7 @@ contract ClearingHouse is
     event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
     event FundingSettled(
         address indexed trader,
-        address indexed token,
+        address indexed baseToken,
         uint256 nextPremiumFractionIndex,
         int256 amount // +: trader pays, -: trader receives
     );
