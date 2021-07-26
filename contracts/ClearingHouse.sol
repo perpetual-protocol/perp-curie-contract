@@ -126,6 +126,7 @@ contract ClearingHouse is
         int24 upperTick;
         uint256 minBase;
         uint256 minQuote;
+        uint256 deadline;
     }
 
     /// @param liquidity collect fee when 0
@@ -291,7 +292,7 @@ contract ClearingHouse is
         return response;
     }
 
-    function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
+    function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
         _requireTokenExistent(params.baseToken);
 
         address trader = _msgSender();
