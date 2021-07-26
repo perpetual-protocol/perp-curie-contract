@@ -68,6 +68,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -129,6 +131,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -191,6 +195,8 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -252,6 +258,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await baseToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -313,6 +321,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -376,6 +386,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -438,6 +450,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(5000, await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 await clearingHouse.connect(alice).addLiquidity({
@@ -446,6 +460,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(5000, await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 // verify account states
@@ -491,6 +507,8 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("UB_ZIs")
             })
@@ -504,6 +522,8 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -517,6 +537,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await quoteToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -530,6 +552,8 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -543,6 +567,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(10001, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("CH_NEQ")
             })
@@ -556,6 +582,8 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("CH_NEB")
             })
@@ -569,6 +597,8 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })

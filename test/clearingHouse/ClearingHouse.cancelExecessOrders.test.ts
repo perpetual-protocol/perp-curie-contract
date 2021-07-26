@@ -59,6 +59,8 @@ describe("ClearingHouse cancelExcessOrders()", () => {
             quote: 0,
             lowerTick: 92200, // 10092.4109643974
             upperTick: 92400, // 10296.2808943793
+            minBase: 0,
+            minQuote: 0,
         })
         expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
             toWei(0), // available
@@ -106,6 +108,8 @@ describe("ClearingHouse cancelExcessOrders()", () => {
                 quote: amount,
                 lowerTick: 92400,
                 upperTick: 92800,
+                minBase: 0,
+                minQuote: 0,
             })
 
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

@@ -50,6 +50,8 @@ describe("ClearingHouse.swap", () => {
                 quote: toWei(10),
                 lowerTick: 50200,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
             })
 
             await collateral.mint(bob.address, toWei(100))

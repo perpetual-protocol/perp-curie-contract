@@ -86,6 +86,8 @@ describe("ClearingHouse.burn", () => {
                 quote: toWei(10),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // prepare collateral for bob
@@ -172,6 +174,8 @@ describe("ClearingHouse.burn", () => {
                 quote: toWei(10),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // prepare collateral for bob
@@ -279,6 +283,8 @@ describe("ClearingHouse.burn", () => {
                 quote: toWei(0),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // prepare collateral for bob
@@ -342,6 +348,8 @@ describe("ClearingHouse.burn", () => {
                 quote: toWei(0),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // prepare collateral for bob

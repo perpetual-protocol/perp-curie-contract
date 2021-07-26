@@ -55,6 +55,8 @@ describe("ClearingHouse openPosition", () => {
             quote: toWei(10000),
             lowerTick,
             upperTick,
+            minBase: 0,
+            minQuote: 0,
         })
 
         // prepare collateral for taker

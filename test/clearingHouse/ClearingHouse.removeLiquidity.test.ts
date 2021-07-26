@@ -78,6 +78,8 @@ describe("ClearingHouse", () => {
                     quote: 0,
                     lowerTick: 50200,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400))
@@ -143,6 +145,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50200,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
@@ -207,6 +211,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -271,6 +277,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -329,6 +337,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -365,6 +375,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
 
                 await expect(
@@ -393,6 +405,8 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -456,6 +470,8 @@ describe("ClearingHouse", () => {
                         quote: parseEther("0.122414646"),
                         lowerTick, // 148.3760629
                         upperTick, // 151.3733069
+                        minBase: 0,
+                        minQuote: 0,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -555,6 +571,8 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther("0.000816820841"),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -648,6 +666,8 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther("0.000816820841"),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -768,6 +788,8 @@ describe("ClearingHouse", () => {
                             upperTick, // 151.3733069
                             base: parseEther((base * 3).toString()),
                             quote: "0",
+                            minBase: 0,
+                            minQuote: 0,
                         }
                         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -778,6 +800,8 @@ describe("ClearingHouse", () => {
                             upperTick, // 151.3733069
                             base: parseEther(base.toString()),
                             quote: "0",
+                            minBase: 0,
+                            minQuote: 0,
                         }
                         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -942,6 +966,8 @@ describe("ClearingHouse", () => {
                             upperTick, // 151.3733069
                             base: parseEther((base * 3).toString()),
                             quote: "0",
+                            minBase: 0,
+                            minQuote: 0,
                         }
                         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -952,6 +978,8 @@ describe("ClearingHouse", () => {
                             upperTick, // 151.3733069
                             base: parseEther(base.toString()),
                             quote: "0",
+                            minBase: 0,
+                            minQuote: 0,
                         }
                         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -1126,6 +1154,8 @@ describe("ClearingHouse", () => {
                         upperTick: upperTick, // 154.4310961
                         base: parseEther((baseIn50000And50200 + baseIn50200And50400).toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -1136,6 +1166,8 @@ describe("ClearingHouse", () => {
                         upperTick: middleTick, // 151.3733069
                         base: parseEther(baseIn50000And50200.toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
                     }
                     await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 

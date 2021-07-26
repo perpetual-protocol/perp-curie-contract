@@ -124,6 +124,8 @@ contract ClearingHouse is
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
+        uint256 minBase;
+        uint256 minQuote;
     }
 
     /// @param liquidity collect fee when 0
@@ -325,7 +327,9 @@ contract ClearingHouse is
                 )
             );
         // mint callback
-        // TODO add slippage protection
+
+        // price slippage check
+        require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);

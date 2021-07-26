@@ -62,6 +62,8 @@ describe("ClearingHouse with makers within same range", () => {
                 quote: thousand,
                 lowerTick: 50000,
                 upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
             })
             await clearingHouse.connect(bob).addLiquidity({
                 baseToken: baseToken.address,
@@ -69,6 +71,8 @@ describe("ClearingHouse with makers within same range", () => {
                 quote: thousand,
                 lowerTick: 50000,
                 upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // carol take position in and out for generating fee for makers

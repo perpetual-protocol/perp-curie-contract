@@ -49,6 +49,8 @@ describe("ClearingHouse.funding", () => {
             quote: parseEther("100"),
             lowerTick: 50200,
             upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
         })
 
         // bob short
@@ -139,6 +141,8 @@ describe("ClearingHouse.funding", () => {
                 quote: parseEther("100"),
                 lowerTick: 50000,
                 upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // first update funding
@@ -235,6 +239,8 @@ describe("ClearingHouse.funding", () => {
                 quote: parseEther("0"),
                 lowerTick: 50400,
                 upperTick: 50600,
+                minBase: 0,
+                minQuote: 0,
             })
 
             // bob hold a short position 0.1
@@ -337,6 +343,8 @@ describe("ClearingHouse.funding", () => {
                     quote: parseEther("0"),
                     lowerTick: 50400,
                     upperTick: 50600,
+                    minBase: 0,
+                    minQuote: 0,
                 }),
             )
                 .to.emit(clearingHouse, "FundingSettled")

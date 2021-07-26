@@ -54,6 +54,8 @@ describe("ClearingHouse withdraw", () => {
                 quote: toWei(50000),
                 lowerTick: 50000,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
             })
         })
 

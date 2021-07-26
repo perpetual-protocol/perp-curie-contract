@@ -67,6 +67,8 @@ describe("ClearingHouse.getPositionSize", () => {
             quote: parseEther("122.414646"),
             lowerTick: 50000,
             upperTick: 50200,
+            minBase: 0,
+            minQuote: 0,
         })
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
@@ -83,6 +85,8 @@ describe("ClearingHouse.getPositionSize", () => {
             quote: parseEther("122.414646"),
             lowerTick: 50000,
             upperTick: 50200,
+            minBase: 0,
+            minQuote: 0,
         })
 
         // bob short 0.4084104205 / 0.99 = 0.4125357783
@@ -115,6 +119,8 @@ describe("ClearingHouse.getPositionSize", () => {
             quote: parseEther("122.414646"),
             lowerTick: 50000,
             upperTick: 50200,
+            minBase: 0,
+            minQuote: 0,
         })
 
         // bob shorts 0.2042052103 / 0.99 = 0.2062678892
@@ -166,6 +172,8 @@ describe("ClearingHouse.getPositionSize", () => {
             upperTick: upperTick, // 154.4310961
             base: parseEther((baseIn50000And50200 + baseIn50200And50400).toString()),
             quote: "0",
+            minBase: 0,
+            minQuote: 0,
         }
         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -176,6 +184,8 @@ describe("ClearingHouse.getPositionSize", () => {
             upperTick: middleTick, // 151.3733069
             base: parseEther(baseIn50000And50200.toString()),
             quote: "0",
+            minBase: 0,
+            minQuote: 0,
         }
         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 

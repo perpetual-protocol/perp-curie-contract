@@ -72,6 +72,8 @@ describe("ClearingHouse getCostBasis", () => {
                 quote: toWei(100),
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(0)
@@ -89,6 +91,8 @@ describe("ClearingHouse getCostBasis", () => {
                 quote: toWei(0),
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -100,6 +104,8 @@ describe("ClearingHouse getCostBasis", () => {
                 quote: toWei(0),
                 lowerTick: 49000,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -117,6 +123,8 @@ describe("ClearingHouse getCostBasis", () => {
                 quote: toWei(100),
                 lowerTick: 0, // $1
                 upperTick: 100000, // $22015.4560485522
+                minBase: 0,
+                minQuote: 0,
             })
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)
