@@ -8,7 +8,7 @@ import { BaseToken } from "../../typechain/BaseToken"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse.funding", () => {
+describe.only("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -92,9 +92,9 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.updateFunding(baseToken.address)
 
             // alice
-            // position size = 0.1
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("99999999999999998")
-            // TODO for now, position size is 0.099 for funding calculation. We should take fee into considerations in the future
+            // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
+            // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
             // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
                 "12375003379192555",
@@ -115,8 +115,9 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.updateFunding(baseToken.address)
 
             // alice
-            // position size = 0.1
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("99999999999999998")
+            // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
+            // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
             // TODO for now, position size is 0.099 for funding calculation. We should take fee into considerations in the future
             // funding payment = 0.099 * (153.9531248192 - 156.953124) / 24 = -0.01237499662
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
@@ -150,7 +151,7 @@ describe("ClearingHouse.funding", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("1"),
+                amount: parseEther("0.99"),
                 sqrtPriceLimitX96: 0,
             })
 
@@ -166,8 +167,8 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.updateFunding(baseToken.address)
 
             // alice
-            // position size = 0.1 + 1 ~= 1.1
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("1099999999999999996")
+            // position size (0.099 + 0.99) / 0.99 * 0.99 = 1.089; has one wei of imprecision
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("1088999999999999997")
             // TODO for now, position size is 0.099, 1.089, respectively for funding calculation. We should take fee into considerations in the future
             // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
             // funding payment = 1.089 * (149.403346446539268519 - 152.403346) / 24 = -0.1361249797
@@ -234,7 +235,7 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50600,
             })
 
-            // bob hold a short position 0.1
+            // bob hold a short position 0.099
             // (153.9531248192 - 150.953124) / 24 = 0.1250000341
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
@@ -250,10 +251,10 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
 
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
 
             // should not settle again
@@ -273,9 +274,9 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -286,9 +287,9 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -308,21 +309,23 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
                 .to.emit(clearingHouse, "Swapped")
                 .withArgs(
                     bob.address, // trader
                     baseToken.address, // baseToken
-                    "-6561355980537526", // exchangedPositionSize
+                    "-6561362585509647", // exchangedPositionSize
                     parseEther("1"), // costBasis
-                    "65613559805376", // fee: base
-                    "-12500003413325814", // fundingPayment
+                    // B2QFee: though user gets 1 quote, the real amount CH gets is 1.0101010101010102,
+                    // thus the tx fee is 0.010101010101010102
+                    "10101010101010102", // fee: B2QFee
+                    "-12375003379192556", // fundingPayment
                     parseEther("0"), // badDebt
                 )
 
-            // 1 + 0.01250000341
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012500003413325814")
+            // 1 + 0.012375003379192556
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -341,9 +344,9 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -363,9 +366,9 @@ describe("ClearingHouse.funding", () => {
                     bob.address,
                     baseToken.address,
                     1, // one funding history item
-                    "-12500003413325814", // 0.1250000341 * 0.1 = 0.01250000341
+                    "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12500003413325814")
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 

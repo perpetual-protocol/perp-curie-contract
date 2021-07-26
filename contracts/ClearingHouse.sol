@@ -313,15 +313,12 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
 
         address pool = _poolMap[baseTokenAddr];
         bool isBaseToQuote = params.isBaseToQuote;
-
-        uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseTokenAddr];
-        uint160 initialSqrtPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         SwapState memory state =
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: initialSqrtPriceX96,
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
                 amountSpecifiedRemaining: 0,
-                feeGrowthGlobalX128: feeGrowthGlobalX128,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
                 liquidity: UniswapV3Broker.getLiquidity(pool)
             });
 
@@ -333,21 +330,25 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     quoteToken,
                     isBaseToQuote,
                     params.isExactInput,
-                    // TODO should consider the cases for exact output
                     // TODO should mint extra base token before swap
                     isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
             );
 
-        // we are going to replay by swapping "exactOutput" with the output token received
-        if (isBaseToQuote) {
-            state.amountSpecifiedRemaining = -(response.quote.toInt256());
-        } else {
-            state.amountSpecifiedRemaining = -(response.base.toInt256());
-        }
-
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
+
+        // // we are going to replay by swapping "exactOutput" with the output token received
+        // // isBaseToQuote, isExactInput
+        // // t,t -> base < 0, quote > 0 -> -quote
+        // // t,f -> quote < 0 -> quote
+        // // f,t -> quote < 0, base > 0 -> -base
+        // // f,f -> base < 0 -> base
+        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
+        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
+
+        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
@@ -381,7 +382,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     : step.nextSqrtPriceX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
-                UniswapV3Broker.getUniswapFeeRatio(pool)
+                uniswapFeeRatio
             );
 
             state.amountSpecifiedRemaining += step.amountOut.toInt256();
@@ -390,7 +391,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             // note CH only collects quote fee when swapping base -> quote
             if (state.liquidity > 0 && isBaseToQuote) {
                 state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    FullMath.mulDiv(step.amountOut, UniswapV3Broker.getUniswapFeeRatio(pool), 1e6),
+                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
                     FixedPoint128.Q128,
                     state.liquidity
                 );
@@ -401,6 +402,8 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 if (step.isNextTickInitialized) {
                     // update the tick if it has been initialized
                     mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
+                    // according to the above updating logic,
+                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
                     tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
@@ -424,26 +427,43 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
         }
 
-        // update internal states
-        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
-        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        uint256 fee;
+        int256 exchangedPositionSize;
+        int256 costBasis;
+        {
+            // update internal states
+            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
+            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
-        if (isBaseToQuote) {
-            baseTokenInfo.available = baseTokenInfo.available.sub(_calcScaledAmount(pool, response.base, false));
-            quoteTokenInfo.available = quoteTokenInfo.available.add(_calcScaledAmount(pool, response.quote, false));
-        } else {
-            quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
-            baseTokenInfo.available = baseTokenInfo.available.add(response.base);
+            if (isBaseToQuote) {
+                // short: exchangedPositionSize <= 0 && costBasis >= 0
+                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
+                costBasis = _calcScaledAmount(pool, response.quote, false).toInt256();
+                fee = response.quote.toInt256().sub(costBasis).abs();
+
+                baseTokenInfo.available = baseTokenInfo.available.sub(exchangedPositionSize.abs());
+                quoteTokenInfo.available = quoteTokenInfo.available.add(costBasis.abs());
+            } else {
+                // long: exchangedPositionSize >= 0 && costBasis <= 0
+                exchangedPositionSize = response.base.toInt256();
+                fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
+                // fee should be charged already in costBasis
+                costBasis = -(response.quote.sub(fee).toInt256());
+
+                baseTokenInfo.available = baseTokenInfo.available.add(exchangedPositionSize.abs());
+                // add(costBasis).sub(fee)
+                quoteTokenInfo.available = quoteTokenInfo.available.sub(costBasis.abs());
+            }
         }
+        // baseTokenInfo.available = baseTokenInfo.available.sub(exchangedPositionSize);
+        // quoteTokenInfo.available = quoteTokenInfo.available.add(costBasis);
 
         emit Swapped(
-            trader, // trader
-            baseTokenAddr, // baseToken
-            // exchangedPositionSize
-            isBaseToQuote ? -_calcScaledAmount(pool, response.base, false).toInt256() : response.base.toInt256(),
-            // costBasis
-            isBaseToQuote ? _calcScaledAmount(pool, response.quote, false).toInt256() : -response.quote.toInt256(),
-            response.fee, // fee
+            trader,
+            baseTokenAddr,
+            exchangedPositionSize,
+            costBasis,
+            fee,
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
         );
