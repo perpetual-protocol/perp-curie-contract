@@ -44,8 +44,6 @@ describe("ClearingHouse", () => {
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
-    describe("# addLiquidity failed, over deadline", () => {})
-
     describe("# addLiquidity failed at tick 50199, over slippage protection", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
@@ -64,6 +62,22 @@ describe("ClearingHouse", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
+        })
+
+        it("force error, over deadline", async () => {
+            const now = (await waffle.provider.getBlock("latest")).timestamp
+            await expect(
+                clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: toWei(10, await baseToken.decimals()),
+                    quote: 0,
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: now,
+                }),
+            ).to.revertedWith("V_TTO")
         })
     })
 
