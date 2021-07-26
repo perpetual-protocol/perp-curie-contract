@@ -82,6 +82,15 @@ contract ClearingHouse is
 
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
 
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed pool,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
+
     //
     // Struct
     //
@@ -463,11 +472,25 @@ contract ClearingHouse is
                 })
             );
 
-        uint256 penalty = swapResponse.quote.mul(liquidationPenaltyRatio).divideBy10_18();
+        uint256 liquidationFee = swapResponse.quote.mul(liquidationPenaltyRatio).divideBy10_18();
 
-        // settle
-        // update liquidator's quote available
-        // event
+        // Penalty on trader's quote
+        TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        traderTokenInfo.debt = traderTokenInfo.debt.add(liquidationFee);
+
+        address liquidator = _msgSender();
+        // Increase liquidator's quote available as liquidation reward
+        TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
+        liquidatorTokenInfo.available = liquidatorTokenInfo.available.add(liquidationFee);
+
+        emit PositionLiquidated(
+            trader,
+            _poolMap[baseToken],
+            swapResponse.quote,
+            positionSize.abs(),
+            liquidationFee,
+            liquidator
+        );
     }
 
     function uniswapV3SwapCallback(
