@@ -74,7 +74,7 @@ contract ClearingHouse is
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
-        int256 costBasis,
+        uint256 exchangedPositionNotional,
         uint256 fee,
         int256 fundingPayment,
         uint256 badDebt
@@ -280,7 +280,7 @@ contract ClearingHouse is
             trader, // trader
             params.baseToken, // baseToken
             params.isBaseToQuote ? -response.base.toInt256() : response.base.toInt256(), // exchangedPositionSize
-            params.isBaseToQuote ? response.quote.toInt256() : -response.quote.toInt256(), // costBasis
+            response.quote, // exchangedPositionNotional
             response.fee, // fee
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
