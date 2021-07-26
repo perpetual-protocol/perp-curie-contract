@@ -62,7 +62,7 @@ contract ClearingHouse is
         uint256 baseFee, // amount of base token the maker received as fee
         uint256 quoteFee // amount of quote token the maker received as fee
     );
-    event FundingRateUpdated(int256 rate, uint256 underlyingPrice);
+    event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
     event FundingSettled(
         address indexed trader,
         address indexed token,
@@ -545,7 +545,7 @@ contract ClearingHouse is
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
-            emit FundingRateUpdated(premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
+            emit FundingRateUpdated(baseToken, premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
         }
 
         // register primitives for funding calculations so we can settle it later
