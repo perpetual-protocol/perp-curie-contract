@@ -1,6 +1,5 @@
 pragma solidity 0.7.6;
 
-// TODO probably need to rename
 interface ISettlement {
     // clear debt by remaining balance and return pnl
     // (quote.available - quote.debt)
