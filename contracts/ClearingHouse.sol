@@ -440,23 +440,17 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
                 costBasis = _calcScaledAmount(pool, response.quote, false).toInt256();
                 fee = response.quote.toInt256().sub(costBasis).abs();
-
-                baseTokenInfo.available = baseTokenInfo.available.sub(exchangedPositionSize.abs());
-                quoteTokenInfo.available = quoteTokenInfo.available.add(costBasis.abs());
             } else {
                 // long: exchangedPositionSize >= 0 && costBasis <= 0
                 exchangedPositionSize = response.base.toInt256();
                 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
                 // fee should be charged already in costBasis
                 costBasis = -(response.quote.sub(fee).toInt256());
-
-                baseTokenInfo.available = baseTokenInfo.available.add(exchangedPositionSize.abs());
-                // add(costBasis).sub(fee)
-                quoteTokenInfo.available = quoteTokenInfo.available.sub(costBasis.abs());
             }
+
+            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
+            quoteTokenInfo.available = quoteTokenInfo.available.toInt256().add(costBasis).toUint256().sub(fee);
         }
-        // baseTokenInfo.available = baseTokenInfo.available.sub(exchangedPositionSize);
-        // quoteTokenInfo.available = quoteTokenInfo.available.add(costBasis);
 
         emit Swapped(
             trader,

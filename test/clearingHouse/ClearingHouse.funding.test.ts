@@ -8,7 +8,7 @@ import { BaseToken } from "../../typechain/BaseToken"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse.funding", () => {
+describe("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -40,6 +40,9 @@ describe.only("ClearingHouse.funding", () => {
         // price at 50400 == 154.4310961
         await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
+        // alice:
+        //   base.liquidity = 0
+        //   quote.liquidity = 100
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0"),
@@ -62,6 +65,15 @@ describe.only("ClearingHouse.funding", () => {
             amount: parseEther("0.099"),
             sqrtPriceLimitX96: 0,
         })
+
+        // alice:
+        //   base.liquidity = 0
+        //   quote.liquidity = 100
+        // bob:
+        //   base.available = 2 - 0.099 = 1.901
+        //   base.debt = 2
+        //   quote.available = 15.1128025359
+        //   quote.debt = 0
 
         // mark price should be 153.9623330511 (tick ~= 50369)
 
@@ -118,7 +130,6 @@ describe.only("ClearingHouse.funding", () => {
             // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
             // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
-            // TODO for now, position size is 0.099 for funding calculation. We should take fee into considerations in the future
             // funding payment = 0.099 * (153.9531248192 - 156.953124) / 24 = -0.01237499662
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
                 "-12374996620807443",
@@ -169,7 +180,6 @@ describe.only("ClearingHouse.funding", () => {
             // alice
             // position size (0.099 + 0.99) / 0.99 * 0.99 = 1.089; has one wei of imprecision
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("1088999999999999997")
-            // TODO for now, position size is 0.099, 1.089, respectively for funding calculation. We should take fee into considerations in the future
             // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
             // funding payment = 1.089 * (149.403346446539268519 - 152.403346) / 24 = -0.1361249797
             // 0.01237500338 + (-0.1361249797) = -0.1237499763
@@ -234,6 +244,13 @@ describe.only("ClearingHouse.funding", () => {
                 lowerTick: 50400,
                 upperTick: 50600,
             })
+
+            // bob
+            //   base.available = 1.901 - 1 = 0.901
+            //   base.liquidity = 1
+            //   base.debt = 2
+            //   quote.available = 15.1128025359
+            //   quote.debt = 0
 
             // bob hold a short position 0.099
             // (153.9531248192 - 150.953124) / 24 = 0.1250000341
@@ -324,8 +341,8 @@ describe.only("ClearingHouse.funding", () => {
                     parseEther("0"), // badDebt
                 )
 
-            // 1 + 0.012375003379192556
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
+            // 1 + 0.012375003379192556 - 0.0101010101 = 1.0022739933
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1002273993278182454")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -376,7 +393,6 @@ describe.only("ClearingHouse.funding", () => {
             await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
         })
 
-        // TODO should not be force error. Need revision
         it("force error, not enough quote token available", async () => {
             // carol long
             await collateral.mint(carol.address, parseEther("1000"))
@@ -390,16 +406,33 @@ describe.only("ClearingHouse.funding", () => {
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
             })
+
+            // bob
+            //   base.available = 1.901 - 1 = 0.901
+            //   base.liquidity = 1
+            //   base.debt = 2
+            //   quote.available = 15.1128025359
+            //   quote.debt = 0
+            //
+            // carol
+            //   base.available = 0.638303511
+            //   base.debt = 0
+            //   quote.available = 0
+            //   quote.debt = 100
+
             // current price = 156.0922973283
+            // current tick = 50507
 
             await forward(3600)
 
-            // carol hold a long position ~0.6
+            // carol hold a long position 0.638303511
             // (156.0922973283 - 150.953124) / 24 = 0.1250000341
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
+
+            // carol needs to pay 0.638303511 * 0.1250000341 = 0.07978796064 quote for funding but has 0 available
             await expect(clearingHouse.settleFunding(carol.address, baseToken.address)).to.revertedWith("TBD")
         })
     })
