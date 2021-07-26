@@ -84,8 +84,7 @@ contract Vault is ReentrancyGuard, Ownable {
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
             if (settlementToken != token) {
-                // TODO get twap of settlement price * account's balance
-                continue;
+                revert("TBD - token twap * account's balance");
             }
             // is settlement token
             settlementTokenValue = settlementTokenValue.add(_getBalance(account, token));

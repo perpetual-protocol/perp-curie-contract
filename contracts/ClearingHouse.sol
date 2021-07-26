@@ -297,8 +297,6 @@ contract ClearingHouse is
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // update internal states
@@ -627,7 +625,6 @@ contract ClearingHouse is
         return _poolMap[baseToken];
     }
 
-    // FIXME should include pending funding payment
     function getAccountValue(address trader) public view returns (int256) {
         return IERC20Metadata(vault).balanceOf(trader).toInt256().add(getTotalMarketPnl(trader));
     }
@@ -663,7 +660,6 @@ contract ClearingHouse is
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
-    // TODO: whether this is public or internal or private
     function getPositionValue(
         address trader,
         address token,
@@ -837,8 +833,6 @@ contract ClearingHouse is
         address token,
         uint256 amount
     ) private {
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
         if (token != quoteToken) {
             _settleFunding(account, token);
         }
@@ -857,7 +851,9 @@ contract ClearingHouse is
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
-        // FIXME remove token from account.tokens if available & debt is zero
+        if (tokenInfo.available == 0 && tokenInfo.debt == 0) {
+            delete _accountMap[account].tokenInfoMap[token];
+        }
 
         IMintableERC20(token).burn(amount);
 
@@ -922,8 +918,6 @@ contract ClearingHouse is
     function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
         address trader = params.maker;
 
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // load existing open order
