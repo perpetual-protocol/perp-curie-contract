@@ -117,6 +117,9 @@ describe("ClearingHouse openPosition", () => {
                     lowerTick,
                     upperTick,
                     liquidity: order.liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // trade

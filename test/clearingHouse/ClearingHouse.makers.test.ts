@@ -102,6 +102,9 @@ describe("ClearingHouse with makers within same range", () => {
                     lowerTick: 50000,
                     upperTick: 50200,
                     liquidity: liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             )
                 .to.emit(clearingHouse, "LiquidityChanged")

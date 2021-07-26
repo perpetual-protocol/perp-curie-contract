@@ -92,6 +92,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50200,
                         upperTick: 50400,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -160,6 +163,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50200,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -227,6 +233,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -294,6 +303,9 @@ describe("ClearingHouse", () => {
                     lowerTick: 50000,
                     upperTick: 50400,
                     liquidity: firstRemoveLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
@@ -302,6 +314,9 @@ describe("ClearingHouse", () => {
                     lowerTick: 50000,
                     upperTick: 50400,
                     liquidity: secondRemoveLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // verify account states
@@ -354,6 +369,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity: liquidity.add(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEL")
             })
@@ -365,6 +383,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 0,
                         upperTick: 200,
                         liquidity: BigNumber.from(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_TNF")
             })
@@ -391,6 +412,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50200,
                         liquidity: BigNumber.from(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEO")
             })
@@ -424,6 +448,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity: 0,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -506,6 +533,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     // expect 1% of base = 0.000004125357783
                     // there's one wei of imprecision, thus expecting 0.000004125357782999
@@ -608,6 +638,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // expect 1% of quote = 0.001135501475
@@ -716,6 +749,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // expect 1% of base = 0.000007582881393
@@ -857,6 +893,9 @@ describe("ClearingHouse", () => {
                             lowerTick,
                             upperTick,
                             liquidity: "0",
+                            minBase: 0,
+                            minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
 
                         // expect 75% of 1% of base = 0.000007582881393 * 0.75 = 0.000005687161045
@@ -1013,6 +1052,9 @@ describe("ClearingHouse", () => {
                             lowerTick,
                             upperTick,
                             liquidity: liquidityCarol,
+                            minBase: 0,
+                            minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
 
                         await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
@@ -1062,6 +1104,9 @@ describe("ClearingHouse", () => {
                             lowerTick,
                             upperTick,
                             liquidity: 0,
+                            minBase: 0,
+                            minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
 
                         // expect 1% of base = 0.000007582881393
@@ -1228,6 +1273,9 @@ describe("ClearingHouse", () => {
                         lowerTick: lowerTick,
                         upperTick: upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // expect 50% of 1% of base in range (50000, 50200) = 0.001633641682 / 0.99 * 0.5 * 0.01 = 0.000008250715566
@@ -1257,6 +1305,9 @@ describe("ClearingHouse", () => {
                         lowerTick: lowerTick,
                         upperTick: middleTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // expect 50% of 1% of base in range (50000, 50200) = 0.001633641682 / 0.99 * 0.5 * 0.01 = 0.000008250715566

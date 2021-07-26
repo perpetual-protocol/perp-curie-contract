@@ -371,6 +371,9 @@ describe("ClearingHouse.funding", () => {
                     liquidity: (
                         await clearingHouse.getOpenOrder(bob.address, baseToken.address, 50400, 50600)
                     ).liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             )
                 .to.emit(clearingHouse, "FundingSettled")

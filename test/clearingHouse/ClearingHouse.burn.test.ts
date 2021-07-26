@@ -133,6 +133,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceQuoteAvailableAfter } = await clearingHouse.getTokenInfo(
@@ -207,6 +210,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceQuoteAvailableAfterSwap } = await clearingHouse.getTokenInfo(
@@ -317,6 +323,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceBaseAvailableAfterSwap } = await clearingHouse.getTokenInfo(
@@ -398,6 +407,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceBaseAvailableAfter } = await clearingHouse.getTokenInfo(
