@@ -135,6 +135,9 @@ contract ClearingHouse is
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
+        uint256 minBase;
+        uint256 minQuote;
+        uint256 deadline;
     }
 
     struct InternalRemoveLiquidityParams {
@@ -372,15 +375,19 @@ contract ClearingHouse is
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
         _requireTokenExistent(params.baseToken);
-        _removeLiquidity(
-            InternalRemoveLiquidityParams({
-                maker: _msgSender(),
-                baseToken: params.baseToken,
-                lowerTick: params.lowerTick,
-                upperTick: params.upperTick,
-                liquidity: params.liquidity
-            })
-        );
+        (uint256 base, uint256 quote) =
+            _removeLiquidity(
+                InternalRemoveLiquidityParams({
+                    maker: _msgSender(),
+                    baseToken: params.baseToken,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: params.liquidity
+                })
+            );
+
+        // price slippage check
+        require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
     function openPosition(OpenPositionParams memory params) external {
@@ -924,7 +931,10 @@ contract ClearingHouse is
         }
     }
 
-    function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
+    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
+        private
+        returns (uint256 base, uint256 quote)
+    {
         address trader = params.maker;
 
         // TODO could be optimized by letting the caller trigger it.
@@ -949,7 +959,8 @@ contract ClearingHouse is
                 )
             );
 
-        // TODO add slippage protection
+        base = response.base;
+        quote = response.quote;
 
         // update token info based on existing open order
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
@@ -958,8 +969,8 @@ contract ClearingHouse is
             _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideBaseX128, openOrder.feeGrowthInsideBaseX128);
         uint256 quoteFee =
             _calcOwedFee(openOrder.liquidity, response.feeGrowthInsideQuoteX128, openOrder.feeGrowthInsideQuoteX128);
-        baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(response.quote);
+        baseTokenInfo.available = baseTokenInfo.available.add(baseFee).add(base);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFee).add(quote);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity.toUint256()).toUint128();
