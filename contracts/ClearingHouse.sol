@@ -21,7 +21,7 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { DeadlineChecker } from "./util/DeadlineChecker.sol";
+import { Validation } from "./base/Validation.sol";
 import { Vault } from "./Vault.sol";
 
 contract ClearingHouse is
@@ -29,7 +29,7 @@ contract ClearingHouse is
     IUniswapV3SwapCallback,
     ISettlement,
     ReentrancyGuard,
-    DeadlineChecker,
+    Validation,
     Ownable
 {
     using SafeMath for uint256;
