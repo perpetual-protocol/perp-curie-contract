@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -88,6 +88,7 @@ describe("ClearingHouse.burn", () => {
                 upperTick: upperTick,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -176,6 +177,7 @@ describe("ClearingHouse.burn", () => {
                 upperTick: upperTick,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -285,6 +287,7 @@ describe("ClearingHouse.burn", () => {
                 upperTick: upperTick,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -350,6 +353,7 @@ describe("ClearingHouse.burn", () => {
                 upperTick: upperTick,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob

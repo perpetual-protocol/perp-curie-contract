@@ -1,6 +1,6 @@
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
 import { deposit } from "../helper/token"
@@ -70,6 +70,7 @@ describe("ClearingHouse.getPositionValue", () => {
             upperTick: 50200,
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
@@ -89,6 +90,7 @@ describe("ClearingHouse.getPositionValue", () => {
             upperTick: 50200,
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // bob short 0.4084104205 / 0.99 = 0.4125357783
@@ -148,6 +150,7 @@ describe("ClearingHouse.getPositionValue", () => {
             upperTick: 50200,
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // bob shorts 0.2042052103 / 0.99 = 0.2062678892
@@ -217,6 +220,7 @@ describe("ClearingHouse.getPositionValue", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -229,6 +233,7 @@ describe("ClearingHouse.getPositionValue", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 

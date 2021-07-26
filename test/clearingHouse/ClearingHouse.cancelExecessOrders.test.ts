@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -61,6 +61,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
             upperTick: 92400, // 10296.2808943793
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
         expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
             toWei(0), // available
@@ -110,6 +111,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
                 upperTick: 92800,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

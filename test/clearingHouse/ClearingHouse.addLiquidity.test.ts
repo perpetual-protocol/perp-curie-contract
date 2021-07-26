@@ -2,7 +2,7 @@ import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -70,6 +70,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -133,6 +134,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -197,6 +199,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -260,6 +263,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -323,6 +327,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -388,6 +393,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -452,6 +458,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 await clearingHouse.connect(alice).addLiquidity({
@@ -462,6 +469,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // verify account states
@@ -509,6 +517,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZIs")
             })
@@ -524,6 +533,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -539,6 +549,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -554,6 +565,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -569,6 +581,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEQ")
             })
@@ -584,6 +597,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEB")
             })
@@ -599,6 +613,7 @@ describe("ClearingHouse", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })

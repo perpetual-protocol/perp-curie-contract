@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -74,6 +74,7 @@ describe("ClearingHouse getCostBasis", () => {
                 upperTick: 50200, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(0)
@@ -93,6 +94,7 @@ describe("ClearingHouse getCostBasis", () => {
                 upperTick: 50200, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -106,6 +108,7 @@ describe("ClearingHouse getCostBasis", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -125,6 +128,7 @@ describe("ClearingHouse getCostBasis", () => {
                 upperTick: 100000, // $22015.4560485522
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
             expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)

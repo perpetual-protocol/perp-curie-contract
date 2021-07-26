@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -64,6 +64,7 @@ describe("ClearingHouse with makers within same range", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
             await clearingHouse.connect(bob).addLiquidity({
                 baseToken: baseToken.address,
@@ -73,6 +74,7 @@ describe("ClearingHouse with makers within same range", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // carol take position in and out for generating fee for makers

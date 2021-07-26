@@ -2,7 +2,7 @@ import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -80,6 +80,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400))
@@ -147,6 +148,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
@@ -213,6 +215,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -279,6 +282,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -339,6 +343,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -377,6 +382,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 await expect(
@@ -407,6 +413,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -472,6 +479,7 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -573,6 +581,7 @@ describe("ClearingHouse", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -668,6 +677,7 @@ describe("ClearingHouse", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -790,6 +800,7 @@ describe("ClearingHouse", () => {
                             quote: "0",
                             minBase: 0,
                             minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
                         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -802,6 +813,7 @@ describe("ClearingHouse", () => {
                             quote: "0",
                             minBase: 0,
                             minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
                         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -968,6 +980,7 @@ describe("ClearingHouse", () => {
                             quote: "0",
                             minBase: 0,
                             minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
                         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -980,6 +993,7 @@ describe("ClearingHouse", () => {
                             quote: "0",
                             minBase: 0,
                             minQuote: 0,
+                            deadline: ethers.constants.MaxUint256,
                         }
                         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -1156,6 +1170,7 @@ describe("ClearingHouse", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -1168,6 +1183,7 @@ describe("ClearingHouse", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 

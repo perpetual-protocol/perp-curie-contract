@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
 import { deposit } from "../helper/token"
@@ -51,6 +51,7 @@ describe("ClearingHouse.funding", () => {
             upperTick: 50400,
             minBase: 0,
             minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // bob short
@@ -143,6 +144,7 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // first update funding
@@ -241,6 +243,7 @@ describe("ClearingHouse.funding", () => {
                 upperTick: 50600,
                 minBase: 0,
                 minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // bob hold a short position 0.1
@@ -345,6 +348,7 @@ describe("ClearingHouse.funding", () => {
                     upperTick: 50600,
                     minBase: 0,
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             )
                 .to.emit(clearingHouse, "FundingSettled")

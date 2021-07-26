@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -44,6 +44,8 @@ describe("ClearingHouse", () => {
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
+    describe("# addLiquidity failed, over deadline", () => {})
+
     describe("# addLiquidity failed at tick 50199, over slippage protection", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
@@ -59,6 +61,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: toWei(11),
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
         })
@@ -81,6 +84,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: toWei(10001),
+                    deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
         })
@@ -95,6 +99,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: toWei(2),
                     minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
             await expect(
@@ -106,6 +111,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: toWei(10001),
+                    deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
             await expect(
@@ -117,6 +123,7 @@ describe("ClearingHouse", () => {
                     upperTick: 50400,
                     minBase: toWei(2),
                     minQuote: toWei(10001),
+                    deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
         })
