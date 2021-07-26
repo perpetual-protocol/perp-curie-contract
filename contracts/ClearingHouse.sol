@@ -373,7 +373,11 @@ contract ClearingHouse is
         _emitLiquidityChanged(trader, params, response, baseFee, quoteFee);
     }
 
-    function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
+    function removeLiquidity(RemoveLiquidityParams calldata params)
+        external
+        nonReentrant()
+        checkDeadline(params.deadline)
+    {
         _requireTokenExistent(params.baseToken);
         (uint256 base, uint256 quote) =
             _removeLiquidity(
