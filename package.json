@@ -51,6 +51,7 @@
     "hardhat-contract-sizer": "2.0.3",
     "hardhat-deploy": "0.8.8",
     "hardhat-deploy-ethers": "0.3.0-beta.10",
+    "hardhat-gas-reporter": "1.0.4",
     "husky": "6.0.0",
     "lint-staged": "11.0.0",
     "lodash": "4.17.21",
