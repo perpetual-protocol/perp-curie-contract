@@ -83,12 +83,12 @@ describe("ClearingHouse liquidate", () => {
 
     describe("alice took long in ETH, price doesn't change", () => {
         it("force error, margin ratio is above the requirement", async () => {
-            await clearingHouse.connect(alice).swap({
+            await clearingHouse.connect(alice).openPosition({
                 // buy base
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei(100),
+                amount: toWei(90),
                 sqrtPriceLimitX96: 0,
             })
             await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
@@ -97,8 +97,6 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
-    // Two takers; has PnL
     describe("alice took long in ETH, bob took short", () => {
         beforeEach(async () => {
             // alice long ETH
@@ -129,13 +127,7 @@ describe("ClearingHouse liquidate", () => {
         })
 
         describe("carol liquidate alice's position", () => {
-            it("liquidate alice's base", async () => {
-                // console.log((await clearingHouse.buyingPower(alice.address)).toString())
-                // console.log((await vault.getFreeCollateral(alice.address)).toString())
-                // console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
-                // console.log((await clearingHouse.getAccountValue(alice.address)).toString())
-                // console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
-
+            it("forcedly close alice's base position", async () => {
                 const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
 
                 // position size: 0.588407511354640018
@@ -177,6 +169,28 @@ describe("ClearingHouse liquidate", () => {
 
     // TODO copy the sheet above and make another scenario for short
     describe("alice took short in ETH, bob took long", () => {
+        beforeEach(async () => {
+            // alice short ETH
+            await clearingHouse.connect(alice).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: toWei("90"),
+                sqrtPriceLimitX96: 0,
+            })
+            // price after Alice swap : 151.2675469692
+
+            // bob long ETH
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: toWei("50"),
+                sqrtPriceLimitX96: 0,
+            })
+            // price after bob swap : 160.56123246
+        })
+
         describe("carol liquidate alice's position", () => {
             describe.skip("carol takeover the position", () => {
                 it("swap carol's base to alice's quote in a discount (size * marketTWAP * liquidationDiscount)")
@@ -184,11 +198,52 @@ describe("ClearingHouse liquidate", () => {
                 it("force error, carol's base balance is insufficient")
             })
 
-            describe("carol send order to pool", () => {
-                it(
-                    "force mint alice's quote to buy base (the cost will be liquidationNotional) and repay base-debt by carol",
+            it("forcedly close alice's quote position", async () => {
+                console.log((await clearingHouse.buyingPower(alice.address)).toString())
+                console.log((await vault.getFreeCollateral(alice.address)).toString())
+                console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
+                console.log((await clearingHouse.getAccountValue(alice.address)).toString())
+                console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
+
+                const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+
+                let quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+                console.log(quoteTokenInfo.available.toString(), quoteTokenInfo.debt.toString())
+                let baseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+                console.log(baseTokenInfo.available.toString(), baseTokenInfo.debt.toString())
+
+                // position size: 0.588407511354640018
+                // position value: 0.58840 * 143.0326798397 = 84.1044463388
+                // pnl = 84.1044463388 - 90 = -5.838496813155959470
+                // positionNotional: (0.58840 * 0.99) * ~142.935(avg. price) = 83.292171864291669129
+                // account value: 10 + (-5.838496813155959470) = 4.161503186844040530
+                // fee = 83.292171864291669129 * 0.025 = 2.0823043
+                await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address)).to.emit(
+                    clearingHouse,
+                    "PositionLiquidated",
                 )
-                it("transfer liquidationDiscount (liquidatedNotional * liquidationDiscount) to carol before swap")
+                // .withArgs(
+                //     alice.address,
+                //     baseToken.address,
+                //     "83292171864291669129",
+                //     toWei("0.588407511354640018"),
+                //     "2082304296607291728",
+                //     carol.address,
+                // )
+                // account value = collateral + pnl = 10 + (83.29 - 2.08 -90) = 1.209
+                // init margin requirement = 8.7901324323 (only quote debt)
+                // free collateral = 1.20986756 - 8.79013 * 0.1 = 0.330854324452815142
+
+                // 10 + 83.292171864291669129 - 2.0823043 - 90 = 1.20986756
+                // expect(await vault.getFreeCollateral(alice.address)).to.eq("330854324452815142")
+
+                // const carolQuoteAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+
+                quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+                console.log(quoteTokenInfo.available.toString(), quoteTokenInfo.debt.toString())
+                baseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+                console.log(baseTokenInfo.available.toString(), baseTokenInfo.debt.toString())
+                // expect(carolQuoteAfter.available.sub(carolQuoteBefore.available)).to.eq("2082304296607291728")
             })
 
             it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund before swap")

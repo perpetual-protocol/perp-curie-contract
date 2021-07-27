@@ -260,7 +260,7 @@ contract ClearingHouse is
     function mint(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistent(token);
         // always check margin ratio
-        _mint(token, amount, true);
+        _mint(_msgSender(), token, amount, true);
     }
 
     /**
@@ -569,7 +569,26 @@ contract ClearingHouse is
         // shouldn't cancel open orders
         require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");
 
-        _removeAllLiquidity(maker, baseToken);
+        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            bytes32 orderId = orderIds[i];
+            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            _removeLiquidity(
+                InternalRemoveLiquidityParams(
+                    maker,
+                    baseToken,
+                    openOrder.lowerTick,
+                    openOrder.upperTick,
+                    openOrder.liquidity
+                )
+            );
+
+            // burn maker's debt to reduce maker's init margin requirement
+            _burnMax(maker, baseToken);
+        }
+
+        // burn maker's quote to reduce maker's init margin requirement
+        _burnMax(maker, quoteToken);
     }
 
     function settle(address account) external override returns (int256 pnl) {
@@ -770,6 +789,7 @@ contract ClearingHouse is
     //
 
     function _mint(
+        address account,
         address token,
         uint256 amount,
         bool checkMarginRatio
@@ -779,7 +799,6 @@ contract ClearingHouse is
         }
 
         // update internal states
-        address account = _msgSender();
         TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
         tokenInfo.available = tokenInfo.available.add(amount);
         tokenInfo.debt = tokenInfo.debt.add(amount);
@@ -838,10 +857,12 @@ contract ClearingHouse is
 
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
-    function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = buyingPower(_msgSender());
+    function _mintMax(address trader, address token) private returns (uint256) {
+        uint256 freeCollateral = buyingPower(trader);
         if (freeCollateral == 0) {
-            return 0;
+            TokenInfo memory tokenInfo = getTokenInfo(trader, token);
+            uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
+            return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
         // TODO store decimals for gas optimization
@@ -858,7 +879,7 @@ contract ClearingHouse is
             minted = FullMath.mulDiv(mintableQuote, 1 ether, _getIndexPrice(token, 0));
         }
 
-        return _mint(token, minted, false);
+        return _mint(trader, token, minted, false);
     }
 
     function _burnMax(address account, address token) private {
@@ -1034,12 +1055,12 @@ contract ClearingHouse is
             if (params.isBaseToQuote) {
                 // check if trader has enough base to swap
                 if (baseAvailableBefore < params.amount) {
-                    minted = _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
+                    minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
                 }
             } else {
                 // check if trader has enough quote to swap
                 if (quoteAvailableBefore < params.amount) {
-                    minted = _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
+                    minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
                 }
             }
         } else {
@@ -1048,9 +1069,9 @@ contract ClearingHouse is
             // so we'll mint max first, do the swap
             // then calculate how many input we need to mint if we have quoter
             if (params.isBaseToQuote) {
-                minted = _mintMax(params.baseToken);
+                minted = _mintMax(params.trader, params.baseToken);
             } else {
-                minted = _mintMax(quoteToken);
+                minted = _mintMax(params.trader, quoteToken);
             }
         }
 
@@ -1100,6 +1121,7 @@ contract ClearingHouse is
             if (minted > exactInsufficientBase) {
                 _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
+            _burnMax(params.trader, quoteToken);
         } else {
             uint256 exactInsufficientQuote;
             if (swapResponse.quote > quoteAvailableBefore) {
@@ -1109,21 +1131,22 @@ contract ClearingHouse is
             if (minted > exactInsufficientQuote) {
                 _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
+            _burnMax(params.trader, params.baseToken);
         }
 
-        TokenInfo memory baseTokenInfo = getTokenInfo(params.trader, params.baseToken);
-        // if it's closing the position, settle the quote to realize pnl of that market
-        if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
-            uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
-            // TODO combine 2 potential burn into 1
-            _burn(params.trader, quoteToken, burnableAmount);
-        } else {
-            if (!params.skipMarginRequirementCheck) {
-                // it's not closing the position, check margin ratio
-                _requireLargerThanInitialMarginRequirement(params.trader);
-            }
+        // TokenInfo memory baseTokenInfo = getTokenInfo(params.trader, params.baseToken);
+        // // if it's closing the position, settle the quote to realize pnl of that market
+        // if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
+        //     TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
+        //     uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
+        //     // TODO combine 2 potential burn into 1
+        //     _burn(params.trader, quoteToken, burnableAmount);
+        // } else {
+        if (!params.skipMarginRequirementCheck) {
+            // it's not closing the position, check margin ratio
+            _requireLargerThanInitialMarginRequirement(params.trader);
         }
+        // }
 
         return swapResponse;
     }
