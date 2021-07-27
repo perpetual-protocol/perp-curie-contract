@@ -128,15 +128,15 @@ describe("ClearingHouse.getPositionValue", () => {
             // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
             parseEther("0.408410420499999999"),
         )
-        // 149.8522069974 * 0.408410420499999999 = 61.2012028727
+        // 149.852206 * 0.408410420499999999 = 61.2012024653
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.201202872670638396"),
+            parseEther("61.201202465312622850"),
         )
 
         expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
-        // 149.8522069974 * -0.4084104205 = -61.2012028727
+        // 149.852206 * -0.4084104205 = -61.2012024653
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.201202872670638545"),
+            parseEther("-61.201202465312623000"),
         )
     })
 
@@ -197,16 +197,16 @@ describe("ClearingHouse.getPositionValue", () => {
             // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
             parseEther("0.408410420599999999"),
         )
-        // 150.0921504352 * 0.408410420499999999 = 61.299198273
+        // 150.092150 * 0.408410420599999999 = 61.2991981103
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.299198288003388566"),
+            parseEther("61.299198110258289849"),
         )
 
         // short
         expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
-        // 150.0921504352 * -0.4084104206 = -61.299198288
+        // 150.092150 * -0.4084104206 = -61.2991981103
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.299198288003388716"),
+            parseEther("-61.299198110258290000"),
         )
     })
 

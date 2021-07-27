@@ -156,15 +156,15 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            // price after swap: 98.143490128
+            // price after swap: 98.143490
             // position size = -1.009413830572328542
-            // position value = -1.009413830572328542 * 98.143490128 = -99.0673963158
+            // position value = -1.009413830572328542 * 98.143490 = -99.0673961866
             // net quote amount = 99
-            // pnl = 99 - 99.0673963158 = -0.0673963158
+            // pnl = 99 + -99.0673961866 = -0.0673961866
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
 
             // taker2 open a long position
             await clearingHouse.connect(taker2).openPosition({
@@ -177,12 +177,12 @@ describe("ClearingHouse getTotalMarketPnl", () => {
 
             // price after swap: 99.981348
             // taker1
-            // position value = -1.009413830572328542 * 99.9813487961 = -100.9225562741
-            // pnl = 99 + -100.9225562741 = -1.9225562741
+            // position value = -1.009413830572328542 * 99.981348 = -100.9225554705
+            // pnl = 99 + -100.9225554705 = -1.9225554705
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("99.981348", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-1922556274025504498")
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-1.922555470465019128"))
         })
 
         it("taker open short and price goes down", async () => {
@@ -196,15 +196,15 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            // price after swap: 98.143490128
+            // price after swap: 98.143490
             // position size = -1.009413830572328542
-            // position value = -1.009413830572328542 * 98.143490128 = -99.0673963158
+            // position value = -1.009413830572328542 * 98.143490 = -99.0673961866
             // cost basis = 99
-            // pnl = 99 - 99.0673963158 = -0.0673963158
+            // pnl = 99 + -99.0673961866 = -0.0673961866
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
 
             // taker2 open a short position
             await clearingHouse.connect(taker2).openPosition({
@@ -216,14 +216,14 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             })
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
-            // price after swap: 94.4460321966
+            // price after swap: 94.446032
             // taker1
-            // position value = -1.009413830572328542 * 94.4826553619 = -95.3720990715
-            // pnl = 99 - 95.3720990715 = 3.6279009285
+            // position value = -1.009413830572328542 * 94.446032 = -95.3351309435
+            // pnl = 99 + -95.3351309435 = 3.6648690565
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("94.482655", 6), 0, 0, 0]
+                return [0, parseUnits("94.446032", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("3627900928500046087")
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("3.664869056523280208"))
         })
     })
 
@@ -263,18 +263,18 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            // price after swap: 98.143490128
+            // price after swap: 98.143490
             // taker
             //  - position size = -1.009413830572328542
             // maker
             //  - position size = 1.009413830572328542
-            //  - position value = 1.009413830572328542 * 98.143490128 = 99.0673963158
+            //  - position value = 1.009413830572328542 * 98.143490 = 99.0673961866
             //  - costBasis = -99
-            //  - pnl = -99 + 99.0673963158 = 0.0673963158
+            //  - pnl = -99 + 99.0673961866 = 0.0673961866
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
         })
 
         it("maker open a long position then verify maker's pnl", async () => {
