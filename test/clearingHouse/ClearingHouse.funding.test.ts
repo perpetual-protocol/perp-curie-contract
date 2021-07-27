@@ -376,13 +376,14 @@ describe("ClearingHouse.funding", () => {
             await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
         })
 
-        // TODO should not be force error. Need revision
-        it("force error, not enough quote token available", async () => {
+        it("increase quote debt because the quote available is not enough", async () => {
             // carol long
             await collateral.mint(carol.address, parseEther("1000"))
             await deposit(carol, vault, 1000, collateral)
 
             await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
+            const carolQuoteDebtBefore = (await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).debt
+
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -400,7 +401,10 @@ describe("ClearingHouse.funding", () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
-            await expect(clearingHouse.settleFunding(carol.address, baseToken.address)).to.revertedWith("TBD")
+            await clearingHouse.settleFunding(carol.address, baseToken.address)
+
+            const carolQuoteDebtAfter = (await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).debt
+            expect(carolQuoteDebtAfter.sub(carolQuoteDebtBefore).lt(0)).be.true
         })
     })
 })

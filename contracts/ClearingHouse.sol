@@ -993,12 +993,21 @@ contract ClearingHouse is
 
         fundingPayment = getPendingFundingPayment(trader, token);
         _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
-        uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
 
-        // TODO
-        // what if available < fundingPayment?
-        require(available.toInt256() > fundingPayment, "TBD");
-        _accountMap[trader].tokenInfoMap[quoteToken].available = available.toInt256().sub(fundingPayment).toUint256();
+        if (fundingPayment == 0) {
+            return 0;
+        }
+
+        uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
+        if (available.toInt256() < fundingPayment) {
+            uint256 debt = _accountMap[trader].tokenInfoMap[quoteToken].debt;
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.toInt256().add(-fundingPayment).toUint256();
+        } else {
+            _accountMap[trader].tokenInfoMap[quoteToken].available = available
+                .toInt256()
+                .sub(fundingPayment)
+                .toUint256();
+        }
 
         emit FundingSettled(trader, token, historyLen, fundingPayment);
     }
