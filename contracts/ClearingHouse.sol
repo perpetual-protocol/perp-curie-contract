@@ -24,6 +24,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Tick } from "./lib/Tick.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -426,29 +427,91 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
         }
 
-        uint256 fee;
+        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
+        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
         int256 exchangedPositionSize;
         int256 costBasis;
+        // update internal states
         {
-            // update internal states
             TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
             TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
             if (isBaseToQuote) {
                 // short: exchangedPositionSize <= 0 && costBasis >= 0
                 exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
-                costBasis = _calcScaledAmount(pool, response.quote, false).toInt256();
-                fee = response.quote.toInt256().sub(costBasis).abs();
+                // due to base to quote fee, costBasis(exchangedNotional) contains the fee
+                // s.t. we can take the fee away from costBasis(exchangedNotional)
+                costBasis = response.quote.toInt256();
+                // console.log("exchangedPositionSize:");
+                // console.logInt(exchangedPositionSize);
+                // console.log("costBasis:");
+                // console.logInt(costBasis);
+                // console.log("fee:", fee);
             } else {
                 // long: exchangedPositionSize >= 0 && costBasis <= 0
                 exchangedPositionSize = response.base.toInt256();
-                fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
-                // fee should be charged already in costBasis
+                // as fee is charged by Uniswap pool already, costBasis(exchangedNotional) does not include fee
                 costBasis = -(response.quote.sub(fee).toInt256());
             }
 
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
             quoteTokenInfo.available = quoteTokenInfo.available.toInt256().add(costBasis).toUint256().sub(fee);
+
+            // examples:
+            //
+            // isBaseToQuote
+            //   - isExactInput:
+            //     alice wants to swap exact input of 1 base
+            //     assume pool can swap 1 base to 100 quote (excluding fee, no slippage)
+            //     pool received 1 / 0.99 = 1.010101 base (response.base)
+            //     pool collect 0.010101 base fee (fake fee)
+            //     pool swap 1 base to 100 quote
+            //     pool output = 100 quote (response.quote)
+            //     exchangedPositionSize = -1 (response.base * 0.99)
+            //     exchangedNotional(costBasis) = 100 (response.quote)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
+            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
+            //
+            //   - isExactOutput:
+            //     alice wants to swap exact output of 99 quote
+            //     pool should output 99 / 0.99 = 100 quote (response.quote)
+            //     assume pool needs 1 base to swap for 100 quote (excluding fee, no slippage)
+            //     pool needs to receive 1 / 0.99 = 1.010101 base (response.base)
+            //     pool collect 1.010101 * 0.01 = 0.010101 quote (fake fee)
+            //     pool swap 1 base to 100 quote
+            //     exchangedPositionSize = -1 (response.base * 0.99)
+            //     exchangedNotional(costBasis) = 100 (response.quote)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
+            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
+            //
+            // isQuoteToBase
+            //   - isExactInput:
+            //     alice wants to swap exact input of 100 quote
+            //     assume pool can swap 99 quote to 1 base (excluding fee, no slippage)
+            //     pool received 100 quote (response.quote)
+            //     pool collect 100 * 0.01 = 1 quote fee (real fee)
+            //     pool swap 99 quote to 1 base
+            //     pool output = 1 base (response.base)
+            //     exchangedPositionSize = 1 (response.base)
+            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
+            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
+            //
+            //   - isExactOutput:
+            //     alice wants to swap exact output of 1 base
+            //     pool should output 1 base (response.base)
+            //     assume pool needs 99 quote to swap for 1 base
+            //     pool needs to receive 99 / 0.99 = 100 quote (response.quote)
+            //     pool collect 100 * 0.01 = 1 quote (real fee)
+            //     pool swap 99 quote to 1 base
+            //     exchangedPositionSize = 1 (response.base)
+            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
+            //     fee = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
+            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
         }
 
         emit Swapped(

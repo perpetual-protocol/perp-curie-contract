@@ -147,7 +147,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             // price after swap: 98.143490128
             // position size = -1.009413830572328542
             // position value = -1.009413830572328542 * 98.143490128 = -99.0673963158
-            // cost basis = 99
+            // net quote amount = 99
             // pnl = 99 - 99.0673963158 = -0.0673963158
             expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
 
