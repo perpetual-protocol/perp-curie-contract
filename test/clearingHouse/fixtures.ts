@@ -1,11 +1,12 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool, Vault } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
-import { tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: ClearingHouse
+    vault: Vault
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
     feeTier: number
@@ -13,6 +14,9 @@ interface ClearingHouseFixture {
     quoteToken: BaseToken
     baseToken: BaseToken
     mockedBaseAggregator: MockContract
+    baseToken2: BaseToken
+    mockedBaseAggregator2: MockContract
+    pool2: UniswapV3Pool
 }
 
 interface UniswapV3BrokerFixture {
@@ -47,28 +51,53 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
+        const vaultFactory = await ethers.getContractFactory("Vault")
+        const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+
         // deploy clearingHouse
         const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
         const clearingHouse = (await clearingHouseFactory.deploy(
-            USDC.address,
+            vault.address,
             quoteToken.address,
             uniV3Factory.address,
             3600, // fundingPeriod = 1 hour
         )) as ClearingHouse
 
         // set CH as the minter of all virtual tokens
+        await vault.setClearingHouse(clearingHouse.address)
         await baseToken.setMinter(clearingHouse.address)
         await quoteToken.setMinter(clearingHouse.address)
 
-        // deploy a pool
+        // prepare uniswap factory
         const feeTier = 10000
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
-        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
-
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+
+        // deploy a pool
+        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
 
-        return { clearingHouse, uniV3Factory, pool, feeTier, USDC, quoteToken, baseToken, mockedBaseAggregator }
+        // deploy another pool
+        const _token0Fixture = await token0Fixture(quoteToken.address)
+        const baseToken2 = _token0Fixture.baseToken
+        const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
+        const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)
+        const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
+
+        return {
+            clearingHouse,
+            vault,
+            uniV3Factory,
+            pool,
+            feeTier,
+            USDC,
+            quoteToken,
+            baseToken,
+            mockedBaseAggregator,
+            baseToken2,
+            mockedBaseAggregator2,
+            pool2,
+        }
     }
 }
 
@@ -82,6 +111,7 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
     mockedUniV3Factory: MockContract
+    mockedVault: MockContract
     mockedVUSD: MockContract
     mockedUSDC: MockContract
     mockedBaseToken: MockContract
@@ -118,8 +148,11 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
+    const vaultFactory = await ethers.getContractFactory("Vault")
+    const vault = (await vaultFactory.deploy(USDC.address)) as Vault
     const mockedUSDC = await smockit(USDC)
     const mockedVUSD = await smockit(token1)
+    const mockedVault = await smockit(vault)
 
     // deploy UniV3 factory
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -129,7 +162,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy(
-        mockedUSDC.address,
+        mockedVault.address,
         mockedVUSD.address,
         mockedUniV3Factory.address,
         3600,
@@ -138,7 +171,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedVUSD.address)
 
-    return { clearingHouse, mockedUniV3Factory, mockedVUSD, mockedUSDC, mockedBaseToken }
+    return { clearingHouse, mockedUniV3Factory, mockedVault, mockedVUSD, mockedUSDC, mockedBaseToken }
 }
 
 export async function deployERC20(): Promise<TestERC20> {

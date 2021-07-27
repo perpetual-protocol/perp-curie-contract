@@ -2,7 +2,8 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -11,6 +12,7 @@ describe("ClearingHouse.burn", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: TestERC20
     let quoteToken: TestERC20
@@ -20,6 +22,7 @@ describe("ClearingHouse.burn", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -37,13 +40,12 @@ describe("ClearingHouse.burn", () => {
         beforeEach(async () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, parseEther("10"))
-            await collateral.connect(alice).approve(clearingHouse.address, parseEther("10"))
-            await clearingHouse.connect(alice).deposit(parseEther("10"))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("10"))
+            await deposit(alice, vault, 10, collateral)
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("10"))
 
             // alice mints 10 quote
             await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("10"))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("9"))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("9"))
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 parseEther("10"), // available
                 parseEther("10"), // debt
@@ -60,7 +62,7 @@ describe("ClearingHouse.burn", () => {
                 parseEther("0"), // debt
             ])
 
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("10"))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("10"))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -87,8 +89,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, parseEther("100"))
-            await collateral.connect(bob).approve(clearingHouse.address, parseEther("100"))
-            await clearingHouse.connect(bob).deposit(parseEther("100"))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
@@ -139,7 +140,7 @@ describe("ClearingHouse.burn", () => {
 
             await expect(
                 clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter),
-            ).to.be.revertedWith("CH_BTM")
+            ).to.be.revertedWith("CH_IBTB")
 
             // TODO: move to closePosition's tests
             // await expect(clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter))
@@ -152,7 +153,7 @@ describe("ClearingHouse.burn", () => {
             // ])
 
             // const profit = aliceQuoteAvailableAfter.sub(aliceQuoteAvailableBefore)
-            // expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("10").add(profit))
+            // expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("10").add(profit))
         })
 
         it("# burn quote 10 when debt = 10, available < 10", async () => {
@@ -174,8 +175,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, parseEther("100"))
-            await collateral.connect(bob).approve(clearingHouse.address, parseEther("100"))
-            await clearingHouse.connect(bob).deposit(parseEther("100"))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
@@ -223,8 +223,6 @@ describe("ClearingHouse.burn", () => {
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(quoteToken.address, 0)).to.be.revertedWith("CH_IA")
         })
     })
 
@@ -233,13 +231,12 @@ describe("ClearingHouse.burn", () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, parseEther("1000"))
             await collateral.connect(alice).approve(clearingHouse.address, parseEther("1000"))
-            await clearingHouse.connect(alice).deposit(parseEther("1000"))
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("1000"))
+            await deposit(alice, vault, 1000, collateral)
 
             // alice mints 10 base
             await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
             // TODO: the index price of base is hardcoded as $100
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("900"))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("900"))
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 parseEther("10"), // available
                 parseEther("10"), // debt
@@ -256,7 +253,7 @@ describe("ClearingHouse.burn", () => {
                 parseEther("0"), // debt
             ])
 
-            expect(await clearingHouse.getFreeCollateral(alice.address)).to.eq(parseEther("1000"))
+            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("1000"))
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -285,8 +282,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, parseEther("100"))
-            await collateral.connect(bob).approve(clearingHouse.address, parseEther("100"))
-            await clearingHouse.connect(bob).deposit(parseEther("100"))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 100 quote for swap
             await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("100"))
@@ -349,8 +345,7 @@ describe("ClearingHouse.burn", () => {
 
             // prepare collateral for bob
             await collateral.mint(bob.address, parseEther("100"))
-            await collateral.connect(bob).approve(clearingHouse.address, parseEther("100"))
-            await clearingHouse.connect(bob).deposit(parseEther("100"))
+            await deposit(bob, vault, 100, collateral)
 
             // bob mints 100 quote for swap
             await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("100"))
@@ -400,16 +395,15 @@ describe("ClearingHouse.burn", () => {
             // but can be double-checked with _getPositionSize() as it handles DUST (< 10 wei) amount
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).to.eq("0")
 
-            await clearingHouse.connect(alice).burn(baseToken.address, aliceBaseAvailableAfter)
-            expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).available).to.eq("0")
+            await expect(
+                clearingHouse.connect(alice).burn(baseToken.address, aliceBaseAvailableAfter),
+            ).to.be.revertedWith("CH_IBTB")
             // DUST
             expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).debt).to.eq("1")
         })
 
         it("# force fail when the user has no vTokens", async () => {
             await expect(clearingHouse.connect(alice).burn(EMPTY_ADDRESS, 10)).to.be.revertedWith("CH_TNF")
-
-            await expect(clearingHouse.connect(alice).burn(baseToken.address, 0)).to.be.revertedWith("CH_IA")
         })
     })
 })

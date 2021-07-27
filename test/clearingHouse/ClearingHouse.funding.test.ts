@@ -3,8 +3,9 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { BaseToken } from "../../typechain/BaseToken"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -13,6 +14,7 @@ describe("ClearingHouse.funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: BaseToken
@@ -22,6 +24,7 @@ describe("ClearingHouse.funding", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -32,8 +35,8 @@ describe("ClearingHouse.funding", () => {
 
         // alice add long limit order
         await collateral.mint(alice.address, parseEther("10000"))
-        await collateral.connect(alice).approve(clearingHouse.address, parseEther("10000"))
-        await clearingHouse.connect(alice).deposit(parseEther("10000"))
+        await deposit(alice, vault, 10000, collateral)
+
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
@@ -53,8 +56,8 @@ describe("ClearingHouse.funding", () => {
 
         // bob short
         await collateral.mint(bob.address, parseEther("1000"))
-        await collateral.connect(bob).approve(clearingHouse.address, parseEther("1000"))
-        await clearingHouse.connect(bob).deposit(parseEther("1000"))
+        await deposit(bob, vault, 1000, collateral)
+
         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
 
         await clearingHouse.connect(bob).swap({
@@ -191,8 +194,8 @@ describe("ClearingHouse.funding", () => {
         it("get correct number when there is no positions", async () => {
             // carol mint token but not trading (zero positions)
             await collateral.mint(carol.address, parseEther("10000"))
-            await collateral.connect(carol).approve(clearingHouse.address, parseEther("10000"))
-            await clearingHouse.connect(carol).deposit(parseEther("10000"))
+            await deposit(carol, vault, 10000, collateral)
+
             await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
 
             // update funding
@@ -394,8 +397,8 @@ describe("ClearingHouse.funding", () => {
         it("force error, not enough quote token available", async () => {
             // carol long
             await collateral.mint(carol.address, parseEther("1000"))
-            await collateral.connect(carol).approve(clearingHouse.address, parseEther("1000"))
-            await clearingHouse.connect(carol).deposit(parseEther("1000"))
+            await deposit(carol, vault, 1000, collateral)
+
             await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
             await clearingHouse.connect(carol).swap({
                 baseToken: baseToken.address,

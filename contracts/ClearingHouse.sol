@@ -21,11 +21,20 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
+import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
 
-contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
+contract ClearingHouse is
+    IUniswapV3MintCallback,
+    IUniswapV3SwapCallback,
+    ISettlement,
+    ReentrancyGuard,
+    ArbBlockContext,
+    Ownable
+{
     using SafeMath for uint256;
     using SafeMath for uint160;
     using SafeCast for uint256;
@@ -41,7 +50,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     // events
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
     event LiquidityChanged(
@@ -57,7 +65,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
-    event FundingRateUpdated(int256 rate, uint256 underlyingPrice);
+    event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
     event FundingSettled(
         address indexed trader,
         address indexed token,
@@ -69,7 +77,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
-        int256 costBasis,
+        uint256 exchangedPositionNotional,
         uint256 fee,
         int256 fundingPayment,
         uint256 badDebt
@@ -80,13 +88,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     //
 
     struct Account {
-        uint256 collateral;
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
-        // @audit - suggest to flatten the mapping by keep an orderIds[] here
-        // and create another _openOrderMap global state
-        // because the orderId already contains the baseTokenAddr (@wraecca).
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
@@ -181,7 +185,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     }
 
     // 10 wei
-    uint256 private constant DUST = 10;
+    uint256 private constant _DUST = 10;
 
     //
     // state variables
@@ -189,9 +193,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
-    address public immutable collateralToken;
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
+    address public vault;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -213,21 +217,21 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     mapping(address => FundingHistory[]) private _fundingHistoryMap;
 
     constructor(
-        address collateralTokenArg,
+        address vaultArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         uint256 fundingPeriodArg
     ) {
-        // CH_II: invalid input
-        require(collateralTokenArg != address(0), "CH_II_C");
+        // vault is 0
+        require(vaultArg != address(0), "CH_VI0");
 
-        // TODO: add missing full error messages
-        require(quoteTokenArg != address(0), "CH_II_Q");
-        require(uniV3FactoryArg != address(0), "CH_II_U");
+        // quoteToken is 0
+        require(quoteTokenArg != address(0), "CH_QI0");
 
-        // TODO ensure collateral token must has decimals
-        // TODO store decimals for gas optimization
-        collateralToken = collateralTokenArg;
+        // uniV3Factory is 0
+        require(uniV3FactoryArg != address(0), "CH_U10");
+
+        vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
@@ -250,18 +254,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
-    // TODO should add modifier: whenNotPaused()
-    function deposit(uint256 amount) external nonReentrant() {
-        address trader = _msgSender();
-        Account storage account = _accountMap[trader];
-        account.collateral = account.collateral.add(amount);
-        TransferHelper.safeTransferFrom(collateralToken, trader, address(this), amount);
-
-        emit Deposited(collateralToken, trader, amount);
-    }
-
-    // @audit - change to token[] amount[] for minting both (@wraecca)
-    // TODO should add modifier: whenNotPaused()
     function mint(address token, uint256 amount) external nonReentrant() {
         _requireTokenExistent(token);
         // always check margin ratio
@@ -273,30 +265,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
      */
     function burn(address token, uint256 amount) public nonReentrant() {
         _requireTokenExistent(token);
-        _requireValidAmount(amount);
-
-        address trader = _msgSender();
-
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
-        if (token != quoteToken) {
-            _settleFunding(trader, token);
-        }
-
-        TokenInfo storage tokenInfo = _accountMap[trader].tokenInfoMap[token];
-
-        // CH_BTM: burn too much; can only burn the amount of debt that can be paid back with available
-        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_BTM");
-
-        // pay back debt
-        tokenInfo.available = tokenInfo.available.sub(amount);
-        tokenInfo.debt = tokenInfo.debt.sub(amount);
-
-        // FIXME remove token from account.tokens if available & debt is zero
-
-        IMintableERC20(token).burn(amount);
-
-        emit Burned(trader, token, amount);
+        _burn(_msgSender(), token, amount);
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (UniswapV3Broker.SwapResponse memory) {
@@ -512,7 +481,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             trader,
             baseTokenAddr,
             exchangedPositionSize,
-            costBasis,
+            costBasis, // exchangedPositionNotional
             fee,
             settledFundingPayment, // fundingPayment,
             0 // TODO: badDebt
@@ -529,8 +498,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // update internal states
@@ -714,7 +681,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             }
 
             if (minted > exactInsufficientBase) {
-                burn(params.baseToken, minted.sub(exactInsufficientBase));
+                _burn(trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
         } else {
             uint256 exactInsufficientQuote;
@@ -723,21 +690,20 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             }
 
             if (minted > exactInsufficientQuote) {
-                burn(quoteToken, minted.sub(exactInsufficientQuote));
+                _burn(trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
 
-        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        TokenInfo memory baseTokenInfo = getTokenInfo(trader, params.baseToken);
         // if it's closing the position, settle the quote to realize pnl of that market
         if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            _settle(_msgSender());
+            _burnMax(trader, quoteToken);
         } else {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(trader);
         }
     }
 
-    // @audit - review security and possible attacks (@detoo)
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -806,7 +772,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
             premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
-            emit FundingRateUpdated(premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
+            emit FundingRateUpdated(baseToken, premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
         }
 
         // register primitives for funding calculations so we can settle it later
@@ -850,6 +816,34 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                     openOrder.liquidity
                 )
             );
+
+            // burn maker's debt to reduce maker's init margin requirement
+            _burnMax(maker, baseToken);
+        }
+
+        // burn maker's quote to reduce maker's init margin requirement
+        _burnMax(maker, quoteToken);
+    }
+
+    function settle(address account) external override returns (int256 pnl) {
+        // only vault
+        require(_msgSender() == vault, "CH_OV");
+
+        // calculate pnl
+        TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
+        if (quoteInfo.available >= quoteInfo.debt) {
+            // profit
+            uint256 profit = quoteInfo.available.sub(quoteInfo.debt);
+            quoteInfo.available = quoteInfo.available.sub(profit);
+            pnl = profit.toInt256();
+
+            // burn profit in quote and add to collateral
+            IMintableERC20(quoteToken).burn(profit);
+        } else {
+            // loss
+            uint256 loss = quoteInfo.debt.sub(quoteInfo.available);
+            quoteInfo.debt = quoteInfo.debt.sub(loss);
+            pnl = -(loss.toInt256());
         }
     }
 
@@ -860,18 +854,41 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return _poolMap[baseToken];
     }
 
-    // FIXME should include pending funding payment
     function getAccountValue(address trader) public view returns (int256) {
-        return _accountMap[trader].collateral.toInt256().add(getTotalMarketPnl(trader));
+        return IERC20Metadata(vault).balanceOf(trader).toInt256().add(getTotalMarketPnl(trader));
     }
 
-    function getFreeCollateral(address trader) public view returns (uint256) {
-        int256 freeCollateral = getAccountValue(trader).sub(_getTotalInitialMarginRequirement(trader).toInt256());
-        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
+    function buyingPower(address account) public view returns (uint256) {
+        int256 requiredCollateral = getRequiredCollateral(account);
+        int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
+        if (requiredCollateral >= totalCollateralValue) {
+            return 0;
+        }
+
+        // totalCollateralValue > requiredCollateral
+        return totalCollateralValue.sub(requiredCollateral).toUint256();
+    }
+
+    function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
+        Account storage account = _accountMap[trader];
+
+        // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
+        uint256 quoteDebtValue = account.tokenInfoMap[quoteToken].debt;
+        uint256 totalBaseDebtValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                // will not use negative value in this case
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            }
+        }
+
+        return totalBaseDebtValue.add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
     // NOTE: the negative value will only be used when calculating the PNL
-    // TODO: whether this is public or internal or private
     function getPositionValue(
         address trader,
         address token,
@@ -926,8 +943,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
 
-    // @audit do we need to expose the following function until the end of this section?
-    // suggest to expose as less as we can (@wraecca)
     function getCostBasis(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
@@ -944,10 +959,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             );
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        // TODO need include CH quote fees
         int256 costBasis =
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
-        return costBasis.abs() < DUST ? 0 : costBasis;
+        return costBasis.abs() < _DUST ? 0 : costBasis;
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -995,6 +1009,10 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
     }
 
+    function getRequiredCollateral(address account) public view override returns (int256) {
+        return _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
+    }
+
     function getTotalMarketPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
         uint256 tokenLen = _accountMap[trader].tokens.length;
@@ -1011,49 +1029,15 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     //
     // INTERNAL FUNCTIONS
     //
-    // @audit - review decimal conversion between collateral and quoteToken (@vinta)
-    // caller must ensure taker's position is zero
-    // settle pnl to trader's collateral when there's no position is being hold
-    function _settle(address trader) private {
-        TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        uint256 collateral = _accountMap[trader].collateral;
-
-        // has profit
-        if (quoteTokenInfo.available > quoteTokenInfo.debt) {
-            uint256 profit = quoteTokenInfo.available.sub(quoteTokenInfo.debt);
-            _accountMap[trader].collateral = collateral.add(profit);
-            _accountMap[trader].tokenInfoMap[quoteToken].available = quoteTokenInfo.available.sub(profit);
-            burn(quoteToken, quoteTokenInfo.debt);
-            return;
-        }
-
-        // has loss or breakeven
-        uint256 loss = quoteTokenInfo.debt.sub(quoteTokenInfo.available);
-        if (loss > 0) {
-            // quote's available is not enough for debt, trader will pay back the debt by collateral
-            if (collateral < loss) {
-                // TODO bad debt occurs - need cover from insurance fund
-                // _burnBadDebt(remainingDebt - collateral);
-                _accountMap[trader].collateral = 0;
-
-                // to be done
-                revert("TBD");
-            } else {
-                _accountMap[trader].collateral = collateral.sub(loss);
-            }
-
-            // realized loss by collateral or insurance fund
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = quoteTokenInfo.debt.sub(loss);
-        }
-        burn(quoteToken, quoteTokenInfo.available);
-    }
 
     function _mint(
         address token,
         uint256 amount,
         bool checkMarginRatio
     ) private returns (uint256) {
-        _requireValidAmount(amount);
+        if (amount == 0) {
+            return 0;
+        }
 
         // update internal states
         address account = _msgSender();
@@ -1080,19 +1064,52 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return amount;
     }
 
+    // caller must ensure the token is valid
+    function _burn(
+        address account,
+        address token,
+        uint256 amount
+    ) private {
+        if (token != quoteToken) {
+            _settleFunding(account, token);
+        }
+
+        if (amount == 0) {
+            return;
+        }
+
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
+
+        // CH_IBTB: insufficient balance to burn
+        // can only burn the amount of debt that can be pay back with available
+        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IBTB");
+
+        // pay back debt
+        tokenInfo.available = tokenInfo.available.sub(amount);
+        tokenInfo.debt = tokenInfo.debt.sub(amount);
+
+        if (tokenInfo.available == 0 && tokenInfo.debt == 0) {
+            delete _accountMap[account].tokenInfoMap[token];
+        }
+
+        IMintableERC20(token).burn(amount);
+
+        emit Burned(account, token, amount);
+    }
+
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
     function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = getFreeCollateral(_msgSender());
+        uint256 freeCollateral = buyingPower(_msgSender());
         if (freeCollateral == 0) {
             return 0;
         }
 
         // TODO store decimals for gas optimization
         // normalize free collateral from collateral decimals to quote decimals
-        uint256 collateralDecimals = 10**IERC20Metadata(collateralToken).decimals();
+        uint256 vaultDecimals = 10**IERC20Metadata(vault).decimals();
         uint256 quoteDecimals = 10**IERC20Metadata(quoteToken).decimals();
-        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, collateralDecimals);
+        uint256 normalizedFreeCollateral = FullMath.mulDiv(freeCollateral, quoteDecimals, vaultDecimals);
         uint256 mintableQuote = FullMath.mulDiv(normalizedFreeCollateral, quoteDecimals, imRatio);
         uint256 minted;
         if (token == quoteToken) {
@@ -1103,6 +1120,11 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         }
 
         return _mint(token, minted, false);
+    }
+
+    function _burnMax(address account, address token) private {
+        TokenInfo memory tokenInfo = getTokenInfo(account, token);
+        _burn(account, token, Math.min(tokenInfo.available, tokenInfo.debt));
     }
 
     function _registerBaseToken(address trader, address token) private {
@@ -1133,8 +1155,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
     function _removeLiquidity(InternalRemoveLiquidityParams memory params) private {
         address trader = params.maker;
 
-        // TODO could be optimized by letting the caller trigger it.
-        //  Revise after we have defined the user-facing functions.
         _settleFunding(trader, params.baseToken);
 
         // load existing open order
@@ -1271,7 +1291,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             }
         }
 
-        return Math.max(totalPositionValue, Math.max(totalBaseDebtValue, quoteDebtValue)).mul(imRatio).divideBy10_18();
+        return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
@@ -1374,10 +1394,9 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
-        return positionSize.abs() < DUST ? 0 : positionSize;
+        return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
-    // @audit suggest to rename to hasPool or isPoolExist
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
     }
@@ -1409,7 +1428,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
     ) private pure returns (uint256) {
-        // TODO can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
+        // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
         // which causes underflow but what we want is the difference only
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
@@ -1452,12 +1471,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         );
     }
 
-    function _requireValidAmount(uint256 amount) private pure {
-        // CH_IA: invalid amount
-        require(amount > 0, "CH_IA");
-    }
-
-    // @audit - suggest rename to _requireHasToken or _requireTokenExist
     function _requireTokenExistent(address token) private view {
         if (quoteToken != token) {
             // CH_TNF: token not found

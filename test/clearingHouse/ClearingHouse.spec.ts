@@ -80,6 +80,16 @@ describe("ClearingHouse Spec", () => {
             await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("CH_IB")
         })
     })
+
+    describe("# getRequiredCollateral", () => {})
+
+    describe("# settle", () => {
+        it("force error, caller is not vault")
+        it("return available - debt")
+        it("burn available")
+    })
+
+    // TODO move to another spec
     describe("# updateFunding", async () => {
         let fundingBufferPeriod
         let mockedPool: MockContract
@@ -117,6 +127,7 @@ describe("ClearingHouse Spec", () => {
             await expect(clearingHouse.updateFunding(baseToken.address))
                 .to.emit(clearingHouse, "FundingRateUpdated")
                 .withArgs(
+                    baseToken.address,
                     "612746365981925", // (101.4705912784 - 100) / 24 / 100 = 0.000612746366
                     parseEther("100"),
                 )
@@ -140,6 +151,7 @@ describe("ClearingHouse Spec", () => {
             await expect(clearingHouse.updateFunding(baseToken.address))
                 .to.emit(clearingHouse, "FundingRateUpdated")
                 .withArgs(
+                    baseToken.address,
                     "-1044971893446306", // (97.4920674557 - 100) / 24 / 100 = -0.001044971893
                     parseEther("100"),
                 )
