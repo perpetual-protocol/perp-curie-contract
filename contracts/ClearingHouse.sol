@@ -84,7 +84,7 @@ contract ClearingHouse is
 
     event PositionLiquidated(
         address indexed trader,
-        address indexed pool,
+        address indexed baseToken,
         uint256 positionNotional,
         uint256 positionSize,
         uint256 liquidationFee,
@@ -185,6 +185,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        bool skipMarginRequirementCheck;
     }
 
     struct SwapCallbackData {
@@ -417,7 +418,8 @@ contract ClearingHouse is
                 isBaseToQuote: params.isBaseToQuote,
                 isExactInput: params.isExactInput,
                 amount: params.amount,
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                skipMarginRequirementCheck: false
             })
         );
     }
@@ -468,7 +470,8 @@ contract ClearingHouse is
                     isBaseToQuote: isLong,
                     isExactInput: isLong,
                     amount: positionSize.abs(),
-                    sqrtPriceLimitX96: 0
+                    sqrtPriceLimitX96: 0,
+                    skipMarginRequirementCheck: true
                 })
             );
 
@@ -483,14 +486,7 @@ contract ClearingHouse is
         TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
         liquidatorTokenInfo.available = liquidatorTokenInfo.available.add(liquidationFee);
 
-        emit PositionLiquidated(
-            trader,
-            _poolMap[baseToken],
-            swapResponse.quote,
-            positionSize.abs(),
-            liquidationFee,
-            liquidator
-        );
+        emit PositionLiquidated(trader, baseToken, swapResponse.quote, positionSize.abs(), liquidationFee, liquidator);
     }
 
     function uniswapV3SwapCallback(
@@ -1102,7 +1098,7 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientBase) {
-                burn(params.baseToken, minted.sub(exactInsufficientBase));
+                _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
         } else {
             uint256 exactInsufficientQuote;
@@ -1111,20 +1107,22 @@ contract ClearingHouse is
             }
 
             if (minted > exactInsufficientQuote) {
-                burn(quoteToken, minted.sub(exactInsufficientQuote));
+                _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
         }
 
-        TokenInfo memory baseTokenInfo = getTokenInfo(_msgSender(), params.baseToken);
+        TokenInfo memory baseTokenInfo = getTokenInfo(params.trader, params.baseToken);
         // if it's closing the position, settle the quote to realize pnl of that market
         if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            TokenInfo memory quoteTokenInfo = getTokenInfo(_msgSender(), quoteToken);
+            TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
             uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
             // TODO combine 2 potential burn into 1
-            burn(quoteToken, burnableAmount);
+            _burn(params.trader, quoteToken, burnableAmount);
         } else {
-            // it's not closing the position, check margin ratio
-            _requireLargerThanInitialMarginRequirement(params.trader);
+            if (!params.skipMarginRequirementCheck) {
+                // it's not closing the position, check margin ratio
+                _requireLargerThanInitialMarginRequirement(params.trader);
+            }
         }
 
         return swapResponse;
