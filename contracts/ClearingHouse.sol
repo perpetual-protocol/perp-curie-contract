@@ -24,7 +24,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Tick } from "./lib/Tick.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -856,6 +855,16 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return _accountMap[trader].makerPositionMap[baseToken].orderIds;
     }
 
+    function getTotalTokenAmountInPool(address trader, address baseToken)
+        external
+        view
+        returns (uint256 base, uint256 quote)
+    {
+        uint160 sqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+        base = _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, true);
+        quote = _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false);
+    }
+
     function getPositionSize(address trader, address baseToken) external view returns (int256) {
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
@@ -869,7 +878,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
             address baseToken = _accountMap[trader].tokens[i];
             // TODO: remove quoteToken from _accountMap[trader].tokens?
             quoteInPool = quoteInPool.add(
-                _getTotalTokenAmount(
+                _getTotalTokenAmountInPool(
                     trader,
                     baseToken,
                     UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
@@ -1110,8 +1119,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 UniswapV3Broker.getTick(pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
-        console.log("openOrder.liquidity", openOrder.liquidity);
-        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
         uint256 quoteFeeClearingHouse =
             _calcOwedFee(
                 openOrder.liquidity,
@@ -1124,11 +1131,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 response.feeGrowthInsideQuoteX128,
                 openOrder.feeGrowthInsideUniswapLastX128
             );
-
-        console.log("feeGrowthInsideClearingHouseX128", feeGrowthInsideClearingHouseX128);
-        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
-        console.log("quoteFeeClearingHouse", quoteFeeClearingHouse);
-        console.log("quoteFeeUniswap", quoteFeeUniswap);
 
         // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
@@ -1219,7 +1221,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
     }
 
-    function _getTotalTokenAmount(
+    function _getTotalTokenAmountInPool(
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
@@ -1303,7 +1305,7 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
         Account storage account = _accountMap[trader];
         uint256 vBaseAmount =
             account.tokenInfoMap[baseToken].available.add(
-                _getTotalTokenAmount(
+                _getTotalTokenAmountInPool(
                     trader,
                     baseToken,
                     sqrtMarkPriceX96,

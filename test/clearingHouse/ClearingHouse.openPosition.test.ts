@@ -55,6 +55,13 @@ describe("ClearingHouse openPosition", () => {
             upperTick,
         })
 
+        // maker
+        //   pool.base = 65.9437860798
+        //   pool.quote = 10000
+        //   liquidity = 884.6906588359
+        //   virual base liquidity = 884.6906588359 / sqrt(151.373306858723226652) = 71.9062751863
+        //   virual quote liquidity = 884.6906588359 * sqrt(151.373306858723226652) = 10,884.6906588362
+
         // prepare collateral for taker
         const takerCollateral = toWei(1000, collateralDecimals)
         await collateral.mint(taker.address, takerCollateral)
@@ -173,7 +180,7 @@ describe("ClearingHouse openPosition", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         "6539527905092835", // exchangedPositionSize
-                        toWei(-1), // costBasis
+                        toWei(-0.99), // costBasis
                         toWei(1 * 0.01), // fee
                         toWei(0), // fundingPayment
                         toWei(0), // badDebt
@@ -190,6 +197,9 @@ describe("ClearingHouse openPosition", () => {
             describe("exact output", () => {
                 it("mint more USD to buy exact 1 ETH", async () => {
                     // taker swap ? USD for 1 ETH
+                    //   taker cost basis = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
+                    //   taker fee = 153.508143394 / 0.99 * 0.01 = 1.550587307
+
                     await expect(
                         clearingHouse.connect(taker).openPosition({
                             baseToken: baseToken.address,
@@ -204,7 +214,7 @@ describe("ClearingHouse openPosition", () => {
                             taker.address, // trader
                             baseToken.address, // baseToken
                             toWei(1), // exchangedPositionSize
-                            "-155058730701162954606", // costBasis
+                            "-153508143394151325059", // costBasis
                             "1550587307011629547", // fee
                             toWei(0), // fundingPayment
                             toWei(0), // badDebt
