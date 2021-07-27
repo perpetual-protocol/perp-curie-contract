@@ -9,8 +9,10 @@ import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/Liqu
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { PerpMath } from "../lib/PerpMath.sol";
 
 /**
  * Uniswap's v3 pool: token0 & token1
@@ -24,6 +26,7 @@ library UniswapV3Broker {
     using SafeMath for uint256;
     using SafeCast for uint128;
     using SafeCast for int256;
+    using PerpMath for int256;
 
     struct AddLiquidityParams {
         address pool;
@@ -39,7 +42,6 @@ library UniswapV3Broker {
         uint256 base;
         uint256 quote;
         uint128 liquidity;
-        uint256 feeGrowthInsideBaseX128;
         uint256 feeGrowthInsideQuoteX128;
     }
 
@@ -53,12 +55,11 @@ library UniswapV3Broker {
     struct RemoveLiquidityResponse {
         uint256 base; // amount of base token received from burning the liquidity (excl. fee)
         uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
-        uint256 feeGrowthInsideBaseX128;
         uint256 feeGrowthInsideQuoteX128;
     }
 
     struct SwapParams {
-        IUniswapV3Pool pool;
+        address pool;
         address baseToken;
         address quoteToken;
         bool isBaseToQuote;
@@ -70,7 +71,6 @@ library UniswapV3Broker {
     struct SwapResponse {
         uint256 base;
         uint256 quote;
-        uint256 fee;
     }
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
@@ -104,12 +104,10 @@ library UniswapV3Broker {
                 );
 
             // fetch the fee growth state if this has liquidity
-            (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-                _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+            uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
 
             response.base = addedAmount0;
             response.quote = addedAmount1;
-            response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
             response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
         }
     }
@@ -133,13 +131,11 @@ library UniswapV3Broker {
 
         // TODO: feeGrowthInside{01}LastX128 would be reset to 0 after pool.burn(0)?
         // fetch the fee growth state if this has liquidity
-        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
-            _getFeeGrowthInside(params.pool, params.lowerTick, params.upperTick);
+        uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
         response.base = amount0Burned;
         response.quote = amount1Burned;
-        response.feeGrowthInsideBaseX128 = feeGrowthInside0LastX128;
         response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
     }
 
@@ -150,12 +146,11 @@ library UniswapV3Broker {
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
 
-        // FIXME: need confirmation
         // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
         // > 0: pool gets; user pays
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =
-            params.pool.swap(
+            IUniswapV3Pool(params.pool).swap(
                 address(this),
                 params.isBaseToQuote,
                 specifiedAmount,
@@ -166,55 +161,66 @@ library UniswapV3Broker {
                 abi.encode(params.baseToken)
             );
 
-        uint256 amount0 = signedAmount0 < 0 ? (-signedAmount0).toUint256() : signedAmount0.toUint256();
-        uint256 amount1 = signedAmount1 < 0 ? (-signedAmount1).toUint256() : signedAmount1.toUint256();
+        (uint256 amount0, uint256 amount1) = (signedAmount0.abs(), signedAmount1.abs());
 
         // isExactInput = true, isZeroForOne = true => exact token0
         // isExactInput = false, isZeroForOne = false => exact token0
         // isExactInput = false, isZeroForOne = true => exact token1
         // isExactInput = true, isZeroForOne = false => exact token1
         uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
-        // FIXME: why is this check necessary for exactOutput but not for exactInput?
+
+        // TODO: why is this check necessary for exactOutput but not for exactInput?
         // it's technically possible to not receive the full output amount,
         // so if no price limit has been specified, require this possibility away
-        // incorrect output amount
+        // UB_IOA: incorrect output amount
         if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
 
-        uint256 amountForFee = params.isBaseToQuote ? amount0 : amount1;
-        (response.base, response.quote, response.fee) = (amount0, amount1, calcFee(address(params.pool), amountForFee));
+        return SwapResponse(amount0, amount1);
     }
 
     function getPool(
         address factory,
         address quoteToken,
         address baseToken,
-        uint24 feeRatio
+        uint24 uniswapFeeRatio
     ) internal view returns (address) {
-        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, feeRatio);
-        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, feeRatio);
+        PoolAddress.PoolKey memory poolKeys = PoolAddress.getPoolKey(quoteToken, baseToken, uniswapFeeRatio);
+        return IUniswapV3Factory(factory).getPool(poolKeys.token0, poolKeys.token1, uniswapFeeRatio);
     }
 
-    function _getFeeGrowthInside(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick
-    ) private view returns (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) {
-        // FIXME
-        // check if the case sensitive of address(this) break the PositionKey computing
-        // get this' positionKey
-        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-        // get feeGrowthInside{0,1}LastX128
-        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
-        (, feeGrowthInside0LastX128, feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+    function getTickSpacing(address pool) internal view returns (int24 tickSpacing) {
+        tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
-    // note this assumes token0 is always the base token
+    function getUniswapFeeRatio(address pool) internal view returns (uint24 feeRatio) {
+        feeRatio = IUniswapV3Pool(pool).fee();
+    }
+
+    function getLiquidity(address pool) internal view returns (uint128 liquidity) {
+        liquidity = IUniswapV3Pool(pool).liquidity();
+    }
+
+    // note assuming base token == token0
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
-    // note this assumes token0 is always the base token
+    // note assuming base token == token0
+    function getTick(address pool) internal view returns (int24 tick) {
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+    }
+
+    // note assuming base token == token0
+    function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
+        (, , , , , , , initialized) = IUniswapV3Pool(pool).ticks(tick);
+    }
+
+    // note assuming base token == token0
+    function getTickLiquidityNet(address pool, int24 tick) internal view returns (int128 liquidityNet) {
+        (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
+    }
+
+    // note assuming base token == token0
     function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
             return getSqrtMarkPriceX96(pool);
@@ -267,55 +273,91 @@ library UniswapV3Broker {
         return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
     }
 
-    /// copied from UniswapV3-core
-    /// @notice Retrieves fee growth data
-    /// @param lowerTick The lower tick boundary of the position
-    /// @param upperTick The upper tick boundary of the position
-    /// @param currentTick The current tick
-    /// @return feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity,
-    ///         inside the position's tick boundaries
-    /// @return feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity,
-    ///         inside the position's tick boundaries
-    function getFeeGrowthInside(
+    // assuming token1 == quote token
+    function getFeeGrowthInsideQuote(
         address pool,
         int24 lowerTick,
         int24 upperTick,
         int24 currentTick
-    ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
-        (, , uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128, , , , ) =
-            IUniswapV3Pool(pool).ticks(lowerTick);
-        (, , uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128, , , , ) =
-            IUniswapV3Pool(pool).ticks(upperTick);
-        uint256 feeGrowthGlobal0X128 = IUniswapV3Pool(pool).feeGrowthGlobal0X128();
+    ) internal view returns (uint256 feeGrowthInsideQuoteX128) {
+        (, , , uint256 lowerFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(lowerTick);
+        (, , , uint256 upperFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(upperTick);
         uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
 
-        // calculate fee growth below
-        uint256 feeGrowthBelow0X128;
-        uint256 feeGrowthBelow1X128;
-        if (currentTick >= lowerTick) {
-            feeGrowthBelow0X128 = lowerFeeGrowthOutside0X128;
-            feeGrowthBelow1X128 = lowerFeeGrowthOutside1X128;
-        } else {
-            feeGrowthBelow0X128 = feeGrowthGlobal0X128 - lowerFeeGrowthOutside0X128;
-            feeGrowthBelow1X128 = feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
-        }
+        uint256 feeGrowthBelow =
+            currentTick >= lowerTick ? lowerFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
+        uint256 feeGrowthAbove =
+            currentTick < upperTick ? upperFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
 
-        // calculate fee growth above
-        uint256 feeGrowthAbove0X128;
-        uint256 feeGrowthAbove1X128;
-        if (currentTick < upperTick) {
-            feeGrowthAbove0X128 = upperFeeGrowthOutside0X128;
-            feeGrowthAbove1X128 = upperFeeGrowthOutside1X128;
-        } else {
-            feeGrowthAbove0X128 = feeGrowthGlobal0X128 - upperFeeGrowthOutside0X128;
-            feeGrowthAbove1X128 = feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
-        }
-
-        feeGrowthInside0X128 = feeGrowthGlobal0X128 - feeGrowthBelow0X128 - feeGrowthAbove0X128;
-        feeGrowthInside1X128 = feeGrowthGlobal1X128 - feeGrowthBelow1X128 - feeGrowthAbove1X128;
+        // this value can underflow per feeGrowthOutside specs
+        return feeGrowthGlobal1X128 - feeGrowthBelow - feeGrowthAbove;
     }
 
     function calcFee(address pool, uint256 amount) internal view returns (uint256) {
         return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
+    }
+
+    // note assuming base token == token0
+    function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {
+        return IUniswapV3Pool(pool).tickBitmap(wordPos);
+    }
+
+    // copied from UniswapV3-core
+    /// @param isBaseToQuote originally lte, meaning that the next tick < the current tick
+    function getNextInitializedTickWithinOneWord(
+        address pool,
+        int24 tick,
+        int24 tickSpacing,
+        bool isBaseToQuote
+    ) internal view returns (int24 next, bool initialized) {
+        int24 compressed = tick / tickSpacing;
+        if (tick < 0 && tick % tickSpacing != 0) compressed--; // round towards negative infinity
+
+        if (isBaseToQuote) {
+            (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed);
+            // all the 1s at or to the right of the current bitPos
+            uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
+            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+
+            // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
+            initialized = masked != 0;
+            // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+            next = initialized
+                ? (compressed - int24(bitPos - BitMath.mostSignificantBit(masked))) * tickSpacing
+                : (compressed - int24(bitPos)) * tickSpacing;
+        } else {
+            // start from the word of the next tick, since the current tick state doesn't matter
+            (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed + 1);
+            // all the 1s at or to the left of the bitPos
+            uint256 mask = ~((1 << bitPos) - 1);
+            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+
+            // if there are no initialized ticks to the left of the current tick, return leftmost in the word
+            initialized = masked != 0;
+            // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+            next = initialized
+                ? (compressed + 1 + int24(BitMath.leastSignificantBit(masked) - bitPos)) * tickSpacing
+                : (compressed + 1 + int24(type(uint8).max - bitPos)) * tickSpacing;
+        }
+    }
+
+    function _getFeeGrowthInsideLast(
+        address pool,
+        int24 lowerTick,
+        int24 upperTick
+    ) private view returns (uint256 feeGrowthInside1LastX128) {
+        // FIXME
+        // check if the case sensitive of address(this) break the PositionKey computing
+        // get this' positionKey
+        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
+
+        // get feeGrowthInside{0,1}LastX128
+        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
+        (, , feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
+    }
+
+    function _getPositionOfInitializedTickWithinOneWord(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {
+        wordPos = int16(tick >> 8);
+        bitPos = uint8(tick % 256);
     }
 }
