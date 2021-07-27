@@ -333,16 +333,14 @@ describe("ClearingHouse.funding", () => {
                     bob.address, // trader
                     baseToken.address, // baseToken
                     "-6561362585509647", // exchangedPositionSize
-                    parseEther("1"), // costBasis
-                    // B2QFee: though user gets 1 quote, the real amount CH gets is 1.0101010101010102,
-                    // thus the tx fee is 0.010101010101010102
-                    "10101010101010102", // fee: B2QFee
+                    parseEther("1.010101010101010102"), // costBasis
+                    "10101010101010102", // fee: 1.010101010101010102 * 0.01 = 0.010101010101010102
                     "-12375003379192556", // fundingPayment
                     parseEther("0"), // badDebt
                 )
 
-            // 1 + 0.012375003379192556 - 0.0101010101 = 1.0022739933
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1002273993278182454")
+            // 1 + 0.012375003379192556 = 1.012375003379192556
+            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 

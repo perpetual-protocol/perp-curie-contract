@@ -24,7 +24,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Tick } from "./lib/Tick.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlockContext, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -442,11 +441,6 @@ contract ClearingHouse is IUniswapV3MintCallback, IUniswapV3SwapCallback, ArbBlo
                 // due to base to quote fee, costBasis(exchangedNotional) contains the fee
                 // s.t. we can take the fee away from costBasis(exchangedNotional)
                 costBasis = response.quote.toInt256();
-                // console.log("exchangedPositionSize:");
-                // console.logInt(exchangedPositionSize);
-                // console.log("costBasis:");
-                // console.logInt(costBasis);
-                // console.log("fee:", fee);
             } else {
                 // long: exchangedPositionSize >= 0 && costBasis <= 0
                 exchangedPositionSize = response.base.toInt256();

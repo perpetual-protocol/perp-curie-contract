@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool } from "../../typechain"
 import { toWei } from "../helper/number"
@@ -196,8 +196,8 @@ describe("ClearingHouse openPosition", () => {
 
             describe("exact output", () => {
                 it("mint more USD to buy exact 1 ETH", async () => {
-                    // taker swap ? USD for 1 ETH
-                    //   taker cost basis = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
+                    // taker swap ? USD for 1 ETH -> quote to base -> fee is charged before swapping
+                    //   exchanged notional = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
                     //   taker fee = 153.508143394 / 0.99 * 0.01 = 1.550587307
 
                     await expect(
@@ -319,6 +319,10 @@ describe("ClearingHouse openPosition", () => {
         describe("taker opens short from scratch", () => {
             it("settle funding payment")
             it("increase position from 0", async () => {
+                // taker swap ? USD for 1 ETH -> base to quote -> fee is included in exchangedNotional
+                //   taker exchangedNotional = 10884.6906588362 - 71.9062751863 * 10884.6906588362 / (71.9062751863 + 1) = 149.2970341856
+                //   taker fee = 149.2970341856 * 0.01 = 1.492970341856
+
                 // taker swap 1 ETH for ? USD
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -334,10 +338,8 @@ describe("ClearingHouse openPosition", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         toWei(-1), // exchangedPositionSize
-                        "147804063843875548949", // costBasis
-                        // B2QFee: 0.01 / 0.99 = 0.0101010101
-                        // the fee emitted by Uniswap > the real amount user pays
-                        toWei("0.010101010101010102"), // fee
+                        parseEther("149.297034185732877727"), // costBasis
+                        parseEther("1.492970341857328778"), // fee: 149.297034185732877727 * 0.01 = 1.492970341857328777
                         toWei(0), // fundingPayment
                         toWei(0), // badDebt
                     )
