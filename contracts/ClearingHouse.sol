@@ -1001,7 +1001,7 @@ contract ClearingHouse is
         uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
         if (available.toInt256() < fundingPayment) {
             uint256 debt = _accountMap[trader].tokenInfoMap[quoteToken].debt;
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.toInt256().add(-fundingPayment).toUint256();
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.toInt256().add(fundingPayment).toUint256();
         } else {
             _accountMap[trader].tokenInfoMap[quoteToken].available = available
                 .toInt256()

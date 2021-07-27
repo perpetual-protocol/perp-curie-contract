@@ -404,7 +404,7 @@ describe("ClearingHouse.funding", () => {
             await clearingHouse.settleFunding(carol.address, baseToken.address)
 
             const carolQuoteDebtAfter = (await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).debt
-            expect(carolQuoteDebtAfter.sub(carolQuoteDebtBefore).lt(0)).be.true
+            expect(carolQuoteDebtAfter.sub(carolQuoteDebtBefore).gt(0)).be.true
         })
     })
 })
