@@ -395,9 +395,8 @@ describe("ClearingHouse.burn", () => {
             // but can be double-checked with _getPositionSize() as it handles DUST (< 10 wei) amount
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).to.eq("0")
 
-            await expect(
-                clearingHouse.connect(alice).burn(baseToken.address, aliceBaseAvailableAfter),
-            ).to.be.revertedWith("CH_IBTB")
+            await clearingHouse.connect(alice).burn(baseToken.address, aliceBaseAvailableAfter)
+            expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).available).to.eq("0")
             // DUST
             expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).debt).to.eq("1")
         })
