@@ -72,14 +72,13 @@ contract ClearingHouse is
         uint256 nextPremiumFractionIndex,
         int256 amount // +: trader pays, -: trader receives
     );
-
     event Swapped(
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
         uint256 fee,
-        int256 fundingPayment,
+        int256 settledFundingPayment,
         uint256 badDebt
     );
 
@@ -483,7 +482,7 @@ contract ClearingHouse is
             exchangedPositionSize,
             costBasis, // exchangedPositionNotional
             fee,
-            settledFundingPayment, // fundingPayment,
+            settledFundingPayment,
             0 // TODO: badDebt
         );
 
