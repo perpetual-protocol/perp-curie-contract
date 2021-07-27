@@ -199,11 +199,11 @@ describe("ClearingHouse liquidate", () => {
             })
 
             it("forcedly close alice's quote position", async () => {
-                console.log((await clearingHouse.buyingPower(alice.address)).toString())
-                console.log((await vault.getFreeCollateral(alice.address)).toString())
-                console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
-                console.log((await clearingHouse.getAccountValue(alice.address)).toString())
-                console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
+                // console.log((await clearingHouse.buyingPower(alice.address)).toString())
+                // console.log((await vault.getFreeCollateral(alice.address)).toString())
+                // console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
+                // console.log((await clearingHouse.getAccountValue(alice.address)).toString())
+                // console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
 
                 const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
 

@@ -304,222 +304,17 @@ contract ClearingHouse is
         address baseTokenAddr = params.baseToken;
         _requireTokenExistent(baseTokenAddr);
 
-        address trader = _msgSender();
-        _registerBaseToken(trader, baseTokenAddr);
-
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
-
-        address pool = _poolMap[baseTokenAddr];
-        bool isBaseToQuote = params.isBaseToQuote;
-        SwapState memory state =
-            SwapState({
-                tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: 0,
-                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
-                liquidity: UniswapV3Broker.getLiquidity(pool)
-            });
-
-        UniswapV3Broker.SwapResponse memory response =
-            UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    pool,
-                    baseTokenAddr,
-                    quoteToken,
-                    isBaseToQuote,
-                    params.isExactInput,
-                    // TODO should mint extra base token before swap
-                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
-                    params.sqrtPriceLimitX96
-                )
+        return
+            _swap(
+                InternalSwapParams({
+                    trader: _msgSender(),
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                })
             );
-
-        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
-        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
-
-        // // we are going to replay by swapping "exactOutput" with the output token received
-        // // isBaseToQuote, isExactInput
-        // // t,t -> base < 0, quote > 0 -> -quote
-        // // t,f -> quote < 0 -> quote
-        // // f,t -> quote < 0, base > 0 -> -base
-        // // f,f -> base < 0 -> base
-        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
-        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
-
-        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
-
-        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
-        // which is safer for the system
-        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
-            SwapStep memory step;
-            step.initialSqrtPriceX96 = state.sqrtPriceX96;
-
-            // find next tick
-            // note the search is bounded in one word
-            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                pool,
-                state.tick,
-                UniswapV3Broker.getTickSpacing(pool),
-                isBaseToQuote
-            );
-
-            // get the next price of this step (either next tick's price or the ending price)
-            // use sqrtPrice instead of tick is more precise
-            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-
-            // find the next swap checkpoint
-            // (either reached the next price of this step, or exhausted remaining amount specified)
-            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
-                state.sqrtPriceX96,
-                (
-                    isBaseToQuote
-                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
-                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
-                )
-                    ? endingSqrtMarkPriceX96
-                    : step.nextSqrtPriceX96,
-                state.liquidity,
-                state.amountSpecifiedRemaining,
-                uniswapFeeRatio
-            );
-
-            state.amountSpecifiedRemaining += step.amountOut.toInt256();
-
-            // update CH's global fee growth if there is liquidity in this range
-            // note CH only collects quote fee when swapping base -> quote
-            if (state.liquidity > 0 && isBaseToQuote) {
-                state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
-                    FixedPoint128.Q128,
-                    state.liquidity
-                );
-            }
-
-            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
-                // we have reached the tick's boundary
-                if (step.isNextTickInitialized) {
-                    // update the tick if it has been initialized
-                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
-                    // according to the above updating logic,
-                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
-
-                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (isBaseToQuote) liquidityNet = -liquidityNet;
-                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
-                }
-
-                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // TODO verify is this is necessary
-                // update state's tick if we are not on the boundary but the price has changed anyways since
-                // the start of this step
-                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
-            }
-        }
-
-        // only update global CH fee growth when swapping base -> quote
-        // because otherwise the fee is collected by the uniswap pool instead
-        if (isBaseToQuote) {
-            // update global states since swap state transitions are all done
-            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
-        }
-
-        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
-        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
-        int256 exchangedPositionSize;
-        int256 costBasis;
-        // update internal states
-        {
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-
-            if (isBaseToQuote) {
-                // short: exchangedPositionSize <= 0 && costBasis >= 0
-                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
-                // due to base to quote fee, costBasis(exchangedNotional) contains the fee
-                // s.t. we can take the fee away from costBasis(exchangedNotional)
-                costBasis = response.quote.toInt256();
-            } else {
-                // long: exchangedPositionSize >= 0 && costBasis <= 0
-                exchangedPositionSize = response.base.toInt256();
-                // as fee is charged by Uniswap pool already, costBasis(exchangedNotional) does not include fee
-                costBasis = -(response.quote.sub(fee).toInt256());
-            }
-
-            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
-            quoteTokenInfo.available = quoteTokenInfo.available.toInt256().add(costBasis).toUint256().sub(fee);
-
-            // examples:
-            //
-            // isBaseToQuote
-            //   - isExactInput:
-            //     alice wants to swap exact input of 1 base
-            //     assume pool can swap 1 base to 100 quote (excluding fee, no slippage)
-            //     pool received 1 / 0.99 = 1.010101 base (response.base)
-            //     pool collect 0.010101 base fee (fake fee)
-            //     pool swap 1 base to 100 quote
-            //     pool output = 100 quote (response.quote)
-            //     exchangedPositionSize = -1 (response.base * 0.99)
-            //     exchangedNotional(costBasis) = 100 (response.quote)
-            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
-            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
-            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
-            //
-            //   - isExactOutput:
-            //     alice wants to swap exact output of 99 quote
-            //     pool should output 99 / 0.99 = 100 quote (response.quote)
-            //     assume pool needs 1 base to swap for 100 quote (excluding fee, no slippage)
-            //     pool needs to receive 1 / 0.99 = 1.010101 base (response.base)
-            //     pool collect 1.010101 * 0.01 = 0.010101 quote (fake fee)
-            //     pool swap 1 base to 100 quote
-            //     exchangedPositionSize = -1 (response.base * 0.99)
-            //     exchangedNotional(costBasis) = 100 (response.quote)
-            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
-            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
-            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
-            //
-            // isQuoteToBase
-            //   - isExactInput:
-            //     alice wants to swap exact input of 100 quote
-            //     assume pool can swap 99 quote to 1 base (excluding fee, no slippage)
-            //     pool received 100 quote (response.quote)
-            //     pool collect 100 * 0.01 = 1 quote fee (real fee)
-            //     pool swap 99 quote to 1 base
-            //     pool output = 1 base (response.base)
-            //     exchangedPositionSize = 1 (response.base)
-            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
-            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
-            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
-            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
-            //
-            //   - isExactOutput:
-            //     alice wants to swap exact output of 1 base
-            //     pool should output 1 base (response.base)
-            //     assume pool needs 99 quote to swap for 1 base
-            //     pool needs to receive 99 / 0.99 = 100 quote (response.quote)
-            //     pool collect 100 * 0.01 = 1 quote (real fee)
-            //     pool swap 99 quote to 1 base
-            //     exchangedPositionSize = 1 (response.base)
-            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
-            //     fee = 1 (response.quote * 0.01)
-            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
-            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
-        }
-
-        emit Swapped(
-            trader,
-            baseTokenAddr,
-            exchangedPositionSize,
-            costBasis, // exchangedPositionNotional
-            fee,
-            settledFundingPayment, // fundingPayment,
-            0 // TODO: badDebt
-        );
-
-        return response;
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
@@ -1150,37 +945,221 @@ contract ClearingHouse is
     }
 
     function _swap(InternalSwapParams memory params) private returns (UniswapV3Broker.SwapResponse memory) {
-        _registerBaseToken(params.trader, params.baseToken);
+        address trader = params.trader;
+        address baseTokenAddr = params.baseToken;
+        _registerBaseToken(trader, baseTokenAddr);
 
         // TODO could be optimized by letting the caller trigger it.
         // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(params.trader, params.baseToken);
+        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
 
-        address pool = _poolMap[params.baseToken];
+        address pool = _poolMap[baseTokenAddr];
+        bool isBaseToQuote = params.isBaseToQuote;
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: 0,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
-                    params.baseToken,
+                    baseTokenAddr,
                     quoteToken,
-                    params.isBaseToQuote,
+                    isBaseToQuote,
                     params.isExactInput,
-                    params.amount,
+                    // TODO should mint extra base token before swap
+                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
             );
 
-        // update internal states
-        TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
+        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
 
-        if (params.isBaseToQuote) {
-            baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-            quoteTokenInfo.available = quoteTokenInfo.available.add(response.quote);
-        } else {
-            quoteTokenInfo.available = quoteTokenInfo.available.sub(response.quote);
-            baseTokenInfo.available = baseTokenInfo.available.add(response.base);
+        // // we are going to replay by swapping "exactOutput" with the output token received
+        // // isBaseToQuote, isExactInput
+        // // t,t -> base < 0, quote > 0 -> -quote
+        // // t,f -> quote < 0 -> quote
+        // // f,t -> quote < 0, base > 0 -> -base
+        // // f,f -> base < 0 -> base
+        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
+        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
+
+        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
+
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                state.tick,
+                UniswapV3Broker.getTickSpacing(pool),
+                isBaseToQuote
+            );
+
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
+
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
+                state.sqrtPriceX96,
+                (
+                    isBaseToQuote
+                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
+                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
+                )
+                    ? endingSqrtMarkPriceX96
+                    : step.nextSqrtPriceX96,
+                state.liquidity,
+                state.amountSpecifiedRemaining,
+                uniswapFeeRatio
+            );
+
+            state.amountSpecifiedRemaining += step.amountOut.toInt256();
+
+            // update CH's global fee growth if there is liquidity in this range
+            // note CH only collects quote fee when swapping base -> quote
+            if (state.liquidity > 0 && isBaseToQuote) {
+                state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
+                    FixedPoint128.Q128,
+                    state.liquidity
+                );
+            }
+
+            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                // we have reached the tick's boundary
+                if (step.isNextTickInitialized) {
+                    // update the tick if it has been initialized
+                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
+                    // according to the above updating logic,
+                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
+                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
+
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    if (isBaseToQuote) liquidityNet = -liquidityNet;
+                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+                }
+
+                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                // TODO verify is this is necessary
+                // update state's tick if we are not on the boundary but the price has changed anyways since
+                // the start of this step
+                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+            }
         }
+
+        // only update global CH fee growth when swapping base -> quote
+        // because otherwise the fee is collected by the uniswap pool instead
+        if (isBaseToQuote) {
+            // update global states since swap state transitions are all done
+            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
+        }
+
+        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
+        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
+        int256 exchangedPositionSize;
+        int256 costBasis;
+        // update internal states
+        {
+            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
+            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+
+            if (isBaseToQuote) {
+                // short: exchangedPositionSize <= 0 && costBasis >= 0
+                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
+                // due to base to quote fee, costBasis(exchangedNotional) contains the fee
+                // s.t. we can take the fee away from costBasis(exchangedNotional)
+                costBasis = response.quote.toInt256();
+            } else {
+                // long: exchangedPositionSize >= 0 && costBasis <= 0
+                exchangedPositionSize = response.base.toInt256();
+                // as fee is charged by Uniswap pool already, costBasis(exchangedNotional) does not include fee
+                costBasis = -(response.quote.sub(fee).toInt256());
+            }
+
+            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
+            quoteTokenInfo.available = quoteTokenInfo.available.toInt256().add(costBasis).toUint256().sub(fee);
+
+            // examples:
+            //
+            // isBaseToQuote
+            //   - isExactInput:
+            //     alice wants to swap exact input of 1 base
+            //     assume pool can swap 1 base to 100 quote (excluding fee, no slippage)
+            //     pool received 1 / 0.99 = 1.010101 base (response.base)
+            //     pool collect 0.010101 base fee (fake fee)
+            //     pool swap 1 base to 100 quote
+            //     pool output = 100 quote (response.quote)
+            //     exchangedPositionSize = -1 (response.base * 0.99)
+            //     exchangedNotional(costBasis) = 100 (response.quote)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
+            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
+            //
+            //   - isExactOutput:
+            //     alice wants to swap exact output of 99 quote
+            //     pool should output 99 / 0.99 = 100 quote (response.quote)
+            //     assume pool needs 1 base to swap for 100 quote (excluding fee, no slippage)
+            //     pool needs to receive 1 / 0.99 = 1.010101 base (response.base)
+            //     pool collect 1.010101 * 0.01 = 0.010101 quote (fake fee)
+            //     pool swap 1 base to 100 quote
+            //     exchangedPositionSize = -1 (response.base * 0.99)
+            //     exchangedNotional(costBasis) = 100 (response.quote)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + (-1) = -1
+            //     alice.quote.available = alice.available + exchangedNotional - fee = 0 + 100 - 1 = 99
+            //
+            // isQuoteToBase
+            //   - isExactInput:
+            //     alice wants to swap exact input of 100 quote
+            //     assume pool can swap 99 quote to 1 base (excluding fee, no slippage)
+            //     pool received 100 quote (response.quote)
+            //     pool collect 100 * 0.01 = 1 quote fee (real fee)
+            //     pool swap 99 quote to 1 base
+            //     pool output = 1 base (response.base)
+            //     exchangedPositionSize = 1 (response.base)
+            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
+            //     fee = 100 * 0.01 = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
+            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
+            //
+            //   - isExactOutput:
+            //     alice wants to swap exact output of 1 base
+            //     pool should output 1 base (response.base)
+            //     assume pool needs 99 quote to swap for 1 base
+            //     pool needs to receive 99 / 0.99 = 100 quote (response.quote)
+            //     pool collect 100 * 0.01 = 1 quote (real fee)
+            //     pool swap 99 quote to 1 base
+            //     exchangedPositionSize = 1 (response.base)
+            //     exchangedNotional(costBasis) = -99 (response.quote * 0.99)
+            //     fee = 1 (response.quote * 0.01)
+            //     alice.base.available = alice.base.available + exchangedPositionSize = 0 + 1 = 1
+            //     alice.quote.available = alice.quote.available + exchangedNotional - fee = 0 + (-99) - 1 = -100
+        }
+
+        emit Swapped(
+            trader,
+            baseTokenAddr,
+            exchangedPositionSize,
+            costBasis, // exchangedPositionNotional
+            fee,
+            settledFundingPayment, // fundingPayment,
+            0 // TODO: badDebt
+        );
 
         return response;
     }
