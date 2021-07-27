@@ -77,7 +77,7 @@ contract ClearingHouse is
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
-        uint256 exchangedPositionNotional,
+        int256 exchangedPositionNotional,
         uint256 fee,
         int256 fundingPayment,
         uint256 badDebt
