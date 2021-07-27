@@ -25,11 +25,11 @@ contract Vault is ReentrancyGuard, Ownable {
 
     uint8 public immutable decimals;
 
-    // TODO when multi collateral
-    uint256 public maxCloseFactor;
-    uint256 public minCloseFactor;
-    uint256 public liquidationDiscount;
-    address[] private _assetLiquidationOrder;
+    // those 4 are not used until multi collateral is implemented
+    // uint256 public maxCloseFactor;
+    // uint256 public minCloseFactor;
+    // uint256 public liquidationDiscount;
+    // address[] private _assetLiquidationOrder;
 
     // key: trader, token address
     mapping(address => mapping(address => uint256)) private _balance;
@@ -84,8 +84,7 @@ contract Vault is ReentrancyGuard, Ownable {
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
             if (settlementToken != token) {
-                // TODO get twap of settlement price * account's balance
-                continue;
+                revert("TBD - token twap * account's balance");
             }
             // is settlement token
             settlementTokenValue = settlementTokenValue.add(_getBalance(account, token));

@@ -7,12 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2021-07-26
+
+### Fixed
+
+- fix `Vault` is missing from `@perp/lushan/artifacts/contracts`
+
 ## [0.1.0] - 2021-07-23
 
 ### Added
+
 - add `Vault` contract
 
 ### Changed
+
 - move `ClearingHouse.deposit` to `Vault.deposit`
 - move `ClearingHouse.withdraw` to `Vault.withdraw`
 - move `ClearingHouse.getFreeCollateral` to `Vault.getFreeCollateral`
