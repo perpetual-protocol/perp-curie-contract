@@ -26,6 +26,7 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
+import { console } from "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -492,7 +493,7 @@ contract ClearingHouse is
         // if trader is on long side, baseToQuote: true, exactInput: true
         // trader is on short side, quoteToBase: false, exactInput: false
         bool isLong = positionSize > 0 ? true : false;
-        SwapResponse memory swapResponse =
+        SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
                     trader: trader,
@@ -505,7 +506,9 @@ contract ClearingHouse is
                 })
             );
 
-        uint256 liquidationFee = swapResponse.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
+        console.log("swap: ", response.deltaAvailableQuote, response.deltaAvailableBase);
+        console.log("swap ex: ", response.exchangedPositionNotional, response.exchangedPositionSize);
+        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
 
         // Penalty on trader's quote
         TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
@@ -523,7 +526,7 @@ contract ClearingHouse is
         emit PositionLiquidated(
             trader,
             baseToken,
-            swapResponse.exchangedPositionNotional,
+            response.exchangedPositionNotional,
             positionSize.abs(),
             liquidationFee,
             liquidator
