@@ -35,8 +35,6 @@ event Swapped(
 );
 ```
 
-- changed `Swapped` event parameters:
-
 ## [0.1.1] - 2021-07-26
 
 ### Fixed
