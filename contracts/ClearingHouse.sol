@@ -514,38 +514,20 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // load existing open order
-        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
-
-        uint256 quoteFeeClearingHouse;
-        uint256 quoteFeeUniswap;
-        uint256 feeGrowthInsideClearingHouseX128;
-        if (openOrder.liquidity == 0) {
-            // it's a new order
-            MakerPosition storage makerPosition = _accountMap[trader].makerPositionMap[params.baseToken];
-            makerPosition.orderIds.push(orderId);
-
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
-        } else {
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(pool),
-                feeGrowthGlobalClearingHouseX128
+        // mutate states
+        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
+            _updateOrder(
+                UpdateOrderParams({
+                    maker: trader,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
+                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
+                    liquidityDelta: response.liquidity
+                })
             );
-            quoteFeeClearingHouse = _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
-            );
-            quoteFeeUniswap = _calcOwedFee(
-                openOrder.liquidity,
-                response.feeGrowthInsideQuoteX128,
-                openOrder.feeGrowthInsideUniswapLastX128
-            );
-        }
 
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
@@ -554,13 +536,61 @@ contract ClearingHouse is
             response.quote
         );
 
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(response.liquidity.toUint256()).toUint128();
-        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        openOrder.feeGrowthInsideUniswapLastX128 = response.feeGrowthInsideQuoteX128;
-
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
+    }
+
+    struct UpdateOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthGlobalClearingHouseX128;
+        uint256 feeGrowthInsideQuoteX128;
+        int256 liquidityDelta;
+    }
+
+    function _updateOrder(UpdateOrderParams memory params)
+        private
+        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
+    {
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder =
+            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+
+        uint256 feeGrowthInsideClearingHouseX128;
+        if (openOrder.liquidity == 0) {
+            // it's a new order
+            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            makerPosition.orderIds.push(orderId);
+
+            openOrder.lowerTick = params.lowerTick;
+            openOrder.upperTick = params.upperTick;
+        } else {
+            mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
+            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
+                params.lowerTick,
+                params.upperTick,
+                UniswapV3Broker.getTick(params.pool),
+                params.feeGrowthGlobalClearingHouseX128
+            );
+            quoteFeeClearingHouse = _calcOwedFee(
+                openOrder.liquidity,
+                feeGrowthInsideClearingHouseX128,
+                openOrder.feeGrowthInsideClearingHouseLastX128
+            );
+            quoteFeeUniswap = _calcOwedFee(
+                openOrder.liquidity,
+                params.feeGrowthInsideQuoteX128,
+                openOrder.feeGrowthInsideUniswapLastX128
+            );
+        }
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidityDelta.toUint256()).toUint128();
+        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
