@@ -642,6 +642,11 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
+
+    function getTokenLen(address trader) external view returns (uint256) {
+        return _accountMap[trader].tokens.length;
+    }
+
     function getPool(address baseToken) external view returns (address poolAddress) {
         return _poolMap[baseToken];
     }
@@ -831,19 +836,19 @@ contract ClearingHouse is
         if (amount == 0) {
             return 0;
         }
-
-        // update internal states
-        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
-        tokenInfo.available = tokenInfo.available.add(amount);
-        tokenInfo.debt = tokenInfo.debt.add(amount);
-
         if (token != quoteToken) {
+            // SHOULD register token before mutate its state
             // register base token if it's the first time
             _registerBaseToken(account, token);
 
             // Revise after we have defined the user-facing functions.
             _settleFunding(account, token);
         }
+
+        // update internal states
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.add(amount);
+        tokenInfo.debt = tokenInfo.debt.add(amount);
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
