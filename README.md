@@ -14,11 +14,15 @@ $ npm run deploy-staging
 
 2. update CHANGELOG.md
 
-3. commit above changes
+3. update `version` of `package.json` and `package-lock.json`
 
 4. publish npm package
 
 ```bash
-# it will update version number and push tag to GitHub which triggers npm publish workflow
-$ npm run publish-staging
+# push tag to trigger "Publish NPM package" workflow
+$ git tag vX.X.X
+$ git push origin --tags
+
+# create GitHub release
+$ gh release create vX.X.X -t "vX.X.X" -F changelog.md
 ```

@@ -21,7 +21,6 @@
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
     "deploy-staging": "hardhat deploy --network arbitrumRinkeby",
-    "publish-staging": "ts-node --files scripts/publish.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
   },
