@@ -91,21 +91,28 @@ describe("ClearingHouse.getPositionSize", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        // bob short 0.4084104205 / 0.99 = 0.4125357783
+        // bob short 0.4084104205
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.4125357783"),
+            amount: parseEther("0.4084104205"),
             sqrtPriceLimitX96: 0,
         })
-        // mark price should be 149.863446 (tick = 50099.75001)
+
+        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+        // Note CH actually shorts 0.4084104205 / 0.99 = 0.4125357783 base tokens
+        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
+        // The swap pushes the mark price to 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778299999998"),
+            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            parseEther("0.408410420499999999"),
         )
 
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357783"))
+        // 0.4084104205
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
     })
 
     it("bob swaps 2 time", async () => {
@@ -126,32 +133,37 @@ describe("ClearingHouse.getPositionSize", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        // bob shorts 0.2042052103 / 0.99 = 0.2062678892
+        // bob shorts 0.2042052103
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.2062678892"),
+            amount: parseEther("0.2042052103"),
             sqrtPriceLimitX96: 0,
         })
         // mark price should be 150.6155385 (tick = 50149.8122)
 
-        // bob shorts 0.2042052103 / 0.99 = 0.2062678892
         await clearingHouse.connect(bob).swap({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
-            amount: parseEther("0.2062678892"),
+            amount: parseEther("0.2042052103"),
             sqrtPriceLimitX96: 0,
         })
-        // mark price should be 149.863446 (tick = 50099.75001)
+
+        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+        // Note CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784 base tokens
+        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
+        // which makes the mark price become 149.863446 (tick = 50099.75001)
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            parseEther("0.412535778399999998"),
+            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            parseEther("0.408410420599999999"),
         )
 
-        // short
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4125357784"))
+        // 0.2042052103 * 2 = 0.4084104206
+        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
     })
 
     // see "out of maker's range; alice receives more fee as the price goes beyond carol's range" in ClearingHouse.removeLiquidity.test.ts

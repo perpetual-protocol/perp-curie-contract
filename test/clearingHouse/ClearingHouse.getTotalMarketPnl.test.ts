@@ -124,9 +124,10 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("200"),
+                amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
             })
+            // B2QFee: CH actually shorts 198 / 0.99 = 200
 
             // price after swap: 98.125012874
             // taker1
@@ -141,15 +142,17 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
             })
+            // B2QFee: CH actually shorts 99 / 0.99 = 100
+
             // price after swap: 98.143490128
-            // position size = -1.019609929871038932
-            // position value = -1.019609929871038932 * 98.143490128 = -100.0680770867
-            // cost basis = 100
-            // pnl = 100 - 100.0680770867= -0.0680770867
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-68077086708029043")
+            // position size = -1.009413830572328542
+            // position value = -1.009413830572328542 * 98.143490128 = -99.0673963158
+            // net quote amount = 99
+            // pnl = 99 - 99.0673963158 = -0.0673963158
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
 
             // taker2 open a long position
             await clearingHouse.connect(taker2).openPosition({
@@ -162,9 +165,9 @@ describe("ClearingHouse getTotalMarketPnl", () => {
 
             // price after swap: 99.9813487961
             // taker1
-            // position value = -1.019609929871038932 * 99.9813487961 = -101.9419760344
-            // pnl = 100 + -101.9419760344 = -1.9419760344
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-1941976034369196531")
+            // position value = -1.009413830572328542 * 99.9813487961 = -100.9225562741
+            // pnl = 99 + -100.9225562741 = -1.9225562741
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-1922556274025504498")
         })
 
         it("taker open short and price goes down", async () => {
@@ -173,30 +176,33 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
             })
+            // B2QFee: CH actually shorts 99 / 0.99 = 100
+
             // price after swap: 98.143490128
-            // position size = -1.019609929871038932
-            // position value = -1.019609929871038932 * 98.143490128 = -100.0680770867
-            // cost basis = 100
-            // pnl = 100 - 100.0680770867= -0.0680770867
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-68077086708029043")
+            // position size = -1.009413830572328542
+            // position value = -1.009413830572328542 * 98.143490128 = -99.0673963158
+            // cost basis = 99
+            // pnl = 99 - 99.0673963158 = -0.0673963158
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
 
             // taker2 open a short position
             await clearingHouse.connect(taker2).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("200"),
+                amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
             })
+            // B2QFee: CH actually shorts 198 / 0.99 = 200
 
-            // price after swap: 94.4826553619
+            // price after swap: 94.4460321966
             // taker1
-            // position value = -1.019609929871038932 * 94.4826553619 = -96.3354536076
-            // pnl = 100 + -96.3354536076 = 3.6645463924
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("3664546392424288912")
+            // position value = -1.009413830572328542 * 94.4826553619 = -95.3720990715
+            // pnl = 99 - 95.3720990715 = 3.6279009285
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("3627900928500046087")
         })
     })
 
@@ -228,18 +234,20 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
             })
+            // B2QFee: CH actually shorts 99 / 0.99 = 100
+
             // price after swap: 98.143490128
             // taker
-            //  - position size = -1.019609929871038932
+            //  - position size = -1.009413830572328542
             // maker
-            //  - position size = 1.019609929871038932
-            //  - position value = 1.019609929871038932 * 98.143490128 = 100.0680770867
-            //  - costBasis = -100
-            //  - pnl = -100 + 100.0680770867 = 0.0680770867
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-68077086708029043")
+            //  - position size = 1.009413830572328542
+            //  - position value = 1.009413830572328542 * 98.143490128 = 99.0673963158
+            //  - costBasis = -99
+            //  - pnl = -99 + 99.0673963158 = 0.0673963158
+            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-67396315840948686")
         })
 
         it("maker open a long position then verify maker's pnl", async () => {
@@ -251,6 +259,31 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
             })
+
+            // maker before swap:
+            //              base    quote
+            //   pool       100     10000
+            //   pool.fee   n/a     0
+            //   CH         9900    0
+            //   CH.fee     n/a     0
+            //   debt       10000   10000
+            //
+            //   position size = 100 + 9900 - 10000 = 0
+            //   cost basis = 10000 + 0 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+            //
+            // maker after swap:
+            //              base            quote
+            //   pool       99.0099009901   10099
+            //   pool.fee   n/a             1
+            //   CH         9900.9900990099 0
+            //   CH.fee     n/a             0
+            // TODO verify quote debt did increase by 100
+            //   debt       10000           10100
+            //
+            //   position size = 99.0099009901 + 9900.9900990099 - 10000 = 0
+            //   cost basis = 10099 + 1 - 10100 = 0
+            //   pnl = 0 + 0 = 0
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
 
@@ -260,9 +293,34 @@ describe("ClearingHouse getTotalMarketPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
             })
+
+            // maker before swap:
+            //              base        quote
+            //   pool       100         10000
+            //   pool.fee   n/a         0
+            //   CH         9900        0
+            //   CH.fee     n/a         0
+            //   debt       10000       10000
+            //
+            //   position size = 100 + 9900 - 10000 = 0
+            //   cost basis = 10000 + 0 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+            //
+            // maker after swap:
+            //              base            quote
+            //   pool       101.0101010101  9900
+            //   pool.fee   n/a             0
+            //   CH         9898.9898989899 99
+            //   CH.fee     n/a             1
+            //   debt       10000           10000
+            //
+            //   position size = 101.0101010101 + 9898.9898989899 - 10000 = 0
+            //   cost basis = 9900 + 99 + 1 - 10000 = 0
+            //   pnl = 0 + 0 = 0
+
             expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
         })
     })
