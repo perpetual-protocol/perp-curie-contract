@@ -1273,6 +1273,7 @@ contract ClearingHouse is
                 .sub(fundingPayment)
                 .toUint256();
         }
+        _burnMax(trader, quoteToken);
 
         emit FundingSettled(trader, token, historyLen, fundingPayment);
     }
