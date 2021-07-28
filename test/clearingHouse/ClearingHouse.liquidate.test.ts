@@ -269,7 +269,7 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    describe.only("alice took long in ETH and BTC, price go down", () => {
+    describe("alice took long in ETH and BTC, ETH price goes down", () => {
         beforeEach(async () => {
             // alice long ETH and BTC
             await clearingHouse.connect(alice).openPosition({
@@ -279,7 +279,8 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("45"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("ETH: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
+            // ETH price after Alice long: 151.4256717409
+
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false,
@@ -287,17 +288,27 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("45"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("BTC: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
+            // BTC price after Alice long: 151.4256717409
 
             // bob short ETH
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                amount: toWei("80"),
+                sqrtPriceLimitX96: 0,
+            })
+            // price after Bob short: 135.0801007405
+
+            // bob long BTC
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false,
+                isExactInput: true,
                 amount: toWei("100"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("ETH after short: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
+            // price after Bob short: 135.0801007405
         })
         it("liquidate alice's ETH by carol", async () => {
             await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address)).to.emit(
@@ -305,7 +316,7 @@ describe("ClearingHouse liquidate", () => {
                 "PositionLiquidated",
             )
         })
-        it("liquidate alice's BTC by carol", async () => {
+        it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
             await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken2.address)).to.emit(
                 clearingHouse,
                 "PositionLiquidated",
@@ -313,7 +324,7 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    describe("alice took short in ETH and BTC, price go down", () => {
+    describe("alice took short in ETH and BTC, ETH price go down", () => {
         beforeEach(async () => {
             // alice short ETH
             await clearingHouse.connect(alice).openPosition({
@@ -323,7 +334,8 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("45"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("ETH: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
+            // price after Alice short, 151.3198881742
+
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
@@ -331,21 +343,38 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("45"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("BTC: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
-            // price after Alice swap : 151.2675469692
+            // price after Alice short, 151.3198881742
 
-            // bob long ETH
+            // bob long 80 ETH
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: toWei("100"),
+                amount: toWei("80"),
                 sqrtPriceLimitX96: 0,
             })
-            console.log("ETH after short: ", (await clearingHouse.getSqrtMarkPriceX96(baseToken.address)).toString())
-            // price after bob swap : 160.56123246
+            // price after bob swap : 166.6150230501
+
+            // bob short BTC with 10 quote
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: toWei("10"),
+                sqrtPriceLimitX96: 0,
+            })
         })
-        it("liquidate alice's ETH by carol")
-        it("liquidate alice's BTC by carol")
+        it("liquidate alice's ETH by carol", async () => {
+            await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+        })
+        it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
+            await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken2.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+        })
     })
 })
