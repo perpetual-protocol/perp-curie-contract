@@ -70,7 +70,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         })
     })
 
-    describe("gas cost for maker", async () => {
+    it("gas cost for maker", async () => {
         // carol long
         await collateral.mint(carol.address, parseEther("1000"))
         await deposit(carol, vault, 1000, collateral)
