@@ -19,5 +19,6 @@ $ npm run deploy-staging
 4. publish npm package
 
 ```bash
+# it will update version number and push tag to GitHub which triggers npm publish workflow
 $ npm run publish-staging
 ```
