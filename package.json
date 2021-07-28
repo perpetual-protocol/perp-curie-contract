@@ -21,7 +21,7 @@
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
     "deploy-staging": "hardhat deploy --network arbitrumRinkeby",
-    "upload-metadata-staging": "aws s3 cp ./metadata/staging.json s3://metadata.perp.fi/lushan/staging.json --cache-control=no-store --acl public-read --profile perp",
+    "publish-staging": "ts-node --files scripts/publish.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
   },
