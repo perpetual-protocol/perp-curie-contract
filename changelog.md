@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2021-07-28
+
+### Changed
+
+- implemented quote-only fee
+- changed event parameters of `FundingRateUpdated`, `FundingSettled`, and `Swapped`:
+
+```sol
+event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
+
+event FundingSettled(
+    address indexed trader,
+    address indexed baseToken,
+    uint256 nextPremiumFractionIndex,
+    int256 amount
+);
+
+event Swapped(
+    address indexed trader,
+    address indexed baseToken,
+    int256 exchangedPositionSize,
+    int256 exchangedPositionNotional,
+    uint256 fee,
+    int256 settledFundingPayment,
+    uint256 badDebt
+);
+```
+
+- changed `Swapped` event parameters:
+
 ## [0.1.1] - 2021-07-26
 
 ### Fixed
