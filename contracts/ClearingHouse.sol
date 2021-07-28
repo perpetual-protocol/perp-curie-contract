@@ -1266,27 +1266,19 @@ contract ClearingHouse is
 
         // calculate if trader need to mint more quote or base for exact input
         if (params.isExactInput) {
-            if (params.isBaseToQuote) {
+            if (params.isBaseToQuote && baseAvailableBefore < params.amount) {
                 // check if trader has enough base to swap
-                if (baseAvailableBefore < params.amount) {
-                    minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
-                }
-            } else {
+                minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
+            } else if (!params.isBaseToQuote && quoteAvailableBefore < params.amount) {
                 // check if trader has enough quote to swap
-                if (quoteAvailableBefore < params.amount) {
-                    minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
-                }
+                minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
             }
         } else {
             // for exact output: can't use quoter to get how many input we need
             // but we'll know the exact input numbers after swap
             // so we'll mint max first, do the swap
             // then calculate how many input we need to mint if we have quoter
-            if (params.isBaseToQuote) {
-                minted = _mintMax(params.trader, params.baseToken);
-            } else {
-                minted = _mintMax(params.trader, quoteToken);
-            }
+            minted = _mintMax(params.trader, params.isBaseToQuote ? params.baseToken : quoteToken);
         }
 
         SwapResponse memory swapResponse =
@@ -1301,8 +1293,8 @@ contract ClearingHouse is
                 })
             );
 
-        // exactInsufficientAmount = max(actualSwapped - availableBefore, 0)
-        // shouldBurn = minted - exactInsufficientAmount
+        // insufficientAmount = max(actualSwapped - availableBefore, 0)
+        // shouldBurn = minted - insufficientAmount
         //
         // examples:
         //
@@ -1310,41 +1302,41 @@ contract ClearingHouse is
         // before = 0, mint max +1000
         // swap 1 eth required 100 (will mint 100 if we have quoter)
         // quote = 900
-        // toBurn = minted(1000) - exactInsufficientAmount(100) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (0)), 0) = 100
+        // toBurn = minted(1000) - insufficientAmount(100) = 900
+        // insufficientAmount = max((swapped(100) - before (0)), 0) = 100
         //
         // 2.
         // before = 50, mint max +950
         // swap 1 eth required 100 (will mint 50 if we have quoter)
         // quote = 900
-        // toBurn = minted(950) - exactInsufficientAmount(50) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (50)), 0) = 50
+        // toBurn = minted(950) - insufficientAmount(50) = 900
+        // insufficientAmount = max((swapped(100) - before (50)), 0) = 50
         //
         // 3.
         // before = 200, mint max +700
         // swap 1 eth required 100 (will mint 0 if we have quoter)
         // quote = 900
-        // toBurn = minted(700) - exactInsufficientAmount(0) = 700
-        // exactInsufficientAmount = max((swapped(100) - before (200)), 0) = 0
+        // toBurn = minted(700) - insufficientAmount(0) = 700
+        // insufficientAmount = max((swapped(100) - before (200)), 0) = 0
+
+        uint256 insufficientAmount;
         if (params.isBaseToQuote) {
-            uint256 exactInsufficientBase;
             if (swapResponse.deltaAvailableBase > baseAvailableBefore) {
-                exactInsufficientBase = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
+                insufficientAmount = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
             }
 
-            if (minted > exactInsufficientBase) {
-                _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
+            if (minted > insufficientAmount) {
+                _burn(params.trader, params.baseToken, minted.sub(insufficientAmount));
             }
             // settle trader's quote available and debt
             _burnMax(params.trader, quoteToken);
         } else {
-            uint256 exactInsufficientQuote;
             if (swapResponse.deltaAvailableQuote > quoteAvailableBefore) {
-                exactInsufficientQuote = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
+                insufficientAmount = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
             }
 
-            if (minted > exactInsufficientQuote) {
-                _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
+            if (minted > insufficientAmount) {
+                _burn(params.trader, quoteToken, minted.sub(insufficientAmount));
             }
             // settle trader's base available and debt
             _burnMax(params.trader, params.baseToken);
