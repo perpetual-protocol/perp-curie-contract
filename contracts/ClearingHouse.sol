@@ -515,7 +515,9 @@ contract ClearingHouse is
         address liquidator = _msgSender();
         // Increase liquidator's quote available as liquidation reward
         TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
-        liquidatorTokenInfo.available = liquidatorTokenInfo.available.add(liquidationFee);
+        // TODO liquidator may not have collateral, mint? or just adding available?
+        _mint(liquidator, quoteToken, liquidationFee, false);
+        liquidatorTokenInfo.debt = liquidatorTokenInfo.debt.sub(liquidationFee);
         _burnMax(liquidator, quoteToken);
 
         emit PositionLiquidated(
@@ -655,11 +657,6 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-
-    function getTokenLen(address trader) external view returns (uint256) {
-        return _accountMap[trader].tokens.length;
-    }
-
     function getPool(address baseToken) external view returns (address poolAddress) {
         return _poolMap[baseToken];
     }
@@ -936,7 +933,10 @@ contract ClearingHouse is
 
     function _burnMax(address account, address token) private {
         TokenInfo memory tokenInfo = getTokenInfo(account, token);
-        _burn(account, token, Math.min(tokenInfo.available, tokenInfo.debt));
+        uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
+        if (burnedAmount > 0) {
+            _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
+        }
     }
 
     function _registerBaseToken(address trader, address token) private {
@@ -1339,6 +1339,7 @@ contract ClearingHouse is
             if (minted > exactInsufficientQuote) {
                 _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
+            console.log("burnMax baseToken");
             _burnMax(params.trader, params.baseToken);
         }
 

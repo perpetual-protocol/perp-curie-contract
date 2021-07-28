@@ -148,17 +148,16 @@ describe("ClearingHouse liquidate", () => {
                 // position size: 0.588407511354640018
                 // position value: 0.58840 * 143.0326798397 = 84.1044463388
                 // pnl = 84.1044463388 - 90 = -5.838496813155959470
-                // positionNotional: (0.58840 * 0.99) * ~142.935(avg. price) = 83.292171864291669129
                 // account value: 10 + (-5.838496813155959470) = 4.161503186844040530
-                // fee = 83.292171864291669129 * 0.025 = 2.0823043
+                // fee = 84.085192745971593683 * 0.025 = 2.1021298186
                 await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address))
                     .to.emit(clearingHouse, "PositionLiquidated")
                     .withArgs(
                         alice.address,
                         baseToken.address,
-                        "83292171864291669129",
+                        "84085192745971593683",
                         toWei("0.588407511354640018"),
-                        "2082304296607291728",
+                        "2102129818649289842",
                         carol.address,
                     )
                 // account value = collateral + pnl = 10 + (83.29 - 2.08 -90) = 1.209
@@ -213,12 +212,18 @@ describe("ClearingHouse liquidate", () => {
                 it("force error, carol's base balance is insufficient")
             })
 
-            it("forcedly close alice's quote position", async () => {
+            it.only("forcedly close alice's quote position", async () => {
                 // console.log((await clearingHouse.buyingPower(alice.address)).toString())
                 // console.log((await vault.getFreeCollateral(alice.address)).toString())
                 // console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
                 // console.log((await clearingHouse.getAccountValue(alice.address)).toString())
                 // console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
+                // console.log((await clearingHouse.getPositionSize(alice.address, baseToken.address, 0)).toString())
+
+                // 340282366920938483366813556901016766306-340282366920938463365904465991925857215
+
+                // 7470141439842354240
+                // 7792200522873681707187
 
                 const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
 
