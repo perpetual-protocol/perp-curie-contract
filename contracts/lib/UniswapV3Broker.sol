@@ -154,7 +154,6 @@ library UniswapV3Broker {
                 address(this),
                 params.isBaseToQuote,
                 specifiedAmount,
-                // FIXME: suppose the reason is for under/overflow but need confirmation
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
@@ -169,11 +168,9 @@ library UniswapV3Broker {
         // isExactInput = true, isZeroForOne = false => exact token1
         uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
 
-        // TODO: why is this check necessary for exactOutput but not for exactInput?
-        // it's technically possible to not receive the full output amount,
-        // so if no price limit has been specified, require this possibility away
-        // UB_IOA: incorrect output amount
-        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_IOA");
+        // if no price limit, require the full output amount as it's technically possible for amounts to not match
+        // UB_UOA: unmatched output amount
+        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_UOA");
 
         return SwapResponse(amount0, amount1);
     }
@@ -346,9 +343,6 @@ library UniswapV3Broker {
         int24 lowerTick,
         int24 upperTick
     ) private view returns (uint256 feeGrowthInside1LastX128) {
-        // FIXME
-        // check if the case sensitive of address(this) break the PositionKey computing
-        // get this' positionKey
         bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
 
         // get feeGrowthInside{0,1}LastX128

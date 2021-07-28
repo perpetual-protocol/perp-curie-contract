@@ -78,7 +78,7 @@ contract ClearingHouse is
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
         uint256 fee,
-        int256 settledFundingPayment,
+        int256 fundingPayment,
         uint256 badDebt
     );
 
@@ -698,7 +698,7 @@ contract ClearingHouse is
         return totalBaseDebtValue.add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
-    // NOTE: the negative value will only be used when calculating the PNL
+    // NOTE: the negative value will only be used when calculating pnl
     function getPositionValue(
         address trader,
         address token,
@@ -707,7 +707,6 @@ contract ClearingHouse is
         int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
         if (positionSize == 0) return 0;
 
-        // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
         uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
         uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
 
@@ -975,9 +974,7 @@ contract ClearingHouse is
         address baseTokenAddr = params.baseToken;
         _registerBaseToken(trader, baseTokenAddr);
 
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
+        int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
         address pool = _poolMap[baseTokenAddr];
         bool isBaseToQuote = params.isBaseToQuote;
@@ -998,7 +995,6 @@ contract ClearingHouse is
                     quoteToken,
                     isBaseToQuote,
                     params.isExactInput,
-                    // TODO should mint extra base token before swap
                     isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
@@ -1081,9 +1077,7 @@ contract ClearingHouse is
 
                 state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
             } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // TODO verify is this is necessary
-                // update state's tick if we are not on the boundary but the price has changed anyways since
-                // the start of this step
+                // update state.tick corresponding to the current price if the price has changed in this step
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
             }
         }
@@ -1134,7 +1128,7 @@ contract ClearingHouse is
             exchangedPositionSize,
             exchangedPositionNotional,
             fee,
-            settledFundingPayment,
+            fundingPayment,
             0 // TODO: badDebt
         );
 
