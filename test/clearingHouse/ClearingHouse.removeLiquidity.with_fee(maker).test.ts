@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { parseEther } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -77,6 +77,9 @@ describe("ClearingHouse", () => {
                         quote: parseEther("0.122414646"),
                         lowerTick, // 148.3760629
                         upperTick, // 151.3733069
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -104,6 +107,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
@@ -175,6 +181,9 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther("0.000816820841"),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -201,6 +210,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // expect 1% of quote = 0.001135501475
@@ -266,6 +278,9 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther("0.000816820841"),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
@@ -305,6 +320,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // B2QFee: expect 1% of quote in ClearingHouse = 0.00112414646
@@ -386,6 +404,9 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther((base * 3).toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -396,6 +417,9 @@ describe("ClearingHouse", () => {
                         upperTick, // 151.3733069
                         base: parseEther(base.toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -440,6 +464,9 @@ describe("ClearingHouse", () => {
                         lowerTick,
                         upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // B2QFee: expect 75% of 1% of quote in ClearingHouse = 0.001116454419 * 0.75 = 0.0008373408142
@@ -561,6 +588,9 @@ describe("ClearingHouse", () => {
                         upperTick: upperTick, // 154.4310961
                         base: parseEther((baseIn50000And50200 + baseIn50200And50400).toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
@@ -572,6 +602,9 @@ describe("ClearingHouse", () => {
                         upperTick: middleTick, // 151.3733069
                         base: parseEther(baseIn50000And50200.toString()),
                         quote: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
                     await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
@@ -636,6 +669,9 @@ describe("ClearingHouse", () => {
                         lowerTick: lowerTick,
                         upperTick: upperTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // alice's Q2B fee:
@@ -668,6 +704,9 @@ describe("ClearingHouse", () => {
                         lowerTick: lowerTick,
                         upperTick: middleTick,
                         liquidity: "0",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }
 
                     // carol's Q2B fee:

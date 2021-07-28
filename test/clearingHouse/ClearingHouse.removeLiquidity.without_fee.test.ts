@@ -2,7 +2,7 @@ import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -78,6 +78,9 @@ describe("ClearingHouse", () => {
                     quote: 0,
                     lowerTick: 50200,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400))
@@ -89,6 +92,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50200,
                         upperTick: 50400,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -142,6 +148,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50200,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
@@ -153,6 +162,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50200,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -205,6 +217,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -216,6 +231,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -268,6 +286,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -279,6 +300,9 @@ describe("ClearingHouse", () => {
                     lowerTick: 50000,
                     upperTick: 50400,
                     liquidity: firstRemoveLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
@@ -287,6 +311,9 @@ describe("ClearingHouse", () => {
                     lowerTick: 50000,
                     upperTick: 50400,
                     liquidity: secondRemoveLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // verify account states
@@ -326,6 +353,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -336,6 +366,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity: liquidity.add(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEL")
             })
@@ -347,6 +380,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 0,
                         upperTick: 200,
                         liquidity: BigNumber.from(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_TNF")
             })
@@ -362,6 +398,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 await expect(
@@ -370,6 +409,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50200,
                         liquidity: BigNumber.from(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEO")
             })
@@ -390,6 +432,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(10000, await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
@@ -400,6 +445,9 @@ describe("ClearingHouse", () => {
                         lowerTick: 50000,
                         upperTick: 50400,
                         liquidity: 0,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
