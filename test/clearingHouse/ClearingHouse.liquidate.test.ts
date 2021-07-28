@@ -142,7 +142,7 @@ describe("ClearingHouse liquidate", () => {
         })
 
         describe("carol liquidate alice's position", () => {
-            it("forcedly close alice's base position", async () => {
+            it.only("forcedly close alice's base position", async () => {
                 const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
 
                 // position size: 0.588407511354640018
@@ -160,11 +160,17 @@ describe("ClearingHouse liquidate", () => {
                         "2102129818649289842",
                         carol.address,
                     )
-                // account value = collateral + pnl = 10 + (83.29 - 2.08 -90) = 1.209
+                // account value = collateral + pnl = 10 + ( 8.857789000137412096 + 2.1021298186 ) = 1.209
                 // init margin requirement = 8.7901324323 (only quote debt)
                 // free collateral = 1.20986756 - 8.79013 * 0.1 = 0.330854324452815142
 
-                // 10 + 83.292171864291669129 - 2.0823043 - 90 = 1.20986756
+                console.log((await clearingHouse.getTotalMarketPnl(alice.address)).toString())
+                console.log((await clearingHouse.getAccountValue(alice.address)).toString())
+                const quoteInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+                console.log(quoteInfo.available.toString(), quoteInfo.debt.toString())
+                const baseInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+                console.log(baseInfo.available.toString(), baseInfo.debt.toString())
+
                 expect(await vault.getFreeCollateral(alice.address)).to.eq("330854324452815142")
 
                 const carolQuoteAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
@@ -220,50 +226,38 @@ describe("ClearingHouse liquidate", () => {
                 // console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
                 // console.log((await clearingHouse.getPositionSize(alice.address, baseToken.address, 0)).toString())
 
-                // 340282366920938483366813556901016766306-340282366920938463365904465991925857215
-
-                // 7470141439842354240
-                // 7792200522873681707187
-
                 const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
 
-                let quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-                console.log(quoteTokenInfo.available.toString(), quoteTokenInfo.debt.toString())
-                let baseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-                console.log(baseTokenInfo.available.toString(), baseTokenInfo.debt.toString())
+                // position size: -0.600774259337639952
+                // position value: -0.600774259337639952 * 160.56123246 = -96.4610555095
+                // pnl = 96.4610555095 + 90 = -6.4610555095
+                // account value: 10 + (-6.4610555095) = 3.53894449
+                // fee = 96.495440025443930697 * 0.025 = 2.412386
+                await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address))
+                    .to.emit(clearingHouse, "PositionLiquidated")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        "96495440025443930697",
+                        toWei("0.600774259337639952"),
+                        "2412386000636098267",
+                        carol.address,
+                    )
 
-                // position size: 0.588407511354640018
-                // position value: 0.58840 * 143.0326798397 = 84.1044463388
-                // pnl = 84.1044463388 - 90 = -5.838496813155959470
-                // positionNotional: (0.58840 * 0.99) * ~142.935(avg. price) = 83.292171864291669129
-                // account value: 10 + (-5.838496813155959470) = 4.161503186844040530
-                // fee = 83.292171864291669129 * 0.025 = 2.0823043
-                await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address)).to.emit(
-                    clearingHouse,
-                    "PositionLiquidated",
-                )
-                // .withArgs(
-                //     alice.address,
-                //     baseToken.address,
-                //     "83292171864291669129",
-                //     toWei("0.588407511354640018"),
-                //     "2082304296607291728",
-                //     carol.address,
-                // )
-                // account value = collateral + pnl = 10 + (83.29 - 2.08 -90) = 1.209
-                // init margin requirement = 8.7901324323 (only quote debt)
-                // free collateral = 1.20986756 - 8.79013 * 0.1 = 0.330854324452815142
+                const aliceQuote = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+                const aliceBase = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+                console.log(aliceQuote.available.toString(), aliceQuote.debt.toString())
+                console.log(aliceBase.available.toString(), aliceBase.debt.toString())
 
-                // 10 + 83.292171864291669129 - 2.0823043 - 90 = 1.20986756
-                // expect(await vault.getFreeCollateral(alice.address)).to.eq("330854324452815142")
+                // account value = collateral + pnl = 10 + (-96.49 - 2.41 +90) = 1.1
+                // init margin requirement = 9.88252744 (only quote debt)
+                // free collateral = 1.1 - 9.88252744 * 0.1 = 0.11174726
 
-                // const carolQuoteAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+                expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei("0.11174726"))
 
-                quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-                console.log(quoteTokenInfo.available.toString(), quoteTokenInfo.debt.toString())
-                baseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-                console.log(baseTokenInfo.available.toString(), baseTokenInfo.debt.toString())
-                // expect(carolQuoteAfter.available.sub(carolQuoteBefore.available)).to.eq("2082304296607291728")
+                const carolQuoteAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+
+                expect(carolQuoteAfter.available.sub(carolQuoteBefore.available)).to.eq("2412386000636098267")
             })
 
             it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund before swap")

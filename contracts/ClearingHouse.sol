@@ -1339,7 +1339,6 @@ contract ClearingHouse is
             if (minted > exactInsufficientQuote) {
                 _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
-            console.log("burnMax baseToken");
             _burnMax(params.trader, params.baseToken);
         }
 
