@@ -21,5 +21,3 @@ $ npm run deploy-staging
 ```bash
 $ npm run publish-staging
 ```
-
-5. open a PR on GitHub
