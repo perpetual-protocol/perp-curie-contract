@@ -504,11 +504,13 @@ contract ClearingHouse is
         // Penalty on trader's quote
         TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         traderTokenInfo.debt = traderTokenInfo.debt.add(liquidationFee);
+        _burnMax(trader, quoteToken);
 
         address liquidator = _msgSender();
         // Increase liquidator's quote available as liquidation reward
         TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
         liquidatorTokenInfo.available = liquidatorTokenInfo.available.add(liquidationFee);
+        _burnMax(liquidator, quoteToken);
 
         emit PositionLiquidated(trader, baseToken, swapResponse.quote, positionSize.abs(), liquidationFee, liquidator);
     }
