@@ -61,8 +61,8 @@ describe("ClearingHouse openPosition", () => {
         //   pool.base = 65.9437860798
         //   pool.quote = 10000
         //   liquidity = 884.6906588359
-        //   virual base liquidity = 884.6906588359 / sqrt(151.373306858723226652) = 71.9062751863
-        //   virual quote liquidity = 884.6906588359 * sqrt(151.373306858723226652) = 10,884.6906588362
+        //   virtual base liquidity = 884.6906588359 / sqrt(151.373306858723226652) = 71.9062751863
+        //   virtual quote liquidity = 884.6906588359 * sqrt(151.373306858723226652) = 10884.6906588362
 
         // prepare collateral for taker
         const takerCollateral = toWei(1000, collateralDecimals)
@@ -406,7 +406,8 @@ describe("ClearingHouse openPosition", () => {
         beforeEach(async () => {
             await deposit(taker, vault, 1000, collateral)
 
-            // taker swap 2 USD for ? ETH
+            // 71.9062751863 - 884.6906588359 ^ 2  / (10884.6906588362 + 2 * 0.99) = 0.01307786649
+            // taker swap 2 USD for 0.01320994188 ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -414,6 +415,8 @@ describe("ClearingHouse openPosition", () => {
                 amount: toWei(2),
                 sqrtPriceLimitX96: 0,
             })
+            // virtual base liquidity = 71.9062751863 - 0.01307786649 = 71.8931973198
+            // virtual quote liquidity = 10884.6906588362 + 2 * 0.99 = 10886.6706588362
         })
 
         it("increase position", async () => {
@@ -480,8 +483,13 @@ describe("ClearingHouse openPosition", () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+            // posSize = 0.013077866441492721
 
-            // taker close 2 USD worth ETH
+            // taker sells 0.013077866441492721 ETH
+            // B2QFee: CH actually sells 0.013077866441492721 / 0.99 = 0.0132099661
+            // 10886.6706588362 - 884.6906588359 ^ 2 / (71.8931973198 + 0.013209966102517900) = 1.9999963239
+            // B2QFee: scale down: 1.9999963239 * 0.99 = 1.9799963607 (1.979999999999999957 to be precise)
+            // taker gets 1.9799963607 * 0.99 = 1.9601963971
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -497,8 +505,9 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(quoteTokenInfo.available).eq(0)
-                // TODO originally 39796434903580403, need to review why the number changed after quote-only fee impl.
-                expect(quoteTokenInfo.debt).deep.eq("39800000000000043") // loss, will changed once we switch to quote-only fees
+                // 2 - 1.9601963971 = 0.0398036029
+                // there are imprecisions due to complicated calculations
+                expect(quoteTokenInfo.debt).deep.eq("39800000000000043") // loss
             }
 
             // collateral will be less than original number bcs of fees
@@ -515,13 +524,15 @@ describe("ClearingHouse openPosition", () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+            // posSize = 0.013077866441492721
 
             // prepare collateral for carol
             const carolAmount = toWei(1000, collateralDecimals)
             await collateral.connect(admin).mint(carol.address, carolAmount)
             await deposit(carol, vault, 1000, collateral)
 
-            // carol takes $1000 worth ETH long
+            // carol pays $1000 for ETH long
+            // 71.8931973198 - 884.6906588359 ^ 2 / (10886.6706588362 + 990) = 5.9927792385
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -529,8 +540,14 @@ describe("ClearingHouse openPosition", () => {
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
             })
+            // virtual base liquidity = 71.8931973198 - 5.9927792385 = 65.9004180813
+            // virtual quote liquidity = 10886.6706588362 + 990 = 11876.6706588362
 
-            // taker closes 2 USD worth ETH which should have some profit
+            // taker sells 0.013077866441492721 ETH
+            // B2QFee: CH actually sells 0.013077866441492721 / 0.99 = 0.0132099661
+            // 11876.6706588362 - 884.6906588359 ^ 2 / (65.9004180813 + 0.0132099661) = 2.380242465
+            // B2QFee: scale down: 2.380242465 * 0.99 = 2.3564400404
+            // taker gets 2.3564400404 * 0.99 = 2.33287564
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -545,7 +562,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-                // TODO originally 332884948673233926, need to review why the number changed after quote-only fee impl.
+                // pnl = 2.33287564 - 2 = 0.33287564
+                // there are imprecisions due to complicated calculations
                 expect(quoteTokenInfo.available).eq("332880320006927809") // profit
                 expect(quoteTokenInfo.debt).deep.eq(toWei(0))
             }
@@ -569,7 +587,9 @@ describe("ClearingHouse openPosition", () => {
             await collateral.connect(admin).mint(carol.address, carolAmount)
             await deposit(carol, vault, 1000, collateral)
 
-            // carol takes $1000 worth ETH short
+            // carol pays for $1000 ETH short
+            // B2QFee: CH actually gets 1000 / 0.99 = 1010.101010101 quote
+            // 884.6906588359 ^ 2 / (10886.6706588362 - 1010.101010101) - 71.8931973198 = 7.3526936796
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -577,8 +597,14 @@ describe("ClearingHouse openPosition", () => {
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
             })
+            // virtual base liquidity = 71.8931973198 + 7.3526936796 = 79.2458909994
+            // virtual quote liquidity = 10886.6706588362 - 1010.101010101 = 9876.5696487352
 
-            // taker closes 2 USD worth ETH which should have some loss
+            // taker sells 0.013077866441492721 ETH
+            // B2QFee: CH actually sells 0.013077866441492721 / 0.99 = 0.0132099661
+            // 9876.5696487352 - 884.6906588359 ^ 2 / (79.2458909994 + 0.0132099661) = 1.6461093907
+            // B2QFee: scale down: 1.6461093907 * 0.99 = 1.6296482968
+            // taker gets 1.6296482968 * 0.99 = 1.6133518138
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -594,7 +620,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(quoteTokenInfo.available).eq(0)
-                // TODO originally 383341379413156255, need to review why the number changed after quote-only fee impl.
+                // pnl = 2 - 1.6133518138 = 0.3866481862
+                // there are imprecisions due to complicated calculations
                 expect(quoteTokenInfo.debt).deep.eq("386645498819609266") // loss
             }
 
