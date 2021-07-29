@@ -354,7 +354,7 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("100"),
                 sqrtPriceLimitX96: 0,
             })
-            // price after Bob long, 151.3198881742
+            // price after Bob short, 151.20121364648824
         })
         it("liquidate alice's ETH by davis", async () => {
             // position size of ETH: -0.300334113234575750
