@@ -348,7 +348,7 @@ describe("ClearingHouse", () => {
                         upperTick: 200,
                         liquidity: BigNumber.from(1),
                     }),
-                ).to.be.revertedWith("CH_TNF")
+                ).to.be.revertedWith("CH_BTNE")
             })
 
             it("force error, range does not exist", async () => {

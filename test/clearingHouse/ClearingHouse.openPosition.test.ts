@@ -85,7 +85,7 @@ describe("ClearingHouse openPosition", () => {
                         amount: 1,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_TNF")
+                ).to.be.revertedWith("CH_BTNE")
             })
 
             it("force error due to invalid amount (0)", async () => {
