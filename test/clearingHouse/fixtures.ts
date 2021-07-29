@@ -1,7 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool, Vault } from "../../typechain"
-import { BaseToken } from "../../typechain/BaseToken"
+import { VirtualToken } from "../../typechain/VirtualToken"
 import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
@@ -11,10 +11,10 @@ interface ClearingHouseFixture {
     pool: UniswapV3Pool
     feeTier: number
     USDC: TestERC20
-    quoteToken: BaseToken
-    baseToken: BaseToken
+    quoteToken: VirtualToken
+    baseToken: VirtualToken
     mockedBaseAggregator: MockContract
-    baseToken2: BaseToken
+    baseToken2: VirtualToken
     mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
 }
@@ -34,7 +34,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
 
-        let baseToken: BaseToken, quoteToken: BaseToken, mockedBaseAggregator: MockContract
+        let baseToken: VirtualToken, quoteToken: VirtualToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1, mockedAggregator1 } = await tokensFixture()
 
         if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
@@ -80,7 +80,9 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         // deploy another pool
         const _token0Fixture = await token0Fixture(quoteToken.address)
         const baseToken2 = _token0Fixture.baseToken
+        await baseToken2.setMinter(clearingHouse.address)
         const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
+        await uniV3Factory.createPool(baseToken2.address, quoteToken.address, feeTier)
         const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
 
@@ -135,8 +137,8 @@ export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Pr
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
         const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
 
-        const baseTokenFactory = await ethers.getContractFactory("BaseToken")
-        const token = (await baseTokenFactory.deploy("Test", "Test", chainlinkPriceFeed.address)) as BaseToken
+        const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
+        const token = (await virtualTokenFactory.deploy("Test", "Test", chainlinkPriceFeed.address)) as VirtualToken
         mockedToken = await smockit(token)
     }
     return mockedToken

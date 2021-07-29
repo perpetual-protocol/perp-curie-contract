@@ -1,28 +1,23 @@
 pragma solidity 0.7.6;
 
-import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/presets/ERC20PresetMinterPauser.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 
-// TODO: maybe we could rename it to VToken or something?
-// TODO: Ownable
-// TODO: only keep what we need in ERC20PresetMinterPauser
-contract BaseToken is IIndexPrice, ERC20PresetMinterPauser {
+contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     using SafeMath for uint256;
-    address public immutable priceFeed;
-    uint8 private immutable _priceFeedDecimals;
 
-    modifier onlyOwner() {
-        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "BT_NO");
-        _;
-    }
+    address public priceFeed;
+    address public minter;
+    uint8 private immutable _priceFeedDecimals;
 
     constructor(
         string memory nameArg,
         string memory symbolArg,
         address priceFeedArg
-    ) ERC20PresetMinterPauser(nameArg, symbolArg) {
+    ) ERC20(nameArg, symbolArg) {
         // BT_IA: invalid address
         require(priceFeedArg != address(0), "BT_IA");
 
@@ -30,9 +25,23 @@ contract BaseToken is IIndexPrice, ERC20PresetMinterPauser {
         _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
     }
 
-    // TODO: onlyOwner
-    function setMinter(address minter) external {
-        grantRole(MINTER_ROLE, minter);
+    /**
+     * @dev Destroys `amount` tokens from the caller.
+     *
+     * See {ERC20-_burn}.
+     */
+    function burn(uint256 amount) external {
+        _burn(_msgSender(), amount);
+    }
+
+    function mint(address to, uint256 amount) external {
+        // only minter
+        require(_msgSender() == minter, "VT_OM");
+        _mint(to, amount);
+    }
+
+    function setMinter(address minterArg) external onlyOwner {
+        minter = minterArg;
     }
 
     function getIndexPrice(uint256 interval) external view override returns (uint256) {
