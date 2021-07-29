@@ -26,7 +26,6 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
-import { console } from "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -506,8 +505,6 @@ contract ClearingHouse is
                 })
             );
 
-        console.log("swap: ", response.deltaAvailableQuote, response.deltaAvailableBase);
-        console.log("swap ex: ", response.exchangedPositionNotional, response.exchangedPositionSize);
         uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
 
         // Penalty on trader's quote

@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse liquidate", () => {
+describe.only("ClearingHouse liquidate", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     const million = toWei(1000000)
@@ -213,8 +213,6 @@ describe("ClearingHouse liquidate", () => {
             })
 
             it("forcedly close alice's quote position", async () => {
-                const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-
                 // position size: -0.600774259337639952
                 // position value: -0.600774259337639952 * 158.6340597836 = -95.3032597722
                 // pnl = -95.3032597722 + 90 = -5.3032597722
@@ -317,12 +315,6 @@ describe("ClearingHouse liquidate", () => {
         })
 
         it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
-            console.log("pnl", (await clearingHouse.getTotalMarketPnl(alice.address)).toString())
-            console.log("acc value", (await clearingHouse.getAccountValue(alice.address)).toString())
-            console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
-            console.log((await clearingHouse.getPositionValue(alice.address, baseToken2.address, 0)).toString())
-            console.log((await clearingHouse.getPositionSize(alice.address, baseToken.address)).toString())
-
             // position size: 0.294254629696195230
             // position value:  44.591955831233061486
             // pnl =  40.63876(ETH) + 44.591955831233(BTC) - 90 = -4.76256667585
@@ -385,26 +377,75 @@ describe("ClearingHouse liquidate", () => {
             })
             // price after bob swap : 166.6150230501
 
-            // bob short BTC with 10 quote
+            // bob short BTC with 100 quote
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: toWei("10"),
+                amount: toWei("100"),
                 sqrtPriceLimitX96: 0,
             })
+            // price after Bob long, 151.3198881742
         })
         it("liquidate alice's ETH by carol", async () => {
-            await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "PositionLiquidated",
-            )
+            console.log("pnl", (await clearingHouse.getTotalMarketPnl(alice.address)).toString())
+            console.log("acc value", (await clearingHouse.getAccountValue(alice.address)).toString())
+            console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
+            console.log((await clearingHouse.getPositionValue(alice.address, baseToken2.address, 0)).toString())
+            console.log((await clearingHouse.getPositionSize(alice.address, baseToken2.address)).toString())
+
+            // position size: -0.300334113234575750(BTC)
+            // position value: -50.040175199
+            // pnl = -50.040175199 +(-45.41088242) + 90 = -5.459069
+            // account value: 10 + (-5.459069) = 4.540931
+            // fee = 50.040175199 * 0.025 = 1.25100438
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+                .to.emit(clearingHouse, "PositionLiquidated")
+                .withArgs(
+                    alice.address,
+                    baseToken.address,
+                    "50049442662484937695",
+                    "300334113234575750",
+                    "1251236066562123442",
+                    davis.address,
+                )
+
+            await deposit(alice, vault, 10, collateral)
+
+            //  50.04944266248 * (1 + 1%) = 50.549937089
+            // account value = collateral + pnl = 10 + (-45.41088242 - 50.549937089 - 1.25100438 + 90) = 2.78817
+            // init margin requirement = 0.30033411323 * 100 = 30.033411323
+            // free collateral = 2.78817 + 10 - 30.033411323 * 0.1 = 9.7795
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("9779547792213811030")
+            const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
+            expect(davisTokenInfo.available).to.eq("1251236066562123442")
         })
+
         it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
-            await expect(clearingHouse.connect(carol).liquidate(alice.address, baseToken2.address)).to.emit(
-                clearingHouse,
-                "PositionLiquidated",
-            )
+            // position size: -0.300334113234575750(BTC)
+            // position value: -45.410882420509684093
+            // pnl = -50.040175199 +(-45.4188940109116) + 90 = -5.459069
+            // account value: 10 + (-5.459069) = 4.540931
+            // fee = 45.4188940(with slippage) * 0.025 = 1.135472350272790574
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address))
+                .to.emit(clearingHouse, "PositionLiquidated")
+                .withArgs(
+                    alice.address,
+                    baseToken2.address,
+                    "45418894010911622979",
+                    "300334113234575750",
+                    "1135472350272790574",
+                    davis.address,
+                )
+
+            await deposit(alice, vault, 10, collateral)
+            //  45.4188940 * (1 + 1%) = 45.87308294
+            // account value = collateral + pnl = 10 + (-45.87308294 -50.040175199 - 1.135472350272 + 90) = 2.9512695
+            // init margin requirement = 0.30033411323 * 100 = 30.033411323
+            // free collateral = 2.9512695 + 10 - 30.033411323 * 0.1 = 9.9479283677
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("9943340599976214434")
+            const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
+            expect(davisTokenInfo.available).to.eq("1135472350272790574")
         })
     })
 })
