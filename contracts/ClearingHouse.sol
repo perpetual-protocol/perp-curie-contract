@@ -994,16 +994,8 @@ contract ClearingHouse is
             );
 
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        // we are going to replay txs by swapping "exactOutput" with the output token received
         state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
-
-        // we are going to replay by swapping "exactOutput" with the output token received
-        // isBaseToQuote, isExactInput
-        // t,t -> base < 0, quote > 0 -> -quote
-        // t,f -> quote < 0 -> quote
-        // f,t -> quote < 0, base > 0 -> -base
-        // f,f -> base < 0 -> base
-        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
-        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
 
         uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
 
