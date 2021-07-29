@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -53,6 +53,9 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
             quote: parseEther("10000"),
             lowerTick,
             upperTick,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
@@ -66,6 +69,9 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
             quote: parseEther("10000"),
             lowerTick,
             upperTick,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
     })
 
@@ -94,6 +100,9 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
             lowerTick,
             upperTick,
             liquidity,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // maker close position
