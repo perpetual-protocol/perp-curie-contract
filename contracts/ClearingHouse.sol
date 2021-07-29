@@ -485,12 +485,12 @@ contract ClearingHouse is
 
         _removeAllLiquidity(trader, baseToken);
 
-        // Since all liquidity have been removed, there's no position in pool now
+        // since all liquidity have been removed, there's no position in pool now
         TokenInfo memory tokenInfo = getTokenInfo(trader, baseToken);
         int256 positionSize = tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256());
 
         // if trader is on long side, baseToQuote: true, exactInput: true
-        // trader is on short side, quoteToBase: false, exactInput: false
+        // if trader is on short side, quoteToBase: false, exactInput: false
         bool isLong = positionSize > 0 ? true : false;
         SwapResponse memory response =
             _openPosition(
@@ -507,13 +507,13 @@ contract ClearingHouse is
 
         uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
 
-        // Penalty on trader's quote
+        // increase debt on trader's quote as liquidation penalty
         TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         traderTokenInfo.debt = traderTokenInfo.debt.add(liquidationFee);
         _burnMax(trader, quoteToken);
 
         address liquidator = _msgSender();
-        // Increase liquidator's quote available as liquidation reward
+        // increase liquidator's quote available as liquidation reward
         TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
         // TODO liquidator may not have collateral, mint? or just adding available?
         _mint(liquidator, quoteToken, liquidationFee, false);
