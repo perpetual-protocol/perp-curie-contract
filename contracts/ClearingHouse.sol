@@ -24,7 +24,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
-import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
 
 contract ClearingHouse is
@@ -906,6 +905,7 @@ contract ClearingHouse is
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
 
+    // TODO should consider funding
     function getCostBasis(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;

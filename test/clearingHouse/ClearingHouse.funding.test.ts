@@ -93,7 +93,7 @@ describe("ClearingHouse.funding", () => {
         await waffle.provider.send("evm_mine", [])
     }
 
-    describe.only("# getPendingFundingPayment", () => {
+    describe("# getPendingFundingPayment", () => {
         it("has no pending funding payment before any update funding", async () => {
             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(0)
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
