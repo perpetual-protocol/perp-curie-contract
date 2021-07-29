@@ -447,7 +447,7 @@ describe("ClearingHouse.funding", () => {
                 expect(carolNetQuoteBefore.sub(carolNetQuoteAfter).gt(0)).be.true
             })
 
-            it("clear quote's debt and quote", async () => {
+            it("execute burnMax to clear quote's debt and quote, either one of them is 0", async () => {
                 const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
                 expect(carolQuoteInfoAfter.debt.mul(carolQuoteInfoAfter.available)).eq(0)
             })
