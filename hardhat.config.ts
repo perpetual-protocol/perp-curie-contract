@@ -4,6 +4,7 @@ import "@typechain/hardhat"
 import "hardhat-contract-sizer"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
+import "hardhat-gas-reporter"
 import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 import {
