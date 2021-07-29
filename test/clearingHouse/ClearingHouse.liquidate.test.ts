@@ -135,15 +135,9 @@ describe.only("ClearingHouse liquidate", () => {
             // price after bob swap : 143.0326798397
         })
 
-        describe.skip("carol takeover the position", () => {
-            it("swap carol's quote to alice's base in a discount (size * marketTWAP * liquidationDiscount)")
-            it("close alice's position")
-            it("force error, carol's quote balance is insufficient")
-        })
-
-        describe("carol liquidate alice's position", () => {
+        describe("davis liquidate alice's position", () => {
             it("forcedly close alice's base position", async () => {
-                const carolQuoteBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+                const carolQuoteBefore = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
 
                 // position size: 0.588407511354640018
                 // position value: 0.58840 * ~142.8549872 = 84.085192745971593683
@@ -171,14 +165,6 @@ describe.only("ClearingHouse liquidate", () => {
                 expect(davisTokenInfo.available).to.eq("2102129818649289842")
             })
         })
-
-        it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund after swap")
-
-        describe("price goes down further, alice's price impact is too high if total close", () => {
-            it.skip("liquidate alice's position partially by carol")
-        })
-
-        it("force error, can't liquidate herself", async () => {})
     })
 
     // TODO copy the sheet above and make another scenario for short
@@ -205,13 +191,7 @@ describe.only("ClearingHouse liquidate", () => {
             // price after bob swap : 158.6340597836
         })
 
-        describe("carol liquidate alice's position", () => {
-            describe.skip("carol takeover the position", () => {
-                it("swap carol's base to alice's quote in a discount (size * marketTWAP * liquidationDiscount)")
-                it("close alice's position")
-                it("force error, carol's base balance is insufficient")
-            })
-
+        describe("davis liquidate alice's position", () => {
             it("forcedly close alice's quote position", async () => {
                 // position size: -0.600774259337639952
                 // position value: -0.600774259337639952 * 158.6340597836 = -95.3032597722
@@ -237,12 +217,6 @@ describe.only("ClearingHouse liquidate", () => {
                 const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
                 expect(davisTokenInfo.available).to.eq("2383442912758163616")
             })
-
-            it.skip("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund before swap")
-        })
-
-        describe("price goes up further, alice's price impact is too high if total close", () => {
-            it.skip("liquidate alice's position partially by carol")
         })
     })
 
@@ -314,7 +288,7 @@ describe.only("ClearingHouse liquidate", () => {
             expect(davisTokenInfo.available).to.eq("1015969115608315255")
         })
 
-        it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
+        it("liquidate alice's BTC by davis, even has profit in BTC market", async () => {
             // position size: 0.294254629696195230
             // position value:  44.591955831233061486
             // pnl =  40.63876(ETH) + 44.591955831233(BTC) - 90 = -4.76256667585
@@ -331,9 +305,6 @@ describe.only("ClearingHouse liquidate", () => {
                     davis.address,
                 )
             const tokenInfo0 = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            console.log("tokenInfo0", tokenInfo0.available.toString(), tokenInfo0.debt.toString())
-            console.log("req.", (await clearingHouse.getTotalOpenOrderMarginRequirement(alice.address)).toString())
-            console.log("acc value", (await clearingHouse.getAccountValue(alice.address)).toString())
 
             await deposit(alice, vault, 10, collateral)
             // 44.58424198139300 * 0.99(1% fee) = 44.1383995616
@@ -387,13 +358,7 @@ describe.only("ClearingHouse liquidate", () => {
             })
             // price after Bob long, 151.3198881742
         })
-        it("liquidate alice's ETH by carol", async () => {
-            console.log("pnl", (await clearingHouse.getTotalMarketPnl(alice.address)).toString())
-            console.log("acc value", (await clearingHouse.getAccountValue(alice.address)).toString())
-            console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).toString())
-            console.log((await clearingHouse.getPositionValue(alice.address, baseToken2.address, 0)).toString())
-            console.log((await clearingHouse.getPositionSize(alice.address, baseToken2.address)).toString())
-
+        it("liquidate alice's ETH by davis", async () => {
             // position size: -0.300334113234575750(BTC)
             // position value: -50.040175199
             // pnl = -50.040175199 +(-45.41088242) + 90 = -5.459069
@@ -421,7 +386,7 @@ describe.only("ClearingHouse liquidate", () => {
             expect(davisTokenInfo.available).to.eq("1251236066562123442")
         })
 
-        it("liquidate alice's BTC by carol, even has profit in BTC market", async () => {
+        it("liquidate alice's BTC by davis, even has profit in BTC market", async () => {
             // position size: -0.300334113234575750(BTC)
             // position value: -45.410882420509684093
             // pnl = -50.040175199 +(-45.4188940109116) + 90 = -5.459069
@@ -446,6 +411,19 @@ describe.only("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq("9943340599976214434")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1135472350272790574")
+        })
+    })
+
+    describe.skip("V2 liquidator takes trader's position", () => {
+        describe("davis takeover the position", () => {
+            it("swap davis's quote to alice's base in a discount (size * marketTWAP * liquidationDiscount)")
+            it("close alice's position")
+            it("force error, davis's quote balance is insufficient")
+        })
+        it("transfer penalty (liquidationNotional * liquidationPenaltyRatio) to InsuranceFund after swap")
+
+        describe("price goes down further, alice's price impact is too high if total close", () => {
+            it("liquidate alice's position partially by davis")
         })
     })
 })
