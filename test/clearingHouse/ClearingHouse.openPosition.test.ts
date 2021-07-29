@@ -47,7 +47,7 @@ describe("ClearingHouse openPosition", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
+        await clearingHouse.connect(maker).mint(baseToken.address, toWei(100)) // should only mint exact amount
         await clearingHouse.connect(maker).mint(quoteToken.address, toWei(10000))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
@@ -663,6 +663,45 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("open larger reverse position")
+    })
+
+    describe("verify mint extra for _calcScaledAmount()", () => {
+        beforeEach(async () => {
+            const takerCollateralAmount = toWei(100000, collateralDecimals)
+            await collateral.mint(taker.address, takerCollateralAmount)
+            await deposit(taker, vault, 100000, collateral)
+        })
+
+        it("should pass", async () => {
+            // short 1 eth
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: toWei(1),
+                sqrtPriceLimitX96: 0,
+            })
+        })
+
+        it("should pass", async () => {
+            // short 1 eth
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: toWei(1),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // short 4 eth (open a larger reverse position)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: toWei(4),
+                sqrtPriceLimitX96: 0,
+            })
+        })
     })
 
     describe("opening short first then", () => {
