@@ -449,8 +449,6 @@ describe("ClearingHouse.funding", () => {
 
             it("clear quote's debt and quote", async () => {
                 const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-                console.log(carolQuoteInfoAfter.available.toString())
-                console.log(carolQuoteInfoAfter.debt.toString())
                 expect(carolQuoteInfoAfter.debt.mul(carolQuoteInfoAfter.available)).eq(0)
             })
         })
