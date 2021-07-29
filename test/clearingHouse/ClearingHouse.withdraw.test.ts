@@ -33,34 +33,30 @@ describe("ClearingHouse withdraw", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await clearingHouse.addPool(baseToken.address, "10000")
+        await clearingHouse.addPool(baseToken.address, 10000)
     })
 
     describe("# withdraw with maker fee", () => {
-        // simulation results:
-        // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
+        const lowerTick = 50000 // 148.3760629
+        const upperTick = 50200 // 151.3733069
+
         beforeEach(async () => {
-            const thousand = parseUnits("1000", await collateral.decimals())
-
-            // prepare collateral for alice
-            await collateral.mint(alice.address, thousand)
-            await deposit(alice, vault, 1000, collateral)
-
-            // mint
-            const baseAmount = parseEther("0.0004073894476")
-            const quoteAmount = parseEther("0.122414646")
-            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
-            const lowerTick = "50000"
-            const upperTick = "50200"
+            // mint
+            collateral.mint(alice.address, toWei(100))
+
+            // prepare collateral for alice
+            await deposit(alice, vault, 100, collateral)
+
+            // mint vToken
+            const quoteAmount = parseEther("0.122414646")
+            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
 
             // alice add liquidity
             const addLiquidityParams = {
                 baseToken: baseToken.address,
-                base: baseAmount,
+                base: 0,
                 quote: quoteAmount,
                 lowerTick, // 148.3760629
                 upperTick, // 151.3733069
@@ -68,44 +64,52 @@ describe("ClearingHouse withdraw", () => {
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
         })
 
-        // FIXME: check again after the bug "insufficient balance for quote only fee"
-        it.skip("taker swap then withdraw and verify maker's free collateral", async () => {
+        it("taker swap then withdraw and verify maker's free collateral", async () => {
             // prepare collateral for bob
-            const one = parseEther("1")
-            await collateral.mint(bob.address, one)
-            await deposit(bob, vault, 1, collateral)
+            await collateral.mint(bob.address, parseEther("100"))
+            await deposit(bob, vault, 100, collateral)
+            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
 
             // bob swap
             // base: 0.0004084104205
             // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334176 quote
             // bob gets 0.06151334176 * 0.99 = 0.06089820834
-            const swapParams = {
+            await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: parseEther("0.0004084104205"),
                 sqrtPriceLimitX96: "0",
-            }
-            await clearingHouse.connect(bob).swap(swapParams)
-
-            // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
+            })
 
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1, 1 - 0.0006151334176(fee)) - (0 + 1) * 10% = 0.8993848666
-            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseEther("0.8993848666"))
-
-            await expect(vault.connect(bob).withdraw(collateral.address, parseEther("0.8993848666")))
+            // accountValue = netQuoteBalance + totalMarketPnl = 100 + 0.06 + 0
+            // pnl is 0 because it's calculated based on index price
+            // min(100, 100+) - (0 + 1 * 100) * 10% = 99.8993848666
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseEther("90"))
+            await expect(vault.connect(bob).withdraw(collateral.address, parseEther("90")))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, parseEther("0.8993848666"))
-            expect(await collateral.balanceOf(bob.address)).to.eq(parseEther("0.8993848666"))
-            expect(await vault.balanceOf(bob.address)).to.eq("0")
+                .withArgs(collateral.address, bob.address, parseEther("90"))
+            expect(await collateral.balanceOf(bob.address)).to.eq(parseEther("90"))
+            expect(await vault.balanceOf(bob.address)).to.eq(parseEther("10"))
+
+            // alice remove liq 0, alice should collect fee
+            // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
+            await clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick,
+                upperTick,
+                liquidity: "0",
+            })
 
             // verify maker's free collateral
-            // collateral = 1000, base debt = 0.0004073894476, quote debt = 0.122414646
-            // position size = 0.06151334176
-            // free collateral = min(1000, 1000 + 0.0006151334176 (B2QFee)) - (0.0004073894476 + 0.122414646) * 0.1 = 10,000
-            // 1000 + 0.0006151334176 - (0.0004073894476 + 0.122414646) * 0.1 = 999.9883329299
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("999.9883329299"))
+            // collateral = 100, base debt = 0, quote debt = 0.122414646
+            // maker.quoteInPool -= 0.06151334176
+            // maker.baseInPool += 0.0004084104205
+            // free collateral =
+            // min(100, 100 - 0.06151334176 (+Q) + 0.0006151334176 (B2QFee) + 0.0004084104205 (-B) * 100 (indexPrice)) - (0 + 0.122414646) * 0.1 = 10,000
+            // 100 - 0.06151334176 + 0.0006151334176 + 0.0004084104205 * 100 - (0 + 0.122414646) * 0.1 = 99.9677013691
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("99.967701369110322151"))
         })
     })
 
