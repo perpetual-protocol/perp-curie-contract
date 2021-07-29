@@ -24,5 +24,5 @@ $ git tag vX.X.X
 $ git push origin --tags
 
 # create GitHub release
-$ gh release create vX.X.X -t "vX.X.X" -F changelog.md
+$ gh release create vX.X.X -t "vX.X.X" -F CHANGELOG.md
 ```
