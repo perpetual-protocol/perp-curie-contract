@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -14,8 +14,8 @@ describe("ClearingHouse", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
 
@@ -198,13 +198,15 @@ describe("ClearingHouse", () => {
 
         it("force error, alice mint base without specifying baseToken", async () => {
             const baseAmount = toWei(100, await baseToken.decimals())
-            await expect(clearingHouse.connect(alice).mint(EMPTY_ADDRESS, baseAmount)).to.be.revertedWith("CH_TNF")
+            await expect(clearingHouse.connect(alice).mint(EMPTY_ADDRESS, baseAmount)).to.be.revertedWith("CH_BTNE")
         })
 
         it("force error, alice mint base without addPool first", async () => {
             const baseAmount = toWei(100, await baseToken.decimals())
             // collateral: just a random address
-            await expect(clearingHouse.connect(alice).mint(collateral.address, baseAmount)).to.be.revertedWith("CH_TNF")
+            await expect(clearingHouse.connect(alice).mint(collateral.address, baseAmount)).to.be.revertedWith(
+                "CH_BTNE",
+            )
         })
     })
 })

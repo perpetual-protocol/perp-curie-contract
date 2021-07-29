@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { BaseToken } from "../../typechain/BaseToken"
+import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -16,8 +16,8 @@ describe("ClearingHouse.funding", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: BaseToken
-    let quoteToken: BaseToken
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
 
@@ -391,50 +391,66 @@ describe("ClearingHouse.funding", () => {
         })
 
         it("force error, settle quote token", async () => {
-            await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
+            await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_BTNE")
         })
 
-        it("force error, not enough quote token available", async () => {
-            // carol long
-            await collateral.mint(carol.address, parseEther("1000"))
-            await deposit(carol, vault, 1000, collateral)
+        describe("paying funding payment", () => {
+            let carolNetQuoteBefore
 
-            await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("100"))
-            await clearingHouse.connect(carol).swap({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: parseEther("100"),
-                sqrtPriceLimitX96: 0,
+            beforeEach(async () => {
+                // carol long
+                await collateral.mint(carol.address, parseEther("1000"))
+                await deposit(carol, vault, 1000, collateral)
+
+                await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("200"))
+                const carolQuoteInfoBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+                carolNetQuoteBefore = carolQuoteInfoBefore.available.sub(carolQuoteInfoBefore.debt)
+
+                await clearingHouse.connect(carol).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("100"),
+                    sqrtPriceLimitX96: 0,
+                })
+
+                // bob
+                //   base.available = 1.901 - 1 = 0.901
+                //   base.liquidity = 1
+                //   base.debt = 2
+                //   quote.available = 15.1128025359
+                //   quote.debt = 0
+                //
+                // carol
+                //   base.available = 0.638303511
+                //   base.debt = 0
+                //   quote.available = 200
+                //   quote.debt = 100
+
+                // current price = 156.0922973283
+                // current tick = 50507
+
+                await forward(3600)
+
+                // carol hold a long position 0.638303511
+                // (156.0922973283 - 150.953124) / 24 = 0.1250000341
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150.953124", 6), 0, 0, 0]
+                })
+                await clearingHouse.updateFunding(baseToken.address)
+                await clearingHouse.settleFunding(carol.address, baseToken.address)
             })
 
-            // bob
-            //   base.available = 1.901 - 1 = 0.901
-            //   base.liquidity = 1
-            //   base.debt = 2
-            //   quote.available = 15.1128025359
-            //   quote.debt = 0
-            //
-            // carol
-            //   base.available = 0.638303511
-            //   base.debt = 0
-            //   quote.available = 0
-            //   quote.debt = 100
-
-            // current price = 156.0922973283
-            // current tick = 50507
-
-            await forward(3600)
-
-            // carol hold a long position 0.638303511
-            // (156.0922973283 - 150.953124) / 24 = 0.1250000341
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            it("decrease net quote balance", async () => {
+                const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+                const carolNetQuoteAfter = carolQuoteInfoAfter.available.sub(carolQuoteInfoAfter.debt)
+                expect(carolNetQuoteBefore.sub(carolNetQuoteAfter).gt(0)).be.true
             })
-            await clearingHouse.updateFunding(baseToken.address)
 
-            // carol needs to pay 0.638303511 * 0.1250000341 = 0.07978796064 quote for funding but has 0 available
-            await expect(clearingHouse.settleFunding(carol.address, baseToken.address)).to.revertedWith("TBD")
+            it("execute burnMax to clear quote's debt and quote, either one of them is 0", async () => {
+                const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
+                expect(carolQuoteInfoAfter.debt.mul(carolQuoteInfoAfter.available)).eq(0)
+            })
         })
     })
 })
