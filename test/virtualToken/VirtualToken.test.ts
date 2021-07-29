@@ -2,23 +2,23 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
-import { BaseToken } from "../../typechain"
+import { VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
-import { baseTokenFixture } from "./fixtures"
+import { virtualTokenFixture } from "./fixtures"
 
 // TODO: should also test ChainlinkPriceFeed
-describe("BaseToken", async () => {
+describe("VirtualToken", async () => {
     const [admin] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let baseToken: BaseToken
+    let virtualToken: VirtualToken
     let mockedAggregator: MockContract
     let currentTime: number
     let roundData: any[]
 
     describe("twap", () => {
         beforeEach(async () => {
-            const _fixture = await loadFixture(baseTokenFixture)
-            baseToken = _fixture.baseToken
+            const _fixture = await loadFixture(virtualTokenFixture)
+            virtualToken = _fixture.virtualToken
             mockedAggregator = _fixture.mockedAggregator
 
             // `base` = now - _interval
@@ -59,17 +59,17 @@ describe("BaseToken", async () => {
         })
 
         it("twap price", async () => {
-            const price = await baseToken.getIndexPrice(45)
+            const price = await virtualToken.getIndexPrice(45)
             expect(price).to.eq(toWei(405))
         })
 
         it("asking interval more than aggregator has", async () => {
-            const price = await baseToken.getIndexPrice(46)
+            const price = await virtualToken.getIndexPrice(46)
             expect(price).to.eq(toWei(405))
         })
 
         it("asking interval less than aggregator has", async () => {
-            const price = await baseToken.getIndexPrice(44)
+            const price = await virtualToken.getIndexPrice(44)
             expect(price).to.eq("405113636000000000000")
         })
 
@@ -79,7 +79,7 @@ describe("BaseToken", async () => {
             await ethers.provider.send("evm_mine", [])
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
-            const price = await baseToken.getIndexPrice(95)
+            const price = await virtualToken.getIndexPrice(95)
             expect(price).to.eq("409736842000000000000")
         })
 
@@ -89,13 +89,13 @@ describe("BaseToken", async () => {
 
             // latest update time is base + 30, but now is base + 145 and asking for (now - 45)
             // should return the latest price directly
-            const price = await baseToken.getIndexPrice(45)
+            const price = await virtualToken.getIndexPrice(45)
             expect(price).to.eq(toWei(410))
         })
 
         it("if current price < 0, ignore the current price", async () => {
             roundData.push([3, toWei(-10, 6), 250, 250, 3])
-            const price = await baseToken.getIndexPrice(45)
+            const price = await virtualToken.getIndexPrice(45)
             expect(price).to.eq(toWei(405))
         })
 
@@ -106,12 +106,12 @@ describe("BaseToken", async () => {
             await ethers.provider.send("evm_mine", [])
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
-            const price = await baseToken.getIndexPrice(95)
+            const price = await virtualToken.getIndexPrice(95)
             expect(price).to.eq("409736842000000000000")
         })
 
         it("return latest price if interval is zero", async () => {
-            const price = await baseToken.getIndexPrice(0)
+            const price = await virtualToken.getIndexPrice(0)
             expect(price).to.eq(toWei(410))
         })
     })

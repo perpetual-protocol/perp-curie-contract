@@ -1,4 +1,4 @@
-import { TestERC20, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
+import { TestERC20, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { ethers, waffle } from "hardhat"
 
 import { base0Quote1PoolFixture } from "../shared/fixtures"
@@ -10,8 +10,8 @@ describe("UniswapV3Broker swap", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let uniswapV3Broker: TestUniswapV3Broker
 
     beforeEach(async () => {
