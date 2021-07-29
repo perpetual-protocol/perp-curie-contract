@@ -970,7 +970,6 @@ contract ClearingHouse is
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
         address pool = _poolMap[baseTokenAddr];
-        bool isBaseToQuote = params.isBaseToQuote;
         SwapState memory state =
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
@@ -980,22 +979,32 @@ contract ClearingHouse is
                 liquidity: UniswapV3Broker.getLiquidity(pool)
             });
 
+        uint256 amount = params.amount;
+        if (params.isBaseToQuote) {
+            // mint extra base token before swap
+            amount = _calcScaledAmount(pool, params.amount, true);
+            // not use _mint() here since it will change trader's baseToken available/debt
+            IMintableERC20(baseTokenAddr).mint(address(this), amount.sub(params.amount));
+        }
+
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
                     baseTokenAddr,
                     quoteToken,
-                    isBaseToQuote,
+                    params.isBaseToQuote,
                     params.isExactInput,
-                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
+                    amount,
                     params.sqrtPriceLimitX96
                 )
             );
 
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         // we are going to replay txs by swapping "exactOutput" with the output token received
-        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
+        state.amountSpecifiedRemaining = params.isBaseToQuote
+            ? -(response.quote.toInt256())
+            : -(response.base.toInt256());
 
         uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
 
@@ -1011,7 +1020,7 @@ contract ClearingHouse is
                 pool,
                 state.tick,
                 UniswapV3Broker.getTickSpacing(pool),
-                isBaseToQuote
+                params.isBaseToQuote
             );
 
             // get the next price of this step (either next tick's price or the ending price)
@@ -1023,7 +1032,7 @@ contract ClearingHouse is
             (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
                 state.sqrtPriceX96,
                 (
-                    isBaseToQuote
+                    params.isBaseToQuote
                         ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
                         : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
                 )
@@ -1038,7 +1047,7 @@ contract ClearingHouse is
 
             // update CH's global fee growth if there is liquidity in this range
             // note CH only collects quote fee when swapping base -> quote
-            if (state.liquidity > 0 && isBaseToQuote) {
+            if (state.liquidity > 0 && params.isBaseToQuote) {
                 state.feeGrowthGlobalX128 += FullMath.mulDiv(
                     FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
                     FixedPoint128.Q128,
@@ -1056,11 +1065,11 @@ contract ClearingHouse is
                     tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (isBaseToQuote) liquidityNet = -liquidityNet;
+                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
                     state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
                 }
 
-                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+                state.tick = params.isBaseToQuote ? step.nextTick - 1 : step.nextTick;
             } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
                 // update state.tick corresponding to the current price if the price has changed in this step
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
@@ -1069,7 +1078,7 @@ contract ClearingHouse is
 
         // only update global CH fee growth when swapping base -> quote
         // because otherwise the fee is collected by the uniswap pool instead
-        if (isBaseToQuote) {
+        if (params.isBaseToQuote) {
             // update global states since swap state transitions are all done
             _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
         }
@@ -1083,7 +1092,7 @@ contract ClearingHouse is
             TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
             TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
-            if (isBaseToQuote) {
+            if (params.isBaseToQuote) {
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
                 exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
