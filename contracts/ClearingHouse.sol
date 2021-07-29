@@ -82,6 +82,17 @@ contract ClearingHouse is
         uint256 badDebt
     );
 
+    event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
+
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
+
     //
     // Struct
     //
@@ -160,6 +171,15 @@ contract ClearingHouse is
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
 
+    struct InternalSwapParams {
+        address trader;
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+    }
+
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
@@ -189,6 +209,16 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+    }
+
+    struct InternalOpenPositionParams {
+        address trader;
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+        bool skipMarginRequirementCheck;
     }
 
     struct SwapCallbackData {
@@ -227,6 +257,8 @@ contract ClearingHouse is
     // key: base token
     mapping(address => uint256) private _nextFundingTimeMap;
     mapping(address => FundingHistory[]) private _fundingHistoryMap;
+
+    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
     constructor(
         address vaultArg,
@@ -267,200 +299,41 @@ contract ClearingHouse is
     }
 
     function mint(address token, uint256 amount) external nonReentrant() {
-        _requireTokenExistent(token);
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
         // always check margin ratio
-        _mint(token, amount, true);
+        _mint(_msgSender(), token, amount, true);
     }
 
     /**
      * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) public nonReentrant() {
-        _requireTokenExistent(token);
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
         _burn(_msgSender(), token, amount);
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (SwapResponse memory) {
-        address baseTokenAddr = params.baseToken;
-        _requireTokenExistent(baseTokenAddr);
-
-        address trader = _msgSender();
-        _registerBaseToken(trader, baseTokenAddr);
-
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
-
-        address pool = _poolMap[baseTokenAddr];
-        bool isBaseToQuote = params.isBaseToQuote;
-        SwapState memory state =
-            SwapState({
-                tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: 0,
-                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
-                liquidity: UniswapV3Broker.getLiquidity(pool)
-            });
-
-        UniswapV3Broker.SwapResponse memory response =
-            UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    pool,
-                    baseTokenAddr,
-                    quoteToken,
-                    isBaseToQuote,
-                    params.isExactInput,
-                    // TODO should mint extra base token before swap
-                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
-                    params.sqrtPriceLimitX96
-                )
-            );
-
-        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
-        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
-
-        // // we are going to replay by swapping "exactOutput" with the output token received
-        // // isBaseToQuote, isExactInput
-        // // t,t -> base < 0, quote > 0 -> -quote
-        // // t,f -> quote < 0 -> quote
-        // // f,t -> quote < 0, base > 0 -> -base
-        // // f,f -> base < 0 -> base
-        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
-        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
-
-        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
-
-        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
-        // which is safer for the system
-        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
-            SwapStep memory step;
-            step.initialSqrtPriceX96 = state.sqrtPriceX96;
-
-            // find next tick
-            // note the search is bounded in one word
-            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                pool,
-                state.tick,
-                UniswapV3Broker.getTickSpacing(pool),
-                isBaseToQuote
-            );
-
-            // get the next price of this step (either next tick's price or the ending price)
-            // use sqrtPrice instead of tick is more precise
-            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-
-            // find the next swap checkpoint
-            // (either reached the next price of this step, or exhausted remaining amount specified)
-            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
-                state.sqrtPriceX96,
-                (
-                    isBaseToQuote
-                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
-                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
-                )
-                    ? endingSqrtMarkPriceX96
-                    : step.nextSqrtPriceX96,
-                state.liquidity,
-                state.amountSpecifiedRemaining,
-                uniswapFeeRatio
-            );
-
-            state.amountSpecifiedRemaining += step.amountOut.toInt256();
-
-            // update CH's global fee growth if there is liquidity in this range
-            // note CH only collects quote fee when swapping base -> quote
-            if (state.liquidity > 0 && isBaseToQuote) {
-                state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
-                    FixedPoint128.Q128,
-                    state.liquidity
-                );
-            }
-
-            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
-                // we have reached the tick's boundary
-                if (step.isNextTickInitialized) {
-                    // update the tick if it has been initialized
-                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
-                    // according to the above updating logic,
-                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
-
-                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (isBaseToQuote) liquidityNet = -liquidityNet;
-                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
-                }
-
-                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // TODO verify is this is necessary
-                // update state's tick if we are not on the boundary but the price has changed anyways since
-                // the start of this step
-                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
-            }
-        }
-
-        // only update global CH fee growth when swapping base -> quote
-        // because otherwise the fee is collected by the uniswap pool instead
-        if (isBaseToQuote) {
-            // update global states since swap state transitions are all done
-            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
-        }
-
-        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
-        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        // update internal states
-        {
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-
-            if (isBaseToQuote) {
-                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
-                // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-                exchangedPositionNotional = response.quote.toInt256();
-            } else {
-                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-                exchangedPositionSize = response.base.toInt256();
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
-            }
-
-            // examples:
-            // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
-            quoteTokenInfo.available = quoteTokenInfo
-                .available
-                .toInt256()
-                .add(exchangedPositionNotional)
-                .toUint256()
-                .sub(fee);
-        }
-
-        emit Swapped(
-            trader,
-            baseTokenAddr,
-            exchangedPositionSize,
-            exchangedPositionNotional,
-            fee,
-            settledFundingPayment,
-            0 // TODO: badDebt
-        );
+        _requireHasBaseToken(params.baseToken);
 
         return
-            SwapResponse(
-                exchangedPositionSize.abs(), // deltaAvailableBase
-                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
-                exchangedPositionSize.abs(),
-                exchangedPositionNotional.abs()
+            _swap(
+                InternalSwapParams({
+                    trader: _msgSender(),
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                })
             );
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
 
@@ -598,7 +471,7 @@ contract ClearingHouse is
         nonReentrant()
         checkDeadline(params.deadline)
     {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
         (uint256 base, uint256 quote) =
             _removeLiquidity(
                 InternalRemoveLiquidityParams({
@@ -615,102 +488,19 @@ contract ClearingHouse is
     }
 
     function openPosition(OpenPositionParams memory params) external {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
 
-        address trader = _msgSender();
-        uint256 baseAvailableBefore = getTokenInfo(trader, params.baseToken).available;
-        uint256 quoteAvailableBefore = getTokenInfo(trader, quoteToken).available;
-        uint256 minted;
-
-        // calculate if trader need to mint more quote or base for exact input
-        if (params.isExactInput) {
-            if (params.isBaseToQuote) {
-                // check if trader has enough base to swap
-                if (baseAvailableBefore < params.amount) {
-                    minted = _mint(params.baseToken, params.amount.sub(baseAvailableBefore), true);
-                }
-            } else {
-                // check if trader has enough quote to swap
-                if (quoteAvailableBefore < params.amount) {
-                    minted = _mint(quoteToken, params.amount.sub(quoteAvailableBefore), true);
-                }
-            }
-        } else {
-            // for exact output: can't use quoter to get how many input we need
-            // but we'll know the exact input numbers after swap
-            // so we'll mint max first, do the swap
-            // then calculate how many input we need to mint if we have quoter
-            if (params.isBaseToQuote) {
-                minted = _mintMax(params.baseToken);
-            } else {
-                minted = _mintMax(quoteToken);
-            }
-        }
-
-        SwapResponse memory swapResponse =
-            swap(
-                SwapParams({
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    isExactInput: params.isExactInput,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
-                })
-            );
-
-        // exactInsufficientAmount = max(actualSwapped - availableBefore, 0)
-        // shouldBurn = minted - exactInsufficientAmount
-        //
-        // examples:
-        //
-        // 1.
-        // before = 0, mint max +1000
-        // swap 1 eth required 100 (will mint 100 if we have quoter)
-        // quote = 900
-        // toBurn = minted(1000) - exactInsufficientAmount(100) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (0)), 0) = 100
-        //
-        // 2.
-        // before = 50, mint max +950
-        // swap 1 eth required 100 (will mint 50 if we have quoter)
-        // quote = 900
-        // toBurn = minted(950) - exactInsufficientAmount(50) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (50)), 0) = 50
-        //
-        // 3.
-        // before = 200, mint max +700
-        // swap 1 eth required 100 (will mint 0 if we have quoter)
-        // quote = 900
-        // toBurn = minted(700) - exactInsufficientAmount(0) = 700
-        // exactInsufficientAmount = max((swapped(100) - before (200)), 0) = 0
-        if (params.isBaseToQuote) {
-            uint256 exactInsufficientBase;
-            if (swapResponse.deltaAvailableBase > baseAvailableBefore) {
-                exactInsufficientBase = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
-            }
-
-            if (minted > exactInsufficientBase) {
-                _burn(trader, params.baseToken, minted.sub(exactInsufficientBase));
-            }
-        } else {
-            uint256 exactInsufficientQuote;
-            if (swapResponse.deltaAvailableQuote > quoteAvailableBefore) {
-                exactInsufficientQuote = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
-            }
-
-            if (minted > exactInsufficientQuote) {
-                _burn(trader, quoteToken, minted.sub(exactInsufficientQuote));
-            }
-        }
-
-        TokenInfo memory baseTokenInfo = getTokenInfo(trader, params.baseToken);
-        // if it's closing the position, settle the quote to realize pnl of that market
-        if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-            _burnMax(trader, quoteToken);
-        } else {
-            // it's not closing the position, check margin ratio
-            _requireLargerThanInitialMarginRequirement(trader);
-        }
+        _openPosition(
+            InternalOpenPositionParams({
+                trader: _msgSender(),
+                baseToken: params.baseToken,
+                isBaseToQuote: params.isBaseToQuote,
+                isExactInput: params.isExactInput,
+                amount: params.amount,
+                sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                skipMarginRequirementCheck: false
+            })
+        );
     }
 
     // @inheritdoc IUniswapV3MintCallback
@@ -730,6 +520,63 @@ contract ClearingHouse is
         if (amount1Owed > 0) {
             TransferHelper.safeTransfer(IUniswapV3Pool(pool).token1(), pool, amount1Owed);
         }
+    }
+
+    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg) external onlyOwner {
+        liquidationPenaltyRatio = liquidationPenaltyRatioArg;
+        emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
+    }
+
+    function liquidate(address trader, address baseToken) external nonReentrant() {
+        _requireHasBaseToken(baseToken);
+        // CH_EAV: enough account value
+        require(getAccountValue(trader) < _getTotalMinimumMarginRequirement(trader).toInt256(), "CH_EAV");
+
+        _removeAllLiquidity(trader, baseToken);
+
+        // since all liquidity have been removed, there's no position in pool now
+        TokenInfo memory tokenInfo = getTokenInfo(trader, baseToken);
+        int256 positionSize = tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256());
+
+        // if trader is on long side, baseToQuote: true, exactInput: true
+        // if trader is on short side, quoteToBase: false, exactInput: false
+        bool isLong = positionSize > 0 ? true : false;
+        SwapResponse memory response =
+            _openPosition(
+                InternalOpenPositionParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    isBaseToQuote: isLong,
+                    isExactInput: isLong,
+                    amount: positionSize.abs(),
+                    sqrtPriceLimitX96: 0,
+                    skipMarginRequirementCheck: true
+                })
+            );
+
+        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
+
+        // increase debt on trader's quote as liquidation penalty
+        TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        traderTokenInfo.debt = traderTokenInfo.debt.add(liquidationFee);
+        _burnMax(trader, quoteToken);
+
+        address liquidator = _msgSender();
+        // Increase liquidator's quote available as liquidation reward
+        // TODO liquidator may not have collateral, mint? or just adding available?
+        _mint(liquidator, quoteToken, liquidationFee, false);
+        TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
+        liquidatorTokenInfo.debt = liquidatorTokenInfo.debt.sub(liquidationFee);
+        _burnMax(liquidator, quoteToken);
+
+        emit PositionLiquidated(
+            trader,
+            baseToken,
+            response.exchangedPositionNotional,
+            positionSize.abs(),
+            liquidationFee,
+            liquidator
+        );
     }
 
     function uniswapV3SwapCallback(
@@ -760,7 +607,7 @@ contract ClearingHouse is
      * @param baseToken base token address
      */
     function updateFunding(address baseToken) external {
-        _requireTokenExistent(baseToken);
+        _requireHasBaseToken(baseToken);
         // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
@@ -802,12 +649,12 @@ contract ClearingHouse is
     }
 
     function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
-        _requireTokenExistent(token);
+        _requireHasBaseToken(token);
         return _settleFunding(trader, token);
     }
 
     function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
-        _requireTokenExistent(baseToken);
+        _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");
@@ -1040,6 +887,7 @@ contract ClearingHouse is
     //
 
     function _mint(
+        address account,
         address token,
         uint256 amount,
         bool checkMarginRatio
@@ -1047,20 +895,19 @@ contract ClearingHouse is
         if (amount == 0) {
             return 0;
         }
-
-        // update internal states
-        address account = _msgSender();
-        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
-        tokenInfo.available = tokenInfo.available.add(amount);
-        tokenInfo.debt = tokenInfo.debt.add(amount);
-
         if (token != quoteToken) {
+            // SHOULD register token before mutate its state
             // register base token if it's the first time
             _registerBaseToken(account, token);
 
             // Revise after we have defined the user-facing functions.
             _settleFunding(account, token);
         }
+
+        // update internal states
+        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
+        tokenInfo.available = tokenInfo.available.add(amount);
+        tokenInfo.debt = tokenInfo.debt.add(amount);
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
@@ -1108,10 +955,15 @@ contract ClearingHouse is
 
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
-    function _mintMax(address token) private returns (uint256) {
-        uint256 freeCollateral = buyingPower(_msgSender());
+    function _mintMax(address trader, address token) private returns (uint256) {
+        uint256 freeCollateral = buyingPower(trader);
         if (freeCollateral == 0) {
-            return 0;
+            TokenInfo memory tokenInfo = getTokenInfo(trader, token);
+            uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
+            // TODO workaround here, if we use uint256.max, it may cause overflow in total supply
+            // will remove this function and put the logic to uniswapV3SwapCallback
+            // max of uint128 = (3.4028*10^20)*10^18
+            return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
         // TODO store decimals for gas optimization
@@ -1128,12 +980,15 @@ contract ClearingHouse is
             minted = FullMath.mulDiv(mintableQuote, 1 ether, _getIndexPrice(token, 0));
         }
 
-        return _mint(token, minted, false);
+        return _mint(trader, token, minted, false);
     }
 
     function _burnMax(address account, address token) private {
         TokenInfo memory tokenInfo = getTokenInfo(account, token);
-        _burn(account, token, Math.min(tokenInfo.available, tokenInfo.debt));
+        uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
+        if (burnedAmount > 0) {
+            _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
+        }
     }
 
     function _registerBaseToken(address trader, address token) private {
@@ -1159,6 +1014,183 @@ contract ClearingHouse is
                 _accountMap[trader].tokens.push(token);
             }
         }
+    }
+
+    function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
+        address trader = params.trader;
+        address baseTokenAddr = params.baseToken;
+        _registerBaseToken(trader, baseTokenAddr);
+
+        // TODO could be optimized by letting the caller trigger it.
+        // Revise after we have defined the user-facing functions.
+        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
+
+        address pool = _poolMap[baseTokenAddr];
+        bool isBaseToQuote = params.isBaseToQuote;
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: 0,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        UniswapV3Broker.SwapResponse memory response =
+            UniswapV3Broker.swap(
+                UniswapV3Broker.SwapParams(
+                    pool,
+                    baseTokenAddr,
+                    quoteToken,
+                    isBaseToQuote,
+                    params.isExactInput,
+                    // TODO should mint extra base token before swap
+                    isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
+                    params.sqrtPriceLimitX96
+                )
+            );
+
+        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
+
+        // // we are going to replay by swapping "exactOutput" with the output token received
+        // // isBaseToQuote, isExactInput
+        // // t,t -> base < 0, quote > 0 -> -quote
+        // // t,f -> quote < 0 -> quote
+        // // f,t -> quote < 0, base > 0 -> -base
+        // // f,f -> base < 0 -> base
+        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
+        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
+
+        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
+
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                state.tick,
+                UniswapV3Broker.getTickSpacing(pool),
+                isBaseToQuote
+            );
+
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
+
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
+                state.sqrtPriceX96,
+                (
+                    isBaseToQuote
+                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
+                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
+                )
+                    ? endingSqrtMarkPriceX96
+                    : step.nextSqrtPriceX96,
+                state.liquidity,
+                state.amountSpecifiedRemaining,
+                uniswapFeeRatio
+            );
+
+            state.amountSpecifiedRemaining += step.amountOut.toInt256();
+
+            // update CH's global fee growth if there is liquidity in this range
+            // note CH only collects quote fee when swapping base -> quote
+            if (state.liquidity > 0 && isBaseToQuote) {
+                state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
+                    FixedPoint128.Q128,
+                    state.liquidity
+                );
+            }
+
+            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                // we have reached the tick's boundary
+                if (step.isNextTickInitialized) {
+                    // update the tick if it has been initialized
+                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
+                    // according to the above updating logic,
+                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
+                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
+
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    if (isBaseToQuote) liquidityNet = -liquidityNet;
+                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+                }
+
+                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                // TODO verify is this is necessary
+                // update state's tick if we are not on the boundary but the price has changed anyways since
+                // the start of this step
+                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+            }
+        }
+
+        // only update global CH fee growth when swapping base -> quote
+        // because otherwise the fee is collected by the uniswap pool instead
+        if (isBaseToQuote) {
+            // update global states since swap state transitions are all done
+            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
+        }
+
+        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
+        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        // update internal states
+        {
+            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
+            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+
+            if (isBaseToQuote) {
+                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
+                // due to base to quote fee, exchangedPositionNotional contains the fee
+                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+                exchangedPositionNotional = response.quote.toInt256();
+            } else {
+                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+                exchangedPositionSize = response.base.toInt256();
+                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
+                exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
+            }
+
+            // examples:
+            // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
+            quoteTokenInfo.available = quoteTokenInfo
+                .available
+                .toInt256()
+                .add(exchangedPositionNotional)
+                .toUint256()
+                .sub(fee);
+        }
+
+        emit Swapped(
+            trader,
+            baseTokenAddr,
+            exchangedPositionSize,
+            exchangedPositionNotional,
+            fee,
+            settledFundingPayment,
+            0 // TODO: badDebt
+        );
+
+        return
+            SwapResponse(
+                exchangedPositionSize.abs(), // deltaAvailableBase
+                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
+                exchangedPositionSize.abs(),
+                exchangedPositionNotional.abs()
+            );
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
@@ -1288,17 +1320,130 @@ contract ClearingHouse is
         delete makerPosition.openOrderMap[orderId];
     }
 
-    function _settleFunding(address trader, address token) private returns (int256 fundingPayment) {
-        // CH_QT should settle only base tokens
-        require(token != quoteToken, "CH_QT");
+    function _removeAllLiquidity(address maker, address baseToken) private {
+        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            bytes32 orderId = orderIds[i];
+            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            _removeLiquidity(
+                InternalRemoveLiquidityParams(
+                    maker,
+                    baseToken,
+                    openOrder.lowerTick,
+                    openOrder.upperTick,
+                    openOrder.liquidity
+                )
+            );
+        }
+    }
 
-        uint256 historyLen = _fundingHistoryMap[token].length;
-        if (_accountMap[trader].nextPremiumFractionIndexMap[token] == historyLen || historyLen == 0) {
+    function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
+        uint256 baseAvailableBefore = getTokenInfo(params.trader, params.baseToken).available;
+        uint256 quoteAvailableBefore = getTokenInfo(params.trader, quoteToken).available;
+        uint256 minted;
+
+        // calculate if trader need to mint more quote or base for exact input
+        if (params.isExactInput) {
+            if (params.isBaseToQuote) {
+                // check if trader has enough base to swap
+                if (baseAvailableBefore < params.amount) {
+                    minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
+                }
+            } else {
+                // check if trader has enough quote to swap
+                if (quoteAvailableBefore < params.amount) {
+                    minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
+                }
+            }
+        } else {
+            // for exact output: can't use quoter to get how many input we need
+            // but we'll know the exact input numbers after swap
+            // so we'll mint max first, do the swap
+            // then calculate how many input we need to mint if we have quoter
+            if (params.isBaseToQuote) {
+                minted = _mintMax(params.trader, params.baseToken);
+            } else {
+                minted = _mintMax(params.trader, quoteToken);
+            }
+        }
+
+        SwapResponse memory swapResponse =
+            _swap(
+                InternalSwapParams({
+                    trader: params.trader,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                })
+            );
+
+        // exactInsufficientAmount = max(actualSwapped - availableBefore, 0)
+        // shouldBurn = minted - exactInsufficientAmount
+        //
+        // examples:
+        //
+        // 1.
+        // before = 0, mint max +1000
+        // swap 1 eth required 100 (will mint 100 if we have quoter)
+        // quote = 900
+        // toBurn = minted(1000) - exactInsufficientAmount(100) = 900
+        // exactInsufficientAmount = max((swapped(100) - before (0)), 0) = 100
+        //
+        // 2.
+        // before = 50, mint max +950
+        // swap 1 eth required 100 (will mint 50 if we have quoter)
+        // quote = 900
+        // toBurn = minted(950) - exactInsufficientAmount(50) = 900
+        // exactInsufficientAmount = max((swapped(100) - before (50)), 0) = 50
+        //
+        // 3.
+        // before = 200, mint max +700
+        // swap 1 eth required 100 (will mint 0 if we have quoter)
+        // quote = 900
+        // toBurn = minted(700) - exactInsufficientAmount(0) = 700
+        // exactInsufficientAmount = max((swapped(100) - before (200)), 0) = 0
+        if (params.isBaseToQuote) {
+            uint256 exactInsufficientBase;
+            if (swapResponse.deltaAvailableBase > baseAvailableBefore) {
+                exactInsufficientBase = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
+            }
+
+            if (minted > exactInsufficientBase) {
+                _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
+            }
+            // settle trader's quote available and debt
+            _burnMax(params.trader, quoteToken);
+        } else {
+            uint256 exactInsufficientQuote;
+            if (swapResponse.deltaAvailableQuote > quoteAvailableBefore) {
+                exactInsufficientQuote = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
+            }
+
+            if (minted > exactInsufficientQuote) {
+                _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
+            }
+            // settle trader's base available and debt
+            _burnMax(params.trader, params.baseToken);
+        }
+
+        if (!params.skipMarginRequirementCheck) {
+            // it's not closing the position, check margin ratio
+            _requireLargerThanInitialMarginRequirement(params.trader);
+        }
+
+        return swapResponse;
+    }
+
+    function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
+        uint256 historyLen = _fundingHistoryMap[baseToken].length;
+        if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
             return 0;
         }
 
-        fundingPayment = getPendingFundingPayment(trader, token);
-        _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
+        fundingPayment = getPendingFundingPayment(trader, baseToken);
+        _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
         uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
 
         // TODO
@@ -1306,7 +1451,7 @@ contract ClearingHouse is
         require(available.toInt256() > fundingPayment, "TBD");
         _accountMap[trader].tokenInfoMap[quoteToken].available = available.toInt256().sub(fundingPayment).toUint256();
 
-        emit FundingSettled(trader, token, historyLen, fundingPayment);
+        emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
     }
 
     //
@@ -1333,6 +1478,24 @@ contract ClearingHouse is
         }
 
         return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
+    }
+
+    function _getTotalMinimumMarginRequirement(address trader) internal view returns (uint256) {
+        Account storage account = _accountMap[trader];
+
+        // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
+        uint256 totalPositionValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                // will not use negative value in this case
+                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                totalPositionValue = totalPositionValue.add(positionValue);
+            }
+        }
+
+        return totalPositionValue.mul(mmRatio).divideBy10_18();
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
@@ -1512,11 +1675,9 @@ contract ClearingHouse is
         );
     }
 
-    function _requireTokenExistent(address token) private view {
-        if (quoteToken != token) {
-            // CH_TNF: token not found
-            require(_isPoolExistent(token), "CH_TNF");
-        }
+    function _requireHasBaseToken(address baseToken) private view {
+        // CH_BTNE: base token not exists
+        require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
     function _requireLargerThanInitialMarginRequirement(address trader) private view {

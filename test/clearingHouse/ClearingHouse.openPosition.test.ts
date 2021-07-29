@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -14,8 +14,8 @@ describe("ClearingHouse openPosition", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: TestERC20
-    let quoteToken: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
@@ -88,7 +88,7 @@ describe("ClearingHouse openPosition", () => {
                         amount: 1,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_TNF")
+                ).to.be.revertedWith("CH_BTNE")
             })
 
             it("force error due to invalid amount (0)", async () => {
@@ -470,10 +470,10 @@ describe("ClearingHouse openPosition", () => {
             const quoteInfoAfter = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
             const increasedQuoteAvailable = quoteInfoAfter.available.sub(quoteInfoBefore.available)
             const reducedBaseAvailable = baseInfoBefore.available.sub(baseInfoAfter.available)
-            expect(increasedQuoteAvailable.gt(toWei(0))).to.be.true
+            expect(increasedQuoteAvailable).to.equal("0")
             expect(reducedBaseAvailable).deep.eq(reducedBase)
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
-            expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
+            expect(quoteInfoBefore.debt.sub(quoteInfoAfter.debt)).to.be.above("0")
 
             // pos size: 0.006538933220746361
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")

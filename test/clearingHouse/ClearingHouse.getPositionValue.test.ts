@@ -2,7 +2,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { BaseToken } from "../../typechain/BaseToken"
+import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -14,8 +14,8 @@ describe("ClearingHouse.getPositionValue", () => {
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: BaseToken
-    let quoteToken: BaseToken
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
     let pool: UniswapV3Pool
 
     beforeEach(async () => {

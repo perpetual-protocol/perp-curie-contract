@@ -3,7 +3,11 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0xCb78FB137C5537D69b87ED2F559e5E95Ad23C37D"
+            "address": "0x6A7732CB74c9b64b5514eD729c21b8f067DFd10b"
+        },
+        "Vault": {
+            "name": "contracts/Vault.sol:Vault",
+            "address": "0x1982e1B090D90aF3Dd4BcD2Ac00C3ED3291620f5"
         },
         "btcChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
@@ -28,10 +32,6 @@
         "vUSD": {
             "name": "contracts/BaseToken.sol:BaseToken",
             "address": "0xb86868693595b5fe1d5cBe9F4754dADa09ac2895"
-        },
-        "Vault": {
-            "name": "contracts/Vault.sol:Vault",
-            "address": "0x4eAfF8EEa28c6322027b83777de87A5F8aE9C6d0"
         }
     },
     "pools": [
@@ -51,8 +51,8 @@
         }
     ],
     "externalContracts": {
-        "USDC": "0x7E87caCCc8D44beDfffeaaD02a3Da5EA3D7Ab6cd",
-        "UniswapV3Broker": "0x9EeD194Ad8485a21653b16E2f13180d7671aB2A2",
+        "USDC": "0x0b0650C615177BF94a1B8AFDD8F747C99EB62C0C",
+        "UniswapV3Broker": "0xbEE9a98c32cB9335C9Ba7E81B5A8a216a3FfEBe8",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         "vBTCvUSDCUniswapV3Pool": "0xf19D1589274d89F42F4421E8b2f6DD5ed0f1F4e3",
         "vETHvUSDCUniswapV3Pool": "0xBA82FCbBF4577a14Df3B8bbf9537E13D1403FC7D"
