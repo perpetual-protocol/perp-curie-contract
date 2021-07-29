@@ -376,9 +376,6 @@ contract ClearingHouse is
             }
         }
 
-        // mint callback
-        // TODO add slippage protection
-
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
@@ -413,7 +410,6 @@ contract ClearingHouse is
         }
 
         // update token info
-        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).sub(
             response.quote
@@ -562,7 +558,6 @@ contract ClearingHouse is
      */
     function updateFunding(address baseToken) external {
         _requireHasBaseToken(baseToken);
-        // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
         uint256 nowTimestamp = _blockTimestamp();
@@ -800,18 +795,16 @@ contract ClearingHouse is
     /// @dev +: trader pays, -: trader receives
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         Account storage account = _accountMap[trader];
-        int256 fundingPaymentAmount;
+        int256 fundingPayment;
         {
             FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
                 int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96);
-                fundingPaymentAmount = fundingPaymentAmount.add(
-                    fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18()
-                );
+                fundingPayment = fundingPayment.add(fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18());
             }
         }
-        return fundingPaymentAmount;
+        return fundingPayment;
     }
 
     function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
@@ -1003,12 +996,12 @@ contract ClearingHouse is
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
 
-        // // we are going to replay by swapping "exactOutput" with the output token received
-        // // isBaseToQuote, isExactInput
-        // // t,t -> base < 0, quote > 0 -> -quote
-        // // t,f -> quote < 0 -> quote
-        // // f,t -> quote < 0, base > 0 -> -base
-        // // f,f -> base < 0 -> base
+        // we are going to replay by swapping "exactOutput" with the output token received
+        // isBaseToQuote, isExactInput
+        // t,t -> base < 0, quote > 0 -> -quote
+        // t,f -> quote < 0 -> quote
+        // f,t -> quote < 0, base > 0 -> -base
+        // f,f -> base < 0 -> base
         // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
         // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
 
@@ -1173,8 +1166,6 @@ contract ClearingHouse is
             }
         }
 
-        // TODO add slippage protection
-
         // update token info based on existing open order
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
@@ -1198,7 +1189,6 @@ contract ClearingHouse is
                 openOrder.feeGrowthInsideUniswapLastX128
             );
 
-        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(
             response.quote
