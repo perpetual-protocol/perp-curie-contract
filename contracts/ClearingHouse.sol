@@ -293,7 +293,9 @@ contract ClearingHouse is
     }
 
     function mint(address token, uint256 amount) external nonReentrant() {
-        _requireTokenExistent(token);
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
         // always check margin ratio
         _mint(_msgSender(), token, amount, true);
     }
@@ -302,13 +304,14 @@ contract ClearingHouse is
      * @param amount the amount of debt to burn
      */
     function burn(address token, uint256 amount) public nonReentrant() {
-        _requireTokenExistent(token);
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
         _burn(_msgSender(), token, amount);
     }
 
     function swap(SwapParams memory params) public nonReentrant() returns (SwapResponse memory) {
-        address baseTokenAddr = params.baseToken;
-        _requireTokenExistent(baseTokenAddr);
+        _requireHasBaseToken(params.baseToken);
 
         return
             _swap(
@@ -324,7 +327,7 @@ contract ClearingHouse is
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
 
@@ -426,7 +429,7 @@ contract ClearingHouse is
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external nonReentrant() {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
         _removeLiquidity(
             InternalRemoveLiquidityParams({
                 maker: _msgSender(),
@@ -439,7 +442,7 @@ contract ClearingHouse is
     }
 
     function openPosition(OpenPositionParams memory params) external {
-        _requireTokenExistent(params.baseToken);
+        _requireHasBaseToken(params.baseToken);
 
         _openPosition(
             InternalOpenPositionParams({
@@ -479,7 +482,7 @@ contract ClearingHouse is
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
-        _requireHasToken(baseToken);
+        _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(getAccountValue(trader) < _getTotalMinimumMarginRequirement(trader).toInt256(), "CH_EAV");
 
@@ -513,10 +516,10 @@ contract ClearingHouse is
         _burnMax(trader, quoteToken);
 
         address liquidator = _msgSender();
-        // increase liquidator's quote available as liquidation reward
-        TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
+        // Increase liquidator's quote available as liquidation reward
         // TODO liquidator may not have collateral, mint? or just adding available?
         _mint(liquidator, quoteToken, liquidationFee, false);
+        TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
         liquidatorTokenInfo.debt = liquidatorTokenInfo.debt.sub(liquidationFee);
         _burnMax(liquidator, quoteToken);
 
@@ -558,7 +561,7 @@ contract ClearingHouse is
      * @param baseToken base token address
      */
     function updateFunding(address baseToken) external {
-        _requireTokenExistent(baseToken);
+        _requireHasBaseToken(baseToken);
         // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
@@ -600,12 +603,12 @@ contract ClearingHouse is
     }
 
     function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
-        _requireTokenExistent(token);
+        _requireHasBaseToken(token);
         return _settleFunding(trader, token);
     }
 
     function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
-        _requireTokenExistent(baseToken);
+        _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(getAccountValue(maker) < _getTotalInitialMarginRequirement(maker).toInt256(), "CH_EAV");
@@ -911,6 +914,9 @@ contract ClearingHouse is
         if (freeCollateral == 0) {
             TokenInfo memory tokenInfo = getTokenInfo(trader, token);
             uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
+            // TODO workaround here, if we use uint256.max, it may cause overflow in total supply
+            // will remove this function and put the logic to uniswapV3SwapCallback
+            // max of uint128 = (3.4028*10^20)*10^18
             return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
@@ -1329,6 +1335,7 @@ contract ClearingHouse is
             if (minted > exactInsufficientBase) {
                 _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
             }
+            // settle trader's quote available and debt
             _burnMax(params.trader, quoteToken);
         } else {
             uint256 exactInsufficientQuote;
@@ -1339,37 +1346,26 @@ contract ClearingHouse is
             if (minted > exactInsufficientQuote) {
                 _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
             }
+            // settle trader's base available and debt
             _burnMax(params.trader, params.baseToken);
         }
 
-        // TokenInfo memory baseTokenInfo = getTokenInfo(params.trader, params.baseToken);
-        // // if it's closing the position, settle the quote to realize pnl of that market
-        // if (baseTokenInfo.available == 0 && baseTokenInfo.debt == 0) {
-        //     TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
-        //     uint256 burnableAmount = Math.min(quoteTokenInfo.available, quoteTokenInfo.debt);
-        //     // TODO combine 2 potential burn into 1
-        //     _burn(params.trader, quoteToken, burnableAmount);
-        // } else {
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(params.trader);
         }
-        // }
 
         return swapResponse;
     }
 
-    function _settleFunding(address trader, address token) private returns (int256 fundingPayment) {
-        // CH_QT should settle only base tokens
-        require(token != quoteToken, "CH_QT");
-
-        uint256 historyLen = _fundingHistoryMap[token].length;
-        if (_accountMap[trader].nextPremiumFractionIndexMap[token] == historyLen || historyLen == 0) {
+    function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
+        uint256 historyLen = _fundingHistoryMap[baseToken].length;
+        if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
             return 0;
         }
 
-        fundingPayment = getPendingFundingPayment(trader, token);
-        _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
+        fundingPayment = getPendingFundingPayment(trader, baseToken);
+        _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
         uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
 
         // TODO
@@ -1377,7 +1373,7 @@ contract ClearingHouse is
         require(available.toInt256() > fundingPayment, "TBD");
         _accountMap[trader].tokenInfoMap[quoteToken].available = available.toInt256().sub(fundingPayment).toUint256();
 
-        emit FundingSettled(trader, token, historyLen, fundingPayment);
+        emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
     }
 
     //
@@ -1601,16 +1597,9 @@ contract ClearingHouse is
         );
     }
 
-    function _requireTokenExistent(address token) private view {
-        if (quoteToken != token) {
-            // CH_TNF: token not found
-            require(_isPoolExistent(token), "CH_TNF");
-        }
-    }
-
-    function _requireHasToken(address baseToken) private view {
-        // CH_TNE: base token not exists
-        require(_isPoolExistent(baseToken), "CH_TNE");
+    function _requireHasBaseToken(address baseToken) private view {
+        // CH_BTNE: base token not exists
+        require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
     function _requireLargerThanInitialMarginRequirement(address trader) private view {
