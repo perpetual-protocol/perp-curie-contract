@@ -78,7 +78,7 @@ contract ClearingHouse is
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
         uint256 fee,
-        int256 settledFundingPayment,
+        int256 fundingPayment,
         uint256 badDebt
     );
 
@@ -376,9 +376,6 @@ contract ClearingHouse is
             }
         }
 
-        // mint callback
-        // TODO add slippage protection
-
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
@@ -413,7 +410,6 @@ contract ClearingHouse is
         }
 
         // update token info
-        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).sub(
             response.quote
@@ -562,7 +558,6 @@ contract ClearingHouse is
      */
     function updateFunding(address baseToken) external {
         _requireHasBaseToken(baseToken);
-        // TODO should check if market is open
 
         // solhint-disable-next-line not-rely-on-time
         uint256 nowTimestamp = _blockTimestamp();
@@ -698,7 +693,7 @@ contract ClearingHouse is
         return totalBaseDebtValue.add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
-    // NOTE: the negative value will only be used when calculating the PNL
+    // NOTE: the negative value will only be used when calculating pnl
     function getPositionValue(
         address trader,
         address token,
@@ -707,7 +702,6 @@ contract ClearingHouse is
         int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
         if (positionSize == 0) return 0;
 
-        // TODO: handle if the pool's history < twapInterval; decide whether twapInterval should be a state or param
         uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
         uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
 
@@ -801,18 +795,16 @@ contract ClearingHouse is
     /// @dev +: trader pays, -: trader receives
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         Account storage account = _accountMap[trader];
-        int256 fundingPaymentAmount;
+        int256 fundingPayment;
         {
             FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
             uint256 indexEnd = fundingHistory.length;
             for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
                 int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96);
-                fundingPaymentAmount = fundingPaymentAmount.add(
-                    fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18()
-                );
+                fundingPayment = fundingPayment.add(fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18());
             }
         }
-        return fundingPaymentAmount;
+        return fundingPayment;
     }
 
     function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
@@ -975,9 +967,7 @@ contract ClearingHouse is
         address baseTokenAddr = params.baseToken;
         _registerBaseToken(trader, baseTokenAddr);
 
-        // TODO could be optimized by letting the caller trigger it.
-        // Revise after we have defined the user-facing functions.
-        int256 settledFundingPayment = _settleFunding(trader, baseTokenAddr);
+        int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
         address pool = _poolMap[baseTokenAddr];
         bool isBaseToQuote = params.isBaseToQuote;
@@ -998,23 +988,14 @@ contract ClearingHouse is
                     quoteToken,
                     isBaseToQuote,
                     params.isExactInput,
-                    // TODO should mint extra base token before swap
                     isBaseToQuote ? _calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96
                 )
             );
 
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        // we are going to replay txs by swapping "exactOutput" with the output token received
         state.amountSpecifiedRemaining = isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256());
-
-        // // we are going to replay by swapping "exactOutput" with the output token received
-        // // isBaseToQuote, isExactInput
-        // // t,t -> base < 0, quote > 0 -> -quote
-        // // t,f -> quote < 0 -> quote
-        // // f,t -> quote < 0, base > 0 -> -base
-        // // f,f -> base < 0 -> base
-        // int256 exactOutputAmount = isBaseToQuote ? response.quote : response.base;
-        // state.amountSpecifiedRemaining = params.isExactInput ? -exactOutputAmount : exactOutputAmount;
 
         uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
 
@@ -1081,9 +1062,7 @@ contract ClearingHouse is
 
                 state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
             } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // TODO verify is this is necessary
-                // update state's tick if we are not on the boundary but the price has changed anyways since
-                // the start of this step
+                // update state.tick corresponding to the current price if the price has changed in this step
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
             }
         }
@@ -1134,7 +1113,7 @@ contract ClearingHouse is
             exchangedPositionSize,
             exchangedPositionNotional,
             fee,
-            settledFundingPayment,
+            fundingPayment,
             0 // TODO: badDebt
         );
 
@@ -1179,8 +1158,6 @@ contract ClearingHouse is
             }
         }
 
-        // TODO add slippage protection
-
         // update token info based on existing open order
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
@@ -1204,7 +1181,6 @@ contract ClearingHouse is
                 openOrder.feeGrowthInsideUniswapLastX128
             );
 
-        // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.add(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(
             response.quote
@@ -1266,27 +1242,19 @@ contract ClearingHouse is
 
         // calculate if trader need to mint more quote or base for exact input
         if (params.isExactInput) {
-            if (params.isBaseToQuote) {
+            if (params.isBaseToQuote && baseAvailableBefore < params.amount) {
                 // check if trader has enough base to swap
-                if (baseAvailableBefore < params.amount) {
-                    minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
-                }
-            } else {
+                minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
+            } else if (!params.isBaseToQuote && quoteAvailableBefore < params.amount) {
                 // check if trader has enough quote to swap
-                if (quoteAvailableBefore < params.amount) {
-                    minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
-                }
+                minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
             }
         } else {
             // for exact output: can't use quoter to get how many input we need
             // but we'll know the exact input numbers after swap
             // so we'll mint max first, do the swap
             // then calculate how many input we need to mint if we have quoter
-            if (params.isBaseToQuote) {
-                minted = _mintMax(params.trader, params.baseToken);
-            } else {
-                minted = _mintMax(params.trader, quoteToken);
-            }
+            minted = _mintMax(params.trader, params.isBaseToQuote ? params.baseToken : quoteToken);
         }
 
         SwapResponse memory swapResponse =
@@ -1301,8 +1269,8 @@ contract ClearingHouse is
                 })
             );
 
-        // exactInsufficientAmount = max(actualSwapped - availableBefore, 0)
-        // shouldBurn = minted - exactInsufficientAmount
+        // insufficientAmount = max(actualSwapped - availableBefore, 0)
+        // shouldBurn = minted - insufficientAmount
         //
         // examples:
         //
@@ -1310,41 +1278,41 @@ contract ClearingHouse is
         // before = 0, mint max +1000
         // swap 1 eth required 100 (will mint 100 if we have quoter)
         // quote = 900
-        // toBurn = minted(1000) - exactInsufficientAmount(100) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (0)), 0) = 100
+        // toBurn = minted(1000) - insufficientAmount(100) = 900
+        // insufficientAmount = max((swapped(100) - before (0)), 0) = 100
         //
         // 2.
         // before = 50, mint max +950
         // swap 1 eth required 100 (will mint 50 if we have quoter)
         // quote = 900
-        // toBurn = minted(950) - exactInsufficientAmount(50) = 900
-        // exactInsufficientAmount = max((swapped(100) - before (50)), 0) = 50
+        // toBurn = minted(950) - insufficientAmount(50) = 900
+        // insufficientAmount = max((swapped(100) - before (50)), 0) = 50
         //
         // 3.
         // before = 200, mint max +700
         // swap 1 eth required 100 (will mint 0 if we have quoter)
         // quote = 900
-        // toBurn = minted(700) - exactInsufficientAmount(0) = 700
-        // exactInsufficientAmount = max((swapped(100) - before (200)), 0) = 0
+        // toBurn = minted(700) - insufficientAmount(0) = 700
+        // insufficientAmount = max((swapped(100) - before (200)), 0) = 0
+
+        uint256 insufficientAmount;
         if (params.isBaseToQuote) {
-            uint256 exactInsufficientBase;
             if (swapResponse.deltaAvailableBase > baseAvailableBefore) {
-                exactInsufficientBase = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
+                insufficientAmount = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
             }
 
-            if (minted > exactInsufficientBase) {
-                _burn(params.trader, params.baseToken, minted.sub(exactInsufficientBase));
+            if (minted > insufficientAmount) {
+                _burn(params.trader, params.baseToken, minted.sub(insufficientAmount));
             }
             // settle trader's quote available and debt
             _burnMax(params.trader, quoteToken);
         } else {
-            uint256 exactInsufficientQuote;
             if (swapResponse.deltaAvailableQuote > quoteAvailableBefore) {
-                exactInsufficientQuote = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
+                insufficientAmount = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
             }
 
-            if (minted > exactInsufficientQuote) {
-                _burn(params.trader, quoteToken, minted.sub(exactInsufficientQuote));
+            if (minted > insufficientAmount) {
+                _burn(params.trader, quoteToken, minted.sub(insufficientAmount));
             }
             // settle trader's base available and debt
             _burnMax(params.trader, params.baseToken);
