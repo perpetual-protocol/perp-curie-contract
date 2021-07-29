@@ -906,7 +906,8 @@ contract ClearingHouse is
     }
 
     // TODO should consider funding
-    function getCostBasis(address trader) public view returns (int256) {
+    // quote.available - quote.debt + totalQuoteFromEachPool + pendingFundingPayment
+    function getNetQuoteBalance(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
@@ -986,7 +987,7 @@ contract ClearingHouse is
             }
         }
 
-        return getCostBasis(trader).add(totalPositionValue);
+        return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
     //

@@ -272,7 +272,7 @@ describe("ClearingHouse.funding", () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
-            prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            prevCostBasis = await clearingHouse.getNetQuoteBalance(bob.address)
         })
 
         it("settle funding directly", async () => {
@@ -285,16 +285,16 @@ describe("ClearingHouse.funding", () => {
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
 
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
 
             // should not settle again
-            prevCostBasis = await clearingHouse.getCostBasis(bob.address)
+            prevCostBasis = await clearingHouse.getNetQuoteBalance(bob.address)
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
                 clearingHouse,
                 "FundingSettled",
             )
-            expect(await clearingHouse.getCostBasis(bob.address)).eq(prevCostBasis)
+            expect(await clearingHouse.getNetQuoteBalance(bob.address)).eq(prevCostBasis)
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -307,7 +307,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -320,7 +320,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -354,7 +354,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
             // 1 + 0.012375003379192556 = 1.012375003379192556
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -375,7 +375,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -397,7 +397,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getCostBasis(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
