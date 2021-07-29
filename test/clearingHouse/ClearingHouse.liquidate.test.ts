@@ -1,5 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
+import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
@@ -8,7 +9,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse liquidate", () => {
+describe.only("ClearingHouse liquidate", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     const million = toWei(1000000)
@@ -23,6 +24,18 @@ describe("ClearingHouse liquidate", () => {
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
+
+    function setPool1IndexPrice(price: BigNumberish) {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(price.toString(), 6), 0, 0, 0]
+        })
+    }
+
+    function setPool2IndexPrice(price: BigNumberish) {
+        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(price.toString(), 6), 0, 0, 0]
+        })
+    }
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -50,12 +63,8 @@ describe("ClearingHouse liquidate", () => {
         await deposit(bob, vault, 1000000, collateral)
         await deposit(carol, vault, 1000000, collateral)
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
-        })
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
-        })
+        setPool1IndexPrice(151.373306)
+        setPool2IndexPrice(151.373306)
 
         // mint base
         await clearingHouse.connect(carol).mint(baseToken.address, toWei("100"))
@@ -122,6 +131,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice swap : 151.4780456375
+            setPool1IndexPrice(151.478045)
 
             // bob short ETH
             await clearingHouse.connect(bob).openPosition({
@@ -132,6 +142,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 143.0326798397
+            setPool1IndexPrice(143.032679)
         })
 
         describe("davis liquidate alice's position", () => {
@@ -152,6 +163,7 @@ describe("ClearingHouse liquidate", () => {
                         davis.address,
                     )
                 // price after liq. 142.8549872
+                setPool1IndexPrice(142.854987)
 
                 // deltaAvailableQuote = 84.085192745971593683 * 0.99(1% fee) = 83.2443408185118
                 // account value = collateral + pnl = 10 + ( 83.2443408185118 - 90 - 2.1021298186) = 1.1422109998625
@@ -167,6 +179,9 @@ describe("ClearingHouse liquidate", () => {
     // TODO copy the sheet above and make another scenario for short
     describe("alice took short in ETH, bob took long", () => {
         beforeEach(async () => {
+            // makes alice able to trade
+            setPool1IndexPrice(100)
+
             // alice short ETH
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
@@ -176,6 +191,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice swap : 151.2675469692
+            setPool1IndexPrice(151.267546)
 
             // bob long ETH
             await clearingHouse.connect(bob).openPosition({
@@ -186,6 +202,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 158.6340597836
+            setPool1IndexPrice(158.634059)
         })
 
         it("davis liquidate alice's position", async () => {
@@ -215,8 +232,13 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
+    // FIXME
     describe("alice took long in ETH and BTC, ETH price goes down", () => {
         beforeEach(async () => {
+            // makes alice able to trade
+            setPool1IndexPrice(100)
+            setPool2IndexPrice(100)
+
             // alice long ETH and BTC
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
@@ -226,6 +248,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // ETH price after Alice long: 151.4256717409
+            setPool1IndexPrice(151.425671)
 
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken2.address,
@@ -235,6 +258,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // BTC price after Alice long: 151.4256717409
+            setPool2IndexPrice(151.425671)
 
             // bob short ETH
             await clearingHouse.connect(bob).openPosition({
@@ -245,6 +269,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Bob short: 135.0801007405
+            setPool1IndexPrice(135.0801)
 
             // bob long BTC
             await clearingHouse.connect(bob).openPosition({
@@ -255,7 +280,9 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Bob long: 151.54207047
+            setPool2IndexPrice(151.54207)
         })
+
         it("liquidate alice's ETH by davis", async () => {
             // position size of ETH: 0.294254629696195230
             // position value of ETH:  40.638764624332610211
@@ -280,11 +307,12 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (40.23237(ETH) + 44.59195(BTC) - 90 - 1.015969) = 3.80835923
             // init margin requirement =  50.783592137519 (only quote debt)
             // free collateral = 10 + 3.80835923 - 50.783592137519  * 0.1 = 8.73000
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("8730004479962127225")
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("8730004339973962017")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1015969115608315255")
         })
 
+        // FIXME alice's ETH's position should remains if davis only liquidate her BTC position
         it("liquidate alice's BTC by davis, even has profit in BTC market", async () => {
             // position size of BTC: 0.294254629696195230
             // position value of BTC:  44.591955831233061486
@@ -309,14 +337,20 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (40.63876(ETH) + 44.138399(BTC) - 90 - 1.1146) = 3.66255956
             // init margin requirement =  46.97620648795575235
             // free collateral = 10 + 3.66255956 - 46.9762064879557523 * 0.1 = 8.9649389
+
             expect(await vault.getFreeCollateral(alice.address)).to.eq("8971650356163031408")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1114606049534825068")
         })
     })
 
+    // FIXME
     describe("alice took short in ETH and BTC, ETH price go down", () => {
         beforeEach(async () => {
+            // makes alice able to trade
+            setPool1IndexPrice(100)
+            setPool2IndexPrice(100)
+
             // alice short ETH
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
@@ -326,6 +360,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice short, 151.3198881742
+            setPool1IndexPrice(151.319888)
 
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken2.address,
@@ -335,6 +370,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice short, 151.3198881742
+            setPool2IndexPrice(151.319888)
 
             // bob long 80 ETH
             await clearingHouse.connect(bob).openPosition({
@@ -345,6 +381,7 @@ describe("ClearingHouse liquidate", () => {
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 166.6150230501
+            setPool1IndexPrice(166.615023)
 
             // bob short BTC with 100 quote
             await clearingHouse.connect(bob).openPosition({
@@ -354,8 +391,10 @@ describe("ClearingHouse liquidate", () => {
                 amount: toWei("100"),
                 sqrtPriceLimitX96: 0,
             })
-            // price after Bob long, 151.3198881742
+            // price after Bob short, 151.2012136639 (FIXME price should be lower)
+            setPool2IndexPrice(150)
         })
+
         it("liquidate alice's ETH by davis", async () => {
             // position size of ETH: -0.300334113234575750
             // position value of ETH: -50.040175199
