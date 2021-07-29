@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { toWei } from "../helper/number"
@@ -36,6 +36,79 @@ describe("ClearingHouse withdraw", () => {
         await clearingHouse.addPool(baseToken.address, "10000")
     })
 
+    describe("# withdraw with maker fee", () => {
+        // simulation results:
+        // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
+        beforeEach(async () => {
+            const thousand = parseUnits("1000", await collateral.decimals())
+
+            // prepare collateral for alice
+            await collateral.mint(alice.address, thousand)
+            await deposit(alice, vault, 1000, collateral)
+
+            // mint
+            const baseAmount = parseEther("0.0004073894476")
+            const quoteAmount = parseEther("0.122414646")
+            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+
+            const lowerTick = "50000"
+            const upperTick = "50200"
+
+            // alice add liquidity
+            const addLiquidityParams = {
+                baseToken: baseToken.address,
+                base: baseAmount,
+                quote: quoteAmount,
+                lowerTick, // 148.3760629
+                upperTick, // 151.3733069
+            }
+            await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
+        })
+
+        // FIXME: check again after the bug "insufficient balance for quote only fee"
+        it.skip("taker swap then withdraw and verify maker's free collateral", async () => {
+            // prepare collateral for bob
+            const one = parseEther("1")
+            await collateral.mint(bob.address, one)
+            await deposit(bob, vault, 1, collateral)
+
+            // bob swap
+            // base: 0.0004084104205
+            // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334176 quote
+            // bob gets 0.06151334176 * 0.99 = 0.06089820834
+            const swapParams = {
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("0.0004084104205"),
+                sqrtPriceLimitX96: "0",
+            }
+            await clearingHouse.connect(bob).swap(swapParams)
+
+            // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
+
+            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // min(1, 1 - 0.0006151334176(fee)) - (0 + 1) * 10% = 0.8993848666
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseEther("0.8993848666"))
+
+            await expect(vault.connect(bob).withdraw(collateral.address, parseEther("0.8993848666")))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(collateral.address, bob.address, parseEther("0.8993848666"))
+            expect(await collateral.balanceOf(bob.address)).to.eq(parseEther("0.8993848666"))
+            expect(await vault.balanceOf(bob.address)).to.eq("0")
+
+            // verify maker's free collateral
+            // collateral = 1000, base debt = 0.0004073894476, quote debt = 0.122414646
+            // position size = 0.06151334176
+            // free collateral = min(1000, 1000 + 0.0006151334176 (B2QFee)) - (0.0004073894476 + 0.122414646) * 0.1 = 10,000
+            // 1000 + 0.0006151334176 - (0.0004073894476 + 0.122414646) * 0.1 = 999.9883329299
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("999.9883329299"))
+        })
+    })
+
     describe("# withdraw", () => {
         beforeEach(async () => {
             await collateral.mint(alice.address, toWei(20000, await collateral.decimals()))
@@ -66,35 +139,6 @@ describe("ClearingHouse withdraw", () => {
                 .withArgs(collateral.address, bob.address, amount)
             expect(await collateral.balanceOf(bob.address)).to.eq(amount)
             expect(await vault.balanceOf(bob.address)).to.eq("0")
-        })
-
-        // FIXME fix this after quote only fee is implemented
-        it.skip("taker swap then withdraw and verify maker's free collateral ", async () => {
-            await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
-            await clearingHouse.connect(bob).swap({
-                // buy base
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: toWei(100),
-                sqrtPriceLimitX96: 0,
-            })
-
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1000, 1000 - 0.998049666(fee)) - (0 + 100) * 10% = 989.001950334009680713
-            expect(await vault.getFreeCollateral(bob.address)).to.eq("989001950334009680713")
-
-            await expect(vault.connect(bob).withdraw(collateral.address, "989001950334009680713"))
-                .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, "989001950334009680713")
-            expect(await collateral.balanceOf(bob.address)).to.eq("989001950334009680713")
-            expect(await vault.balanceOf(bob.address)).to.eq("10998049665990319287")
-
-            // verify maker's free collateral
-            // collateral = 20,000, base debt = 500, quote debt = 50,000
-            // position size = 0.6539993895
-            // free collateral = min(20,000, 20,000.998) - (500 * 100 + 50,000) * 0.1 = 10,000
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(toWei(10000, await collateral.decimals()))
         })
 
         it("maker withdraw after adding liquidity", async () => {
