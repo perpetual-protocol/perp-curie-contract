@@ -47,12 +47,12 @@ describe("ClearingHouse openPosition", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, toWei(100)) // should only mint exact amount
-        await clearingHouse.connect(maker).mint(quoteToken.address, toWei(10000))
+        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("65.943787")) // should only mint exact amount
+        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
-            base: toWei(100),
-            quote: toWei(10000),
+            base: parseEther("65.943787"),
+            quote: parseEther("10000"),
             lowerTick,
             upperTick,
         })
