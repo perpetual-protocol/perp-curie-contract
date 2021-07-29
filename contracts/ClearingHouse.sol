@@ -1365,7 +1365,7 @@ contract ClearingHouse is
         }
 
         fundingPayment = getPendingFundingPayment(trader, baseToken);
-        _accountMap[trader].nextPremiumFractionIndexMap[token] = historyLen;
+        _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
 
         if (fundingPayment == 0) {
             return 0;
