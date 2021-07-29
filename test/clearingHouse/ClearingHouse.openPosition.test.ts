@@ -85,7 +85,7 @@ describe("ClearingHouse openPosition", () => {
                         amount: 1,
                         sqrtPriceLimitX96: 0,
                     }),
-                ).to.be.revertedWith("CH_TNF")
+                ).to.be.revertedWith("CH_BTNE")
             })
 
             it("force error due to invalid amount (0)", async () => {
@@ -464,10 +464,10 @@ describe("ClearingHouse openPosition", () => {
             const quoteInfoAfter = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
             const increasedQuoteAvailable = quoteInfoAfter.available.sub(quoteInfoBefore.available)
             const reducedBaseAvailable = baseInfoBefore.available.sub(baseInfoAfter.available)
-            expect(increasedQuoteAvailable.gt(toWei(0))).to.be.true
+            expect(increasedQuoteAvailable).to.equal("0")
             expect(reducedBaseAvailable).deep.eq(reducedBase)
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
-            expect(quoteInfoAfter.debt.sub(quoteInfoBefore.debt)).deep.eq(toWei(0))
+            expect(quoteInfoBefore.debt.sub(quoteInfoAfter.debt)).to.be.above("0")
 
             // pos size: 0.006538933220746361
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")

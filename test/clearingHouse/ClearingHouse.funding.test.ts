@@ -391,7 +391,7 @@ describe("ClearingHouse.funding", () => {
         })
 
         it("force error, settle quote token", async () => {
-            await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_QT")
+            await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_BTNE")
         })
 
         it("force error, not enough quote token available", async () => {

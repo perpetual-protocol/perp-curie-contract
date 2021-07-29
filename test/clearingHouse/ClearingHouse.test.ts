@@ -198,13 +198,15 @@ describe("ClearingHouse", () => {
 
         it("force error, alice mint base without specifying baseToken", async () => {
             const baseAmount = toWei(100, await baseToken.decimals())
-            await expect(clearingHouse.connect(alice).mint(EMPTY_ADDRESS, baseAmount)).to.be.revertedWith("CH_TNF")
+            await expect(clearingHouse.connect(alice).mint(EMPTY_ADDRESS, baseAmount)).to.be.revertedWith("CH_BTNE")
         })
 
         it("force error, alice mint base without addPool first", async () => {
             const baseAmount = toWei(100, await baseToken.decimals())
             // collateral: just a random address
-            await expect(clearingHouse.connect(alice).mint(collateral.address, baseAmount)).to.be.revertedWith("CH_TNF")
+            await expect(clearingHouse.connect(alice).mint(collateral.address, baseAmount)).to.be.revertedWith(
+                "CH_BTNE",
+            )
         })
     })
 })
