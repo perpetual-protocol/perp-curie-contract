@@ -106,19 +106,18 @@ describe("ClearingHouse.funding", () => {
         })
 
         describe("positive funding rate (market=153, index=150)", () => {
-            let accountValueBefore
+            let bobAccountValueBefore
             beforeEach(async () => {
-                accountValueBefore = await clearingHouse.getAccountValue(alice.address)
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150.953124", 6), 0, 0, 0]
                 })
-
+                bobAccountValueBefore = await clearingHouse.getAccountValue(bob.address)
                 await clearingHouse.updateFunding(baseToken.address)
             })
 
-            it("decrease long position (alice)'s account value", async () => {
-                const accountValueAfter = await clearingHouse.getAccountValue(alice.address)
-                expect(accountValueBefore.sub(accountValueAfter).gt(0)).be.true
+            it("increase short position (bob)'s account value", async () => {
+                const bobAccountValueAfter = await clearingHouse.getAccountValue(bob.address)
+                expect(bobAccountValueAfter.sub(bobAccountValueBefore).gt(0)).be.true
             })
 
             it("update getPendingFundingPayment", async () => {
@@ -140,19 +139,18 @@ describe("ClearingHouse.funding", () => {
         })
 
         describe("negative funding rate (market=153, index=156)", () => {
-            let accountValueBefore
+            let bobAccountValueBefore
             beforeEach(async () => {
-                accountValueBefore = await clearingHouse.getAccountValue(alice.address)
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("156.953124", 6), 0, 0, 0]
                 })
-
+                bobAccountValueBefore = await clearingHouse.getAccountValue(bob.address)
                 await clearingHouse.updateFunding(baseToken.address)
             })
 
-            it("increase long position (alice)'s account value", async () => {
-                const accountValueAfter = await clearingHouse.getAccountValue(alice.address)
-                expect(accountValueAfter.sub(accountValueBefore).gt(0)).be.true
+            it("decrease short position (bob)'s account value", async () => {
+                const bobAccountValueAfter = await clearingHouse.getAccountValue(bob.address)
+                expect(bobAccountValueBefore.sub(bobAccountValueAfter).gt(0)).be.true
             })
 
             it("get correct number for maker in negative funding rate", async () => {
