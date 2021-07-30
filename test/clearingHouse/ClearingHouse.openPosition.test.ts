@@ -517,8 +517,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.buyingPower(taker.address)
-            expect(freeCollateral.lt(toWei(1000))).to.be.true
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
+            expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
@@ -533,7 +533,7 @@ describe("ClearingHouse openPosition", () => {
             // posSize = 0.013077866441492721
 
             // prepare collateral for carol
-            const carolAmount = toWei(1000, collateralDecimals)
+            const carolAmount = toWei(1000)
             await collateral.connect(admin).mint(carol.address, carolAmount)
             await deposit(carol, vault, 1000, collateral)
 
@@ -574,8 +574,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.buyingPower(taker.address)
-            expect(freeCollateral.gt(toWei(1000))).to.be.true
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
+            expect(buyingPower.gt(toWei(1000, collateralDecimals))).to.be.true
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
             // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
@@ -588,7 +588,7 @@ describe("ClearingHouse openPosition", () => {
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
 
             // prepare collateral for carol
-            const carolAmount = toWei(1000, collateralDecimals)
+            const carolAmount = toWei(1000)
             await collateral.connect(admin).mint(carol.address, carolAmount)
             await deposit(carol, vault, 1000, collateral)
 
@@ -630,8 +630,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const freeCollateral = await clearingHouse.buyingPower(taker.address)
-            expect(freeCollateral.lt(toWei(1000))).to.be.true
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
+            expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 

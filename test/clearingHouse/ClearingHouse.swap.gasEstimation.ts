@@ -21,6 +21,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
     let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -31,6 +32,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
@@ -43,7 +45,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         upperTick = getMaxTick(tickSpacing)
 
         // alice add v2 style liquidity
-        await collateral.mint(alice.address, parseEther("1000000"))
+        await collateral.mint(alice.address, parseUnits("1000000", collateralDecimals))
         await deposit(alice, vault, 1000000, collateral)
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("100"))
@@ -59,7 +61,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         })
 
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
-        await collateral.mint(carol.address, parseEther("1000000"))
+        await collateral.mint(carol.address, parseUnits("1000000", collateralDecimals))
         await deposit(carol, vault, 1000000, collateral)
         await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(carol).mint(baseToken.address, parseEther("100"))
@@ -77,7 +79,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
 
     it("gas cost for maker", async () => {
         // carol long
-        await collateral.mint(carol.address, parseEther("1000"))
+        await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
         await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
         for (let i = 0; i < 720; i++) {

@@ -1,6 +1,6 @@
 pragma solidity 0.7.6;
 
-import { ArbSys } from "../interface/Arbitrum/ArbSys.sol";
+import { ArbSys } from "./ArbSys.sol";
 
 abstract contract ArbBlockContext {
     function _blockTimestamp() internal view virtual returns (uint256) {
