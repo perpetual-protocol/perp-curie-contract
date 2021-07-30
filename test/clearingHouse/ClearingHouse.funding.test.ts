@@ -9,7 +9,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse.funding", () => {
+describe.only("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -133,25 +133,38 @@ describe("ClearingHouse.funding", () => {
             })
         })
 
-        it("get correct number for maker in negative funding rate", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("156.953124", 6), 0, 0, 0]
+        describe("negative funding rate (market=153, index=156)", () => {
+            let accountValueBefore
+            beforeEach(async () => {
+                accountValueBefore = await clearingHouse.getAccountValue(alice.address)
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("156.953124", 6), 0, 0, 0]
+                })
+
+                await clearingHouse.updateFunding(baseToken.address)
             })
 
-            await clearingHouse.updateFunding(baseToken.address)
+            it("increase long position (alice)'s account value", async () => {
+                const accountValueAfter = await clearingHouse.getAccountValue(alice.address)
+                expect(accountValueAfter.sub(accountValueBefore).gt(0)).be.true
+            })
 
-            // alice
-            // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
-            // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
-            // funding payment = 0.099 * (153.9531248192 - 156.953124) / 24 = -0.01237499662
-            expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
-                "-12374996620807443",
-            )
-            // position size = -0.099
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
-            // funding payment = -0.099 * (153.9531248192 - 156.953124) / 24 = 0.01237499662
-            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq("12374996620807443")
+            it("get correct number for maker in negative funding rate", async () => {
+                // alice
+                // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
+                // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
+                expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
+                // funding payment = 0.099 * (153.9531248192 - 156.953124) / 24 = -0.01237499662
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
+                    "-12374996620807443",
+                )
+                // position size = -0.099
+                expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
+                // funding payment = -0.099 * (153.9531248192 - 156.953124) / 24 = 0.01237499662
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
+                    "12374996620807443",
+                )
+            })
         })
 
         it("get correct number for maker in multiple orders and funding rates", async () => {
