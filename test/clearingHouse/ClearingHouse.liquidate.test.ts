@@ -12,8 +12,8 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse liquidate", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let million = toWei(1000000)
-    let hundred = toWei(100)
+    let million
+    let hundred
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
@@ -500,7 +500,7 @@ describe("ClearingHouse liquidate", () => {
             // accountValue = collateral + totalMarketPnl = 20 + -7.0533182527 = 12.9466817473
             // getTotalOpenOrderMarginRequirement = (totalBaseDebt + totalQuoteDebt) * imRatio = 50.0401751843 * 0.1
             // freeCollateral = 12.9466817473 - 5.00401751843 = 7.9426642289
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942664", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942663", collateralDecimals))
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1135472350272790574")
         })

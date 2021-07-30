@@ -151,6 +151,6 @@ contract Vault is ReentrancyGuard, Ownable {
 
     function _getAccountValue(address account) private view returns (int256) {
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
-        return balanceOf(account).toInt256().add(totalMarketPnl);
+        return balanceOf(account).toInt256().addS(totalMarketPnl, decimals);
     }
 }

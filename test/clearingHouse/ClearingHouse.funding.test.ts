@@ -107,7 +107,7 @@ describe("ClearingHouse.funding", () => {
             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
         })
 
-        describe("positive funding rate (market=153, index=150)", () => {
+        describe.only("positive funding rate (market=153, index=150)", () => {
             let accountValueBefore
             beforeEach(async () => {
                 accountValueBefore = await clearingHouse.getAccountValue(alice.address)
@@ -120,7 +120,12 @@ describe("ClearingHouse.funding", () => {
 
             it("decrease long position (alice)'s account value", async () => {
                 const accountValueAfter = await clearingHouse.getAccountValue(alice.address)
+                console.log("before", accountValueBefore.toString())
+                console.log("after", accountValueAfter.toString())
                 expect(accountValueBefore.sub(accountValueAfter).gt(0)).be.true
+
+                // (14944359275999999849 + (-15125177539269197913) - 12375003379192555)/1e18 = -0.19319
+                // 9999.819181 - 0.01237500338
             })
 
             it("update getPendingFundingPayment", async () => {

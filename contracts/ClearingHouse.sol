@@ -28,6 +28,8 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Vault } from "./Vault.sol";
 
+import { console } from "hardhat/console.sol";
+
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
@@ -782,6 +784,9 @@ contract ClearingHouse is
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256()).sub(
                 fundingPayment
             );
+        console.log("funding");
+        console.logInt(fundingPayment);
+        console.logInt(netQuoteBalance);
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
@@ -834,6 +839,8 @@ contract ClearingHouse is
             }
         }
 
+        console.log("totalPositionValue");
+        console.logInt(totalPositionValue);
         return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
