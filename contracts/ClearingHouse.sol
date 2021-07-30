@@ -26,6 +26,7 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Vault } from "./Vault.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
