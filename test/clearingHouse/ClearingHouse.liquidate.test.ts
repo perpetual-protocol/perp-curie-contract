@@ -109,7 +109,7 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    describe("alice took long in ETH, price doesn't change", () => {
+    describe("alice long ETH; price doesn't change", () => {
         it("force error, margin ratio is above the requirement", async () => {
             await clearingHouse.connect(alice).openPosition({
                 // buy base
@@ -125,7 +125,7 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    describe("alice took long in ETH, bob took short", () => {
+    describe("alice long ETH, bob short", () => {
         beforeEach(async () => {
             // alice long ETH
             await clearingHouse.connect(alice).openPosition({
@@ -151,7 +151,7 @@ describe("ClearingHouse liquidate", () => {
         })
 
         describe("davis liquidate alice's position", () => {
-            it("forcedly close alice's base position", async () => {
+            it("closing alice's position", async () => {
                 // position size: 0.588407511354640018
                 // position value: 84.085192745971593683
                 // pnl = 84.085192745971593683 - 90 = -5.914807254
@@ -170,11 +170,15 @@ describe("ClearingHouse liquidate", () => {
                 // price after liq. 142.8549872
                 setPool1IndexPrice(142.854987)
 
-                // deltaAvailableQuote = 84.085192745971593683 * 0.99(1% fee) = 83.2443408185118
-                // account value = collateral + pnl = 10 + ( 83.2443408185118 - 90 - 2.1021298186) = 1.1422109998625
-                // init margin requirement = 8.857789000137412096 (only quote debt)
-                // free collateral = 1.1422109998625 - 8.857789000137412096 * 0.1 = 0.256432
+                // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
+                // deltaAvailableQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
+                // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
+                // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
+                // openOrderMarginRequirement = abs(-8.8577890001) = 8.8577890001
+                // free collateral = 1.1422109998625 - 8.857789000137412096 * 0.1 = 0.256432099848846695
                 expect(await vault.getFreeCollateral(alice.address)).to.eq("256431")
+
+                // liquidator gets liquidation reward
                 const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
                 expect(davisTokenInfo.available).to.eq("2102129818649289842")
             })
@@ -182,7 +186,7 @@ describe("ClearingHouse liquidate", () => {
     })
 
     // TODO copy the sheet above and make another scenario for short
-    describe("alice took short in ETH, bob took long", () => {
+    describe("alice short ETH, bob long", () => {
         beforeEach(async () => {
             // makes alice able to trade
             setPool1IndexPrice(100)
@@ -215,7 +219,7 @@ describe("ClearingHouse liquidate", () => {
             // position value: -95.337716510326544666
             // pnl = -95.3377165103265 + 90 = -5.3032597722
             // account value: 10 + (-5.3032597722) = 4.6967402278
-            // fee = 95.3377165103265 * 0.025 = 2.3825814943
+            // fee = 95.3377165103265 * 0.025 = 2.23834429128
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
@@ -227,17 +231,21 @@ describe("ClearingHouse liquidate", () => {
                     davis.address,
                 )
 
-            // deltaAvailableQuote = 95.337716510326544666 / 0.99(1% fee) = 96.3007237478
-            // account value = collateral + pnl = 10 + (-96.3007237478 - 2.382581494 + 90) = 1.3166947582
-            // init margin requirement = 8.684166660562754188 (only quote debt)
-            // free collateral = 1.3166947582 - 8.684166660562754188 * 0.1 = 0.448278
+            // liquidate alice's short position = long, thus dividing exchangedPositionNotional by 0.99 to get deltaAvailableQuote
+            // deltaAvailableQuote = 95.337716510326544666 / 0.99 (1% fee) = 96.3007237478
+            // pnl = -96.3007237478 - 2.3834429128 + 90 = -8.6841666606
+            // account value = collateral + pnl = 10 - 8.6841666606 = 1.3158333394
+            // openOrderMarginRequirement = abs(-8.6841666606) = 8.6841666606 (only quote debt)
+            // free collateral = 1.3158333394 - 8.6841666606 * 0.1 = 0.4474166733
             expect(await vault.getFreeCollateral(alice.address)).to.eq("447416")
+
+            // liquidator gets liquidation reward
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("2383442912758163616")
         })
     })
 
-    describe("alice took long in ETH and BTC, ETH price goes down", () => {
+    describe("alice long ETH and BTC; later, ETH price goes down", () => {
         beforeEach(async () => {
             // makes alice able to trade
             setPool1IndexPrice(200)
@@ -287,7 +295,7 @@ describe("ClearingHouse liquidate", () => {
             setPool2IndexPrice(151.54207)
         })
 
-        it("liquidate alice's ETH by davis", async () => {
+        it("davis liquidate alice's ETH", async () => {
             // position size of ETH: 0.294254629696195230
             // position value of ETH:  40.638764624332610211
             // pnl =  40.63876(ETH) + 44.5919558312(BTC) - 90 = -4.7625741688
@@ -298,25 +306,30 @@ describe("ClearingHouse liquidate", () => {
                 .withArgs(
                     alice.address,
                     baseToken.address,
-                    "40638764624332610211", //  40.63876
+                    "40638764624332610211", // 40.63876
                     "294254629696195230", // 0.29
-                    "1015969115608315255", //1.015969
+                    "1015969115608315255", // 1.015969
                     davis.address,
                 )
 
             // hard to have a good enough price to liquidate Alice and have non-zero free collateral after liquidation
             // so add more collateral.
             await deposit(alice, vault, 10, collateral)
-            // deltaAvailableQuote of ETH = 40.63876 * 0.99(1% fee) = 40.2323724
-            // account value = collateral + pnl = 10 + (40.23237(ETH) + 44.59195(BTC) - 90 - 1.015969) = 3.80835923
-            // init margin requirement =  50.783592137519 (only quote debt)
-            // free collateral = 10 + 3.80835923 - 50.783592137519  * 0.1 = 8.73000
+
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
+            // deltaAvailableQuote of ETH = 40.63876 * 0.99 (1% fee) = 40.2323724
+            // ETH pnl = 40.2323724 - 90 - 1.015969115608315255 = -50.7835967156
+            // account value = collateral + pnl = 10 + (40.2323724 (ETH) - 1.015969115608315255 + 44.59195 (BTC) - 90)= 3.8083532844
+            // openOrderMarginRequirement = abs(-50.7835967156) ~= 50.7835967156 (only quote debt)
+            // free collateral = 10 + 3.8083532844 - 50.7835967156 * 0.1 = 8.7299936128
             expect(await vault.getFreeCollateral(alice.address)).to.eq("8730003")
+
+            // liquidator gets liquidation reward
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1015969115608315255")
         })
 
-        it("liquidate alice's BTC by davis, even has profit in BTC market", async () => {
+        it("davis liquidate alice's BTC position even she has profit in ETH market", async () => {
             // position size of BTC: 0.294254629696195230
             // position value of BTC:  44.591955831233061486
             // pnl =  40.63876(ETH) + 44.591955831233(BTC) - 90 = -4.76256667585
@@ -339,17 +352,21 @@ describe("ClearingHouse liquidate", () => {
 
             // freeCollateral = min(collateral, accountValue) - (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
             // ETH position value = ETH size * indexPrice = 0.294254629696195230 * 135.0801 = 39.7479448048
-            // deltaAvailableQuote of BTC = 44.58424198139300 * 0.99(1% fee) = 44.1383995616
+
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
+            // deltaAvailableQuote of BTC = 44.58424198139300 * 0.99 (1% fee) = 44.1383995616
             // account value = collateral + pnl = 20 + (39.7479448048(ETH) + 44.1383995616(BTC) - 90 - 1.1146060495) = 12.7717383169
             // (totalBaseDebt + totalQuoteDebt) * imRatio = (90 - 44.1383995616 + 1.1146060495) * 0.1 = 4.6976206488
             // freeCollateral = 12.7717383169 - 4.6976206488 = 8.0741176681
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.074117", collateralDecimals))
+
+            // liquidator gets liquidation reward
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1114606049534825068")
         })
     })
 
-    describe("alice took short in ETH and BTC, ETH price go down", () => {
+    describe("alice short ETH and BTC; later, ETH price goes down", () => {
         beforeEach(async () => {
             // makes alice able to trade
             setPool1IndexPrice(100)
@@ -399,7 +416,7 @@ describe("ClearingHouse liquidate", () => {
             setPool2IndexPrice(151.201213)
         })
 
-        it("liquidate alice's ETH by davis", async () => {
+        it("davis liquidate alice's ETH", async () => {
             // position size of ETH: -0.300334113234575750
             // position value of ETH: -50.040175199
             // pnl = -50.040175199 +(-45.41088242) + 90 = -5.459069
@@ -467,11 +484,13 @@ describe("ClearingHouse liquidate", () => {
             // freeCollateral =12.7828891188 - 4.54108822263 = 8.2418008962
             // (actual) 12.782889118722045683-4.541088222634720694 = 8.241800896087324989
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241800", collateralDecimals))
+
+            // liquidator gets liquidation reward
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1251236066562123442")
         })
 
-        it("liquidate alice's BTC by davis, even has profit in BTC market", async () => {
+        it("davis liquidate alice's BTC even she has profit in ETH market", async () => {
             // position size of BTC: -0.300334113234575750
             // position value of BTC: -45.410882420509684093
             // pnl = -50.040175199 +(-45.4188940109116) + 90 = -5.459069
@@ -501,6 +520,8 @@ describe("ClearingHouse liquidate", () => {
             // getTotalOpenOrderMarginRequirement = (totalBaseDebt + totalQuoteDebt) * imRatio = 50.0401751843 * 0.1
             // freeCollateral = 12.9466817473 - 5.00401751843 = 7.9426642289
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942663", collateralDecimals))
+
+            // liquidator gets liquidation reward
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1135472350272790574")
         })

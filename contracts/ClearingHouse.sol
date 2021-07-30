@@ -496,12 +496,12 @@ contract ClearingHouse is
 
         _removeAllLiquidity(trader, baseToken);
 
-        // since all liquidity have been removed, there's no position in pool now
+        // since all liquidity has been removed, there's no position in pool now
         TokenInfo memory tokenInfo = getTokenInfo(trader, baseToken);
         int256 positionSize = tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256());
 
         // if trader is on long side, baseToQuote: true, exactInput: true
-        // if trader is on short side, quoteToBase: false, exactInput: false
+        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
         SwapResponse memory response =
             _openPosition(
@@ -524,7 +524,7 @@ contract ClearingHouse is
         _burnMax(trader, quoteToken);
 
         address liquidator = _msgSender();
-        // Increase liquidator's quote available as liquidation reward
+        // increase liquidator's quote available as liquidation reward
         // TODO liquidator may not have collateral, mint? or just adding available?
         _mint(liquidator, quoteToken, liquidationFee, false);
         TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
@@ -877,7 +877,7 @@ contract ClearingHouse is
         return amount;
     }
 
-    // caller must ensure the token is valid
+    // caller must ensure the token exists
     function _burn(
         address account,
         address token,
@@ -910,7 +910,7 @@ contract ClearingHouse is
         emit Burned(account, token, amount);
     }
 
-    // caller must ensure token is base or quote
+    // caller must ensure token is either base or quote and exists
     // mint max base or quote until the free collateral is zero
     function _mintMax(address trader, address token) private returns (uint256) {
         uint256 buyingPower = getBuyingPower(trader);
@@ -944,14 +944,12 @@ contract ClearingHouse is
         address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
-        } else {
-            // if available or debt are not 0,
-            // token is already registered by one of external functions (ex: mint, burn, swap)
-            TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-            if (tokenInfo.available != 0 || tokenInfo.debt != 0) {
-                return;
-            }
+            return;
+        }
 
+        // if both available and debt == 0, token is not yet registered by any external function (ex: mint, burn, swap)
+        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
+        if (tokenInfo.available == 0 && tokenInfo.debt == 0) {
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -1351,15 +1349,12 @@ contract ClearingHouse is
             return 0;
         }
 
-        uint256 available = _accountMap[trader].tokenInfoMap[quoteToken].available;
-        if (available.toInt256() < fundingPayment) {
-            uint256 debt = _accountMap[trader].tokenInfoMap[quoteToken].debt;
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.toInt256().add(fundingPayment).toUint256();
+        int256 available = _accountMap[trader].tokenInfoMap[quoteToken].available.toInt256();
+        if (available < fundingPayment) {
+            int256 debt = _accountMap[trader].tokenInfoMap[quoteToken].debt.toInt256();
+            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.add(fundingPayment).toUint256();
         } else {
-            _accountMap[trader].tokenInfoMap[quoteToken].available = available
-                .toInt256()
-                .sub(fundingPayment)
-                .toUint256();
+            _accountMap[trader].tokenInfoMap[quoteToken].available = available.sub(fundingPayment).toUint256();
         }
         _burnMax(trader, quoteToken);
 
