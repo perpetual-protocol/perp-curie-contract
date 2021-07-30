@@ -24,9 +24,9 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
-import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import { Vault } from "./Vault.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -715,11 +715,10 @@ contract ClearingHouse is
         int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
         if (positionSize == 0) return 0;
 
-        uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
-        uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
+        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapInterval);
 
-        // both positionSize & markTwap are in 10^18 already
-        return positionSize.mul(markTwap.toInt256()).divideBy10_18();
+        // both positionSize & indexTwap are in 10^18 already
+        return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
     }
 
     function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
@@ -760,9 +759,11 @@ contract ClearingHouse is
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
 
-    function getCostBasis(address trader) public view returns (int256) {
+    // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
+    function getNetQuoteBalance(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
+        int256 fundingPayment;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             // TODO: remove quoteToken from _accountMap[trader].tokens?
@@ -774,11 +775,14 @@ contract ClearingHouse is
                     false // fetch quote token amount
                 )
             );
+            fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        int256 costBasis =
-            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
-        return costBasis.abs() < _DUST ? 0 : costBasis;
+        int256 netQuoteBalance =
+            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256()).sub(
+                fundingPayment
+            );
+        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -791,14 +795,6 @@ contract ClearingHouse is
 
     function getFundingHistoryLength(address baseToken) external view returns (uint256) {
         return _fundingHistoryMap[baseToken].length;
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
     function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
@@ -838,7 +834,7 @@ contract ClearingHouse is
             }
         }
 
-        return getCostBasis(trader).add(totalPositionValue);
+        return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
     //

@@ -136,16 +136,21 @@ contract Vault is ReentrancyGuard, Ownable {
         return _balance[account][token];
     }
 
-    function _getFreeCollateral(address trader) internal view returns (int256) {
+    function _getFreeCollateral(address trader) private view returns (int256) {
         // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
         uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
 
         // calculate minAccountValue = min(collateral, accountValue)
-        int256 accountValue = ClearingHouse(clearingHouse).getAccountValue(trader);
+        int256 accountValue = _getAccountValue(trader);
         uint256 minAccountValue;
         if (accountValue > 0) {
             minAccountValue = Math.min(balanceOf(trader), accountValue.toUint256());
         }
         return minAccountValue.toInt256().subS(openOrderMarginRequirement.toInt256(), decimals);
+    }
+
+    function _getAccountValue(address account) private view returns (int256) {
+        int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
+        return balanceOf(account).toInt256().add(totalMarketPnl);
     }
 }
