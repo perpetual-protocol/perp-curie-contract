@@ -23,10 +23,10 @@ import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { ArbBlockContext } from "./util/ArbBlockContext.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Vault } from "./Vault.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
