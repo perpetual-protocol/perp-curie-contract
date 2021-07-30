@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse getCostBasis", () => {
+describe("ClearingHouse getNetQuoteBalance", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -52,14 +52,14 @@ describe("ClearingHouse getCostBasis", () => {
     describe("no swaps, costBasis should be 0", async () => {
         it("taker has no position", async () => {
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(toWei(0))
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(0))
+            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(toWei(0))
         })
 
         it("taker mints quote", async () => {
             const quoteAmount = toWei(100)
             await clearingHouse.connect(taker).mint(quoteToken.address, quoteAmount)
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(toWei(0))
-            expect(await clearingHouse.getCostBasis(taker.address)).to.eq(toWei(0))
+            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(toWei(0))
         })
 
         it("maker adds liquidity below price with quote only", async () => {
@@ -78,7 +78,7 @@ describe("ClearingHouse getCostBasis", () => {
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(0)
-            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(0)
+            expect(await clearingHouse.getNetQuoteBalance(maker.address)).to.eq(0)
         })
 
         it("maker adds liquidity above price with base only", async () => {
@@ -98,7 +98,7 @@ describe("ClearingHouse getCostBasis", () => {
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
-            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(0))
+            expect(await clearingHouse.getNetQuoteBalance(maker.address)).to.eq(toWei(0))
 
             await clearingHouse.connect(maker).addLiquidity({
                 baseToken: baseToken.address,
@@ -112,7 +112,7 @@ describe("ClearingHouse getCostBasis", () => {
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
-            expect(await clearingHouse.getCostBasis(maker.address)).to.eq(toWei(0))
+            expect(await clearingHouse.getNetQuoteBalance(maker.address)).to.eq(toWei(0))
         })
 
         it("maker adds liquidity with both quote and base", async () => {
@@ -131,7 +131,7 @@ describe("ClearingHouse getCostBasis", () => {
                 deadline: ethers.constants.MaxUint256,
             })
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
-            expect(await clearingHouse.getCostBasis(maker.address)).to.deep.eq(0)
+            expect(await clearingHouse.getNetQuoteBalance(maker.address)).to.deep.eq(0)
         })
     })
 })
