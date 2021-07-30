@@ -16,6 +16,7 @@ describe("ClearingHouse.swap", () => {
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -25,18 +26,19 @@ describe("ClearingHouse.swap", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         await clearingHouse.addPool(baseToken.address, "10000")
     })
 
-    describe("swap", () => {
+    describe("# swap", () => {
         beforeEach(async () => {
-            await collateral.mint(alice.address, toWei(10))
+            await collateral.mint(alice.address, toWei(10, collateralDecimals))
 
             await deposit(alice, vault, 10, collateral)
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(10))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(10, collateralDecimals))
             await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(toWei(9))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(9, collateralDecimals))
         })
 
         it("# swap should update TokenInfos", async () => {
@@ -52,7 +54,7 @@ describe("ClearingHouse.swap", () => {
                 upperTick: 50400,
             })
 
-            await collateral.mint(bob.address, toWei(100))
+            await collateral.mint(bob.address, toWei(100, collateralDecimals))
             await deposit(bob, vault, 100, collateral)
 
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))

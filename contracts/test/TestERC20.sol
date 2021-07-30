@@ -7,4 +7,8 @@ contract TestERC20 is ERC20PresetMinterPauser {
     function setMinter(address minter) external {
         grantRole(MINTER_ROLE, minter);
     }
+
+    function setupDecimals(uint8 decimal) external {
+        _setupDecimals(decimal);
+    }
 }

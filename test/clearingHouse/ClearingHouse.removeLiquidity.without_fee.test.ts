@@ -19,6 +19,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -28,9 +29,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         // mint
-        collateral.mint(admin.address, toWei(10000))
+        collateral.mint(admin.address, toWei(10000, collateralDecimals))
 
         // prepare collateral for alice
         const amount = toWei(1000, await collateral.decimals())
