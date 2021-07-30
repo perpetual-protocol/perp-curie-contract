@@ -12,100 +12,112 @@ library SettlementTokenMath {
     // @dev return amount with settlementToken's decimal
     function addS(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         return formatSettlementToken(parseSettlementToken(settlementToken, decimals).add(amountIn10_18), decimals);
     }
 
     // @dev return amount with settlementToken's decimal
     function addS(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (int256) {
+    ) internal pure returns (int256) {
         return formatSettlementToken(parseSettlementToken(settlementToken, decimals).add(amountIn10_18), decimals);
     }
 
     // @dev return amount with settlementToken's decimal
     function subS(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         return formatSettlementToken(parseSettlementToken(settlementToken, decimals).sub(amountIn10_18), decimals);
     }
 
     // @dev return amount with settlementToken's decimal
     function subS(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (int256) {
+    ) internal pure returns (int256) {
         return formatSettlementToken(parseSettlementToken(settlementToken, decimals).sub(amountIn10_18), decimals);
     }
 
     function lte(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) <= amountIn10_18;
     }
 
     function lte(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) <= amountIn10_18;
     }
 
     function lt(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) < amountIn10_18;
     }
 
     function lt(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) < amountIn10_18;
     }
 
     function gt(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) > amountIn10_18;
     }
 
     function gt(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) > amountIn10_18;
     }
 
     function gte(
         uint256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         uint256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) >= amountIn10_18;
     }
 
     function gte(
         int256 settlementToken,
+        // solhint-disable-next-line var-name-mixedcase
         int256 amountIn10_18,
         uint8 decimals
-    ) internal view returns (bool) {
+    ) internal pure returns (bool) {
         return parseSettlementToken(settlementToken, decimals) >= amountIn10_18;
     }
 

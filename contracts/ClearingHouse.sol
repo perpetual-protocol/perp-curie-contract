@@ -235,7 +235,7 @@ contract ClearingHouse is
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
     address public vault;
-    uint8 private immutable settlementTokenDecimals;
+    uint8 private immutable _settlementTokenDecimals;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -278,7 +278,7 @@ contract ClearingHouse is
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
 
-        settlementTokenDecimals = Vault(vault).decimals();
+        _settlementTokenDecimals = Vault(vault).decimals();
     }
 
     //
@@ -490,7 +490,7 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), settlementTokenDecimals),
+            getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
             "CH_EAV"
         );
 
@@ -619,7 +619,7 @@ contract ClearingHouse is
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(
-            getAccountValue(maker).lt(_getTotalInitialMarginRequirement(maker).toInt256(), settlementTokenDecimals),
+            getAccountValue(maker).lt(_getTotalInitialMarginRequirement(maker).toInt256(), _settlementTokenDecimals),
             "CH_EAV"
         );
 
@@ -676,18 +676,21 @@ contract ClearingHouse is
 
     function getAccountValue(address trader) public view returns (int256) {
         return
-            IERC20Metadata(vault).balanceOf(trader).toInt256().addS(getTotalMarketPnl(trader), settlementTokenDecimals);
+            IERC20Metadata(vault).balanceOf(trader).toInt256().addS(
+                getTotalMarketPnl(trader),
+                _settlementTokenDecimals
+            );
     }
 
     function getBuyingPower(address account) public view returns (uint256) {
         int256 requiredCollateral = getRequiredCollateral(account);
         int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
-        if (totalCollateralValue.lt(requiredCollateral, settlementTokenDecimals)) {
+        if (totalCollateralValue.lt(requiredCollateral, _settlementTokenDecimals)) {
             return 0;
         }
 
         // totalCollateralValue > requiredCollateral
-        return totalCollateralValue.subS(requiredCollateral, settlementTokenDecimals).toUint256();
+        return totalCollateralValue.subS(requiredCollateral, _settlementTokenDecimals).toUint256();
     }
 
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
@@ -920,7 +923,7 @@ contract ClearingHouse is
             return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
-        uint256 minted = buyingPower.parseSettlementToken(settlementTokenDecimals).mul(1 ether).div(imRatio);
+        uint256 minted = buyingPower.parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
         if (token != quoteToken) {
             // TODO: change the valuation method && align with baseDebt()
             minted = FullMath.mulDiv(minted, 1 ether, _getIndexPrice(token, 0));
@@ -1592,7 +1595,7 @@ contract ClearingHouse is
     function _requireLargerThanInitialMarginRequirement(address trader) private view {
         // CH_NEAV: not enough account value
         require(
-            getAccountValue(trader).gte(_getTotalInitialMarginRequirement(trader).toInt256(), settlementTokenDecimals),
+            getAccountValue(trader).gte(_getTotalInitialMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
             "CH_NEAV"
         );
     }
