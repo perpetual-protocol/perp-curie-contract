@@ -232,7 +232,6 @@ describe("ClearingHouse liquidate", () => {
         })
     })
 
-    // FIXME
     describe("alice took long in ETH and BTC, ETH price goes down", () => {
         beforeEach(async () => {
             // makes alice able to trade
@@ -417,7 +416,9 @@ describe("ClearingHouse liquidate", () => {
             // so add more collateral.
             await deposit(alice, vault, 10, collateral)
 
-            // since the result has a bit rounding diff so i leave every unit of numbers below
+            // since the result has a bit rounding diff (8.2418008962 & 8.241800896087324989)
+            // so i leave every unit of numbers below to help if someone want to audit the numbers
+            //
             // const balance = await vault.balanceOf(alice.address)
             // const accountValue = await clearingHouse.getAccountValue(alice.address)
             // const getTotalOpenOrderMarginRequirement = await clearingHouse.getTotalOpenOrderMarginRequirement(
