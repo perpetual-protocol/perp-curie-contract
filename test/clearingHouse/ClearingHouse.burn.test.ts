@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -91,6 +91,9 @@ describe("ClearingHouse.burn", () => {
                 quote: parseEther("10"),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -135,6 +138,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceQuoteAvailableAfter } = await clearingHouse.getTokenInfo(
@@ -177,6 +183,9 @@ describe("ClearingHouse.burn", () => {
                 quote: parseEther("10"),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -206,6 +215,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceQuoteAvailableAfterSwap } = await clearingHouse.getTokenInfo(
@@ -288,6 +300,9 @@ describe("ClearingHouse.burn", () => {
                 quote: parseEther("0"),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -317,6 +332,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const { available: aliceBaseAvailableAfterSwap } = await clearingHouse.getTokenInfo(
@@ -351,6 +369,9 @@ describe("ClearingHouse.burn", () => {
                 quote: parseEther("0"),
                 lowerTick: lowerTick,
                 upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // prepare collateral for bob
@@ -395,6 +416,9 @@ describe("ClearingHouse.burn", () => {
                 lowerTick: lowerTick,
                 upperTick: upperTick,
                 liquidity: liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             const aliceBaseAvailableAfter = (await clearingHouse.getTokenInfo(alice.address, baseToken.address))

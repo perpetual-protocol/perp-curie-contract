@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -52,6 +52,9 @@ describe("ClearingHouse.swap", () => {
                 quote: toWei(10),
                 lowerTick: 50200,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             await collateral.mint(bob.address, toWei(100, collateralDecimals))

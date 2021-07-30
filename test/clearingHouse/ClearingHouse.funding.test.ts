@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
@@ -55,6 +55,9 @@ describe("ClearingHouse.funding", () => {
             quote: parseEther("100"),
             lowerTick: 50200,
             upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // bob short
@@ -181,6 +184,9 @@ describe("ClearingHouse.funding", () => {
                 quote: parseEther("100"),
                 lowerTick: 50000,
                 upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // first update funding
@@ -276,6 +282,9 @@ describe("ClearingHouse.funding", () => {
                 quote: parseEther("0"),
                 lowerTick: 50400,
                 upperTick: 50600,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // bob
@@ -385,6 +394,9 @@ describe("ClearingHouse.funding", () => {
                     quote: parseEther("0"),
                     lowerTick: 50400,
                     upperTick: 50600,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             )
                 .to.emit(clearingHouse, "FundingSettled")
@@ -407,6 +419,9 @@ describe("ClearingHouse.funding", () => {
                     liquidity: (
                         await clearingHouse.getOpenOrder(bob.address, baseToken.address, 50400, 50600)
                     ).liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 }),
             )
                 .to.emit(clearingHouse, "FundingSettled")

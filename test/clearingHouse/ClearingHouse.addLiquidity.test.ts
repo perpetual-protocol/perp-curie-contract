@@ -2,7 +2,7 @@ import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -10,7 +10,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -70,6 +69,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -130,6 +132,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -191,6 +196,9 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -251,6 +259,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await baseToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -311,6 +322,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -373,6 +387,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(10000, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 )
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -434,6 +451,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(5000, await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 await clearingHouse.connect(alice).addLiquidity({
@@ -442,6 +462,9 @@ describe("ClearingHouse", () => {
                     quote: toWei(5000, await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // verify account states
@@ -487,6 +510,9 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZIs")
             })
@@ -500,6 +526,9 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -513,6 +542,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await quoteToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -526,6 +558,9 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })
@@ -539,6 +574,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(10001, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEQ")
             })
@@ -552,6 +590,9 @@ describe("ClearingHouse", () => {
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEB")
             })
@@ -565,6 +606,9 @@ describe("ClearingHouse", () => {
                         quote: toWei(1, await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
             })

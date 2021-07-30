@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -55,6 +55,9 @@ describe("ClearingHouse openPosition", () => {
             quote: parseEther("10000"),
             lowerTick,
             upperTick,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         // maker
@@ -121,6 +124,9 @@ describe("ClearingHouse openPosition", () => {
                     lowerTick,
                     upperTick,
                     liquidity: order.liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
                 })
 
                 // trade

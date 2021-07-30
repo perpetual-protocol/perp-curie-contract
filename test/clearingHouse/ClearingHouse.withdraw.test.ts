@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -62,6 +62,9 @@ describe("ClearingHouse withdraw", () => {
                 quote: quoteAmount,
                 lowerTick, // 148.3760629
                 upperTick, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             }
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
         })
@@ -102,6 +105,9 @@ describe("ClearingHouse withdraw", () => {
                 lowerTick,
                 upperTick,
                 liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // verify maker's free collateral
@@ -133,6 +139,9 @@ describe("ClearingHouse withdraw", () => {
                 quote: toWei(50000),
                 lowerTick: 50000,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
         })
 

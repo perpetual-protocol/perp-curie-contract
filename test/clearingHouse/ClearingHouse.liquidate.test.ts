@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -84,6 +84,9 @@ describe("ClearingHouse liquidate", () => {
             quote: toWei(15000),
             lowerTick: 49000,
             upperTick: 51400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
         await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
@@ -93,6 +96,9 @@ describe("ClearingHouse liquidate", () => {
             quote: toWei(15000),
             lowerTick: 49000,
             upperTick: 51400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
     })
 

@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -72,6 +72,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 quote: toWei(100),
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(0)
@@ -89,6 +92,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 quote: toWei(0),
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -100,6 +106,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 quote: toWei(0),
                 lowerTick: 49000,
                 upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.eq(toWei(0))
@@ -117,6 +126,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 quote: toWei(100),
                 lowerTick: 0, // $1
                 upperTick: 100000, // $22015.4560485522
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
             expect(await clearingHouse.getPositionSize(maker.address, baseToken.address)).to.deep.eq(toWei(0))
             expect(await clearingHouse.getNetQuoteBalance(maker.address)).to.deep.eq(0)
