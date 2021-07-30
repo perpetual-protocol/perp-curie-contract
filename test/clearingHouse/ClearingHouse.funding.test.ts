@@ -1,6 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
+import { BigNumber } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
@@ -9,7 +10,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse.funding", () => {
+describe("ClearingHouse.funding", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -91,6 +92,11 @@ describe.only("ClearingHouse.funding", () => {
         const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
         await waffle.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + seconds])
         await waffle.provider.send("evm_mine", [])
+    }
+
+    async function getQuoteAvailable(account: string): Promise<BigNumber> {
+        const quoteTokenInfo = await clearingHouse.getTokenInfo(account, quoteToken.address)
+        return quoteTokenInfo.available
     }
 
     describe("# getPendingFundingPayment", () => {
@@ -260,8 +266,8 @@ describe.only("ClearingHouse.funding", () => {
         })
     })
 
-    describe("# settleFunding", () => {
-        let prevCostBasis
+    describe("# settleFunding - receiving funding", () => {
+        let prevQuoteAvailable
         beforeEach(async () => {
             // so bob has some liquidity to remove for a future test
             await clearingHouse.connect(bob).addLiquidity({
@@ -285,10 +291,10 @@ describe.only("ClearingHouse.funding", () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
-            prevCostBasis = await clearingHouse.getNetQuoteBalance(bob.address)
+            prevQuoteAvailable = await getQuoteAvailable(bob.address)
         })
 
-        it("settle funding directly", async () => {
+        it("settle directly", async () => {
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address))
                 .to.emit(clearingHouse, "FundingSettled")
                 .withArgs(
@@ -298,16 +304,16 @@ describe.only("ClearingHouse.funding", () => {
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
 
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
 
             // should not settle again
-            prevCostBasis = await clearingHouse.getNetQuoteBalance(bob.address)
+            prevQuoteAvailable = await getQuoteAvailable(bob.address)
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
                 clearingHouse,
                 "FundingSettled",
             )
-            expect(await clearingHouse.getNetQuoteBalance(bob.address)).eq(prevCostBasis)
+            expect(await getQuoteAvailable(bob.address)).eq(prevQuoteAvailable)
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -320,7 +326,7 @@ describe.only("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -333,7 +339,7 @@ describe.only("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -367,7 +373,7 @@ describe.only("ClearingHouse.funding", () => {
                 )
 
             // 1 + 0.012375003379192556 = 1.012375003379192556
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("1012375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("1012375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -388,7 +394,7 @@ describe.only("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -410,7 +416,7 @@ describe.only("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await clearingHouse.getNetQuoteBalance(bob.address)).sub(prevCostBasis)).eq("12375003379192556")
+            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
