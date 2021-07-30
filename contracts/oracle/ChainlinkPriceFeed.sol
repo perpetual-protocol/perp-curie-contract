@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import { IPriceFeed } from "../interface/IPriceFeed.sol";
-import { ArbBlockContext } from "../util/ArbBlockContext.sol";
+import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
 
 contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext {
     using SafeMath for uint256;
