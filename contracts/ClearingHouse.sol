@@ -24,6 +24,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { Tick } from "./lib/Tick.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
