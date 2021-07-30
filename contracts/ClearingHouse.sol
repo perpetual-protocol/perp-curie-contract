@@ -24,7 +24,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ArbBlockContext } from "./util/ArbBlockContext.sol";
-import { Vault } from "./Vault.sol";
 import { Tick } from "./lib/Tick.sol";
 
 contract ClearingHouse is
@@ -746,9 +745,11 @@ contract ClearingHouse is
         return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
     }
 
-    function getCostBasis(address trader) public view returns (int256) {
+    // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
+    function getNetQuoteBalance(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
+        int256 fundingPayment;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             // TODO: remove quoteToken from _accountMap[trader].tokens?
@@ -760,11 +761,14 @@ contract ClearingHouse is
                     false // fetch quote token amount
                 )
             );
+            fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        int256 costBasis =
-            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
-        return costBasis.abs() < _DUST ? 0 : costBasis;
+        int256 netQuoteBalance =
+            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256()).sub(
+                fundingPayment
+            );
+        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
     function getNextFundingTime(address baseToken) external view returns (uint256) {
@@ -816,7 +820,7 @@ contract ClearingHouse is
             }
         }
 
-        return getCostBasis(trader).add(totalPositionValue);
+        return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
     //
