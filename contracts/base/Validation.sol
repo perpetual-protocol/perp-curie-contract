@@ -4,8 +4,8 @@ import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
 
 abstract contract Validation is ArbBlockContext {
     modifier checkDeadline(uint256 deadline) {
-        // transaction too old
-        require(_blockTimestamp() <= deadline, "V_TTO");
+        // transaction expires
+        require(_blockTimestamp() <= deadline, "V_TE");
         _;
     }
 }

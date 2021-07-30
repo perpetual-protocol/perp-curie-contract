@@ -148,6 +148,17 @@ contract ClearingHouse is
         uint256 deadline;
     }
 
+    struct AddLiquidityToOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthGlobalClearingHouseX128;
+        uint256 feeGrowthInsideQuoteX128;
+        uint256 liquidity;
+    }
+
     /// @param liquidity collect fee when 0
     struct RemoveLiquidityParams {
         address baseToken;
@@ -157,6 +168,16 @@ contract ClearingHouse is
         uint256 minBase;
         uint256 minQuote;
         uint256 deadline;
+    }
+
+    struct RemoveLiquidityFromOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthInsideQuoteX128;
+        uint256 liquidity;
     }
 
     struct InternalRemoveLiquidityParams {
@@ -420,17 +441,6 @@ contract ClearingHouse is
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
-    }
-
-    struct AddLiquidityToOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthGlobalClearingHouseX128;
-        uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
     }
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
@@ -1249,16 +1259,6 @@ contract ClearingHouse is
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
-    }
-
-    struct RemoveLiquidityFromOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
     }
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params)

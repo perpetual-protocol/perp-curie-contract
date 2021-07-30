@@ -8,7 +8,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -45,7 +44,7 @@ describe("ClearingHouse", () => {
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
-    describe("# addLiquidity failed at tick 50199, over slippage protection", () => {
+    describe("# removeLiquidity failed at tick 50199", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
@@ -63,7 +62,7 @@ describe("ClearingHouse", () => {
             liquidity = order.liquidity
         })
 
-        it("over slippage protection when removing liquidity above price with only base", async () => {
+        it("force error, over slippage protection when removing liquidity above price with only base", async () => {
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
@@ -90,13 +89,13 @@ describe("ClearingHouse", () => {
                     minQuote: 0,
                     deadline: now,
                 }),
-            ).to.revertedWith("V_TTO")
+            ).to.revertedWith("V_TE")
         })
     })
 
     // simulation results:
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
-    describe("# addLiquidity failed at tick 50200, over slippage protection", () => {
+    describe("# removeLiquidity failed at tick 50200", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
@@ -114,7 +113,7 @@ describe("ClearingHouse", () => {
             liquidity = order.liquidity
         })
 
-        it("over slippage protection when removing liquidity below price with only quote token", async () => {
+        it("force error, over slippage protection when removing liquidity below price with only quote token", async () => {
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,

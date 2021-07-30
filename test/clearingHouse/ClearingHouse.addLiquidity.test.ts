@@ -10,7 +10,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse

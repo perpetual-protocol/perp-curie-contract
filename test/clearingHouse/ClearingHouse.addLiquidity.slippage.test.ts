@@ -7,7 +7,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -44,12 +43,12 @@ describe("ClearingHouse", () => {
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
-    describe("# addLiquidity failed at tick 50199, over slippage protection", () => {
+    describe("# addLiquidity failed at tick 50199", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
         })
 
-        it("over slippage protection when adding liquidity above price with only base", async () => {
+        it("force error, over slippage protection when adding liquidity above price with only base", async () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -77,18 +76,18 @@ describe("ClearingHouse", () => {
                     minQuote: 0,
                     deadline: now,
                 }),
-            ).to.revertedWith("V_TTO")
+            ).to.revertedWith("V_TE")
         })
     })
 
     // simulation results:
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
-    describe("# addLiquidity failed at tick 50200, over slippage protection", () => {
+    describe("# addLiquidity failed at tick 50200", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         })
 
-        it("over slippage protection when adding liquidity below price with only quote token", async () => {
+        it("force error, over slippage protection when adding liquidity below price with only quote token", async () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -103,7 +102,7 @@ describe("ClearingHouse", () => {
             ).to.revertedWith("CH_PSC")
         })
 
-        it("over slippage protection when adding liquidity within price with both quote and base", async () => {
+        it("force error, over slippage protection when adding liquidity within price with both quote and base", async () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
