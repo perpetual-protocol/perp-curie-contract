@@ -10,12 +10,15 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
+import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 
 contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for int256;
     using SignedSafeMath for int256;
+    using SettlementTokenMath for uint256;
+    using SettlementTokenMath for int256;
 
     event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed account, uint256 amount);
@@ -143,6 +146,6 @@ contract Vault is ReentrancyGuard, Ownable {
         if (accountValue > 0) {
             minAccountValue = Math.min(balanceOf(trader), accountValue.toUint256());
         }
-        return minAccountValue.toInt256().sub(openOrderMarginRequirement.toInt256());
+        return minAccountValue.toInt256().subS(openOrderMarginRequirement.toInt256(), decimals);
     }
 }

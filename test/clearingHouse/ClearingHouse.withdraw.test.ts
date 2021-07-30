@@ -68,7 +68,7 @@ describe("ClearingHouse withdraw", () => {
             expect(await vault.balanceOf(bob.address)).to.eq("0")
         })
 
-        it("taker swap then withdraw and verify maker's free collateral ", async () => {
+        it("taker swap then withdraw and verify maker's free collateral", async () => {
             await clearingHouse.connect(bob).mint(quoteToken.address, toWei(100))
             await clearingHouse.connect(bob).swap({
                 // buy base
@@ -81,13 +81,13 @@ describe("ClearingHouse withdraw", () => {
 
             // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
             // min(1000, 1000 - 0.998049666(fee)) - (0 + 100) * 10% = 989.001950334009680713
-            expect(await vault.getFreeCollateral(bob.address)).to.eq("989001950334009680713")
+            expect(await vault.getFreeCollateral(bob.address)).to.eq("989001950")
 
-            await expect(vault.connect(bob).withdraw(collateral.address, "989001950334009680713"))
+            await expect(vault.connect(bob).withdraw(collateral.address, "989001950"))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, "989001950334009680713")
-            expect(await collateral.balanceOf(bob.address)).to.eq("989001950334009680713")
-            expect(await vault.balanceOf(bob.address)).to.eq("10998049665990319287")
+                .withArgs(collateral.address, bob.address, "989001950")
+            expect(await collateral.balanceOf(bob.address)).to.eq("989001950")
+            expect(await vault.balanceOf(bob.address)).to.eq("10998050")
 
             // verify maker's free collateral
             // collateral = 20,000, base debt = 500, quote debt = 50,000

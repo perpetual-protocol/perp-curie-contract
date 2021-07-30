@@ -1,5 +1,6 @@
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
@@ -17,6 +18,7 @@ describe("ClearingHouse.getPositionSize", () => {
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -26,24 +28,25 @@ describe("ClearingHouse.getPositionSize", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         await clearingHouse.addPool(baseToken.address, "10000")
 
         // alice
-        await collateral.mint(alice.address, parseEther("10000"))
+        await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
 
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
         // bob
-        await collateral.mint(bob.address, parseEther("1000"))
+        await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
         await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
 
         // carol
-        await collateral.mint(carol.address, parseEther("1000"))
+        await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
         await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
     })

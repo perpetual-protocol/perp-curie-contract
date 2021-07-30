@@ -20,6 +20,7 @@ describe("ClearingHouse.funding", () => {
     let quoteToken: VirtualToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -30,11 +31,12 @@ describe("ClearingHouse.funding", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         await clearingHouse.addPool(baseToken.address, "10000")
 
         // alice add long limit order
-        await collateral.mint(alice.address, parseEther("10000"))
+        await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
 
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
@@ -55,7 +57,7 @@ describe("ClearingHouse.funding", () => {
         })
 
         // bob short
-        await collateral.mint(bob.address, parseEther("1000"))
+        await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
 
         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
@@ -193,7 +195,7 @@ describe("ClearingHouse.funding", () => {
 
         it("get correct number when there is no positions", async () => {
             // carol mint token but not trading (zero positions)
-            await collateral.mint(carol.address, parseEther("10000"))
+            await collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
             await deposit(carol, vault, 10000, collateral)
 
             await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
@@ -399,7 +401,7 @@ describe("ClearingHouse.funding", () => {
 
             beforeEach(async () => {
                 // carol long
-                await collateral.mint(carol.address, parseEther("1000"))
+                await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
                 await deposit(carol, vault, 1000, collateral)
 
                 await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("200"))

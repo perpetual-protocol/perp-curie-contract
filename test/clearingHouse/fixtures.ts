@@ -33,6 +33,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
+        await USDC.setupDecimals(6)
 
         let baseToken: VirtualToken, quoteToken: VirtualToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1, mockedAggregator1 } = await tokensFixture()

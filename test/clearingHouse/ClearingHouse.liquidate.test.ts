@@ -11,8 +11,8 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse liquidate", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    const million = toWei(1000000)
-    const hundred = toWei(100)
+    let million = toWei(1000000)
+    let hundred = toWei(100)
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
@@ -23,6 +23,7 @@ describe("ClearingHouse liquidate", () => {
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -36,6 +37,10 @@ describe("ClearingHouse liquidate", () => {
         pool2 = _clearingHouseFixture.pool2
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
+        collateralDecimals = await collateral.decimals()
+
+        million = toWei(1000000, collateralDecimals)
+        hundred = toWei(100, collateralDecimals)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
@@ -156,8 +161,8 @@ describe("ClearingHouse liquidate", () => {
                 // deltaAvailableQuote = 84.085192745971593683 * 0.99(1% fee) = 83.2443408185118
                 // account value = collateral + pnl = 10 + ( 83.2443408185118 - 90 - 2.1021298186) = 1.1422109998625
                 // init margin requirement = 8.857789000137412096 (only quote debt)
-                // free collateral = 1.1422109998625 - 8.857789000137412096 * 0.1 = 0.256432099848846695
-                expect(await vault.getFreeCollateral(alice.address)).to.eq("256432099848846695")
+                // free collateral = 1.1422109998625 - 8.857789000137412096 * 0.1 = 0.256432
+                expect(await vault.getFreeCollateral(alice.address)).to.eq("256431")
                 const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
                 expect(davisTokenInfo.available).to.eq("2102129818649289842")
             })
@@ -208,8 +213,8 @@ describe("ClearingHouse liquidate", () => {
             // deltaAvailableQuote = 95.337716510326544666 / 0.99(1% fee) = 96.3007237478
             // account value = collateral + pnl = 10 + (-96.3007237478 - 2.382581494 + 90) = 1.3166947582
             // init margin requirement = 8.684166660562754188 (only quote debt)
-            // free collateral = 1.3166947582 - 8.684166660562754188 * 0.1 = 0.4482780921
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("447416673380970394")
+            // free collateral = 1.3166947582 - 8.684166660562754188 * 0.1 = 0.448278
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("447416")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("2383442912758163616")
         })
@@ -280,7 +285,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (40.23237(ETH) + 44.59195(BTC) - 90 - 1.015969) = 3.80835923
             // init margin requirement =  50.783592137519 (only quote debt)
             // free collateral = 10 + 3.80835923 - 50.783592137519  * 0.1 = 8.73000
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("8730004479962127225")
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("8730003")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1015969115608315255")
         })
@@ -309,7 +314,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (40.63876(ETH) + 44.138399(BTC) - 90 - 1.1146) = 3.66255956
             // init margin requirement =  46.97620648795575235
             // free collateral = 10 + 3.66255956 - 46.9762064879557523 * 0.1 = 8.9649389
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("8971650356163031408")
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("8971650")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1114606049534825068")
         })
@@ -381,7 +386,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (-45.41088242 - 50.549937089 - 1.25100438 + 90) = 2.78817
             // init margin requirement = 0.300334(debt of BTC) * 100 (index price) = 30.033411323
             // free collateral = 2.78817 + 10 - 30.033411323 * 0.1 = 9.7795
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("9779547792213811030")
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("9779546")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1251236066562123442")
         })
@@ -410,7 +415,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 10 + (-45.8730829 - 50.040175199 - 1.135472350 + 90) = 2.9512695
             // init margin requirement = 0.30033411323(debt of ETH) * 100(index price) = 30.033411323
             // free collateral = 2.9512695 + 10 - 30.033411323 * 0.1 = 9.9479283677
-            expect(await vault.getFreeCollateral(alice.address)).to.eq("9943340599976214434")
+            expect(await vault.getFreeCollateral(alice.address)).to.eq("9943339")
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1135472350272790574")
         })

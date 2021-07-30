@@ -18,6 +18,7 @@ describe("ClearingHouse", () => {
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -28,13 +29,14 @@ describe("ClearingHouse", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
         // mint
-        collateral.mint(admin.address, toWei(10000))
+        collateral.mint(admin.address, toWei(10000, collateralDecimals))
 
         const amount = toWei(1000, await collateral.decimals())
         await collateral.transfer(alice.address, amount)
@@ -75,7 +77,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await quoteToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1000 - 10,000 * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
@@ -88,7 +90,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
@@ -104,7 +106,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
@@ -121,7 +123,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
@@ -138,7 +140,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - (500 * 10 + 5,000) * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
@@ -155,7 +157,7 @@ describe("ClearingHouse", () => {
                 .to.emit(clearingHouse, "Minted")
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await baseToken.decimals()))
+            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await collateralDecimals))
             // verify buying power = 1,000 - (600 * 10 + 4,000) * 0.1 = 0
             expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
         })
