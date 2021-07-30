@@ -18,6 +18,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -28,13 +29,14 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
         // mint
-        collateral.mint(admin.address, toWei(10000))
+        collateral.mint(admin.address, toWei(10000, collateralDecimals))
 
         // prepare collateral for alice
         const amount = toWei(10, await collateral.decimals())

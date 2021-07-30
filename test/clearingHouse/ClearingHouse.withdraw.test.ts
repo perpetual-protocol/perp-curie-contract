@@ -18,6 +18,7 @@ describe("ClearingHouse withdraw", () => {
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let collateralDecimals: number
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -28,6 +29,7 @@ describe("ClearingHouse withdraw", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
@@ -44,7 +46,7 @@ describe("ClearingHouse withdraw", () => {
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
             // mint
-            collateral.mint(alice.address, toWei(100))
+            collateral.mint(alice.address, toWei(100, collateralDecimals))
 
             // prepare collateral for alice
             await deposit(alice, vault, 100, collateral)
@@ -66,7 +68,7 @@ describe("ClearingHouse withdraw", () => {
 
         it("taker swap then withdraw and verify maker's free collateral", async () => {
             // prepare collateral for bob
-            await collateral.mint(bob.address, parseEther("100"))
+            await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
 
@@ -86,12 +88,12 @@ describe("ClearingHouse withdraw", () => {
             // accountValue = netQuoteBalance + totalMarketPnl = 100 + 0.06 + 0
             // pnl is 0 because it's calculated based on index price
             // min(100, 100+) - (0 + 1 * 100) * 10% = 99.8993848666
-            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseEther("90"))
-            await expect(vault.connect(bob).withdraw(collateral.address, parseEther("90")))
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("90", collateralDecimals))
+            await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("90", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, parseEther("90"))
-            expect(await collateral.balanceOf(bob.address)).to.eq(parseEther("90"))
-            expect(await vault.balanceOf(bob.address)).to.eq(parseEther("10"))
+                .withArgs(collateral.address, bob.address, parseUnits("90", collateralDecimals))
+            expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("90", collateralDecimals))
+            expect(await vault.balanceOf(bob.address)).to.eq(parseUnits("10", collateralDecimals))
 
             // alice remove liq 0, alice should collect fee
             // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
@@ -109,7 +111,7 @@ describe("ClearingHouse withdraw", () => {
             // free collateral =
             // min(100, 100 - 0.06151334176 (+Q) + 0.0006151334176 (B2QFee) + 0.0004084104205 (-B) * 100 (indexPrice)) - (0 + 0.122414646) * 0.1 = 10,000
             // 100 - 0.06151334176 + 0.0006151334176 + 0.0004084104205 * 100 - (0 + 0.122414646) * 0.1 = 99.9677013691
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("99.967701369110322151"))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
         })
     })
 

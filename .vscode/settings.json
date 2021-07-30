@@ -34,8 +34,8 @@
     "cSpell.enabled": true,
     "cSpell.enableFiletypes": ["solidity", "javascript", "typescript"],
     "cSpell.words": [
-        "Arbitrum",
         "Agos",
+        "Arbitrum",
         "BUSL",
         "Cumulatives",
         "ETHUSD",
@@ -56,6 +56,7 @@
         "inheritdoc",
         "keccak",
         "lushan",
+        "mixedcase",
         "nomiclabs",
         "perp",
         "returndatasize",

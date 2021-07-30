@@ -26,9 +26,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        const collateralDecimals = await collateral.decimals()
 
         // mint
-        collateral.mint(admin.address, toWei(10000))
+        collateral.mint(admin.address, toWei(10000, collateralDecimals))
 
         // prepare collateral for alice
         const amount = toWei(1000, await collateral.decimals())
