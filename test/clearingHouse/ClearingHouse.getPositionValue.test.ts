@@ -1,5 +1,6 @@
-import { parseEther } from "@ethersproject/units"
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
@@ -17,6 +18,7 @@ describe("ClearingHouse.getPositionValue", () => {
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -26,6 +28,7 @@ describe("ClearingHouse.getPositionValue", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
 
         await clearingHouse.addPool(baseToken.address, "10000")
 
@@ -117,21 +120,23 @@ describe("ClearingHouse.getPositionValue", () => {
         // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
         // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
         // -> 1.0001 ^ 50099 = 149.8522069974
-        expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("969864706335398656864177991756")
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("149.852206", 6), 0, 0, 0]
+        })
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
             // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
             parseEther("0.408410420499999999"),
         )
-        // 149.8522069974 * 0.408410420499999999 = 61.2012028727
+        // 149.852206 * 0.408410420499999999 = 61.2012024653
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.201202872670638396"),
+            parseEther("61.201202465312622850"),
         )
 
         expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
-        // 149.8522069974 * -0.4084104205 = -61.2012028727
+        // 149.852206 * -0.4084104205 = -61.2012024653
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.201202872670638545"),
+            parseEther("-61.201202465312623000"),
         )
     })
 
@@ -182,22 +187,26 @@ describe("ClearingHouse.getPositionValue", () => {
         // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
         // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
         // -> 1.0001 ^ 50115 = 150.0921504352
-        expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("150.092150", 6), 0, 0, 0]
+        })
+        // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
             // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
             parseEther("0.408410420599999999"),
         )
-        // 150.0921504352 * 0.408410420499999999 = 61.299198273
+        // 150.092150 * 0.408410420599999999 = 61.2991981103
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.299198288003388566"),
+            parseEther("61.299198110258289849"),
         )
 
         // short
         expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
-        // 150.0921504352 * -0.4084104206 = -61.299198288
+        // 150.092150 * -0.4084104206 = -61.2991981103
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.299198288003388716"),
+            parseEther("-61.299198110258290000"),
         )
     })
 
@@ -267,31 +276,35 @@ describe("ClearingHouse.getPositionValue", () => {
         // (979072907636267862275708019389 / 2^96) ^ 2 = 152.7112031757
         // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288
         // -> 1.0001 ^ 50288 = 152.7112031757
-        expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("152.711203", 6), 0, 0, 0]
+        })
+        // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
         expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
             parseEther("-1.465065799750044640"),
         )
-        // 152.7112031757 * -1.465065799750044640 = -223.7319610114
+        // 152.711203 * -1.465065799750044640 = -223.731960754
         expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("-223.731961011436156199"),
+            parseEther("-223.731960753986416278"),
         )
 
         // 1.633641682 + 0.6482449586 = 2.2818866406
         expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
             parseEther("2.281886640750044638"),
         )
-        // 152.7112031757 * 2.281886640750044638 = 348.4696544195
+        // 152.711203 * 2.281886640750044638 = 348.4696540186
         expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("348.469654419554307847"),
+            parseEther("348.469654018568138972"),
         )
 
         // -1.633641682 / 2 = -0.816820841
         expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
-        // 152.7112031757 * -0.816820841 = -124.7376934081
+        // 152.711203 * -0.816820841 = -124.7376932646
         expect(await clearingHouse.getPositionValue(carol.address, baseToken.address, 900)).eq(
-            parseEther("-124.737693408118151953"),
+            parseEther("-124.737693264581723000"),
         )
     })
 })
