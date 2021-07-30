@@ -41,11 +41,15 @@ describe("ClearingHouse.burn", () => {
             // prepare collateral for alice
             await collateral.mint(alice.address, parseUnits("10", await collateral.decimals()))
             await deposit(alice, vault, 10, collateral)
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseUnits("10", await collateral.decimals()))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(
+                parseUnits("10", await collateral.decimals()),
+            )
 
             // alice mints 10 quote
             await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("10"))
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseUnits("9", await collateral.decimals()))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(
+                parseUnits("9", await collateral.decimals()),
+            )
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                 parseEther("10"), // available
                 parseEther("10"), // debt
@@ -62,7 +66,9 @@ describe("ClearingHouse.burn", () => {
                 parseEther("0"), // debt
             ])
 
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseUnits("10", await collateral.decimals()))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(
+                parseUnits("10", await collateral.decimals()),
+            )
         })
 
         it("# reduce the vToken's balance of CH", async () => {
@@ -153,7 +159,7 @@ describe("ClearingHouse.burn", () => {
             // ])
 
             // const profit = aliceQuoteAvailableAfter.sub(aliceQuoteAvailableBefore)
-            // expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseEther("10").add(profit))
+            // expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(parseEther("10").add(profit))
         })
 
         it("# burn quote 10 when debt = 10, available < 10", async () => {
@@ -236,7 +242,9 @@ describe("ClearingHouse.burn", () => {
             // alice mints 10 base
             await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
             // TODO: the index price of base is hardcoded as $100
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(parseUnits("900", await collateral.decimals()))
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(
+                parseUnits("900", await collateral.decimals()),
+            )
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                 parseEther("10"), // available
                 parseEther("10"), // debt
@@ -253,7 +261,7 @@ describe("ClearingHouse.burn", () => {
                 parseEther("0"), // debt
             ])
 
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(
                 parseUnits("1000", await collateral.decimals()),
             )
         })

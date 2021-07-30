@@ -676,7 +676,7 @@ contract ClearingHouse is
             IERC20Metadata(vault).balanceOf(trader).toInt256().addS(getTotalMarketPnl(trader), settlementTokenDecimals);
     }
 
-    function buyingPower(address account) public view returns (uint256) {
+    function getBuyingPower(address account) public view returns (uint256) {
         int256 requiredCollateral = getRequiredCollateral(account);
         int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
         if (totalCollateralValue.lt(requiredCollateral, settlementTokenDecimals)) {
@@ -915,8 +915,8 @@ contract ClearingHouse is
     // caller must ensure token is base or quote
     // mint max base or quote until the free collateral is zero
     function _mintMax(address trader, address token) private returns (uint256) {
-        uint256 _buyingPower = buyingPower(trader);
-        if (_buyingPower == 0) {
+        uint256 buyingPower = getBuyingPower(trader);
+        if (buyingPower == 0) {
             TokenInfo memory tokenInfo = getTokenInfo(trader, token);
             uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
             // TODO workaround here, if we use uint256.max, it may cause overflow in total supply
@@ -925,7 +925,7 @@ contract ClearingHouse is
             return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
-        uint256 minted = _buyingPower.parseSettlementToken(settlementTokenDecimals).mul(1 ether).div(imRatio);
+        uint256 minted = buyingPower.parseSettlementToken(settlementTokenDecimals).mul(1 ether).div(imRatio);
         if (token != quoteToken) {
             // TODO: change the valuation method && align with baseDebt()
             minted = FullMath.mulDiv(minted, 1 ether, _getIndexPrice(token, 0));

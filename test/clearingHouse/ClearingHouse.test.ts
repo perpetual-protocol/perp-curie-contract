@@ -50,7 +50,7 @@ describe("ClearingHouse", () => {
             await deposit(alice, vault, 100, collateral)
 
             // check collateral status
-            expect(await clearingHouse.buyingPower(alice.address)).to.deep.eq(amount)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.deep.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(toWei(900, await collateral.decimals()))
@@ -79,7 +79,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1000 - 10,000 * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint base and sends an event", async () => {
@@ -92,7 +92,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint base twice", async () => {
@@ -108,7 +108,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint both and sends an event", async () => {
@@ -125,7 +125,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint equivalent base and quote", async () => {
@@ -142,7 +142,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, collateralDecimals))
             // verify buying power = 1,000 - (500 * 10 + 5,000) * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         it("alice mint non-equivalent base and quote", async () => {
@@ -159,7 +159,7 @@ describe("ClearingHouse", () => {
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(toWei(1000, await collateralDecimals))
             // verify buying power = 1,000 - (600 * 10 + 4,000) * 0.1 = 0
-            expect(await clearingHouse.buyingPower(alice.address)).to.eq(0)
+            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
         })
 
         // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)

@@ -511,7 +511,7 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.buyingPower(taker.address)
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
             expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
@@ -568,7 +568,7 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.buyingPower(taker.address)
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
             expect(buyingPower.gt(toWei(1000, collateralDecimals))).to.be.true
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
@@ -624,7 +624,7 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.buyingPower(taker.address)
+            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
             expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
