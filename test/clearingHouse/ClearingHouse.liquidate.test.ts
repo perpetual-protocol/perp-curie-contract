@@ -417,12 +417,51 @@ describe("ClearingHouse liquidate", () => {
             // so add more collateral.
             await deposit(alice, vault, 10, collateral)
 
-            // BTC position value = size * indexPrice = 0.300334113234575750 * 151.201213 = 45.4108822263
-            // deltaAvailableQuote of ETH = 50.04944266248 / 0.99 (1% fee) = 50.549937089
-            // account value = collateral + pnl = 10 + (-45.4108822263 - 50.549937089 - 1.25100438 + 90) = 2.7881763047
-            // init margin requirement = BTC position value * imRatio = 4.54108822263
-            // free collateral = 2.7881763047 + 10 - 4.54108822263 = 8.2470880821
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("8.2470880821"))
+            // since the result has a bit rounding diff so i leave every unit of numbers below
+            // const balance = await vault.balanceOf(alice.address)
+            // const accountValue = await clearingHouse.getAccountValue(alice.address)
+            // const getTotalOpenOrderMarginRequirement = await clearingHouse.getTotalOpenOrderMarginRequirement(
+            //     alice.address,
+            // )
+            // console.log(`balance=${formatEther(balance.toString())}`)
+            // console.log(`accountValue=${formatEther(accountValue.toString())}`)
+            // console.log(
+            //     `getTotalOpenOrderMarginRequirement=${formatEther(getTotalOpenOrderMarginRequirement.toString())}`,
+            // )
+            // // accountValue = collateral + totalMarketPnl
+            // // totalMarketPnl = netQuoteBalance + totalPosValue
+            // const getTotalMarketPnl = await clearingHouse.getTotalMarketPnl(alice.address)
+            // console.log(`getTotalMarketPnl=${formatEther(getTotalMarketPnl.toString())}`)
+            // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
+            // const getCostBasis = await clearingHouse.getCostBasis(alice.address)
+            // console.log(`getCostBasis=${formatEther(getCostBasis.toString())}`)
+            // {
+            //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+            //     console.log(`quote=${formatEther(tokenInfo.available.toString())}`)
+            //     console.log(`quote.debt=${formatEther(tokenInfo.debt.toString())}`)
+            // }
+            // {
+            //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+            //     console.log(`base=${formatEther(tokenInfo.available.toString())}`)
+            //     console.log(`base.debt=${formatEther(tokenInfo.debt.toString())}`)
+            // }
+            // {
+            //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken2.address)
+            //     console.log(`base2=${formatEther(tokenInfo.available.toString())}`)
+            //     console.log(`base2.debt=${formatEther(tokenInfo.debt.toString())}`)
+            // }
+            // END
+
+            // formula: freeCollateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // netQuote = quoteBefore - liquidatedPosition(exl CH fee) - liquidationPenalty
+            // 90 - 50.049442662484937695/0.99 - 1.251236066562123442 = 38.1937713451
+            // totalPosValue = positionSize * indexPrice = -0.300334113234575750 * 151.201213 = -45.4108822263
+            // totalMarketPnl = netQuoteBalance + totalPosValue =  38.1937713451 - 45.4108822263 = -7.2171108812
+            // accountValue = collateral + totalMarketPnl = 20 - 7.2171108812 = 12.7828891188
+            // getTotalOpenOrderMarginRequirement = (totalBaseDebt + totalQuoteDebt) * imRatio = 4.54108822263
+            // freeCollateral =12.7828891188 - 4.54108822263 = 8.2418008962
+            // (actual) 12.782889118722045683-4.541088222634720694 = 8.241800896087324989
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("8.241800896087324989"))
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1251236066562123442")
         })
@@ -448,12 +487,15 @@ describe("ClearingHouse liquidate", () => {
             // so add more collateral.
             await deposit(alice, vault, 10, collateral)
 
-            // ETH position value = size * indexPrice = 0.300334113234575750 * 166.615023 = 50.0401751843
-            // deltaAvailableQuote of BTC = 45.4188940 * (1 + 1%) = 45.87308294
-            // account value = collateral + pnl = 10 + (-45.8730829 - 50.0401751843 - 1.135472350 + 90) = 2.9512695657
-            // init margin requirement = ETH position value * imRatio = 50.0401751843 * 0.1 = 5.00401751843
-            // free collateral = 2.9512695657 + 10 - 5.00401751843 = 7.9472520473
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("7.9472520473"))
+            // formula: freeCollateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+            // netQuote = quoteBefore - liquidatedPosition(exl CH fee) - liquidationPenalty
+            // 90 - 45.418894010911622979/0.99 - 1.135472350272790574 = 42.9868569316
+            // totalPosValue = positionSize * indexPrice = -0.300334113234575750 * 166.615023 = -50.0401751843
+            // totalMarketPnl = netQuoteBalance + totalPosValue =  42.9868569316 + -50.0401751843= -7.0533182527
+            // accountValue = collateral + totalMarketPnl = 20 + -7.0533182527 = 12.9466817473
+            // getTotalOpenOrderMarginRequirement = (totalBaseDebt + totalQuoteDebt) * imRatio = 50.0401751843 * 0.1
+            // freeCollateral = 12.9466817473 - 5.00401751843 = 7.9426642289
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseEther("7.942664228944873683"))
             const davisTokenInfo = await clearingHouse.getTokenInfo(davis.address, quoteToken.address)
             expect(davisTokenInfo.available).to.eq("1135472350272790574")
         })
