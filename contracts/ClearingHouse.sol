@@ -28,8 +28,6 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Vault } from "./Vault.sol";
 
-import { console } from "hardhat/console.sol";
-
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
@@ -303,6 +301,7 @@ contract ClearingHouse is
     function mint(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
+            _registerBaseToken(_msgSender(), token);
         }
         // always check margin ratio
         _mint(_msgSender(), token, amount, true);
@@ -320,6 +319,7 @@ contract ClearingHouse is
 
     function swap(SwapParams memory params) public nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
+        _registerBaseToken(_msgSender(), params.baseToken);
 
         return
             _swap(
@@ -447,6 +447,7 @@ contract ClearingHouse is
 
     function openPosition(OpenPositionParams memory params) external {
         _requireHasBaseToken(params.baseToken);
+        _registerBaseToken(_msgSender(), params.baseToken);
 
         _openPosition(
             InternalOpenPositionParams({
@@ -784,9 +785,6 @@ contract ClearingHouse is
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256()).sub(
                 fundingPayment
             );
-        console.log("funding");
-        console.logInt(fundingPayment);
-        console.logInt(netQuoteBalance);
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
@@ -839,8 +837,6 @@ contract ClearingHouse is
             }
         }
 
-        console.log("totalPositionValue");
-        console.logInt(totalPositionValue);
         return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
@@ -858,10 +854,6 @@ contract ClearingHouse is
             return 0;
         }
         if (token != quoteToken) {
-            // SHOULD register token before mutate its state
-            // register base token if it's the first time
-            _registerBaseToken(account, token);
-
             // Revise after we have defined the user-facing functions.
             _settleFunding(account, token);
         }
@@ -888,12 +880,12 @@ contract ClearingHouse is
         address token,
         uint256 amount
     ) private {
-        if (token != quoteToken) {
-            _settleFunding(account, token);
-        }
-
         if (amount == 0) {
             return;
+        }
+
+        if (token != quoteToken) {
+            _settleFunding(account, token);
         }
 
         TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
@@ -973,7 +965,7 @@ contract ClearingHouse is
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
-        _registerBaseToken(trader, baseTokenAddr);
+        // _registerBaseToken(trader, baseTokenAddr);
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
