@@ -702,11 +702,10 @@ contract ClearingHouse is
         int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
         if (positionSize == 0) return 0;
 
-        uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapInterval);
-        uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
+        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapInterval);
 
-        // both positionSize & markTwap are in 10^18 already
-        return positionSize.mul(markTwap.toInt256()).divideBy10_18();
+        // both positionSize & indexTwap are in 10^18 already
+        return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
     }
 
     function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
@@ -778,14 +777,6 @@ contract ClearingHouse is
 
     function getFundingHistoryLength(address baseToken) external view returns (uint256) {
         return _fundingHistoryMap[baseToken].length;
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint256 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
     function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
