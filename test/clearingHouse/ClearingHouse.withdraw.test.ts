@@ -60,6 +60,9 @@ describe("ClearingHouse withdraw", () => {
                 quote: quoteAmount,
                 lowerTick, // 148.3760629
                 upperTick, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             }
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
         })
@@ -100,6 +103,9 @@ describe("ClearingHouse withdraw", () => {
                 lowerTick,
                 upperTick,
                 liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
             })
 
             // verify maker's free collateral
