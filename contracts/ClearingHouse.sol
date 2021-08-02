@@ -1218,11 +1218,15 @@ contract ClearingHouse is
         mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
         UniswapV3Broker.RemoveLiquidityResponse memory response;
         {
+            uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
             bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
             bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
             response = UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
             );
+            // burn base fee
+            uint256 baseBalanceAfter = IERC20Metadata(params.baseToken).balanceOf(address(this));
+            IMintableERC20(params.baseToken).burn(baseBalanceAfter.sub(baseBalanceBefore).sub(response.base));
 
             base = response.base;
             quote = response.quote;
