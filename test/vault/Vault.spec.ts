@@ -1,7 +1,7 @@
 import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { TestERC20, Vault } from "../../typechain"
-import { toWei } from "../helper/number"
 import { createVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
@@ -16,7 +16,7 @@ describe("Vault spec", () => {
         usdc = _fixture.USDC
 
         // mint
-        const amount = toWei(1000, await usdc.decimals())
+        const amount = parseUnits("1000", await usdc.decimals())
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
     })
@@ -53,7 +53,7 @@ describe("Vault spec", () => {
     describe("deposit", () => {
         // @SAMPLE - deposit
         it("sends event", async () => {
-            const amount = toWei(100, await usdc.decimals())
+            const amount = parseUnits("100", await usdc.decimals())
 
             // check event has been sent
             await expect(vault.connect(alice).deposit(alice.address, usdc.address, amount))
@@ -61,13 +61,13 @@ describe("Vault spec", () => {
                 .withArgs(usdc.address, alice.address, amount)
 
             // reduce alice balance
-            expect(await usdc.balanceOf(alice.address)).to.eq(toWei(900, await usdc.decimals()))
+            expect(await usdc.balanceOf(alice.address)).to.eq(parseUnits("900", await usdc.decimals()))
 
             // increase vault balance
-            expect(await usdc.balanceOf(vault.address)).to.eq(toWei(100, await usdc.decimals()))
+            expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
 
             // update sender's balance
-            expect(await vault.balanceOf(alice.address)).to.eq(toWei(100, await usdc.decimals()))
+            expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("100", await usdc.decimals()))
         })
 
         it.skip("non-standard ERC20 (USDT) is supported")

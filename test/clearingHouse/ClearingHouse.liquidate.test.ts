@@ -1,10 +1,9 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumberish } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -52,8 +51,8 @@ describe("ClearingHouse liquidate", () => {
         mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
         collateralDecimals = await collateral.decimals()
 
-        million = toWei(1000000, collateralDecimals)
-        hundred = toWei(100, collateralDecimals)
+        million = parseUnits("1000000", collateralDecimals)
+        hundred = parseUnits("100", collateralDecimals)
 
         // add pool
         await clearingHouse.addPool(baseToken.address, 10000)
@@ -72,16 +71,16 @@ describe("ClearingHouse liquidate", () => {
         setPool2IndexPrice(151.373306)
 
         // mint base
-        await clearingHouse.connect(carol).mint(baseToken.address, toWei("100"))
-        await clearingHouse.connect(carol).mint(baseToken2.address, toWei("100"))
-        await clearingHouse.connect(carol).mint(quoteToken.address, toWei("50000"))
+        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("100"))
+        await clearingHouse.connect(carol).mint(baseToken2.address, parseEther("100"))
+        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("50000"))
 
         // initialize pool
         await pool.initialize(encodePriceSqrt("151.3733069", "1"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
-            base: toWei(100),
-            quote: toWei(15000),
+            base: parseEther("100"),
+            quote: parseEther("15000"),
             lowerTick: 49000,
             upperTick: 51400,
             minBase: 0,
@@ -92,8 +91,8 @@ describe("ClearingHouse liquidate", () => {
         await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken2.address,
-            base: toWei(100),
-            quote: toWei(15000),
+            base: parseEther("100"),
+            quote: parseEther("15000"),
             lowerTick: 49000,
             upperTick: 51400,
             minBase: 0,
@@ -105,13 +104,13 @@ describe("ClearingHouse liquidate", () => {
     describe("adjustable parameter", () => {
         it.skip("setLiquidationDiscount")
         it("setLiquidationPenaltyRatio", async () => {
-            await clearingHouse.setLiquidationPenaltyRatio(toWei("0.03"))
-            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(toWei("0.03"))
+            await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.03"))
+            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(parseEther("0.03"))
         })
         it("force error, only admin", async () => {
-            await expect(clearingHouse.connect(alice).setLiquidationPenaltyRatio(toWei("0.03"))).to.be.revertedWith(
-                "Ownable: caller is not the owner",
-            )
+            await expect(
+                clearingHouse.connect(alice).setLiquidationPenaltyRatio(parseEther("0.03")),
+            ).to.be.revertedWith("Ownable: caller is not the owner")
         })
     })
 
@@ -122,7 +121,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei(90),
+                amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
             })
             await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
@@ -138,7 +137,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei("90"),
+                amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice swap : 151.4780456375
@@ -149,7 +148,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: toWei("50"),
+                amount: parseEther("50"),
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 143.0326798397
@@ -169,7 +168,7 @@ describe("ClearingHouse liquidate", () => {
                         alice.address,
                         baseToken.address,
                         "84085192745971593683",
-                        toWei("0.588407511354640018"),
+                        parseEther("0.588407511354640018"),
                         "2102129818649289842",
                         davis.address,
                     )
@@ -202,7 +201,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: toWei("90"),
+                amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice swap : 151.2675469692
@@ -213,7 +212,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: toWei("40"),
+                amount: parseEther("40"),
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 158.6340597836
@@ -232,7 +231,7 @@ describe("ClearingHouse liquidate", () => {
                     alice.address,
                     baseToken.address,
                     "95337716510326544666",
-                    toWei("0.600774259337639952"),
+                    parseEther("0.600774259337639952"),
                     "2383442912758163616",
                     davis.address,
                 )
@@ -262,7 +261,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei("45"),
+                amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
             })
             // ETH price after Alice long: 151.4256717409
@@ -272,7 +271,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei("45"),
+                amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
             })
             // BTC price after Alice long: 151.4256717409
@@ -283,7 +282,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: toWei("80"),
+                amount: parseEther("80"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Bob short: 135.0801007405
@@ -294,7 +293,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: toWei("100"),
+                amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Bob long: 151.54207047
@@ -383,7 +382,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: toWei("45"),
+                amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice short, 151.3198881742
@@ -393,7 +392,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: toWei("45"),
+                amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Alice short, 151.3198881742
@@ -404,7 +403,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: toWei("80"),
+                amount: parseEther("80"),
                 sqrtPriceLimitX96: 0,
             })
             // price after bob swap : 166.6150230501
@@ -415,7 +414,7 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: toWei("100"),
+                amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
             })
             // price after Bob short, 151.20121364648824
