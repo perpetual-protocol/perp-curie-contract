@@ -105,7 +105,7 @@ contract ClearingHouse is
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
-        // key: base token address
+        // key: base token address, negative when long, positive when short
         mapping(address => int256) openNotionalMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
@@ -1031,6 +1031,8 @@ contract ClearingHouse is
         }
     }
 
+    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {}
+
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
@@ -1156,8 +1158,8 @@ contract ClearingHouse is
         uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
-        // update internal states
         {
+            // calculate exchangedPositionSize and exchangedPositionNotional
             TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
             TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
 
@@ -1174,6 +1176,7 @@ contract ClearingHouse is
                 exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
             }
 
+            // update internal states
             // examples:
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
