@@ -1,4 +1,5 @@
 import { expect } from "chai"
+import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { toWei } from "../helper/number"
@@ -40,10 +41,8 @@ describe("ClearingHouse.swap", () => {
         expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(9, collateralDecimals))
     })
 
-    it("update TokenInfos", async () => {
+    it.only("update TokenInfos", async () => {
         await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-
-        const { available: previousAvailable } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
 
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
@@ -72,6 +71,7 @@ describe("ClearingHouse.swap", () => {
         expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
             toWei(1 - 0.01), // available
             toWei(1), // debt
+            parseEther("154.4310961"), // openNotional
         ])
         const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
         expect(bobQuoteAvailable.gt(toWei(0))).to.be.true

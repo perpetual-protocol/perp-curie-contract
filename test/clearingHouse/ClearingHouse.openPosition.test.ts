@@ -408,7 +408,7 @@ describe("ClearingHouse openPosition", () => {
         })
     })
 
-    describe("opening long first then", () => {
+    describe.only("opening long first then", () => {
         beforeEach(async () => {
             await deposit(taker, vault, 1000, collateral)
 
@@ -448,6 +448,8 @@ describe("ClearingHouse openPosition", () => {
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
             expect(quoteInfoAfter.available.sub(quoteInfoBefore.available)).deep.eq(toWei(0))
 
+            // TODO increase openNotional
+
             // pos size: 0.01961501593
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
             expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(toWei(-3))
@@ -477,6 +479,8 @@ describe("ClearingHouse openPosition", () => {
             expect(reducedBaseAvailable).deep.eq(reducedBase)
             expect(baseInfoAfter.debt.sub(baseInfoBefore.debt)).deep.eq(toWei(0))
             expect(quoteInfoBefore.debt.sub(quoteInfoAfter.debt)).to.be.above("0")
+
+            // TODO reduce openNotional
 
             // pos size: 0.006538933220746361
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
@@ -521,6 +525,8 @@ describe("ClearingHouse openPosition", () => {
             expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+
+            // TODO openNotional = 0
 
             // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
             // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
@@ -577,6 +583,8 @@ describe("ClearingHouse openPosition", () => {
             const buyingPower = await clearingHouse.getBuyingPower(taker.address)
             expect(buyingPower.gt(toWei(1000, collateralDecimals))).to.be.true
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+
+            // TODO openNotional = 0
 
             // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
             // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
@@ -635,9 +643,13 @@ describe("ClearingHouse openPosition", () => {
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
+            // TODO openNotional = 0
+
             // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
             // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
         })
+
+        it("open larger reverse position")
 
         // TODO: blocked by TWAP based _getDebtValue
         it.skip("force error, can't open another long if it's under collateral", async () => {
