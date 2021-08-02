@@ -755,6 +755,7 @@ contract ClearingHouse is
         return totalCollateralValue.subS(requiredCollateral, _settlementTokenDecimals).toUint256();
     }
 
+    // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         Account storage account = _accountMap[trader];
 
@@ -888,6 +889,7 @@ contract ClearingHouse is
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
     }
 
+    // @deprecated
     function getRequiredCollateral(address account) public view override returns (int256) {
         return _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
     }

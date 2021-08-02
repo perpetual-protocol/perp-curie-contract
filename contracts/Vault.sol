@@ -11,6 +11,7 @@ import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import "hardhat/console.sol";
 
 contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -82,6 +83,7 @@ contract Vault is ReentrancyGuard, Ownable {
         emit Withdrawn(token, trader, amount);
     }
 
+    // expensive call
     function balanceOf(address account) public view returns (uint256) {
         uint256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
@@ -136,21 +138,28 @@ contract Vault is ReentrancyGuard, Ownable {
         return _balance[account][token];
     }
 
-    function _getFreeCollateral(address trader) private view returns (int256) {
-        // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
+    // TODO reduce external calls
+    // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+    function _getFreeCollateral(address account) private view returns (int256) {
+        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
+        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(account);
+        console.log("openOrderMarginRequirement");
+        console.log(openOrderMarginRequirement);
 
-        // calculate minAccountValue = min(collateral, accountValue)
-        int256 accountValue = _getAccountValue(trader);
-        uint256 minAccountValue;
-        if (accountValue > 0) {
-            minAccountValue = Math.min(balanceOf(trader), accountValue.toUint256());
-        }
-        return minAccountValue.toInt256().subS(openOrderMarginRequirement.toInt256(), decimals);
-    }
-
-    function _getAccountValue(address account) private view returns (int256) {
+        // accountValue = totalCollateralValue + totalMarketPnl
+        int256 collateralValue = balanceOf(account).toInt256();
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
-        return balanceOf(account).toInt256().addS(totalMarketPnl, decimals);
+        int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
+        console.log("accountValue");
+        console.logInt(accountValue);
+
+        // collateral
+        int256 unsettlePnl = ClearingHouse(clearingHouse).getNetQuoteBalance(account);
+        int256 collateralWithUnsettleProfit =
+            unsettlePnl <= 0 ? collateralValue : collateralValue.addS(unsettlePnl, decimals);
+        int256 min = collateralWithUnsettleProfit < accountValue ? collateralWithUnsettleProfit : accountValue;
+        console.log("collateralWithUnsettleProfit");
+        console.logInt(collateralWithUnsettleProfit);
+        return min.subS(openOrderMarginRequirement.toInt256(), decimals);
     }
 }
