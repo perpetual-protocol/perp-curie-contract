@@ -408,7 +408,7 @@ describe("ClearingHouse openPosition", () => {
         })
     })
 
-    describe.only("opening long first then", () => {
+    describe("opening long first then", () => {
         beforeEach(async () => {
             await deposit(taker, vault, 1000, collateral)
 

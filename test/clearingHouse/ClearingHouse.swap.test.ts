@@ -1,8 +1,7 @@
 import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -33,51 +32,101 @@ describe("ClearingHouse.swap", () => {
     })
 
     beforeEach(async () => {
-        await collateral.mint(alice.address, toWei(10, collateralDecimals))
-
-        await deposit(alice, vault, 10, collateral)
-        expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(10, collateralDecimals))
-        await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-        expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(9, collateralDecimals))
+        await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
+        await deposit(alice, vault, 1000, collateral)
+        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
     })
 
-    it.only("update TokenInfos", async () => {
-        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+    describe.only("increase short position (B2Q)", () => {
+        let bobQuoteAvailableBefore
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: toWei(0),
-            quote: toWei(10),
-            lowerTick: 50200,
-            upperTick: 50400,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("1000"),
+                lowerTick: 50200,
+                upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
+            await deposit(bob, vault, 100, collateral)
+
+            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
+            bobQuoteAvailableBefore = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
+            await clearingHouse.connect(bob).swap({
+                // sell base
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
         })
 
-        await collateral.mint(bob.address, toWei(100, collateralDecimals))
-        await deposit(bob, vault, 100, collateral)
-
-        await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
-
-        await clearingHouse.connect(bob).swap({
-            // sell base
-            baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: true,
-            amount: toWei(0.01),
-            sqrtPriceLimitX96: 0,
+        it("openNotional++", async () => {
+            const bobQuoteAvailableAfter = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
+            const bobQuoteSpent = bobQuoteAvailableAfter.sub(bobQuoteAvailableBefore)
+            expect(await clearingHouse.getOpenNotional(bob.address, baseToken.address)).to.deep.eq(bobQuoteSpent)
         })
-        expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
-            toWei(1 - 0.01), // available
-            toWei(1), // debt
-        ])
 
-        expect(await clearingHouse.getOpenNotional(bob.address, baseToken.address)).to.deep.eq(
-            parseEther("-154.4310961"),
-        )
+        it("base available--", async () => {
+            expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
+                parseEther("0"), // available
+                parseEther("1"), // debt
+            ])
+        })
 
-        const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-        expect(bobQuoteAvailable.gt(toWei(0))).to.be.true
+        it("quote available++", async () => {
+            const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
+            expect(bobQuoteAvailable.gt(parseEther("0"))).to.be.true
+        })
+
+        it("realizedPnl remains", async () => {
+            const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+            expect(pnl).eq(0)
+        })
+
+        describe("reduce 25% position, profit", () => {
+            it("openNotional--")
+            it("realizedPnl++")
+            it("settle realizePnl to collateral (increased)")
+        })
+
+        describe("reduce 25% position, loss", () => {
+            it("openNotional--")
+            it("realizedPnl--")
+            it("settle realizePnl to collateral (decreased)")
+        })
+
+        describe("reduce 100% position (close), profit", () => {
+            it("clear openNotional")
+            it("realizedPnl++")
+            it("settle realizePnl to collateral (decreased)")
+        })
+
+        describe("reduce 100% position (close), loss", () => {
+            it("clear openNotional")
+            it("realizedPnl--")
+            it("settle realizePnl to collateral (decreased)")
+        })
+
+        describe("swap reverse and larger amount, profit", () => {
+            it("clear openNotional")
+            it("realizedPnl++")
+            it("settle realizePnl to collateral (decreased)")
+        })
+
+        describe("swap reverse and larger amount, loss", () => {
+            it("clear openNotional")
+            it("realizedPnl--")
+            it("settle realizePnl to collateral (decreased)")
+        })
     })
+
+    describe.skip("increase long position (Q2B)", () => {})
 })
