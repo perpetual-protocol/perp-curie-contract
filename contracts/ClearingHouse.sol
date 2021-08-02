@@ -317,6 +317,7 @@ contract ClearingHouse is
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
+        // TODO enforce decimals = 18
         // to ensure the base is always token0 and quote is always token1
         // CH_IB: invalid baseToken
         require(baseToken < quoteToken, "CH_IB");
@@ -1076,7 +1077,7 @@ contract ClearingHouse is
         uint256 takerPositionSizeAbs = takerPositionSize.abs();
 
         // position size based closedRatio
-        uint256 closedRatio = response.deltaAvailableBase.div(takerPositionSizeAbs);
+        uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, takerPositionSizeAbs);
 
         // TODO change _swap.response.deltaAvailableQuote to int
         // after swapCallback mint task
@@ -1086,9 +1087,11 @@ contract ClearingHouse is
 
         // reduce position if old position size is larger
         // or closedRatio > 1 ** baseToken.decimals
+        int256 realizedPnl;
         if (takerPositionSizeAbs > response.deltaAvailableBase) {
             // reduced ratio = abs(exchangedPosSize / takerPosSize)
-            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256());
+            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).div(1 ether);
+            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.sub(reducedOpenNotional);
 
             // alice long 1 ETH first, openNotional = -100
             // alice reduce 40% (short 0.4ETH), deltaAvailableBase = -0.4ETH, deltaAvailableQuote = 40 -> 50
@@ -1096,21 +1099,19 @@ contract ClearingHouse is
             // openNotional = -100 - (-40) = 60
             // realizedPnl = (40 -> 50) + (-40) = 10
             // realizedPnl = exchangedPositionNotional + reducedOpenNotional
-            int256 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
-            // TODO settle to collateral
-
-            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.sub(reducedOpenNotional);
+            realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             // opens a larger reverse position
-            int256 closedPositionNotional = deltaAvailableQuote.div(closedRatio.toInt256());
+            int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
             int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
-            int256 realizedPnl = deltaAvailableQuote.add(oldOpenNotional);
-            // TODO settle to collateral
 
             // close position, reset openNotional, then set to remainsPositionNotional
             _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
+
+            realizedPnl = deltaAvailableQuote.add(oldOpenNotional);
         }
 
+        _accountMap[params.trader].owedRealizedPnl = _accountMap[params.trader].owedRealizedPnl.add(realizedPnl);
         return response;
     }
 
