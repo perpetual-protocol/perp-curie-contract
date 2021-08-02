@@ -517,8 +517,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
-            expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
+            expect(freeCollateral.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
@@ -562,6 +562,11 @@ describe("ClearingHouse openPosition", () => {
                 sqrtPriceLimitX96: 0,
             })
 
+            // mock index price to market price
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("103.12129", 6), 0, 0, 0]
+            })
+
             // base debt and available will be 0
             {
                 const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -574,8 +579,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
-            expect(buyingPower.gt(toWei(1000, collateralDecimals))).to.be.true
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
+            expect(freeCollateral.gt(toWei(1000, collateralDecimals))).to.be.true
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
             // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
@@ -630,8 +635,8 @@ describe("ClearingHouse openPosition", () => {
             }
 
             // collateral will be less than original number bcs of fees
-            const buyingPower = await clearingHouse.getBuyingPower(taker.address)
-            expect(buyingPower.lt(toWei(1000, collateralDecimals))).to.be.true
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
+            expect(freeCollateral.lt(toWei(1000, collateralDecimals))).to.be.true
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
 
