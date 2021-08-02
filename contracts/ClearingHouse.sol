@@ -102,6 +102,8 @@ contract ClearingHouse is
     //
 
     struct Account {
+        // realized pnl but haven't settle to collateral
+        int256 owedRealizedPnl;
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
@@ -352,7 +354,7 @@ contract ClearingHouse is
         _registerBaseToken(_msgSender(), params.baseToken);
 
         return
-            _swap(
+            _swapAndCalculateOpenNotional(
                 InternalSwapParams({
                     trader: _msgSender(),
                     baseToken: params.baseToken,
@@ -709,17 +711,24 @@ contract ClearingHouse is
         _burnMax(maker, quoteToken);
     }
 
-    function settle(address account) external override returns (int256 pnl) {
+    function settle(address account) external override returns (int256) {
         // only vault
         require(_msgSender() == vault, "CH_OV");
 
-        // calculate pnl
+        Account storage accountStorage = _accountMap[account];
+        int256 pnl = accountStorage.owedRealizedPnl;
+        accountStorage.owedRealizedPnl = 0;
+        if (accountStorage.tokens.length > 1) {
+            return pnl;
+        }
+
+        // TODO settle quote if all position are closed
         TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
         if (quoteInfo.available >= quoteInfo.debt) {
             // profit
             uint256 profit = quoteInfo.available.sub(quoteInfo.debt);
             quoteInfo.available = quoteInfo.available.sub(profit);
-            pnl = profit.toInt256();
+            pnl = pnl.add(profit.toInt256());
 
             // burn profit in quote and add to collateral
             IMintableERC20(quoteToken).burn(profit);
@@ -727,8 +736,9 @@ contract ClearingHouse is
             // loss
             uint256 loss = quoteInfo.debt.sub(quoteInfo.available);
             quoteInfo.debt = quoteInfo.debt.sub(loss);
-            pnl = -(loss.toInt256());
+            pnl = pnl.sub(loss.toInt256());
         }
+        return pnl;
     }
 
     //
@@ -799,8 +809,13 @@ contract ClearingHouse is
         return _accountMap[trader].tokenInfoMap[token];
     }
 
+    // TODO hide it
     function getOpenNotional(address trader, address token) public view returns (int256) {
         return _accountMap[trader].openNotionalMap[token];
+    }
+
+    function getOwedRealizedPnl(address trader) public view returns (int256) {
+        return _accountMap[trader].owedRealizedPnl;
     }
 
     function getOpenOrder(
@@ -1031,7 +1046,73 @@ contract ClearingHouse is
         }
     }
 
-    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {}
+    // TODO refactor
+    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
+        TokenInfo memory baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
+        int256 takerPositionSize = baseTokenInfo.available.toInt256().sub(baseTokenInfo.debt.toInt256());
+        int256 oldOpenNotional = _accountMap[params.trader].openNotionalMap[params.baseToken];
+        bool isOldPositionShort = takerPositionSize < 0 ? true : false;
+        SwapResponse memory response;
+        int256 deltaAvailableQuote;
+
+        // function _increasePosition
+        // increase position if old/new position are in the same direction
+        if (takerPositionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
+            response = _swap(params);
+
+            // TODO change _swap.response.deltaAvailableQuote to int
+            // after swapCallback mint task
+            deltaAvailableQuote = params.isBaseToQuote
+                ? response.deltaAvailableQuote.toInt256()
+                : -response.deltaAvailableQuote.toInt256();
+            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.add(deltaAvailableQuote);
+            return response;
+        }
+
+        // function _openReversePosition
+        // check if it's opening a larger reverse position
+        response = _swap(params);
+
+        uint256 takerPositionSizeAbs = takerPositionSize.abs();
+
+        // position size based closedRatio
+        uint256 closedRatio = response.deltaAvailableBase.div(takerPositionSizeAbs);
+
+        // TODO change _swap.response.deltaAvailableQuote to int
+        // after swapCallback mint task
+        deltaAvailableQuote = params.isBaseToQuote
+            ? response.deltaAvailableQuote.toInt256()
+            : -response.deltaAvailableQuote.toInt256();
+
+        // reduce position if old position size is larger
+        // or closedRatio > 1 ** baseToken.decimals
+        if (takerPositionSizeAbs > response.deltaAvailableBase) {
+            // reduced ratio = abs(exchangedPosSize / takerPosSize)
+            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256());
+
+            // alice long 1 ETH first, openNotional = -100
+            // alice reduce 40% (short 0.4ETH), deltaAvailableBase = -0.4ETH, deltaAvailableQuote = 40 -> 50
+            // reducedOpenNotional = -100 * 40% = -40
+            // openNotional = -100 - (-40) = 60
+            // realizedPnl = (40 -> 50) + (-40) = 10
+            // realizedPnl = exchangedPositionNotional + reducedOpenNotional
+            int256 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
+            // TODO settle to collateral
+
+            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.sub(reducedOpenNotional);
+        } else {
+            // opens a larger reverse position
+            int256 closedPositionNotional = deltaAvailableQuote.div(closedRatio.toInt256());
+            int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
+            int256 realizedPnl = deltaAvailableQuote.add(oldOpenNotional);
+            // TODO settle to collateral
+
+            // close position, reset openNotional, then set to remainsPositionNotional
+            _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
+        }
+
+        return response;
+    }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
@@ -1364,7 +1445,7 @@ contract ClearingHouse is
         }
 
         SwapResponse memory swapResponse =
-            _swap(
+            _swapAndCalculateOpenNotional(
                 InternalSwapParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
@@ -1432,6 +1513,7 @@ contract ClearingHouse is
         return swapResponse;
     }
 
+    // TODO settle funding to owedRealizedPnl, not quote available/debt
     function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
         uint256 historyLen = _fundingHistoryMap[baseToken].length;
         if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
