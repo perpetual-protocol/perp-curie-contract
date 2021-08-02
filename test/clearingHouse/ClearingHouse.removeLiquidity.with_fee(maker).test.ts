@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse removeLiquidity with fee", () => {
+describe.only("ClearingHouse removeLiquidity with fee", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -158,10 +158,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // verify CH balance changes
                 // base diff: 0.0004084104205 (bob swaps)
-                // FIXME: the number should be correct after fix https://app.asana.com/0/1200351347310168/1200640140572911
-                // expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                //     parseEther("0.000408410420500001"),
-                // )
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                    parseEther("0.000408410420500000"),
+                )
                 // quote diff: 0.122414646 (alice addLiquidity) - 0.06151334176 (CH gets (from swap)) = 0.06090130424
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
                     parseEther("0.060901304242749751"),
@@ -307,6 +306,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // base: 0.0007507052579
                 // B2QFee: CH actually shorts 0.0007507052579 / 0.99 = 0.0007582881393 and get 0.112414646 quote
                 // bob gets 0.112414646 * 0.99 = 0.1112904995
+                // base fee 0.0007582881393 * 0.01 = 0.000007582881393
                 const swapParams2 = {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
@@ -375,10 +375,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // verify CH balance changes
                 // base diff: 0.000816820841 (alice addLiquidity) - 0.0007507052579 (bob gets (from swap))
                 // + 0.0007507052579 (bob swap) = 0.000816820841
-                // FIXME: the number should be correct after fix https://app.asana.com/0/1200351347310168/1200640140572911
-                // expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                //     parseEther("0.000816820840785349"),
-                // )
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                    parseEther("0.000816820840785348"),
+                )
+                // 0.000007582881393
                 // quote diff: 0.1135501475 (bob swap) - 0.001135501475 (alice removeLiquidity) - 0.112414646 (CH gets from swap) = 2.5E-11
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
                     // 30810663 == 3.0810663E-11
@@ -560,10 +560,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // 0.002450462523 (alice addLiquidity) + 0.000816820841 (carol addLiquidity)
                 // - 0.0007558893279 (bob gets (from swap); note the difference)
                 // + 0.0007507052579 (bob swap) = 0.003262099294
-                // FIXME: the number should be correct after fix https://app.asana.com/0/1200351347310168/1200640140572911
-                // expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                //     parseEther("0.003262099293791643"),
-                // )
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                    parseEther("0.003262099293791642"),
+                )
                 // quote diff:
                 // 0.1135501475 (bob swap) - 0.001135501475 (alice & carol removeLiquidity)
                 // - 0.1116454419 (CH gets (from swap); note the difference)
@@ -798,10 +797,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // - 0.002281886641 (bob gets (from swap); note the difference)
                 // + 0.002304936001 (bob swap) - (0.000008250715566 * 2 + 0.000006547928875) (alice & carol removeLiquidity)
                 // = 0.002442335424
-                // FIXME: the number should be correct after fix https://app.asana.com/0/1200351347310168/1200640140572911
-                // expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                //     parseEther("0.002442335423326381"),
-                // )
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+                    parseEther("0.002442335423326381"),
+                )
 
                 // quote diff (before - after):
                 // (note the following numbers are of higher precision to demonstrate result accurately)
