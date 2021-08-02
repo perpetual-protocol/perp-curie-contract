@@ -71,8 +71,12 @@ describe("ClearingHouse.swap", () => {
         expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
             toWei(1 - 0.01), // available
             toWei(1), // debt
-            parseEther("154.4310961"), // openNotional
         ])
+
+        expect(await clearingHouse.getOpenNotional(bob.address, baseToken.address)).to.deep.eq(
+            parseEther("-154.4310961"),
+        )
+
         const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
         expect(bobQuoteAvailable.gt(toWei(0))).to.be.true
     })

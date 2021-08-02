@@ -105,6 +105,8 @@ contract ClearingHouse is
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
+        // key: base token address
+        mapping(address => int256) openNotionalMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
@@ -795,6 +797,10 @@ contract ClearingHouse is
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
         return _accountMap[trader].tokenInfoMap[token];
+    }
+
+    function getOpenNotional(address trader, address token) public view returns (int256) {
+        return _accountMap[trader].openNotionalMap[token];
     }
 
     function getOpenOrder(
