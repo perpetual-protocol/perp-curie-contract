@@ -31,51 +31,49 @@ describe("ClearingHouse.swap", () => {
         await clearingHouse.addPool(baseToken.address, "10000")
     })
 
-    describe("# swap", () => {
-        beforeEach(async () => {
-            await collateral.mint(alice.address, toWei(10, collateralDecimals))
+    beforeEach(async () => {
+        await collateral.mint(alice.address, toWei(10, collateralDecimals))
 
-            await deposit(alice, vault, 10, collateral)
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(10, collateralDecimals))
-            await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(9, collateralDecimals))
+        await deposit(alice, vault, 10, collateral)
+        expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(10, collateralDecimals))
+        await clearingHouse.connect(alice).mint(quoteToken.address, toWei(10))
+        expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(toWei(9, collateralDecimals))
+    })
+
+    it("update TokenInfos", async () => {
+        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+
+        const { available: previousAvailable } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: toWei(0),
+            quote: toWei(10),
+            lowerTick: 50200,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
         })
 
-        it("# swap should update TokenInfos", async () => {
-            await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+        await collateral.mint(bob.address, toWei(100, collateralDecimals))
+        await deposit(bob, vault, 100, collateral)
 
-            const { available: previousAvailable } = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
+        await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
 
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: toWei(0),
-                quote: toWei(10),
-                lowerTick: 50200,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            await collateral.mint(bob.address, toWei(100, collateralDecimals))
-            await deposit(bob, vault, 100, collateral)
-
-            await clearingHouse.connect(bob).mint(baseToken.address, toWei(1))
-
-            await clearingHouse.connect(bob).swap({
-                // sell base
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: toWei(0.01),
-                sqrtPriceLimitX96: 0,
-            })
-            expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
-                toWei(1 - 0.01), // available
-                toWei(1), // debt
-            ])
-            const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-            expect(bobQuoteAvailable.gt(toWei(0))).to.be.true
+        await clearingHouse.connect(bob).swap({
+            // sell base
+            baseToken: baseToken.address,
+            isBaseToQuote: true,
+            isExactInput: true,
+            amount: toWei(0.01),
+            sqrtPriceLimitX96: 0,
         })
+        expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
+            toWei(1 - 0.01), // available
+            toWei(1), // debt
+        ])
+        const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
+        expect(bobQuoteAvailable.gt(toWei(0))).to.be.true
     })
 })
