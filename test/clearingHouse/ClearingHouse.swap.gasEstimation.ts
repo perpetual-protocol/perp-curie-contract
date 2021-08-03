@@ -111,8 +111,8 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: true,
+            isBaseToQuote: false, // quote to base
+            isExactInput: false, // exact output (base)
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
         })
