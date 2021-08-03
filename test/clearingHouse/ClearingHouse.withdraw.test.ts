@@ -195,7 +195,7 @@ describe("ClearingHouse withdraw", () => {
             ).to.be.revertedWith("V_NEFC")
         })
 
-        it.only("force error, margin requirement is larger than collateral", async () => {
+        it("force error, margin requirement is larger than collateral", async () => {
             await clearingHouse.connect(bob).mint(baseToken.address, toWei(100))
             await clearingHouse.connect(bob).swap({
                 // sell base

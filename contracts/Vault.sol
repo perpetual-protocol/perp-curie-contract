@@ -11,7 +11,7 @@ import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
-import "hardhat/console.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
 
 contract Vault is ReentrancyGuard, Ownable {
     using SafeMath for uint256;
@@ -20,6 +20,7 @@ contract Vault is ReentrancyGuard, Ownable {
     using SignedSafeMath for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
+    using PerpMath for int256;
 
     event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed account, uint256 amount);
@@ -72,15 +73,24 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
-        address trader = _msgSender();
+        address account = _msgSender();
+
+        // settle ClearingHouse's owedRealizedPnl to collateral
+        int256 pnl = ClearingHouse(clearingHouse).settle(account);
+        if (pnl > 0) {
+            _increaseBalance(account, settlementToken, pnl.toUint256());
+        } else if (pnl < 0) {
+            _decreaseBalance(account, settlementToken, pnl.abs());
+        }
+
         // V_NEB: not enough balance
-        require(_getBalance(trader, token) >= amount, "V_NEB");
-        _decreaseBalance(trader, token, amount);
+        require(_getBalance(account, token) >= amount, "V_NEB");
+        _decreaseBalance(account, token, amount);
 
         // V_NEFC: not enough free collateral
-        require(_getFreeCollateral(trader) >= 0, "V_NEFC");
-        TransferHelper.safeTransfer(token, trader, amount);
-        emit Withdrawn(token, trader, amount);
+        require(_getFreeCollateral(account) >= 0, "V_NEFC");
+        TransferHelper.safeTransfer(token, account, amount);
+        emit Withdrawn(token, account, amount);
     }
 
     // expensive call
@@ -143,23 +153,15 @@ contract Vault is ReentrancyGuard, Ownable {
     function _getFreeCollateral(address account) private view returns (int256) {
         // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
         uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(account);
-        console.log("openOrderMarginRequirement");
-        console.log(openOrderMarginRequirement);
 
         // accountValue = totalCollateralValue + totalMarketPnl
-        int256 collateralValue = balanceOf(account).toInt256();
+        int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(account);
+        int256 collateralValue = balanceOf(account).toInt256().add(owedRealizedPnl);
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
         int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
-        console.log("accountValue");
-        console.logInt(accountValue);
 
         // collateral
-        int256 unsettlePnl = ClearingHouse(clearingHouse).getNetQuoteBalance(account);
-        int256 collateralWithUnsettleProfit =
-            unsettlePnl <= 0 ? collateralValue : collateralValue.addS(unsettlePnl, decimals);
-        int256 min = collateralWithUnsettleProfit < accountValue ? collateralWithUnsettleProfit : accountValue;
-        console.log("collateralWithUnsettleProfit");
-        console.logInt(collateralWithUnsettleProfit);
+        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
         return min.subS(openOrderMarginRequirement.toInt256(), decimals);
     }
 }
