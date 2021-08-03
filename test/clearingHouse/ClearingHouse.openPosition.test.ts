@@ -485,7 +485,7 @@ describe("ClearingHouse openPosition", () => {
             )
         })
 
-        it("close position, base's available/debt will be 0, collateral will be the origin number", async () => {
+        it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
@@ -512,18 +512,19 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).eq(0)
+
                 // 2 - 1.9602000000002648364741 = 0.0398000015
-                expect(quoteTokenInfo.debt).deep.eq("39800000000000043") // loss
+                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                expect(pnl).eq(parseEther("-0.039800000000000043")) // fee loss
             }
 
-            // collateral will be less than original number bcs of fees
+            // free collateral will be less than original number bcs of fees
+            // 1000 - 0.039800000000000043 = 999.9602
             const freeCollateral = await vault.getFreeCollateral(taker.address)
-            expect(freeCollateral.lt(toWei(1000, collateralDecimals))).to.be.true
+            expect(freeCollateral).deep.eq(parseUnits("999.960199", 6))
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-
-            // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
-            // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
         })
 
         it("close position with profit", async () => {
@@ -573,18 +574,19 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.available).deep.eq(toWei(0))
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+                expect(quoteTokenInfo.available).eq(0)
+                expect(quoteTokenInfo.debt).deep.eq(0)
+
                 // pnl = 2.3328803158 - 2 = 0.3328803158
-                expect(quoteTokenInfo.available).eq("332880320006927809") // profit
-                expect(quoteTokenInfo.debt).deep.eq(toWei(0))
+                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                expect(pnl).deep.eq(parseEther("0.332880320006927809"))
             }
 
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
-            expect(freeCollateral.gt(toWei(1000, collateralDecimals))).to.be.true
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(freeCollateral).deep.eq(parseUnits("1000.33288", 6))
 
-            // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
-            // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -630,18 +632,18 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseTokenInfo.debt).deep.eq(toWei(0))
                 const quoteTokenInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                 expect(quoteTokenInfo.available).eq(0)
-                // pnl = 2 - 1.6133545031 = 0.3866454969
-                expect(quoteTokenInfo.debt).deep.eq("386645498819609266") // loss
+                expect(quoteTokenInfo.debt).deep.eq(0)
+
+                // pnl = 1.6133545031 -2 = -0.3866454969
+                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                expect(pnl).deep.eq(parseEther("-0.386645498819609266"))
             }
 
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
-            expect(freeCollateral.lt(toWei(1000, collateralDecimals))).to.be.true
+            expect(freeCollateral).deep.eq(parseUnits("999.613354", 6))
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
-
-            // getNetQuoteBalance shouldn't be public, and the meaning is different when it's being closed but we don't actively settle
-            // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
         })
 
         it("open larger reverse position")
