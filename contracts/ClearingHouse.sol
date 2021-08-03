@@ -763,9 +763,10 @@ contract ClearingHouse is
             );
     }
 
-    function getBuyingPower(address account) public view returns (uint256) {
-        int256 requiredCollateral = getRequiredCollateral(account);
-        int256 totalCollateralValue = IERC20Metadata(vault).balanceOf(account).toInt256();
+    function _getBuyingPower(address account) private view returns (uint256) {
+        int256 requiredCollateral =
+            _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
+        int256 totalCollateralValue = Vault(vault).balanceOf(account).toInt256();
         if (totalCollateralValue.lt(requiredCollateral, _settlementTokenDecimals)) {
             return 0;
         }
@@ -916,11 +917,6 @@ contract ClearingHouse is
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
     }
 
-    // @deprecated
-    function getRequiredCollateral(address account) public view override returns (int256) {
-        return _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
-    }
-
     function getTotalMarketPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
         uint256 tokenLen = _accountMap[trader].tokens.length;
@@ -1004,7 +1000,7 @@ contract ClearingHouse is
     // caller must ensure token is either base or quote and exists
     // mint max base or quote until the free collateral is zero
     function _mintMax(address trader, address token) private returns (uint256) {
-        uint256 buyingPower = getBuyingPower(trader);
+        uint256 buyingPower = _getBuyingPower(trader);
         if (buyingPower == 0) {
             TokenInfo memory tokenInfo = getTokenInfo(trader, token);
             uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
@@ -1523,6 +1519,7 @@ contract ClearingHouse is
     // INTERNAL VIEW FUNCTIONS
     //
 
+    // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
 
