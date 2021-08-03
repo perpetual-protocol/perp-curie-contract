@@ -583,24 +583,15 @@ contract ClearingHouse is
                 })
             );
 
-        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
-
         // trader's pnl-- as liquidation penalty
+        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(liquidationFee.toInt256());
-        // TokenInfo storage traderTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        // traderTokenInfo.debt = traderTokenInfo.debt.add(liquidationFee);
-        // _burnMax(trader, quoteToken);
-
-        address liquidator = _msgSender();
 
         // increase liquidator's pnl liquidation reward
+        address liquidator = _msgSender();
         _accountMap[liquidator].owedRealizedPnl = _accountMap[liquidator].owedRealizedPnl.add(
             liquidationFee.toInt256()
         );
-        // _mint(liquidator, quoteToken, liquidationFee, false);
-        // TokenInfo storage liquidatorTokenInfo = _accountMap[liquidator].tokenInfoMap[quoteToken];
-        // liquidatorTokenInfo.debt = liquidatorTokenInfo.debt.sub(liquidationFee);
-        // _burnMax(liquidator, quoteToken);
 
         emit PositionLiquidated(
             trader,
@@ -1497,7 +1488,6 @@ contract ClearingHouse is
         return swapResponse;
     }
 
-    // TODO settle funding to owedRealizedPnl, not quote available/debt
     function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
         uint256 historyLen = _fundingHistoryMap[baseToken].length;
         if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
@@ -1511,14 +1501,8 @@ contract ClearingHouse is
             return 0;
         }
 
-        int256 available = _accountMap[trader].tokenInfoMap[quoteToken].available.toInt256();
-        if (available < fundingPayment) {
-            int256 debt = _accountMap[trader].tokenInfoMap[quoteToken].debt.toInt256();
-            _accountMap[trader].tokenInfoMap[quoteToken].debt = debt.add(fundingPayment).toUint256();
-        } else {
-            _accountMap[trader].tokenInfoMap[quoteToken].available = available.sub(fundingPayment).toUint256();
-        }
-        _burnMax(trader, quoteToken);
+        // settle funding to owedRealizedPnl
+        _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
 
         emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
     }
