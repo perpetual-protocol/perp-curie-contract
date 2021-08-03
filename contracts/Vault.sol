@@ -156,12 +156,13 @@ contract Vault is ReentrancyGuard, Ownable {
 
         // accountValue = totalCollateralValue + totalMarketPnl
         int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(account);
-        int256 collateralValue = balanceOf(account).toInt256().add(owedRealizedPnl);
+        int256 collateralValue = balanceOf(account).toInt256().addS(owedRealizedPnl, decimals);
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
         int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
 
         // collateral
         int256 min = collateralValue < accountValue ? collateralValue : accountValue;
+
         return min.subS(openOrderMarginRequirement.toInt256(), decimals);
     }
 }
