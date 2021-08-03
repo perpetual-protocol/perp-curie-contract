@@ -772,7 +772,13 @@ contract ClearingHouse is
         }
 
         // totalCollateralValue > requiredCollateral
-        return totalCollateralValue.subS(requiredCollateral, _settlementTokenDecimals).toUint256();
+        return
+            totalCollateralValue
+                .subS(requiredCollateral, _settlementTokenDecimals)
+                .toUint256()
+                .parseSettlementToken(_settlementTokenDecimals)
+                .mul(1 ether)
+                .div(imRatio);
     }
 
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
@@ -1010,7 +1016,7 @@ contract ClearingHouse is
             return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
         }
 
-        uint256 minted = buyingPower.parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
+        uint256 minted = buyingPower;
         if (token != quoteToken) {
             // TODO: change the valuation method && align with baseDebt()
             minted = FullMath.mulDiv(minted, 1 ether, _getIndexPrice(token, 0));
