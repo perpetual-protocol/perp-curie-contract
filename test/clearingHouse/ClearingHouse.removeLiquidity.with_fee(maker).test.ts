@@ -565,7 +565,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 )
                 // quote diff:
                 // 0.1135501475 (bob swap) - 0.001135501475 (alice & carol removeLiquidity)
-                // - 0.1116454419 (CH gets (from swap); note the difference)
+                // - 0.1116454419 (CH gets (from swap))
                 // = 0.000769204125
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
                     parseEther("0.000769204070667421"),
@@ -790,11 +790,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     parseEther("420763085677868466.632071754987713111"),
                 ])
 
-                // TODO base token collected as fee should be burnt immediately and should not impact the diff
                 // verify CH balance changes
                 // base diff:
                 // 0.001625514583 (alice addLiquidity) + 0.000816820841 (carol addLiquidity)
-                // - 0.002281886641 (bob gets (from swap); note the difference)
+                // - 0.002281886641 (bob gets (from swap))
                 // + 0.002281886641 (bob swap)  = 0.002442335424
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
                     parseEther("0.002442335423326381"),
