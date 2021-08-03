@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2021-08-03
+
+### Added
+
+- add `InsuranceFund` contract
+- add `ClearingHouse.getBuyingPower()`
+- add `ClearingHouse.liquidate()`
+
+### Changed
+
+- change the interface of `ClearingHouse.addLiquidity()` and `ClearingHouse.removeLiquidity()`
+    - support slippage protection
+
+### Fixed
+
+- fix `ClearingHouse.swap()`
+    - fix `TransferHelper::SafeTransfer: Transfer Failed` when opening a short position
+- fix `ClearingHouse.getAccountValue()`
+
+## [0.1.4] - 2021-07-29
+
+### Changed
+
+- re-deployed all contracts
+
 ## [0.1.3] - 2021-07-28
 
 ### Changed
@@ -14,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - implemented quote-only fee
 - changed event parameters of `FundingRateUpdated`, `FundingSettled`, and `Swapped`:
 
-```sol
+```solidity
 event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
 
 event FundingSettled(
@@ -52,5 +77,3 @@ event Swapped(
 - move `ClearingHouse.deposit` to `Vault.deposit`
 - move `ClearingHouse.withdraw` to `Vault.withdraw`
 - move `ClearingHouse.getFreeCollateral` to `Vault.getFreeCollateral`
-
-### Removed
