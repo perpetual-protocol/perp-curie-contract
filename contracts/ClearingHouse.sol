@@ -1086,7 +1086,7 @@ contract ClearingHouse is
         // or closedRatio > 1 ** baseToken.decimals
         if (takerPositionSizeAbs > response.deltaAvailableBase) {
             // reduced ratio = abs(exchangedPosSize / takerPosSize)
-            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).div(1 ether);
+            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
             _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.sub(reducedOpenNotional);
 
             // alice long 1 ETH first, openNotional = -100
@@ -1105,7 +1105,7 @@ contract ClearingHouse is
             // then increase position: openNotional = remainsPositionNotional
             _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
 
-            realizedPnl = deltaAvailableQuote.add(oldOpenNotional);
+            realizedPnl = closedPositionNotional.add(oldOpenNotional);
         }
 
         // store realizedPnl
