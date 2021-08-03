@@ -1223,7 +1223,7 @@ contract ClearingHouse is
             );
             // burn base fee
             // base fee of all makers in the range of lowerTick and upperTick should be
-            // baseBalanceBefore - baseBalanceAfter - response.base
+            // baseBalanceAfter - baseBalanceBefore - response.base
             uint256 baseBalanceAfter = IERC20Metadata(params.baseToken).balanceOf(address(this));
             IMintableERC20(params.baseToken).burn(baseBalanceAfter.sub(baseBalanceBefore).sub(response.base));
 
