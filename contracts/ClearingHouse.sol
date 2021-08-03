@@ -1215,23 +1215,26 @@ contract ClearingHouse is
         require(params.liquidity <= openOrder.liquidity, "CH_NEL");
 
         address pool = _poolMap[params.baseToken];
-        mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
         UniswapV3Broker.RemoveLiquidityResponse memory response;
         {
-            bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
-            bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
+            uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
             response = UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
             );
+            // burn base fee
+            // base fee of all makers in the range of lowerTick and upperTick should be
+            // baseBalanceAfter - baseBalanceBefore - response.base
+            uint256 baseBalanceAfter = IERC20Metadata(params.baseToken).balanceOf(address(this));
+            IMintableERC20(params.baseToken).burn(baseBalanceAfter.sub(baseBalanceBefore).sub(response.base));
 
             base = response.base;
             quote = response.quote;
             // if flipped from initialized to uninitialized, clear the tick info
-            if (initializedBeforeLower && !UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-                tickMap.clear(params.lowerTick);
+            if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.lowerTick);
             }
-            if (initializedBeforeUpper && !UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-                tickMap.clear(params.upperTick);
+            if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.upperTick);
             }
         }
 
@@ -1249,7 +1252,6 @@ contract ClearingHouse is
                 })
             );
 
-        // TODO should burn base fee received instead of adding it to available amount
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         baseTokenInfo.available = baseTokenInfo.available.add(base);

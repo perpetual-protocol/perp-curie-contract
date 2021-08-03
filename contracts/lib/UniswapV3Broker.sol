@@ -119,7 +119,10 @@ library UniswapV3Broker {
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
-        // call collect to `transfer` tokens to CH, the amount including every trader pooled into the same range
+        // call collect to `transfer` tokens to CH
+        // we don't care about the returned values here as they include:
+        // 1. every maker's fee in the same range (ClearingHouse is the only maker in the pool's perspective)
+        // 2. the amount of token equivalent to liquidity burned
         IUniswapV3Pool(params.pool).collect(
             address(this),
             params.lowerTick,
