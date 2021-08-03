@@ -34,7 +34,11 @@ describe("ClearingHouse Spec", () => {
 
     describe("# settle", () => {
         it("force error, caller is not vault")
-        it("return available - debt")
-        it("burn available")
+        it("return and reset owedRealizedPnl")
+        describe("has no active position", () => {
+            it("burn available")
+            it("realizedPnl += quote - debt")
+            it("clear quote and debt")
+        })
     })
 })

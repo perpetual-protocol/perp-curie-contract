@@ -639,6 +639,8 @@ describe("ClearingHouse openPosition", () => {
             // expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq("0")
         })
 
+        it("open larger reverse position")
+
         // TODO: blocked by TWAP based _getDebtValue
         it.skip("force error, can't open another long if it's under collateral", async () => {
             // prepare collateral for carol
