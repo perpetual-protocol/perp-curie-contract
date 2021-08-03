@@ -1,7 +1,7 @@
 import { expect } from "chai"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -26,10 +26,10 @@ describe("ClearingHouse", () => {
         pool = _clearingHouseFixture.pool
 
         // mint
-        collateral.mint(admin.address, toWei(10000))
+        collateral.mint(admin.address, parseEther("10000"))
 
         // prepare collateral for alice
-        const amount = toWei(1000, await collateral.decimals())
+        const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
 
@@ -37,8 +37,8 @@ describe("ClearingHouse", () => {
         await clearingHouse.addPool(baseToken.address, 10000)
 
         // mint
-        const baseAmount = toWei(100, await baseToken.decimals())
-        const quoteAmount = toWei(10000, await quoteToken.decimals())
+        const baseAmount = parseUnits("100", await baseToken.decimals())
+        const quoteAmount = parseUnits("10000", await quoteToken.decimals())
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
@@ -52,11 +52,11 @@ describe("ClearingHouse", () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(10, await baseToken.decimals()),
+                    base: parseUnits("10", await baseToken.decimals()),
                     quote: 0,
                     lowerTick: 50200,
                     upperTick: 50400,
-                    minBase: toWei(11),
+                    minBase: parseEther("11"),
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }),
@@ -68,7 +68,7 @@ describe("ClearingHouse", () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(10, await baseToken.decimals()),
+                    base: parseUnits("10", await baseToken.decimals()),
                     quote: 0,
                     lowerTick: 50200,
                     upperTick: 50400,
@@ -92,11 +92,11 @@ describe("ClearingHouse", () => {
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
-                    quote: toWei(10000),
+                    quote: parseEther("10000"),
                     lowerTick: 50000,
                     upperTick: 50200,
                     minBase: 0,
-                    minQuote: toWei(10001),
+                    minQuote: parseEther("10001"),
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
@@ -106,11 +106,11 @@ describe("ClearingHouse", () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(1),
-                    quote: toWei(10000),
+                    base: parseEther("1"),
+                    quote: parseEther("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
-                    minBase: toWei(2),
+                    minBase: parseEther("2"),
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }),
@@ -118,24 +118,24 @@ describe("ClearingHouse", () => {
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(1),
-                    quote: toWei(10000),
+                    base: parseEther("1"),
+                    quote: parseEther("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
-                    minQuote: toWei(10001),
+                    minQuote: parseEther("10001"),
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei(1),
-                    quote: toWei(10000),
+                    base: parseEther("1"),
+                    quote: parseEther("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
-                    minBase: toWei(2),
-                    minQuote: toWei(10001),
+                    minBase: parseEther("2"),
+                    minQuote: parseEther("10001"),
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")

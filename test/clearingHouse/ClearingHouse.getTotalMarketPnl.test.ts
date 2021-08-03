@@ -3,7 +3,6 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -42,17 +41,17 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         await pool.initialize(encodePriceSqrt("100", "1"))
 
         // prepare collateral for maker
-        const makerCollateralAmount = toWei(1000000, collateralDecimals)
+        const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, toWei(10000))
-        await clearingHouse.connect(maker).mint(quoteToken.address, toWei(10000))
+        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("10000"))
+        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
-            base: toWei(100),
-            quote: toWei(10000),
+            base: parseEther("100"),
+            quote: parseEther("10000"),
             lowerTick,
             upperTick,
             minBase: 0,
@@ -61,7 +60,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
         })
 
         // prepare collateral for taker
-        const takerCollateral = toWei(10000, collateralDecimals)
+        const takerCollateral = parseUnits("10000", collateralDecimals)
         await collateral.mint(taker.address, takerCollateral)
         await deposit(taker, vault, 10000, collateral)
 

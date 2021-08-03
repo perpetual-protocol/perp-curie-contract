@@ -3,7 +3,6 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -36,10 +35,10 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         })
 
         // mint
-        collateral.mint(admin.address, toWei(10000, collateralDecimals))
+        collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
 
         // prepare collateral for alice
-        const amount = toWei(10, await collateral.decimals())
+        const amount = parseUnits("10", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 10, collateral)
 
@@ -53,7 +52,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         // accountValue = 10
         // freeCollateral = 0
         // alice adds liquidity (base only) above the current price
-        const baseAmount = toWei(1, await baseToken.decimals())
+        const baseAmount = parseUnits("1", await baseToken.decimals())
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
@@ -66,7 +65,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
             deadline: ethers.constants.MaxUint256,
         })
         expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-            toWei(0), // available
+            parseUnits("0"), // available
             baseAmount, // debt
         ])
     })
@@ -86,25 +85,25 @@ describe("ClearingHouse cancelExcessOrders()", () => {
 
         it("burn base or base-debt to 0", async () => {
             const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(toWei(0))
+            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
         })
 
         it("has either 0 quote-available or 0 quote-debt left", async () => {
             const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(toWei(0))
+            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
         })
     })
 
     describe("cancel alice's all open orders (multiple orders)", () => {
         beforeEach(async () => {
             // alice adds another liquidity (base only) above the current price
-            const amount = toWei(20, await collateral.decimals())
+            const amount = parseUnits("20", await collateral.decimals())
             await collateral.transfer(alice.address, amount)
             await deposit(alice, vault, 20, collateral)
 
-            const baseAmount = toWei(1, await baseToken.decimals())
+            const baseAmount = parseUnits("1", await baseToken.decimals())
             await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(alice).mint(quoteToken.address, toWei(100))
+            await clearingHouse.connect(alice).mint(quoteToken.address, parseUnits("100"))
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: baseAmount,
@@ -131,12 +130,12 @@ describe("ClearingHouse cancelExcessOrders()", () => {
 
         it("has either 0 base-available or 0 base-debt left", async () => {
             const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(toWei(0))
+            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
         })
 
         it("has either 0 quote-available or 0 quote-debt left", async () => {
             const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(toWei(0))
+            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
         })
     })
 

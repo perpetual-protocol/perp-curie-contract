@@ -2,9 +2,9 @@ import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
+import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -31,10 +31,10 @@ describe("ClearingHouse", () => {
         collateralDecimals = await collateral.decimals()
 
         // mint
-        collateral.mint(admin.address, toWei(10000, collateralDecimals))
+        collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
 
         // prepare collateral for alice
-        const amount = toWei(1000, await collateral.decimals())
+        const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
 
@@ -42,8 +42,8 @@ describe("ClearingHouse", () => {
         await clearingHouse.addPool(baseToken.address, 10000)
 
         // mint
-        const baseAmount = toWei(100, await baseToken.decimals())
-        const quoteAmount = toWei(10000, await quoteToken.decimals())
+        const baseAmount = parseUnits("100", await baseToken.decimals())
+        const quoteAmount = parseUnits("10000", await quoteToken.decimals())
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
@@ -66,7 +66,7 @@ describe("ClearingHouse", () => {
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: 0,
-                        quote: toWei(10000, await quoteToken.decimals()),
+                        quote: parseUnits("10000", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
                         minBase: 0,
@@ -82,19 +82,19 @@ describe("ClearingHouse", () => {
                         50000,
                         50200,
                         0,
-                        toWei(10000, await quoteToken.decimals()),
+                        parseUnits("10000", await quoteToken.decimals()),
                         "81689571696303801037492",
                         0,
                     )
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei(100, await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("100", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(0, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("0", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -106,14 +106,14 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
                     50200, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(10000, await quoteToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 )
             })
 
@@ -128,8 +128,8 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(1, await quoteToken.decimals()),
-                        quote: toWei(10000, await quoteToken.decimals()),
+                        base: parseUnits("1", await quoteToken.decimals()),
+                        quote: parseUnits("10000", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
                         minBase: 0,
@@ -145,19 +145,19 @@ describe("ClearingHouse", () => {
                         50000,
                         50200,
                         0,
-                        toWei(10000, await quoteToken.decimals()),
+                        parseUnits("10000", await quoteToken.decimals()),
                         "81689571696303801037492",
                         0,
                     )
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei(100, await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("100", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(0, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("0", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -169,14 +169,14 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
                     50200, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(10000, await quoteToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 )
             })
 
@@ -192,7 +192,7 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(100, await baseToken.decimals()),
+                        base: parseUnits("100", await baseToken.decimals()),
                         quote: 0,
                         lowerTick: 50200,
                         upperTick: 50400,
@@ -208,7 +208,7 @@ describe("ClearingHouse", () => {
                         quoteToken.address,
                         50200,
                         50400,
-                        toWei(100, await baseToken.decimals()),
+                        parseUnits("100", await baseToken.decimals()),
                         0,
                         "123656206035422669342231",
                         0,
@@ -216,12 +216,12 @@ describe("ClearingHouse", () => {
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei(0, await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("0", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(10000, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("10000", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -233,13 +233,13 @@ describe("ClearingHouse", () => {
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
                     50400, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(100, await baseToken.decimals()),
+                    parseUnits("100", await baseToken.decimals()),
                 )
                 expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
             })
@@ -255,8 +255,8 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(100, await baseToken.decimals()),
-                        quote: toWei(1, await baseToken.decimals()),
+                        base: parseUnits("100", await baseToken.decimals()),
+                        quote: parseUnits("1", await baseToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
                         minBase: 0,
@@ -271,7 +271,7 @@ describe("ClearingHouse", () => {
                         quoteToken.address,
                         50200,
                         50400,
-                        toWei(100, await baseToken.decimals()),
+                        parseUnits("100", await baseToken.decimals()),
                         0,
                         "123656206035422669342231",
                         0,
@@ -279,12 +279,12 @@ describe("ClearingHouse", () => {
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei(0, await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("0", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(10000, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("10000", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -296,13 +296,13 @@ describe("ClearingHouse", () => {
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
                     50400, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(100, await baseToken.decimals()),
+                    parseUnits("100", await baseToken.decimals()),
                 )
                 expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
             })
@@ -318,8 +318,8 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei("100", await baseToken.decimals()),
-                        quote: toWei(10000, await quoteToken.decimals()),
+                        base: parseUnits("100", await baseToken.decimals()),
+                        quote: parseUnits("10000", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
                         minBase: 0,
@@ -334,20 +334,20 @@ describe("ClearingHouse", () => {
                         quoteToken.address,
                         50000,
                         50400,
-                        toWei("66.061845430469484023", await baseToken.decimals()),
-                        toWei(10000, await quoteToken.decimals()),
+                        parseUnits("66.061845430469484023", await baseToken.decimals()),
+                        parseUnits("10000", await quoteToken.decimals()),
                         "81689571696303801018159",
                         0,
                     )
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei("33.938154569530515977", await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("33.938154569530515977", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(0, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("0", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -359,16 +359,16 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801018159"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei("66.061845430469484023", await baseToken.decimals()),
+                    parseUnits("66.061845430469484023", await baseToken.decimals()),
                 )
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(10000, await quoteToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 )
             })
 
@@ -383,8 +383,8 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(50, await baseToken.decimals()),
-                        quote: toWei(10000, await quoteToken.decimals()),
+                        base: parseUnits("50", await baseToken.decimals()),
+                        quote: parseUnits("10000", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
                         minBase: 0,
@@ -399,7 +399,7 @@ describe("ClearingHouse", () => {
                         quoteToken.address,
                         50000,
                         50400,
-                        toWei(50, await baseToken.decimals()),
+                        parseUnits("50", await baseToken.decimals()),
                         "7568665342936161336147",
                         "61828103017711334685748",
                         0,
@@ -407,12 +407,12 @@ describe("ClearingHouse", () => {
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei(50, await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("50", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei("2431.334657063838663853", await baseToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("2431.334657063838663853", await baseToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -424,13 +424,13 @@ describe("ClearingHouse", () => {
                     BigNumber.from("61828103017711334685748"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(50, await baseToken.decimals()),
+                    parseUnits("50", await baseToken.decimals()),
                 )
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
                     "7568665342936161336147",
@@ -447,8 +447,8 @@ describe("ClearingHouse", () => {
                 // alice collateral = 1000, freeCollateral = 10,000, mint 66.06184541 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei("33.030922715234742012", await baseToken.decimals()),
-                    quote: toWei(5000, await quoteToken.decimals()),
+                    base: parseUnits("33.030922715234742012", await baseToken.decimals()),
+                    quote: parseUnits("5000", await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
                     minBase: 0,
@@ -458,8 +458,8 @@ describe("ClearingHouse", () => {
 
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: toWei("33.030922715234742012", await baseToken.decimals()),
-                    quote: toWei(5000, await quoteToken.decimals()),
+                    base: parseUnits("33.030922715234742012", await baseToken.decimals()),
+                    quote: parseUnits("5000", await quoteToken.decimals()),
                     lowerTick: 50000, // from CH's perspective, lowerTick & upperTick is still based on quote/base price, so the number is positive in our test case
                     upperTick: 50400,
                     minBase: 0,
@@ -469,12 +469,12 @@ describe("ClearingHouse", () => {
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    toWei("33.938154569530515976", await baseToken.decimals()), // available
-                    toWei(100, await baseToken.decimals()), // debt
+                    parseUnits("33.938154569530515976", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    toWei(0, await quoteToken.decimals()), // available
-                    toWei(10000, await quoteToken.decimals()), // debt
+                    parseUnits("0", await quoteToken.decimals()), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
@@ -486,16 +486,16 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801018158"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    toWei(0, await baseToken.decimals()), // feeGrowthInsideLastBase
-                    toWei(0, await quoteToken.decimals()), // feeGrowthInsideLastQuote
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
                 expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei("66.061845430469484024", await baseToken.decimals()),
+                    parseUnits("66.061845430469484024", await baseToken.decimals()),
                 )
                 expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    toWei(10000, await quoteToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 )
             })
 
@@ -522,7 +522,7 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(1, await baseToken.decimals()),
+                        base: parseUnits("1", await baseToken.decimals()),
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50200,
@@ -539,7 +539,7 @@ describe("ClearingHouse", () => {
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: 0,
-                        quote: toWei(1, await quoteToken.decimals()),
+                        quote: parseUnits("1", await quoteToken.decimals()),
                         lowerTick: 50200,
                         upperTick: 50400,
                         minBase: 0,
@@ -554,7 +554,7 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(50, await baseToken.decimals()),
+                        base: parseUnits("50", await baseToken.decimals()),
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
@@ -571,7 +571,7 @@ describe("ClearingHouse", () => {
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: 0,
-                        quote: toWei(10001, await quoteToken.decimals()),
+                        quote: parseUnits("10001", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
                         minBase: 0,
@@ -586,7 +586,7 @@ describe("ClearingHouse", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: toWei(101, await quoteToken.decimals()),
+                        base: parseUnits("101", await quoteToken.decimals()),
                         quote: 0,
                         lowerTick: 50000,
                         upperTick: 50400,
@@ -603,7 +603,7 @@ describe("ClearingHouse", () => {
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: 0,
-                        quote: toWei(1, await quoteToken.decimals()),
+                        quote: parseUnits("1", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50400,
                         minBase: 0,
