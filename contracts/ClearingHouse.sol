@@ -102,7 +102,7 @@ contract ClearingHouse is
     //
 
     struct Account {
-        // realized pnl but haven't settle to collateral
+        // realized pnl but haven't settle to collateral, vToken decimals
         int256 owedRealizedPnl;
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
@@ -1028,6 +1028,7 @@ contract ClearingHouse is
         }
     }
 
+    // expensive
     function _deregisterBaseToken(address account, address baseToken) private {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
         TokenInfo memory tokenInfo = _accountMap[account].tokenInfoMap[baseToken];
@@ -1151,6 +1152,7 @@ contract ClearingHouse is
 
         // TODO refactor with settle()
         _accountMap[account].owedRealizedPnl = _accountMap[account].owedRealizedPnl.add(deltaPnl);
+
         TokenInfo storage quoteTokenInfo = _accountMap[account].tokenInfoMap[quoteToken];
         uint256 deltaPnlAbs = deltaPnl.abs();
         if (deltaPnl > 0) {
@@ -1508,6 +1510,13 @@ contract ClearingHouse is
         // TODO remove this once implementing "only mint desired amount during callback"
         _burnMax(params.trader, params.baseToken);
         _burnMax(params.trader, quoteToken);
+
+        // if this is the last position being closed, settle the remaining quote
+        // must after burnMax(quote)
+        if (_accountMap[params.trader].tokens.length == 0) {
+            TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
+            _realizePnl(params.trader, quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256()));
+        }
 
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
