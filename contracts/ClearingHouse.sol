@@ -753,10 +753,12 @@ contract ClearingHouse is
         return _poolMap[baseToken];
     }
 
+    // TODO add owedRealizedPnl
     function getAccountValue(address trader) public view returns (int256) {
+        int256 owedRealizedPnlWithTotalMarketPnl = getOwedRealizedPnl(trader).add(getTotalMarketPnl(trader));
         return
             IERC20Metadata(vault).balanceOf(trader).toInt256().addS(
-                getTotalMarketPnl(trader),
+                owedRealizedPnlWithTotalMarketPnl,
                 _settlementTokenDecimals
             );
     }
@@ -819,7 +821,7 @@ contract ClearingHouse is
         return _accountMap[trader].openNotionalMap[token];
     }
 
-    function getOwedRealizedPnl(address trader) external view returns (int256) {
+    function getOwedRealizedPnl(address trader) public view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
     }
 
@@ -1479,55 +1481,9 @@ contract ClearingHouse is
                 })
             );
 
-        // insufficientAmount = max(actualSwapped - availableBefore, 0)
-        // shouldBurn = minted - insufficientAmount
-        //
-        // examples:
-        //
-        // 1.
-        // before = 0, mint max +1000
-        // swap 1 eth required 100 (will mint 100 if we have quoter)
-        // quote = 900
-        // toBurn = minted(1000) - insufficientAmount(100) = 900
-        // insufficientAmount = max((swapped(100) - before (0)), 0) = 100
-        //
-        // 2.
-        // before = 50, mint max +950
-        // swap 1 eth required 100 (will mint 50 if we have quoter)
-        // quote = 900
-        // toBurn = minted(950) - insufficientAmount(50) = 900
-        // insufficientAmount = max((swapped(100) - before (50)), 0) = 50
-        //
-        // 3.
-        // before = 200, mint max +700
-        // swap 1 eth required 100 (will mint 0 if we have quoter)
-        // quote = 900
-        // toBurn = minted(700) - insufficientAmount(0) = 700
-        // insufficientAmount = max((swapped(100) - before (200)), 0) = 0
-
-        // console.log("after swap");
-        uint256 insufficientAmount;
-        if (params.isBaseToQuote) {
-            if (swapResponse.deltaAvailableBase > baseAvailableBefore) {
-                insufficientAmount = swapResponse.deltaAvailableBase.sub(baseAvailableBefore);
-            }
-
-            if (minted > insufficientAmount) {
-                _burn(params.trader, params.baseToken, minted.sub(insufficientAmount));
-            }
-            // settle trader's quote available and debt
-            _burnMax(params.trader, quoteToken);
-        } else {
-            if (swapResponse.deltaAvailableQuote > quoteAvailableBefore) {
-                insufficientAmount = swapResponse.deltaAvailableQuote.sub(quoteAvailableBefore);
-            }
-
-            if (minted > insufficientAmount) {
-                _burn(params.trader, quoteToken, minted.sub(insufficientAmount));
-            }
-            // settle trader's base available and debt
-            _burnMax(params.trader, params.baseToken);
-        }
+        // TODO remove this once implementing "only mint desired amount during callback"
+        _burnMax(params.trader, params.baseToken);
+        _burnMax(params.trader, quoteToken);
 
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
