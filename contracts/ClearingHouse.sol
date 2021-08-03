@@ -714,6 +714,8 @@ contract ClearingHouse is
         Account storage accountStorage = _accountMap[account];
         int256 pnl = accountStorage.owedRealizedPnl;
         accountStorage.owedRealizedPnl = 0;
+
+        // TODO should check quote in pool as well
         if (accountStorage.tokens.length > 0) {
             return pnl;
         }
@@ -821,7 +823,7 @@ contract ClearingHouse is
         return _accountMap[trader].openNotionalMap[token];
     }
 
-    function getOwedRealizedPnl(address trader) public view returns (int256) {
+    function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
     }
 
@@ -842,7 +844,7 @@ contract ClearingHouse is
     }
 
     function getTotalTokenAmountInPool(address trader, address baseToken)
-        external
+        public
         view
         returns (uint256 base, uint256 quote)
     {
@@ -987,8 +989,8 @@ contract ClearingHouse is
         tokenInfo.available = tokenInfo.available.sub(amount);
         tokenInfo.debt = tokenInfo.debt.sub(amount);
 
-        if (tokenInfo.available == 0 && tokenInfo.debt == 0) {
-            delete _accountMap[account].tokenInfoMap[token];
+        if (token != quoteToken) {
+            _deregisterBaseToken(account, token);
         }
 
         IMintableERC20(token).burn(amount);
@@ -1023,6 +1025,33 @@ contract ClearingHouse is
         uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
+        }
+    }
+
+    function _deregisterBaseToken(address account, address baseToken) private {
+        // TODO add test: open long, add pool, now tokenInfo is cleared,
+        TokenInfo memory tokenInfo = _accountMap[account].tokenInfoMap[baseToken];
+        if (tokenInfo.available > 0 || tokenInfo.debt > 0) {
+            return;
+        }
+
+        (uint256 baseInPool, uint256 quoteInPool) = getTotalTokenAmountInPool(account, baseToken);
+        if (baseInPool > 0 || quoteInPool > 0) {
+            return;
+        }
+
+        delete _accountMap[account].tokenInfoMap[baseToken];
+
+        uint256 length = _accountMap[account].tokens.length;
+        for (uint256 i; i < length; i++) {
+            if (_accountMap[account].tokens[i] == baseToken) {
+                // if the removal item is the last one, just `pop`
+                if (i != length - 1) {
+                    _accountMap[account].tokens[i] = _accountMap[account].tokens[length - 1];
+                }
+                _accountMap[account].tokens.pop();
+                break;
+            }
         }
     }
 
