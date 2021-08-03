@@ -810,7 +810,6 @@ contract ClearingHouse is
         return _accountMap[trader].tokenInfoMap[token];
     }
 
-    // TODO hide it
     function getOpenNotional(address trader, address token) public view returns (int256) {
         return _accountMap[trader].openNotionalMap[token];
     }
@@ -1056,7 +1055,6 @@ contract ClearingHouse is
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
-        // function _increasePosition
         // increase position if old/new position are in the same direction
         if (takerPositionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
             response = _swap(params);
@@ -1070,8 +1068,7 @@ contract ClearingHouse is
             return response;
         }
 
-        // function _openReversePosition
-        // check if it's opening a larger reverse position
+        // else: openReversePosition
         response = _swap(params);
 
         uint256 takerPositionSizeAbs = takerPositionSize.abs();
@@ -1080,14 +1077,13 @@ contract ClearingHouse is
         uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, takerPositionSizeAbs);
 
         // TODO change _swap.response.deltaAvailableQuote to int
-        // after swapCallback mint task
         deltaAvailableQuote = params.isBaseToQuote
             ? response.deltaAvailableQuote.toInt256()
             : -response.deltaAvailableQuote.toInt256();
 
+        int256 realizedPnl;
         // reduce position if old position size is larger
         // or closedRatio > 1 ** baseToken.decimals
-        int256 realizedPnl;
         if (takerPositionSizeAbs > response.deltaAvailableBase) {
             // reduced ratio = abs(exchangedPosSize / takerPosSize)
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).div(1 ether);
@@ -1101,16 +1097,18 @@ contract ClearingHouse is
             // realizedPnl = exchangedPositionNotional + reducedOpenNotional
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
-            // opens a larger reverse position
+            // else: opens a larger reverse position
             int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
             int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
 
-            // close position, reset openNotional, then set to remainsPositionNotional
+            // close position: openNotional = 0
+            // then increase position: openNotional = remainsPositionNotional
             _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
 
             realizedPnl = deltaAvailableQuote.add(oldOpenNotional);
         }
 
+        // store realizedPnl
         _accountMap[params.trader].owedRealizedPnl = _accountMap[params.trader].owedRealizedPnl.add(realizedPnl);
         return response;
     }
