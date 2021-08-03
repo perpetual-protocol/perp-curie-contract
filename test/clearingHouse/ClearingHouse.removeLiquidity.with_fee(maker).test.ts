@@ -1,8 +1,7 @@
 import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { toWei } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -29,10 +28,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         const collateralDecimals = await collateral.decimals()
 
         // mint
-        collateral.mint(admin.address, toWei(10000, collateralDecimals))
+        collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
 
         // prepare collateral for alice
-        const amount = toWei(1000, await collateral.decimals())
+        const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
 
@@ -48,8 +47,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         await clearingHouse.addPool(baseToken.address, 10000)
 
         // mint
-        const baseAmount = toWei(100, await baseToken.decimals())
-        const quoteAmount = toWei(10000, await quoteToken.decimals())
+        const baseAmount = parseUnits("100", await baseToken.decimals())
+        const quoteAmount = parseUnits("10000", await quoteToken.decimals())
         await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
         await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
