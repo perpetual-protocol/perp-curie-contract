@@ -719,11 +719,11 @@ contract ClearingHouse is
         Account storage accountStorage = _accountMap[account];
         int256 pnl = accountStorage.owedRealizedPnl;
         accountStorage.owedRealizedPnl = 0;
-        if (accountStorage.tokens.length > 1) {
+        if (accountStorage.tokens.length > 0) {
             return pnl;
         }
 
-        // TODO settle quote if all position are closed
+        // settle quote if all position are closed
         TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
         if (quoteInfo.available >= quoteInfo.debt) {
             // profit
@@ -810,11 +810,11 @@ contract ClearingHouse is
         return _accountMap[trader].tokenInfoMap[token];
     }
 
-    function getOpenNotional(address trader, address token) public view returns (int256) {
+    function getOpenNotional(address trader, address token) external view returns (int256) {
         return _accountMap[trader].openNotionalMap[token];
     }
 
-    function getOwedRealizedPnl(address trader) public view returns (int256) {
+    function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
     }
 
