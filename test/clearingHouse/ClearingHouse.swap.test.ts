@@ -256,7 +256,6 @@ describe("ClearingHouse.swap", () => {
         })
 
         describe("swap reverse and larger amount, only fee loss", () => {
-            let closedNotional
             beforeEach(async () => {
                 // bob opens a larger reverse position (short)
                 await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
@@ -269,7 +268,6 @@ describe("ClearingHouse.swap", () => {
                     amount: parseEther("400"),
                     sqrtPriceLimitX96: 0,
                 })
-                const posSizeAfter = await clearingHouse.getPositionSize(bob.address, baseToken.address)
             })
 
             it("realizedPnl is negative", async () => {
@@ -278,13 +276,13 @@ describe("ClearingHouse.swap", () => {
                 // closedNotional = 400/(38.3990039298/19.839679358717434869) = 206.6686875002
                 // pnl = 206.6686875002 - 250 = -43.3313124998
                 const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
-                expect(pnl).eq(parseEther("43.331312499999999962"))
+                expect(pnl).eq(parseEther("-43.331312499999999962"))
             })
 
             it("reverse open notional 's signed", async () => {
-                // 400 - 214.8348673525 = 185.1651326475
+                // 400 - 206.6686875002 = 193.3313124998
                 const openNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
-                expect(openNotional).deep.eq(parseEther("400").sub(closedNotional))
+                expect(openNotional).eq(parseEther("193.331312499999999962"))
             })
         })
     })
