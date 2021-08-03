@@ -12,8 +12,9 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { IVault } from "./interface/IVault.sol";
 
-contract Vault is ReentrancyGuard, Ownable {
+contract Vault is ReentrancyGuard, Ownable, IVault {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for int256;
@@ -28,7 +29,7 @@ contract Vault is ReentrancyGuard, Ownable {
     address public immutable settlementToken;
     address public clearingHouse;
 
-    uint8 public immutable decimals;
+    uint8 public immutable override decimals;
 
     // those 4 are not used until multi collateral is implemented
     // uint256 public maxCloseFactor;
@@ -94,7 +95,7 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     // expensive call
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         uint256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];

@@ -26,7 +26,7 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { Validation } from "./base/Validation.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
-import { Vault } from "./Vault.sol";
+import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract ClearingHouse is
@@ -310,7 +310,7 @@ contract ClearingHouse is
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
 
-        _settlementTokenDecimals = Vault(vault).decimals();
+        _settlementTokenDecimals = IVault(vault).decimals();
     }
 
     //
@@ -753,20 +753,22 @@ contract ClearingHouse is
         return _poolMap[baseToken];
     }
 
-    // TODO add owedRealizedPnl
-    function getAccountValue(address trader) public view returns (int256) {
-        int256 owedRealizedPnlWithTotalMarketPnl = getOwedRealizedPnl(trader).add(getTotalMarketPnl(trader));
-        return
-            IERC20Metadata(vault).balanceOf(trader).toInt256().addS(
-                owedRealizedPnlWithTotalMarketPnl,
-                _settlementTokenDecimals
-            );
+    // return in settlement token decimals
+    function getAccountValue(address account) public view returns (int256) {
+        return _getTotalCollateralValue(account).addS(getTotalMarketPnl(account), _settlementTokenDecimals);
     }
 
+    // return in settlement token decimals
+    function _getTotalCollateralValue(address account) private view returns (int256) {
+        int256 owedRealizedPnl = _accountMap[account].owedRealizedPnl;
+        return IVault(vault).balanceOf(account).toInt256().addS(owedRealizedPnl, _settlementTokenDecimals);
+    }
+
+    // return in virtual token decimals
     function _getBuyingPower(address account) private view returns (uint256) {
         int256 requiredCollateral =
             _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
-        int256 totalCollateralValue = Vault(vault).balanceOf(account).toInt256();
+        int256 totalCollateralValue = _getTotalCollateralValue(account);
         if (totalCollateralValue.lt(requiredCollateral, _settlementTokenDecimals)) {
             return 0;
         }
