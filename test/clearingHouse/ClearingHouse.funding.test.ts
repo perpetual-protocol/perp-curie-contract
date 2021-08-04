@@ -1,12 +1,12 @@
 import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
-import { BigNumber } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
+import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
@@ -92,17 +92,6 @@ describe("ClearingHouse.funding", () => {
         // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
         //  check why is that the case
     })
-
-    async function forward(seconds: number) {
-        const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
-        await waffle.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + seconds])
-        await waffle.provider.send("evm_mine", [])
-    }
-
-    async function getQuoteAvailable(account: string): Promise<BigNumber> {
-        const quoteTokenInfo = await clearingHouse.getTokenInfo(account, quoteToken.address)
-        return quoteTokenInfo.available
-    }
 
     describe("# getPendingFundingPayment", () => {
         it("has no pending funding payment before any update funding", async () => {
@@ -273,7 +262,6 @@ describe("ClearingHouse.funding", () => {
     })
 
     describe("# settleFunding - receiving funding", () => {
-        let prevQuoteAvailable
         beforeEach(async () => {
             // so bob has some liquidity to remove for a future test
             await clearingHouse.connect(bob).addLiquidity({
@@ -300,7 +288,6 @@ describe("ClearingHouse.funding", () => {
                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
             })
             await clearingHouse.updateFunding(baseToken.address)
-            prevQuoteAvailable = await getQuoteAvailable(bob.address)
         })
 
         it("settle directly", async () => {
@@ -313,16 +300,15 @@ describe("ClearingHouse.funding", () => {
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
 
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
 
             // should not settle again
-            prevQuoteAvailable = await getQuoteAvailable(bob.address)
             await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
                 clearingHouse,
                 "FundingSettled",
             )
-            expect(await getQuoteAvailable(bob.address)).eq(prevQuoteAvailable)
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -335,7 +321,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -348,7 +334,7 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -382,7 +368,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
             // 1 + 0.012375003379192556 = 1.012375003379192556
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("1012375003379192556")
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -406,7 +392,8 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
+
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -431,7 +418,8 @@ describe("ClearingHouse.funding", () => {
                     1, // one funding history item
                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
                 )
-            expect((await getQuoteAvailable(bob.address)).sub(prevQuoteAvailable)).eq("12375003379192556")
+
+            expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
         })
 
@@ -440,17 +428,12 @@ describe("ClearingHouse.funding", () => {
         })
 
         describe("paying funding payment", () => {
-            let carolNetQuoteBefore
-
             beforeEach(async () => {
                 // carol long
                 await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
                 await deposit(carol, vault, 1000, collateral)
 
                 await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("200"))
-                const carolQuoteInfoBefore = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-                carolNetQuoteBefore = carolQuoteInfoBefore.available.sub(carolQuoteInfoBefore.debt)
-
                 await clearingHouse.connect(carol).swap({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
@@ -484,17 +467,13 @@ describe("ClearingHouse.funding", () => {
                 })
                 await clearingHouse.updateFunding(baseToken.address)
                 await clearingHouse.settleFunding(carol.address, baseToken.address)
+
+                expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq(0)
             })
 
             it("decrease net quote balance", async () => {
-                const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-                const carolNetQuoteAfter = carolQuoteInfoAfter.available.sub(carolQuoteInfoAfter.debt)
-                expect(carolNetQuoteBefore.sub(carolNetQuoteAfter).gt(0)).be.true
-            })
-
-            it("execute burnMax to clear quote's debt and quote, either one of them is 0", async () => {
-                const carolQuoteInfoAfter = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-                expect(carolQuoteInfoAfter.debt.mul(carolQuoteInfoAfter.available)).eq(0)
+                const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(carol.address)
+                expect(owedRealizedPnl.lt(0)).be.true
             })
         })
     })

@@ -11,14 +11,17 @@ import { ISettlement } from "./interface/ISettlement.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
+import { IVault } from "./interface/IVault.sol";
 
-contract Vault is ReentrancyGuard, Ownable {
+contract Vault is ReentrancyGuard, Ownable, IVault {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeCast for int256;
     using SignedSafeMath for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
+    using PerpMath for int256;
 
     event Deposited(address indexed collateralToken, address indexed account, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed account, uint256 amount);
@@ -26,7 +29,7 @@ contract Vault is ReentrancyGuard, Ownable {
     address public immutable settlementToken;
     address public clearingHouse;
 
-    uint8 public immutable decimals;
+    uint8 public immutable override decimals;
 
     // those 4 are not used until multi collateral is implemented
     // uint256 public maxCloseFactor;
@@ -71,18 +74,28 @@ contract Vault is ReentrancyGuard, Ownable {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
-        address trader = _msgSender();
+        address account = _msgSender();
+
+        // settle ClearingHouse's owedRealizedPnl to collateral
+        int256 pnl = ClearingHouse(clearingHouse).settle(account);
+        if (pnl > 0) {
+            _increaseBalance(account, settlementToken, pnl.toUint256());
+        } else if (pnl < 0) {
+            _decreaseBalance(account, settlementToken, pnl.abs());
+        }
+
         // V_NEB: not enough balance
-        require(_getBalance(trader, token) >= amount, "V_NEB");
-        _decreaseBalance(trader, token, amount);
+        require(_getBalance(account, token) >= amount, "V_NEB");
+        _decreaseBalance(account, token, amount);
 
         // V_NEFC: not enough free collateral
-        require(_getFreeCollateral(trader) >= 0, "V_NEFC");
-        TransferHelper.safeTransfer(token, trader, amount);
-        emit Withdrawn(token, trader, amount);
+        require(_getFreeCollateral(account) >= 0, "V_NEFC");
+        TransferHelper.safeTransfer(token, account, amount);
+        emit Withdrawn(token, account, amount);
     }
 
-    function balanceOf(address account) public view returns (uint256) {
+    // expensive call
+    function balanceOf(address account) public view override returns (uint256) {
         uint256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
@@ -136,21 +149,21 @@ contract Vault is ReentrancyGuard, Ownable {
         return _balance[account][token];
     }
 
-    function _getFreeCollateral(address trader) private view returns (int256) {
-        // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
+    // TODO reduce external calls
+    // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+    function _getFreeCollateral(address account) private view returns (int256) {
+        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
+        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(account);
 
-        // calculate minAccountValue = min(collateral, accountValue)
-        int256 accountValue = _getAccountValue(trader);
-        uint256 minAccountValue;
-        if (accountValue > 0) {
-            minAccountValue = Math.min(balanceOf(trader), accountValue.toUint256());
-        }
-        return minAccountValue.toInt256().subS(openOrderMarginRequirement.toInt256(), decimals);
-    }
+        // accountValue = totalCollateralValue + totalMarketPnl
+        int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(account);
+        int256 collateralValue = balanceOf(account).toInt256().addS(owedRealizedPnl, decimals);
+        int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(account);
+        int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
 
-    function _getAccountValue(address account) private view returns (int256) {
-        int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalMarketPnl(account);
-        return balanceOf(account).toInt256().addS(totalMarketPnl, decimals);
+        // collateral
+        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
+
+        return min.subS(openOrderMarginRequirement.toInt256(), decimals);
     }
 }

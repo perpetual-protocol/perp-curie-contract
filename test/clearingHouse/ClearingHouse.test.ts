@@ -42,14 +42,14 @@ describe("ClearingHouse", () => {
         await collateral.connect(alice).approve(clearingHouse.address, amount)
     })
 
-    describe("# buying power", () => {
-        it("increase buying power after deposit to vault", async () => {
+    describe("# freeCollateral", () => {
+        it("increase freeCollateral after deposit to vault", async () => {
             const amount = parseUnits("100", await collateral.decimals())
 
             await deposit(alice, vault, 100, collateral)
 
             // check collateral status
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.deep.eq(amount)
+            expect(await vault.getFreeCollateral(alice.address)).to.deep.eq(amount)
 
             // check alice balance
             expect(await collateral.balanceOf(alice.address)).to.eq(parseUnits("900", await collateral.decimals()))
@@ -77,8 +77,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify buying power = 1000 - 10,000 * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1000 - 10,000 * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint base and sends an event", async () => {
@@ -90,8 +90,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1,000 - 100 * 100 * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint base twice", async () => {
@@ -106,8 +106,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, baseToken.address, baseAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify buying power = 1,000 - 100 * 100 * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1,000 - 100 * 100 * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint both and sends an event", async () => {
@@ -123,8 +123,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify buying power = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1,000 - max(1000 * 10, 10,000) * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint equivalent base and quote", async () => {
@@ -140,8 +140,8 @@ describe("ClearingHouse", () => {
                 .withArgs(alice.address, quoteToken.address, quoteAmount)
 
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify buying power = 1,000 - (500 * 10 + 5,000) * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1,000 - (500 * 10 + 5,000) * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         it("alice mint non-equivalent base and quote", async () => {
@@ -159,8 +159,8 @@ describe("ClearingHouse", () => {
             expect(await clearingHouse.getAccountValue(alice.address)).to.eq(
                 parseUnits("1000", await collateralDecimals),
             )
-            // verify buying power = 1,000 - (600 * 10 + 4,000) * 0.1 = 0
-            expect(await clearingHouse.getBuyingPower(alice.address)).to.eq(0)
+            // verify freeCollateral = 1,000 - (600 * 10 + 4,000) * 0.1 = 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
         })
 
         // @audit - register is a private method, we don't need to worry about its behavior (@wraecca)
