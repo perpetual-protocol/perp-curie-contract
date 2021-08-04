@@ -1155,11 +1155,14 @@ contract ClearingHouse is
 
         TokenInfo storage quoteTokenInfo = _accountMap[account].tokenInfoMap[quoteToken];
         uint256 deltaPnlAbs = deltaPnl.abs();
+        // has profit
         if (deltaPnl > 0) {
             quoteTokenInfo.available = quoteTokenInfo.available.sub(deltaPnlAbs);
+            IMintableERC20(quoteToken).burn(deltaPnlAbs);
             return;
         }
 
+        // deltaPnl < 0 (has loss)
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
@@ -1507,7 +1510,6 @@ contract ClearingHouse is
                 })
             );
 
-        // TODO remove this once implementing "only mint desired amount during callback"
         _burnMax(params.trader, params.baseToken);
         _burnMax(params.trader, quoteToken);
 
