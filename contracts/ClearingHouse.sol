@@ -19,6 +19,7 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { FeeMath } from "./lib/FeeMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
@@ -1133,7 +1134,7 @@ contract ClearingHouse is
         uint256 amount = params.amount;
         if (params.isBaseToQuote) {
             // mint extra base token before swap
-            amount = _calcScaledAmount(pool, params.amount, true);
+            amount = FeeMath.calcScaledAmount(pool, params.amount, true);
             // not use _mint() here since it will change trader's baseToken available/debt
             IMintableERC20(baseTokenAddr).mint(address(this), amount.sub(params.amount));
         }
@@ -1245,7 +1246,7 @@ contract ClearingHouse is
 
             if (params.isBaseToQuote) {
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(_calcScaledAmount(pool, response.base, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, response.base, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
                 exchangedPositionNotional = response.quote.toInt256();
@@ -1698,19 +1699,6 @@ contract ClearingHouse is
         int24 upperTick
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
-    }
-
-    // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
-    function _calcScaledAmount(
-        address pool,
-        uint256 amount,
-        bool isScaledUp
-    ) private view returns (uint256) {
-        // when scaling up, round up to avoid imprecision; it's okay as long as we round down later
-        return
-            isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
-                : FullMath.mulDiv(amount, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)), 1e6);
     }
 
     function _calcOwedFee(
