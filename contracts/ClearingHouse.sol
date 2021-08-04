@@ -748,7 +748,7 @@ contract ClearingHouse is
 
     // return in settlement token decimals
     function getAccountValue(address account) public view returns (int256) {
-        return _getTotalCollateralValue(account).addS(getTotalMarketPnl(account), _settlementTokenDecimals);
+        return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
     }
 
     // return in settlement token decimals
@@ -760,7 +760,7 @@ contract ClearingHouse is
     // return in virtual token decimals
     function _getBuyingPower(address account) private view returns (uint256) {
         int256 requiredCollateral =
-            _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalMarketPnl(account));
+            _getTotalInitialMarginRequirement(account).toInt256().sub(getTotalUnrealizedPnl(account));
         int256 totalCollateralValue = _getTotalCollateralValue(account);
         if (totalCollateralValue.lt(requiredCollateral, _settlementTokenDecimals)) {
             return 0;
@@ -783,7 +783,7 @@ contract ClearingHouse is
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
-    // TODO refactor with _getTotalBaseDebtValue and getTotalMarketPnl
+    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
     function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
         Account storage account = _accountMap[trader];
         uint256 totalPositionValue;
@@ -935,7 +935,7 @@ contract ClearingHouse is
         return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
     }
 
-    function getTotalMarketPnl(address trader) public view returns (int256) {
+    function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
@@ -1157,11 +1157,11 @@ contract ClearingHouse is
             realizedPnl = closedPositionNotional.add(oldOpenNotional);
         }
 
-        // store realizedPnl
         _realizePnl(params.trader, realizedPnl);
         return response;
     }
 
+    // caller must ensure there's enough quote available and debt
     function _realizePnl(address account, int256 deltaPnl) private {
         if (deltaPnl == 0) {
             return;

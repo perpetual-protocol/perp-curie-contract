@@ -461,8 +461,8 @@ describe("ClearingHouse liquidate", () => {
             // )
             // // accountValue = collateral + totalMarketPnl
             // // totalMarketPnl = netQuoteBalance + totalPosValue
-            // const getTotalMarketPnl = await clearingHouse.getTotalMarketPnl(alice.address)
-            // console.log(`getTotalMarketPnl=${formatEther(getTotalMarketPnl.toString())}`)
+            // const getTotalUnrealizedPnl = await clearingHouse.getTotalUnrealizedPnl(alice.address)
+            // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
             // const netQuoteBalance = await clearingHouse.getNetQuoteBalance(alice.address)
             // console.log(`netQuoteBalance=${formatEther(netQuoteBalance.toString())}`)

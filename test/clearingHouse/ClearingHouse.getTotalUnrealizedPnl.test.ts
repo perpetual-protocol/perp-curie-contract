@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse getTotalMarketPnl", () => {
+describe("ClearingHouse getTotalUnrealizedPnl", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -87,7 +87,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-85955826385873143")
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq("-85955826385873143")
 
             // taker2 open a long position
             await clearingHouse.connect(taker2).openPosition({
@@ -105,7 +105,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("103.727208", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("1750496331338181459")
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq("1750496331338181459")
         })
 
         it("taker open long and price goes down", async () => {
@@ -125,7 +125,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-85955826385873143")
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq("-85955826385873143")
 
             // taker2 open a short position
             await clearingHouse.connect(taker2).openPosition({
@@ -144,7 +144,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.125012", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq("-3744939577294753449")
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq("-3744939577294753449")
         })
 
         it("taker open short and price goes up", async () => {
@@ -166,7 +166,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
 
             // taker2 open a long position
             await clearingHouse.connect(taker2).openPosition({
@@ -184,7 +184,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("99.981348", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-1.922555470465019128"))
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq(parseEther("-1.922555470465019128"))
         })
 
         it("taker open short and price goes down", async () => {
@@ -206,7 +206,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
 
             // taker2 open a short position
             await clearingHouse.connect(taker2).openPosition({
@@ -225,7 +225,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("94.446032", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("3.664869056523280208"))
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq(parseEther("3.664869056523280208"))
         })
     })
 
@@ -251,7 +251,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("85955826385873040")
+            expect(await clearingHouse.getTotalUnrealizedPnl(maker.address)).to.eq("85955826385873040")
         })
 
         it("verify maker's pnl when price goes down", async () => {
@@ -276,7 +276,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
             })
-            expect(await clearingHouse.getTotalMarketPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
+            expect(await clearingHouse.getTotalUnrealizedPnl(taker.address)).to.eq(parseEther("-0.067396186637020538"))
         })
 
         it("maker open a long position then verify maker's pnl", async () => {
@@ -313,7 +313,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             //   position size = 99.0099009901 + 9900.9900990099 - 10000 = 0
             //   cost basis = 10099 + 1 - 10100 = 0
             //   pnl = 0 + 0 = 0
-            expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
+            expect(await clearingHouse.getTotalUnrealizedPnl(maker.address)).to.eq("0")
         })
 
         it("maker open a short position then verify maker's pnl", async () => {
@@ -350,7 +350,7 @@ describe("ClearingHouse getTotalMarketPnl", () => {
             //   cost basis = 9900 + 99 + 1 - 10000 = 0
             //   pnl = 0 + 0 = 0
 
-            expect(await clearingHouse.getTotalMarketPnl(maker.address)).to.eq("0")
+            expect(await clearingHouse.getTotalUnrealizedPnl(maker.address)).to.eq("0")
         })
     })
 })
