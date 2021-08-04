@@ -760,8 +760,12 @@ contract ClearingHouse is
     // return in virtual token decimals
     function _getBuyingPower(address account) private view returns (uint256) {
         int256 accountValue = getAccountValue(account);
+        int256 totalCollateralValue = _getTotalCollateralValue(account);
+        int256 minOfAccountAndCollateralValue =
+            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
         int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
-        int256 buyingPower = accountValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
+        int256 buyingPower =
+            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
         if (buyingPower < 0) {
             return 0;
         }
