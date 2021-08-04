@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.2.0] - 2021-08-04
+### Changed
+- rename `ClearingHouse.getTotalMarketPnl` to `ClearingHouse.getTotalUnrealizedPnl` 
+- fix `Vault.getFreeCollateral` wrong numbers
+
+
 ## [0.1.5] - 2021-08-03
 
 ### Added

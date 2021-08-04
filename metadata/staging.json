@@ -3,11 +3,11 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0x91A747922E55805266DEA2A073f6A4e55B9Bd123"
+            "address": "0x05ED8a83AfCE8a3c8Eb5c13EA176c156C81BFb36"
         },
         "Vault": {
             "name": "contracts/Vault.sol:Vault",
-            "address": "0x1641dB05b535fF2EfBD525a2c5f8a759720A63fF"
+            "address": "0x262a83bAF434042143F2a7413C64537283D3F62e"
         },
         "btcChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
@@ -52,7 +52,7 @@
     ],
     "externalContracts": {
         "USDC": "0xc67E96dFCA8dE34a52c62C8fbec53Ce6358E7C86",
-        "UniswapV3Broker": "0xc18A07D3851A69d1aeA5ed496B099a660c2819a4",
+        "UniswapV3Broker": "0xCCB3D27f1E41daC0bbfD8eE74a8eAC48d8f76AcD",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         "vBTCvUSDCUniswapV3Pool": "0x4bF1652A0C748d860F1F98f81bdcD9CB09cc5dAd",
         "vETHvUSDCUniswapV3Pool": "0xffa7ee1c08416565d054b2cf3e336dCFe21591E5"
