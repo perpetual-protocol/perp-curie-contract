@@ -778,22 +778,39 @@ contract ClearingHouse is
 
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
-        Account storage account = _accountMap[trader];
-
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = account.tokenInfoMap[quoteToken].debt;
+        uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
+        return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
+    }
+
+    // TODO refactor with _getTotalBaseDebtValue and getTotalMarketPnl
+    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                // will not use negative value in this case
+                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                totalPositionValue = totalPositionValue.add(positionValue);
+            }
+        }
+        return totalPositionValue;
+    }
+
+    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
         uint256 totalBaseDebtValue;
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                // will not use negative value in this case
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
         }
-
-        return totalBaseDebtValue.add(quoteDebtValue).mul(imRatio).divideBy10_18();
+        return totalBaseDebtValue;
     }
 
     // NOTE: the negative value will only be used when calculating pnl
@@ -1553,43 +1570,15 @@ contract ClearingHouse is
 
     // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
-        Account storage account = _accountMap[trader];
-
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = account.tokenInfoMap[quoteToken].debt;
-        uint256 totalPositionValue;
-        uint256 totalBaseDebtValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                // will not use negative value in this case
-                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
-                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
-                totalPositionValue = totalPositionValue.add(positionValue);
-            }
-        }
-
+        uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
+        uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
+        uint256 totalBaseDebtValue = _getTotalBaseDebtValue(trader);
         return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
     }
 
     function _getTotalMinimumMarginRequirement(address trader) internal view returns (uint256) {
-        Account storage account = _accountMap[trader];
-
-        // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 totalPositionValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                // will not use negative value in this case
-                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
-                totalPositionValue = totalPositionValue.add(positionValue);
-            }
-        }
-
-        return totalPositionValue.mul(mmRatio).divideBy10_18();
+        return _getTotalAbsPositionValue(trader).mul(mmRatio).divideBy10_18();
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
