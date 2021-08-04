@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.7.6;
+pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
@@ -15,13 +18,15 @@ import { UniswapV3Broker } from "../lib/UniswapV3Broker.sol";
 /// @dev These functions are not gas efficient and should _not_ be called on chain. Instead, optimistically execute
 /// the swap and check the amounts in the callback.
 contract Quoter is IUniswapV3SwapCallback {
+    using SafeMath for uint256;
     using SafeCast for uint256;
+    using SignedSafeMath for int256;
     using PerpMath for int256;
 
     /// the address of the Uniswap V3 factory
     address public immutable uniswapV3Factory;
     /// @dev Transient storage variable used to check a safety condition in exact output swaps.
-    uint256 private amountOutCached;
+    uint256 private _amountOutCached;
 
     constructor(address uniV3FactoryArg) {
         uniswapV3Factory = uniV3FactoryArg;
@@ -34,9 +39,9 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 exchangedPositionNotional;
     }
 
-    function swap(UniswapV3Broker.SwapParams memory params) public returns (SwapResponse memory) {
+    function swap(UniswapV3Broker.SwapParams memory params) public returns (SwapResponse memory response) {
         // zero input
-        require(params.amount > 0, "UB_ZI");
+        require(params.amount > 0, "Q_ZI");
 
         uint256 amount = params.amount;
         if (params.isBaseToQuote) {
@@ -57,15 +62,36 @@ contract Quoter is IUniswapV3SwapCallback {
                     : params.sqrtPriceLimitX96,
                 ""
             )
-        {} catch (bytes memory reason) {
+        // solhint-disable-next-line no-empty-blocks
+        {
+
+        } catch (bytes memory reason) {
             (uint256 amountBase, uint256 amountQuote) = _parseRevertReason(reason);
-            return
-                SwapResponse({
-                    deltaAvailableBase: amountBase,
-                    deltaAvailableQuote: amountQuote,
-                    exchangedPositionSize: amountBase,
-                    exchangedPositionNotional: amountQuote
-                });
+
+            uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(params.pool);
+            uint256 fee = FullMath.mulDivRoundingUp(amountQuote, uniswapFeeRatio, 1e6);
+            int256 exchangedPositionSize;
+            int256 exchangedPositionNotional;
+
+            if (params.isBaseToQuote) {
+                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+                exchangedPositionSize = -(FeeMath.calcScaledAmount(params.pool, amountBase, false).toInt256());
+                // due to base to quote fee, exchangedPositionNotional contains the fee
+                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+                exchangedPositionNotional = amountQuote.toInt256();
+            } else {
+                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+                exchangedPositionSize = amountBase.toInt256();
+                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
+                exchangedPositionNotional = -(amountQuote.sub(fee).toInt256());
+            }
+
+            response = SwapResponse(
+                exchangedPositionSize.abs(), // deltaAvailableBase
+                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
+                exchangedPositionSize.abs(),
+                exchangedPositionNotional.abs()
+            );
         }
     }
 
