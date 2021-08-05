@@ -36,8 +36,8 @@ describe("Quoter.swap", () => {
         const upperTick = 51400
 
         // prepare maker alice
-        await collateral.mint(alice.address, parseUnits("1000000", collateralDecimals))
-        await deposit(alice, vault, 1000000, collateral)
+        await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
+        await deposit(alice, vault, 10000, collateral)
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1500"))
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
@@ -52,9 +52,12 @@ describe("Quoter.swap", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        // deposit bob's collateral
-        await collateral.mint(bob.address, parseUnits("50000", collateralDecimals))
-        await deposit(bob, vault, 10000, collateral)
+        // deposit bob's collateral and mint tokens for bob
+        // make sure bob always has enough tokens for swap
+        await collateral.mint(bob.address, parseUnits("100000", collateralDecimals))
+        await deposit(bob, vault, 100000, collateral)
+        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("100000"))
+        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("500"))
     })
 
     describe("quote Q2B with exact input", () => {
@@ -71,7 +74,6 @@ describe("Quoter.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -127,7 +129,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableQuote).to.be.lt(quoteAmount)
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -154,7 +155,6 @@ describe("Quoter.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("50000"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -184,7 +184,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("50000"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -211,7 +210,6 @@ describe("Quoter.swap", () => {
                 }),
             ).revertedWith("Q_UOA")
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("50000"))
             await expect(
                 clearingHouse.connect(bob).callStatic.swap({
                     // buy base
@@ -239,7 +237,6 @@ describe("Quoter.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -269,7 +266,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("5"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -295,7 +291,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
-            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -322,7 +317,6 @@ describe("Quoter.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("20"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -352,7 +346,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("20"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -379,7 +372,6 @@ describe("Quoter.swap", () => {
                 }),
             ).revertedWith("Q_UOA")
 
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("50"))
             await expect(
                 clearingHouse.connect(bob).callStatic.swap({
                     // sell base
