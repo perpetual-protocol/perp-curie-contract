@@ -59,6 +59,7 @@ describe("Quoter.swap", () => {
 
     describe("quote Q2B with exact input", () => {
         it("returns same result with the CH.swap when liquidity is enough", async () => {
+            const quoteAmount = parseEther("250")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -66,23 +67,28 @@ describe("Quoter.swap", () => {
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: parseEther("250"),
+                amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
+            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: parseEther("250"),
+                amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
         })
 
-        it("returns same result with CH.swap when liquidity is not enough", async () => {
+        it("stop swapping and returns same result with CH.swap when price limit reached", async () => {
+            // buy base using 500 with price limit of 152
+            // the end price would be 157.2470192400286 without the price limit
+            const quoteAmount = parseEther("500")
+            const priceLimit = encodePriceSqrt(152, 1)
+
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -90,18 +96,44 @@ describe("Quoter.swap", () => {
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: parseEther("30000"),
-                sqrtPriceLimitX96: 0,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: priceLimit,
             })
-            expect(quoteResponse.deltaAvailableQuote).to.be.lt(parseEther("30000"))
+            expect(quoteResponse.deltaAvailableQuote).to.be.lt(quoteAmount)
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("30000"))
+            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
-                amount: parseEther("30000"),
+                amount: quoteAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse).to.be.deep.eq(swapResponse)
+        })
+
+        it("returns same result with CH.swap when liquidity is not enough", async () => {
+            const quoteAmount = parseEther("30000")
+            const quoteResponse = await quoter.callStatic.swap({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                // buy base
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: 0,
+            })
+            expect(quoteResponse.deltaAvailableQuote).to.be.lt(quoteAmount)
+
+            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
+            const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
+                // buy base
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
@@ -110,6 +142,7 @@ describe("Quoter.swap", () => {
 
     describe("quote Q2B with exact output", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
+            const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -117,7 +150,7 @@ describe("Quoter.swap", () => {
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: parseEther("5"),
+                amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
 
@@ -127,13 +160,44 @@ describe("Quoter.swap", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
-                amount: parseEther("5"),
+                amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
         })
 
+        it("stops swapping and returns same result with CH.swap when price limit reached", async () => {
+            // try to buy 5 base token with price limit of 152
+            // the end price would be 160.6768890664438 without the price limit
+            const baseAmount = parseEther("5")
+            const priceLimit = encodePriceSqrt(152, 1)
+
+            const quoteResponse = await quoter.callStatic.swap({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                // buy base
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
+
+            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("50000"))
+            const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
+                // buy base
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse).to.be.deep.eq(swapResponse)
+        })
+
         it("force error, unmatched output amount when liquidity is not enough", async () => {
+            const baseAmount = parseEther("20")
             await expect(
                 quoter.callStatic.swap({
                     pool: pool.address,
@@ -142,7 +206,7 @@ describe("Quoter.swap", () => {
                     // buy base
                     isBaseToQuote: false,
                     isExactInput: false,
-                    amount: parseEther("20"),
+                    amount: baseAmount,
                     sqrtPriceLimitX96: 0,
                 }),
             ).revertedWith("Q_UOA")
@@ -154,7 +218,7 @@ describe("Quoter.swap", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
-                    amount: parseEther("20"),
+                    amount: baseAmount,
                     sqrtPriceLimitX96: 0,
                 }),
             ).revertedWith("UB_UOA")
@@ -163,6 +227,7 @@ describe("Quoter.swap", () => {
 
     describe("quote B2Q with exact input", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
+            const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -170,9 +235,39 @@ describe("Quoter.swap", () => {
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("5"),
+                amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
+            const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
+                // sell base
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: baseAmount,
+                sqrtPriceLimitX96: 0,
+            })
+            expect(quoteResponse).to.be.deep.eq(swapResponse)
+        })
+
+        it("stops swapping and returns same result with CH.swap when price limit reached", async () => {
+            // sell 5 base token with price limit of 151
+            // the end price would be 142.85498719998498 without the price limit
+            const baseAmount = parseEther("5")
+            const priceLimit = encodePriceSqrt(151, 1)
+
+            const quoteResponse = await quoter.callStatic.swap({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("5"))
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
@@ -180,13 +275,14 @@ describe("Quoter.swap", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("5"),
-                sqrtPriceLimitX96: 0,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
         })
 
         it("returns same result with CH.swap when liquidity is not enough", async () => {
+            const baseAmount = parseEther("30")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -194,18 +290,18 @@ describe("Quoter.swap", () => {
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("30"),
+                amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
-            expect(quoteResponse.deltaAvailableBase).to.be.lt(parseEther("30"))
+            expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("30"))
+            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 // buy base
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
-                amount: parseEther("30"),
+                amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
@@ -214,6 +310,7 @@ describe("Quoter.swap", () => {
 
     describe("quote B2Q with exact output", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
+            const quoteAmount = parseEther("100")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
                 baseToken: baseToken.address,
@@ -221,7 +318,7 @@ describe("Quoter.swap", () => {
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
 
@@ -231,13 +328,44 @@ describe("Quoter.swap", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: parseEther("100"),
+                amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
             expect(quoteResponse).to.be.deep.eq(swapResponse)
         })
 
+        it("stops swapping and returns same result with CH.swap when price limit reached", async () => {
+            // try to buy 100 quote with price limit of 151
+            // the end price would be 149.00824266559061 without the price limit
+            const baseAmount = parseEther("200")
+            const priceLimit = encodePriceSqrt(151, 1)
+
+            const quoteResponse = await quoter.callStatic.swap({
+                pool: pool.address,
+                baseToken: baseToken.address,
+                quoteToken: quoteToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
+
+            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("20"))
+            const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
+                // sell base
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+            expect(quoteResponse).to.be.deep.eq(swapResponse)
+        })
+
         it("force error, unmatched output amount when liquidity is not enough", async () => {
+            const quoteAmount = parseEther("3000")
             await expect(
                 quoter.callStatic.swap({
                     pool: pool.address,
@@ -246,7 +374,7 @@ describe("Quoter.swap", () => {
                     // sell base
                     isBaseToQuote: true,
                     isExactInput: false,
-                    amount: parseEther("3000"),
+                    amount: quoteAmount,
                     sqrtPriceLimitX96: 0,
                 }),
             ).revertedWith("Q_UOA")
@@ -258,7 +386,7 @@ describe("Quoter.swap", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
-                    amount: parseEther("3000"),
+                    amount: quoteAmount,
                     sqrtPriceLimitX96: 0,
                 }),
             ).revertedWith("UB_UOA")
