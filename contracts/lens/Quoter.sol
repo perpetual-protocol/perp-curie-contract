@@ -11,7 +11,6 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
-import { UniswapV3Broker } from "../lib/UniswapV3Broker.sol";
 
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
@@ -26,6 +25,14 @@ contract Quoter is IUniswapV3SwapCallback {
     /// @dev Transient storage variable used to check a safety condition in exact output swaps.
     uint256 private _amountOutCached;
 
+    struct SwapParams {
+        address pool;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+    }
+
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
@@ -33,7 +40,7 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 exchangedPositionNotional;
     }
 
-    function swap(UniswapV3Broker.SwapParams memory params) public returns (SwapResponse memory response) {
+    function swap(SwapParams memory params) public returns (SwapResponse memory response) {
         // zero input
         require(params.amount > 0, "Q_ZI");
 
@@ -67,7 +74,7 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 amountBase, uint256 amountQuote) = _parseRevertReason(reason);
 
-            uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(params.pool);
+            uint24 uniswapFeeRatio = IUniswapV3Pool(params.pool).fee();
             uint256 fee = FullMath.mulDivRoundingUp(amountQuote, uniswapFeeRatio, 1e6);
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;

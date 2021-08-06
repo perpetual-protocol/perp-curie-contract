@@ -65,8 +65,6 @@ describe("Quoter.swap", () => {
             const quoteAmount = parseEther("250")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -75,8 +73,8 @@ describe("Quoter.swap", () => {
             })
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // buy base
                 baseToken: baseToken.address,
+                // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: quoteAmount,
@@ -93,8 +91,6 @@ describe("Quoter.swap", () => {
 
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -105,8 +101,8 @@ describe("Quoter.swap", () => {
 
             await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // buy base
                 baseToken: baseToken.address,
+                // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: quoteAmount,
@@ -119,8 +115,6 @@ describe("Quoter.swap", () => {
             const quoteAmount = parseEther("30000")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -130,8 +124,8 @@ describe("Quoter.swap", () => {
             expect(quoteResponse.deltaAvailableQuote).to.be.lt(quoteAmount)
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // buy base
                 baseToken: baseToken.address,
+                // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: quoteAmount,
@@ -146,8 +140,6 @@ describe("Quoter.swap", () => {
             const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -156,8 +148,8 @@ describe("Quoter.swap", () => {
             })
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // buy base
                 baseToken: baseToken.address,
+                // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
                 amount: baseAmount,
@@ -174,8 +166,6 @@ describe("Quoter.swap", () => {
 
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -185,8 +175,8 @@ describe("Quoter.swap", () => {
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // buy base
                 baseToken: baseToken.address,
+                // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
                 amount: baseAmount,
@@ -200,8 +190,6 @@ describe("Quoter.swap", () => {
             await expect(
                 quoter.callStatic.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     // buy base
                     isBaseToQuote: false,
                     isExactInput: false,
@@ -212,8 +200,8 @@ describe("Quoter.swap", () => {
 
             await expect(
                 clearingHouse.connect(bob).callStatic.swap({
-                    // buy base
                     baseToken: baseToken.address,
+                    // buy base
                     isBaseToQuote: false,
                     isExactInput: false,
                     amount: baseAmount,
@@ -228,8 +216,6 @@ describe("Quoter.swap", () => {
             const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -238,8 +224,8 @@ describe("Quoter.swap", () => {
             })
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // sell base
                 baseToken: baseToken.address,
+                // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: baseAmount,
@@ -256,8 +242,6 @@ describe("Quoter.swap", () => {
 
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -267,8 +251,8 @@ describe("Quoter.swap", () => {
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // sell base
                 baseToken: baseToken.address,
+                // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: baseAmount,
@@ -281,8 +265,6 @@ describe("Quoter.swap", () => {
             const baseAmount = parseEther("30")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -308,8 +290,6 @@ describe("Quoter.swap", () => {
             const quoteAmount = parseEther("100")
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -318,8 +298,8 @@ describe("Quoter.swap", () => {
             })
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // sell base
                 baseToken: baseToken.address,
+                // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
                 amount: quoteAmount,
@@ -336,8 +316,6 @@ describe("Quoter.swap", () => {
 
             const quoteResponse = await quoter.callStatic.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -347,8 +325,8 @@ describe("Quoter.swap", () => {
             expect(quoteResponse.deltaAvailableBase).to.be.lt(baseAmount)
 
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
-                // sell base
                 baseToken: baseToken.address,
+                // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
                 amount: baseAmount,
@@ -362,8 +340,6 @@ describe("Quoter.swap", () => {
             await expect(
                 quoter.callStatic.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     // sell base
                     isBaseToQuote: true,
                     isExactInput: false,
@@ -374,8 +350,8 @@ describe("Quoter.swap", () => {
 
             await expect(
                 clearingHouse.connect(bob).callStatic.swap({
-                    // sell base
                     baseToken: baseToken.address,
+                    // sell base
                     isBaseToQuote: true,
                     isExactInput: false,
                     amount: quoteAmount,
