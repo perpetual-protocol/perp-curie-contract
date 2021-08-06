@@ -35,49 +35,68 @@ describe("ClearingHouse Spec", () => {
     })
 
     describe("# addPool", () => {
-        // @SAMPLE - addPool
-        it("add a UniswapV3 pool and send an event", async () => {
-            // check event has been sent
-            await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
-                .to.emit(clearingHouse, "PoolAdded")
-                .withArgs(baseToken.address, DEFAULT_FEE, POOL_A_ADDRESS)
-
-            const pool = await clearingHouse.getPool(baseToken.address)
-            expect(pool).to.eq(POOL_A_ADDRESS)
+        let poolFactory
+        let pool
+        let mockedPool
+        beforeEach(async () => {
+            poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            mockedPool = await smockit(pool)
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
         })
 
-        it("add multiple UniswapV3 pools", async () => {
-            const baseToken2 = await mockedTokenTo(ADDR_LESS_THAN, quoteToken.address)
-            await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
-
-            // mock the return address of `getPool`
-            uniV3Factory.smocked.getPool.will.return.with(() => {
-                return POOL_B_ADDRESS
+        describe("after the pool is initialized", () => {
+            beforeEach(async () => {
+                mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
             })
-            await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
 
-            // verify isPoolExisted
-            const pool = await clearingHouse.getPool(baseToken.address)
-            expect(pool).to.eq(POOL_A_ADDRESS)
-            const pool2 = await clearingHouse.getPool(baseToken2.address)
-            expect(pool2).to.eq(POOL_B_ADDRESS)
-        })
+            // @SAMPLE - addPool
+            it("add a UniswapV3 pool and send an event", async () => {
+                // check event has been sent
+                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
+                    .to.emit(clearingHouse, "PoolAdded")
+                    .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
 
-        it("force error, pool is not existent in uniswap v3", async () => {
-            uniV3Factory.smocked.getPool.will.return.with(() => {
-                return EMPTY_ADDRESS
+                expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
             })
-            await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
+
+            it("add multiple UniswapV3 pools", async () => {
+                await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+                expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
+
+                const baseToken2 = await mockedTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
+                const mockedPool2 = await smockit(pool2)
+                uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
+                mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+
+                await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
+                // verify isPoolExisted
+                expect(await clearingHouse.getPool(baseToken2.address)).to.eq(mockedPool2.address)
+            })
+
+            it("force error, pool is not existent in uniswap v3", async () => {
+                uniV3Factory.smocked.getPool.will.return.with(() => {
+                    return EMPTY_ADDRESS
+                })
+                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
+            })
+
+            it("force error, pool is already existent in ClearingHouse", async () => {
+                await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
+            })
+
+            it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
+                const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
+                await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith(
+                    "CH_IB",
+                )
+            })
         })
 
-        it("force error, pool is existent in ClearingHouse", async () => {
-            await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
-            await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
-        })
-
-        it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
-            const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
-            await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("CH_IB")
+        it("force error, before the pool is initialized", async () => {
+            await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_PNI")
         })
     })
 

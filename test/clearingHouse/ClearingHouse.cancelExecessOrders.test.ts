@@ -42,10 +42,9 @@ describe("ClearingHouse cancelExcessOrders()", () => {
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 10, collateral)
 
-        // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
-
         await pool.initialize(encodePriceSqrt("100", "1"))
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)

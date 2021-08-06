@@ -36,9 +36,9 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
         await pool.initialize(encodePriceSqrt("100", "1"))
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

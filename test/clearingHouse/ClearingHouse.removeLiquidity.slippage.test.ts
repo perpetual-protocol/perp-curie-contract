@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { BigNumberish } from "ethers"
+import { BigNumber, BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
@@ -16,6 +16,8 @@ describe("ClearingHouse", () => {
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let baseAmount: BigNumber
+    let quoteAmount: BigNumber
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -25,6 +27,8 @@ describe("ClearingHouse", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        baseAmount = parseUnits("100", await baseToken.decimals())
+        quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
         collateral.mint(admin.address, parseEther("10000"))
@@ -33,21 +37,19 @@ describe("ClearingHouse", () => {
         const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
-
-        // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
-
-        // mint
-        const baseAmount = parseUnits("100", await baseToken.decimals())
-        const quoteAmount = parseUnits("10000", await quoteToken.decimals())
-        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-        await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
     })
 
     describe("# removeLiquidity failed at tick 50199", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
+            // mint
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseUnits("100", await baseToken.decimals()),
@@ -99,6 +101,13 @@ describe("ClearingHouse", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
+            // mint
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: 0,

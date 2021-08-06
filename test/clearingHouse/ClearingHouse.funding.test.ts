@@ -11,7 +11,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.funding", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -34,7 +33,10 @@ describe("ClearingHouse.funding", () => {
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
 
-        await clearingHouse.addPool(baseToken.address, "10000")
+        // price at 50400 == 154.4310961
+        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -42,9 +44,6 @@ describe("ClearingHouse.funding", () => {
 
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-
-        // price at 50400 == 154.4310961
-        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
 
         // alice:
         //   base.liquidity = 0

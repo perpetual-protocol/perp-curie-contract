@@ -32,8 +32,6 @@ describe("ClearingHouse.burn", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
-
-        await clearingHouse.addPool(baseToken.address, "10000")
     })
 
     describe("burn quote when debt = 10", () => {
@@ -75,6 +73,9 @@ describe("ClearingHouse.burn", () => {
         it("# can not burn more than debt, even there's enough available", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
             const lowerTick = 50000 // 148.3760629
             const upperTick = 50200 // 151.3733069
 
@@ -165,6 +166,9 @@ describe("ClearingHouse.burn", () => {
         it("# burn quote 10 when debt = 10, available < 10", async () => {
             // P(50400) = 1.0001^50400 ~= 151.4310961
             await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
             const lowerTick = 50200 // 151.3733069
             const upperTick = 50400 // 154.4310961
 
@@ -240,6 +244,11 @@ describe("ClearingHouse.burn", () => {
 
     describe("burn base when debt = 10", () => {
         beforeEach(async () => {
+            // P(50000) = 1.0001^50000 ~= 148.3760629
+            await pool.initialize(encodePriceSqrt("148.3760629", "1"))
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
             // prepare collateral for alice
             await collateral.mint(alice.address, parseUnits("1000", await collateral.decimals()))
             await collateral.connect(alice).approve(clearingHouse.address, parseEther("1000"))
@@ -276,8 +285,6 @@ describe("ClearingHouse.burn", () => {
         })
 
         it("# burn base 10 when debt = 10, available < 10", async () => {
-            // P(50000) = 1.0001^50000 ~= 148.3760629
-            await pool.initialize(encodePriceSqrt("148.3760629", "1"))
             const lowerTick = 50200 // 151.3733069
             const upperTick = 50400 // 154.4310961
 
@@ -347,8 +354,6 @@ describe("ClearingHouse.burn", () => {
         })
 
         it("# no base fee, thus maker won't get base fee/ extra base.available", async () => {
-            // P(50000) = 1.0001^50000 ~= 148.3760629
-            await pool.initialize(encodePriceSqrt("148.3760629", "1"))
             const lowerTick = 50000 // 148.3760629
             const upperTick = 50200 // 151.3733069
 

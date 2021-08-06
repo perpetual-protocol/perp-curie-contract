@@ -54,8 +54,14 @@ describe("ClearingHouse liquidate", () => {
         million = parseUnits("1000000", collateralDecimals)
         hundred = parseUnits("100", collateralDecimals)
 
-        // add pool
+        // initialize ETH pool
+        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+        // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
+
+        // initialize BTC pool
+        await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
+        // add pool after it's initialized
         await clearingHouse.addPool(baseToken2.address, 10000)
 
         // mint
@@ -75,8 +81,6 @@ describe("ClearingHouse liquidate", () => {
         await clearingHouse.connect(carol).mint(baseToken2.address, parseEther("100"))
         await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("50000"))
 
-        // initialize pool
-        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -87,8 +91,6 @@ describe("ClearingHouse liquidate", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-
-        await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken2.address,
             base: parseEther("100"),

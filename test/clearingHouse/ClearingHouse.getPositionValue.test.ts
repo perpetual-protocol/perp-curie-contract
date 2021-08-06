@@ -9,7 +9,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getPositionValue", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -32,25 +31,17 @@ describe("ClearingHouse.getPositionValue", () => {
         collateralDecimals = await collateral.decimals()
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
 
-        await clearingHouse.addPool(baseToken.address, "10000")
-
         // alice
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
 
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-
         // bob
         await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
 
         // carol
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
     })
 
     async function forward(seconds: number) {
@@ -59,173 +50,188 @@ describe("ClearingHouse.getPositionValue", () => {
         await waffle.provider.send("evm_mine", [])
     }
 
-    // see more desc in getPositionSize test
-    it("value = 0, if position size = 0", async () => {
-        // initial price at 50200 == 151.3733069
-        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+    describe("initialized price = 151.3733069", () => {
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
 
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-        expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
-
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("0"),
-            quote: parseEther("122.414646"),
-            lowerTick: 50000,
-            upperTick: 50200,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
+            // mint
+            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
+            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
+            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
+            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
         })
 
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-        expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
-    })
+        // see more desc in getPositionSize test
+        it("value = 0, if position size = 0", async () => {
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
 
-    it("bob(taker) swaps 1 time", async () => {
-        // initial price at 50200 == 151.3733069
-        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("122.414646"),
+                lowerTick: 50000,
+                upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
 
-        // provide 1000 liquidity = 1000 * 0.122414646 = 122.414646
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("0"),
-            quote: parseEther("122.414646"),
-            lowerTick: 50000,
-            upperTick: 50200,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 0)).eq(0)
         })
 
-        // bob short 0.4084104205
-        await clearingHouse.connect(bob).swap({
-            baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: true,
-            amount: parseEther("0.4084104205"),
-            sqrtPriceLimitX96: 0,
+        it("bob(taker) swaps 1 time", async () => {
+            // provide 1000 liquidity = 1000 * 0.122414646 = 122.414646
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("122.414646"),
+                lowerTick: 50000,
+                upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // bob short 0.4084104205
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("0.4084104205"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+            // Note CH actually shorts 0.4084104205 / 0.99 = 0.4125357783 base tokens
+            // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
+            // which makes the mark price become 149.863446 (tick = 50099.75001)
+
+            // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
+            // await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
+            // (11993028956124528295336454433927 / 2^96) = 151.3733068587
+            // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
+
+            // default timeInterval is 15 minutes = 900 seconds
+            await forward(900)
+
+            // (969864706335398656864177991756 / 2^96) ^ 2 = 149.8522069973
+            // 149.8522069973 != 149.863446, the reason is:
+            // tickCumulative inside their system uses "integer" tick
+            // thus,
+            // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
+            // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
+            // -> 1.0001 ^ 50099 = 149.8522069974
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("149.852206", 6), 0, 0, 0]
+            })
+
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+                parseEther("0.408410420499999999"),
+            )
+            // 149.852206 * 0.408410420499999999 = 61.2012024653
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
+                parseEther("61.201202465312622850"),
+            )
+
+            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
+            // 149.852206 * -0.4084104205 = -61.2012024653
+            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
+                parseEther("-61.201202465312623000"),
+            )
         })
 
-        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
-        // Note CH actually shorts 0.4084104205 / 0.99 = 0.4125357783 base tokens
-        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+        it("bob swaps 2 time", async () => {
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-        // which makes the mark price become 149.863446 (tick = 50099.75001)
+            // provide 1000 liquidity = 1000 * 0.122414646 = 122.414646
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("122.414646"),
+                lowerTick: 50000,
+                upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
 
-        // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
-        // await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
-        // (11993028956124528295336454433927 / 2^96) = 151.3733068587
-        // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
+            // bob shorts 0.2042052103
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("0.2042052103"),
+                sqrtPriceLimitX96: 0,
+            })
+            // mark price should be 150.6155385 (tick = 50149.8122)
 
-        // default timeInterval is 15 minutes = 900 seconds
-        await forward(900)
+            await forward(300)
 
-        // (969864706335398656864177991756 / 2^96) ^ 2 = 149.8522069973
-        // 149.8522069973 != 149.863446, the reason is:
-        // tickCumulative inside their system uses "integer" tick
-        // thus,
-        // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
-        // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
-        // -> 1.0001 ^ 50099 = 149.8522069974
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("149.852206", 6), 0, 0, 0]
+            // bob shorts 0.2042052103
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("0.2042052103"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
+            // Note CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784 base tokens
+            // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
+
+            // which makes the mark price become 149.863446 (tick = 50099.75001)
+
+            await forward(600)
+
+            // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
+            // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
+            // -> 1.0001 ^ 50115 = 150.0921504352
+
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.092150", 6), 0, 0, 0]
+            })
+            // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
+
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+                parseEther("0.408410420599999999"),
+            )
+            // 150.092150 * 0.408410420599999999 = 61.2991981103
+            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
+                parseEther("61.299198110258289849"),
+            )
+
+            // short
+            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
+            // 150.092150 * -0.4084104206 = -61.2991981103
+            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
+                parseEther("-61.299198110258290000"),
+            )
         })
-
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
-            parseEther("0.408410420499999999"),
-        )
-        // 149.852206 * 0.408410420499999999 = 61.2012024653
-        expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.201202465312622850"),
-        )
-
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
-        // 149.852206 * -0.4084104205 = -61.2012024653
-        expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.201202465312623000"),
-        )
-    })
-
-    it("bob swaps 2 time", async () => {
-        // initial price at 50200 == 151.3733069
-        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // provide 1000 liquidity = 1000 * 0.122414646 = 122.414646
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("0"),
-            quote: parseEther("122.414646"),
-            lowerTick: 50000,
-            upperTick: 50200,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
-
-        // bob shorts 0.2042052103
-        await clearingHouse.connect(bob).swap({
-            baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: true,
-            amount: parseEther("0.2042052103"),
-            sqrtPriceLimitX96: 0,
-        })
-        // mark price should be 150.6155385 (tick = 50149.8122)
-
-        await forward(300)
-
-        // bob shorts 0.2042052103
-        await clearingHouse.connect(bob).swap({
-            baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: true,
-            amount: parseEther("0.2042052103"),
-            sqrtPriceLimitX96: 0,
-        })
-
-        // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
-        // Note CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784 base tokens
-        // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
-
-        // which makes the mark price become 149.863446 (tick = 50099.75001)
-
-        await forward(600)
-
-        // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
-        // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
-        // -> 1.0001 ^ 50115 = 150.0921504352
-
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("150.092150", 6), 0, 0, 0]
-        })
-        // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
-
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-            // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
-            parseEther("0.408410420599999999"),
-        )
-        // 150.092150 * 0.408410420599999999 = 61.2991981103
-        expect(await clearingHouse.getPositionValue(alice.address, baseToken.address, 900)).eq(
-            parseEther("61.299198110258289849"),
-        )
-
-        // short
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
-        // 150.092150 * -0.4084104206 = -61.2991981103
-        expect(await clearingHouse.getPositionValue(bob.address, baseToken.address, 900)).eq(
-            parseEther("-61.299198110258290000"),
-        )
     })
 
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
-        // initial price at 50200 == 151.3733069
+        // initial price at 50000 == 148.3760629
         await pool.initialize(encodePriceSqrt("148.3760629", "1"))
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
+        // mint
+        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
+        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
+        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
+        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
+        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
 
         const lowerTick = "50000"
         const middleTick = "50200"

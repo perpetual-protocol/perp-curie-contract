@@ -34,6 +34,8 @@ describe("ClearingHouse withdraw", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
+        await pool.initialize(encodePriceSqrt(151.3733069, 1))
+        // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
     })
 
@@ -42,8 +44,6 @@ describe("ClearingHouse withdraw", () => {
         const upperTick = 50200 // 151.3733069
 
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt(151.3733069, 1))
-
             // mint
             collateral.mint(alice.address, parseUnits("100", collateralDecimals))
 
@@ -128,8 +128,7 @@ describe("ClearingHouse withdraw", () => {
             await collateral.mint(bob.address, collateralAmount)
             await deposit(bob, vault, 1000, collateral)
 
-            // alice as maker add liq. first
-            await pool.initialize(encodePriceSqrt("151.373306", "1"))
+            // alice the maker add liq. first
             await clearingHouse.connect(alice).mint(baseToken.address, parseEther("500"))
             await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("50000"))
             await clearingHouse.connect(alice).addLiquidity({

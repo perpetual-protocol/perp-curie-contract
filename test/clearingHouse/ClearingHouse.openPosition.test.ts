@@ -36,9 +36,9 @@ describe("ClearingHouse openPosition", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

@@ -327,6 +327,8 @@ contract ClearingHouse is
         require(pool != address(0), "CH_NEP");
         // CH_EP: existent pool in ClearingHouse
         require(pool != _poolMap[baseToken], "CH_EP");
+        // CH_PNI: pool not (yet) initialized
+        require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "CH_PNI");
 
         _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);

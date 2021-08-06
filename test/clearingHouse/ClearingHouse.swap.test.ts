@@ -29,20 +29,20 @@ describe("ClearingHouse.swap", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
+
+        await pool.initialize(encodePriceSqrt("10", "1"))
+        // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
-    })
 
-    beforeEach(async () => {
         // prepare maker alice
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("100"))
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await pool.initialize(encodePriceSqrt("10", "1"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),

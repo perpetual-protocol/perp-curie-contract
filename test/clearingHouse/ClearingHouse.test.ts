@@ -4,6 +4,7 @@ import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
+import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse", () => {
@@ -63,7 +64,9 @@ describe("ClearingHouse", () => {
             // prepare collateral
             await deposit(alice, vault, 1000, collateral)
 
-            // add pool
+            // initialize pool
+            await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+            // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
         })
 

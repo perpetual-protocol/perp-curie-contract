@@ -9,7 +9,6 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity without fee", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -19,6 +18,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
+    let baseAmount: BigNumber
+    let quoteAmount: BigNumber
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -29,6 +30,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
+        baseAmount = parseUnits("100", await baseToken.decimals())
+        quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
         collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
@@ -45,19 +48,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // prepare collateral for carol
         await collateral.transfer(carol.address, amount)
         await deposit(carol, vault, 1000, collateral)
-
-        // add pool
-        await clearingHouse.addPool(baseToken.address, 10000)
-
-        // mint
-        const baseAmount = parseUnits("100", await baseToken.decimals())
-        const quoteAmount = parseUnits("10000", await quoteToken.decimals())
-        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-        await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-        await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
-        await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
-        await clearingHouse.connect(carol).mint(baseToken.address, baseAmount)
-        await clearingHouse.connect(carol).mint(quoteToken.address, quoteAmount)
     })
 
     // simulation results:
@@ -66,6 +56,16 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // @SAMPLE - removeLiquidity
         it("above current price", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
+            // add pool after it's initialized
+            await clearingHouse.addPool(baseToken.address, 10000)
+
+            // mint
+            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
+            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
+            await clearingHouse.connect(carol).mint(baseToken.address, baseAmount)
+            await clearingHouse.connect(carol).mint(quoteToken.address, quoteAmount)
 
             const baseBefore = await baseToken.balanceOf(clearingHouse.address)
             const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -134,245 +134,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
         })
 
-        it("below current price", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: 0,
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50200,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
-                .liquidity
-
-            await expect(
-                clearingHouse.connect(alice).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick: 50000,
-                    upperTick: 50200,
-                    liquidity,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "LiquidityChanged")
-                .withArgs(
-                    alice.address,
-                    baseToken.address,
-                    quoteToken.address,
-                    50000,
-                    50200,
-                    0,
-                    "-9999999999999999999999", // ~= -10,000
-                    "-81689571696303801037492",
-                    0,
-                )
-
-            // verify account states
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                parseUnits("100", await baseToken.decimals()), // available
-                parseUnits("100", await baseToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                BigNumber.from("9999999999999999999999"), // available, ~= -10,000
-                parseUnits("10000", await quoteToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
-                BigNumber.from(0), // liquidity
-                0, // lowerTick
-                0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
-            ])
-
-            // verify CH balance changes
-            expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
-            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
-        })
-
-        it("at current price", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                .liquidity
-
-            await expect(
-                clearingHouse.connect(alice).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick: 50000,
-                    upperTick: 50400,
-                    liquidity,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "LiquidityChanged")
-                .withArgs(
-                    alice.address,
-                    baseToken.address,
-                    quoteToken.address,
-                    50000,
-                    50400,
-                    parseUnits("-66.061845430469484022", await baseToken.decimals()),
-                    "-9999999999999999999999",
-                    "-81689571696303801018159",
-                    0,
-                )
-
-            // verify account states
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                BigNumber.from("99999999999999999999"), // available
-                parseUnits("100", await baseToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                BigNumber.from("9999999999999999999999"), // available
-                parseUnits("10000", await quoteToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
-                BigNumber.from(0), // liquidity
-                0, // lowerTick
-                0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
-            ])
-
-            // verify CH balance changes
-            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
-            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
-        })
-
-        it("twice", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                .liquidity
-
-            const firstRemoveLiquidity = liquidity.div(2)
-            await clearingHouse.connect(alice).removeLiquidity({
-                baseToken: baseToken.address,
-                lowerTick: 50000,
-                upperTick: 50400,
-                liquidity: firstRemoveLiquidity,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
-            await clearingHouse.connect(alice).removeLiquidity({
-                baseToken: baseToken.address,
-                lowerTick: 50000,
-                upperTick: 50400,
-                liquidity: secondRemoveLiquidity,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            // verify account states
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                BigNumber.from("99999999999999999999"), // available, ~= 100
-                parseUnits("100", await baseToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                BigNumber.from("9999999999999999999999"), // available ~= 10,000
-                parseUnits("10000", await quoteToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
-                BigNumber.from(0), // liquidity
-                0, // lowerTick
-                0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
-            ])
-
-            // verify CH balance changes
-            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
-            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
-        })
-
-        it("force error, remove too much liquidity", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                .liquidity
-
-            await expect(
-                clearingHouse.connect(alice).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick: 50000,
-                    upperTick: 50400,
-                    liquidity: liquidity.add(1),
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            ).to.be.revertedWith("CH_NEL")
-        })
-
         it("force error, pool does not exist", async () => {
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
@@ -387,99 +148,347 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             ).to.be.revertedWith("CH_BTNE")
         })
 
-        it("force error, range does not exist", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        describe("initialized price = 151.373306858723226652", () => {
+            beforeEach(async () => {
+                await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                // add pool after it's initialized
+                await clearingHouse.addPool(baseToken.address, 10000)
 
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
+                // mint
+                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+                await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+                await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
+                await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
+                await clearingHouse.connect(carol).mint(baseToken.address, baseAmount)
+                await clearingHouse.connect(carol).mint(quoteToken.address, quoteAmount)
             })
 
-            await expect(
-                clearingHouse.connect(alice).removeLiquidity({
+            it("below current price", async () => {
+                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                // assume imRatio = 0.1
+                // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
+                await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
+                    base: 0,
+                    quote: parseUnits("10000", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50200,
-                    liquidity: BigNumber.from(1),
                     minBase: 0,
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
-                }),
-            ).to.be.revertedWith("CH_NEO")
-        })
-    })
+                })
 
-    describe("remove zero liquidity", () => {
-        it("no swap no fee", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
+                    .liquidity
 
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+                await expect(
+                    clearingHouse.connect(alice).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick: 50000,
+                        upperTick: 50200,
+                        liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                )
+                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50000,
+                        50200,
+                        0,
+                        "-9999999999999999999999", // ~= -10,000
+                        "-81689571696303801037492",
+                        0,
+                    )
 
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
-                quote: parseUnits("10000", await quoteToken.decimals()),
-                lowerTick: 50000,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
+                // verify account states
+                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                    parseUnits("100", await baseToken.decimals()), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                    BigNumber.from("9999999999999999999999"), // available, ~= -10,000
+                    parseUnits("10000", await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
+                    BigNumber.from(0), // liquidity
+                    0, // lowerTick
+                    0, // upperTick
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                ])
+
+                // verify CH balance changes
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
+                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
             })
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                .liquidity
 
-            await expect(
-                clearingHouse.connect(alice).removeLiquidity({
+            it("at current price", async () => {
+                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                // assume imRatio = 0.1
+                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    .liquidity
+
+                await expect(
+                    clearingHouse.connect(alice).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick: 50000,
+                        upperTick: 50400,
+                        liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                )
+                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50000,
+                        50400,
+                        parseUnits("-66.061845430469484022", await baseToken.decimals()),
+                        "-9999999999999999999999",
+                        "-81689571696303801018159",
+                        0,
+                    )
+
+                // verify account states
+                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                    BigNumber.from("99999999999999999999"), // available
+                    parseUnits("100", await baseToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                    BigNumber.from("9999999999999999999999"), // available
+                    parseUnits("10000", await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+                    BigNumber.from(0), // liquidity
+                    0, // lowerTick
+                    0, // upperTick
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                ])
+
+                // verify CH balance changes
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
+                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
+            })
+
+            it("twice", async () => {
+                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                // assume imRatio = 0.1
+                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    .liquidity
+
+                const firstRemoveLiquidity = liquidity.div(2)
+                await clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick: 50000,
                     upperTick: 50400,
-                    liquidity: 0,
+                    liquidity: firstRemoveLiquidity,
                     minBase: 0,
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "LiquidityChanged")
-                .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
+                })
 
-            // verify account states
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                BigNumber.from("33938154569530515977"), // available
-                parseUnits("100", await baseToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                BigNumber.from(0), // available
-                parseUnits("10000", await quoteToken.decimals()), // debt
-            ])
-            expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
-                keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
-            ])
-            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
-                liquidity,
-                50000, // lowerTick
-                50400, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
-            ])
+                const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
+                await clearingHouse.connect(alice).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: secondRemoveLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
 
-            // verify CH balance changes
-            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                BigNumber.from("66061845430469484023"),
-            )
-            expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                parseUnits("10000", await quoteToken.decimals()),
-            )
+                // verify account states
+                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+                    BigNumber.from("99999999999999999999"), // available, ~= 100
+                    parseUnits("100", await baseToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+                    BigNumber.from("9999999999999999999999"), // available ~= 10,000
+                    parseUnits("10000", await quoteToken.decimals()), // debt
+                ])
+                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+                    BigNumber.from(0), // liquidity
+                    0, // lowerTick
+                    0, // upperTick
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                ])
+
+                // verify CH balance changes
+                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
+                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
+            })
+
+            it("force error, remove too much liquidity", async () => {
+                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                // assume imRatio = 0.1
+                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    .liquidity
+
+                await expect(
+                    clearingHouse.connect(alice).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick: 50000,
+                        upperTick: 50400,
+                        liquidity: liquidity.add(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_NEL")
+            })
+
+            it("force error, range does not exist", async () => {
+                // assume imRatio = 0.1
+                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                await expect(
+                    clearingHouse.connect(alice).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick: 50000,
+                        upperTick: 50200,
+                        liquidity: BigNumber.from(1),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_NEO")
+            })
         })
+    })
+
+    it("remove zero liquidity; no swap no fee", async () => {
+        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
+
+        // mint
+        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
+        await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
+
+        const baseBefore = await baseToken.balanceOf(clearingHouse.address)
+        const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+        // assume imRatio = 0.1
+        // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100", await baseToken.decimals()),
+            quote: parseUnits("10000", await quoteToken.decimals()),
+            lowerTick: 50000,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
+        })
+        const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+
+        await expect(
+            clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50400,
+                liquidity: 0,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            }),
+        )
+            .to.emit(clearingHouse, "LiquidityChanged")
+            .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
+
+        // verify account states
+        expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
+            BigNumber.from("33938154569530515977"), // available
+            parseUnits("100", await baseToken.decimals()), // debt
+        ])
+        expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
+            BigNumber.from(0), // available
+            parseUnits("10000", await quoteToken.decimals()), // debt
+        ])
+        expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+            keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
+        ])
+        expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+            liquidity,
+            50000, // lowerTick
+            50400, // upperTick
+            parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+            parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+        ])
+
+        // verify CH balance changes
+        expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
+            BigNumber.from("66061845430469484023"),
+        )
+        expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
+            parseUnits("10000", await quoteToken.decimals()),
+        )
     })
 })
