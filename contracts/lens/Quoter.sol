@@ -22,9 +22,6 @@ contract Quoter is IUniswapV3SwapCallback {
     using SignedSafeMath for int256;
     using PerpMath for int256;
 
-    /// @dev Transient storage variable used to check a safety condition in exact output swaps.
-    uint256 private _amountOutCached;
-
     struct SwapParams {
         address pool;
         bool isBaseToQuote;
@@ -40,21 +37,13 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 exchangedPositionNotional;
     }
 
-    function swap(SwapParams memory params) public returns (SwapResponse memory response) {
-        // zero input
+    function swap(SwapParams memory params) external returns (SwapResponse memory response) {
+        // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
-        // if no price limit has been specified, cache the output amount for comparison in the swap callback
-        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
-            _amountOutCached = params.amount;
-        }
-
-        uint256 amount = params.amount;
-        if (params.isBaseToQuote) {
-            // scale base token before swap
-            amount = FeeMath.calcScaledAmount(params.pool, params.amount, true);
-        }
-
+        // scale up base token before swap for quote only fee calculation
+        uint256 amount =
+            params.isBaseToQuote ? FeeMath.calcScaledAmount(params.pool, params.amount, true) : params.amount;
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? amount.toInt256() : -amount.toInt256();
 
@@ -72,24 +61,24 @@ contract Quoter is IUniswapV3SwapCallback {
         {
 
         } catch (bytes memory reason) {
-            (uint256 amountBase, uint256 amountQuote) = _parseRevertReason(reason);
+            (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
             uint24 uniswapFeeRatio = IUniswapV3Pool(params.pool).fee();
-            uint256 fee = FullMath.mulDivRoundingUp(amountQuote, uniswapFeeRatio, 1e6);
+            uint256 fee = FullMath.mulDivRoundingUp(quote, uniswapFeeRatio, 1e6);
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
             if (params.isBaseToQuote) {
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(params.pool, amountBase, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcScaledAmount(params.pool, base, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-                exchangedPositionNotional = amountQuote.toInt256();
+                exchangedPositionNotional = quote.toInt256();
             } else {
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-                exchangedPositionSize = amountBase.toInt256();
+                exchangedPositionSize = base.toInt256();
                 // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(amountQuote.sub(fee).toInt256());
+                exchangedPositionNotional = -(quote.sub(fee).toInt256());
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase
@@ -99,11 +88,11 @@ contract Quoter is IUniswapV3SwapCallback {
             );
 
             // if the cache has been populated, ensure that the full output amount has been receive
-            if (!params.isExactInput && _amountOutCached != 0) {
+            if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
                 uint256 amountReceived =
                     params.isBaseToQuote ? response.deltaAvailableQuote : response.deltaAvailableBase;
-                require(amountReceived == _amountOutCached, "Q_UOA");
-                delete _amountOutCached;
+                // Q_UOA: unmatched output amount
+                require(amountReceived == params.amount, "Q_UOA");
             }
         }
     }
@@ -117,19 +106,19 @@ contract Quoter is IUniswapV3SwapCallback {
         // swaps entirely within 0-liquidity regions are not supported
         require(amount0Delta > 0 || amount1Delta > 0, "Q_ZL");
 
-        (uint256 amountBase, uint256 amountQuote) = (amount0Delta.abs(), amount1Delta.abs());
+        (uint256 base, uint256 quote) = (amount0Delta.abs(), amount1Delta.abs());
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let ptr := mload(0x40)
-            mstore(ptr, amountBase)
-            mstore(add(ptr, 0x20), amountQuote)
+            mstore(ptr, base)
+            mstore(add(ptr, 0x20), quote)
             revert(ptr, 64)
         }
     }
 
     /// @dev Parses a revert reason that should contain the numeric quote
-    function _parseRevertReason(bytes memory reason) private pure returns (uint256 amountBase, uint256 amountQuote) {
+    function _parseRevertReason(bytes memory reason) private pure returns (uint256 base, uint256 quote) {
         if (reason.length != 64) {
             if (reason.length < 68) revert("Unexpected error");
             // solhint-disable-next-line no-inline-assembly
