@@ -360,4 +360,19 @@ describe("Quoter.swap", () => {
             ).revertedWith("UB_UOA")
         })
     })
+
+    describe("Quote.swap with invalid params", async () => {
+        it("force error when zero input", async () => {
+            await expect(
+                quoter.callStatic.swap({
+                    pool: pool.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    // zero input
+                    amount: "0",
+                    sqrtPriceLimitX96: "0",
+                }),
+            ).revertedWith("Q_ZI")
+        })
+    })
 })
