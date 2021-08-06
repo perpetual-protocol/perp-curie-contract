@@ -11,6 +11,8 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
+// TODO: change this to IClearingHouse when clearing house's interface is ready
+import { ClearingHouse } from "../ClearingHouse.sol";
 
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
@@ -22,8 +24,10 @@ contract Quoter is IUniswapV3SwapCallback {
     using SignedSafeMath for int256;
     using PerpMath for int256;
 
+    address public clearingHouse;
+
     struct SwapParams {
-        address pool;
+        address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
@@ -37,25 +41,34 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 exchangedPositionNotional;
     }
 
+    constructor(address clearingHouseArg) {
+        // Q_CI0: clearingHouse is 0
+        require(clearingHouseArg != address(0), "Q_CI0");
+        clearingHouse = clearingHouseArg;
+    }
+
     function swap(SwapParams memory params) external returns (SwapResponse memory response) {
         // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
+        address pool = ClearingHouse(clearingHouse).getPool(params.baseToken);
+        // Q_BTNE: base token not exists
+        require(pool != address(0), "Q_BTNE");
+
         // scale up base token before swap for quote only fee calculation
-        uint256 amount =
-            params.isBaseToQuote ? FeeMath.calcScaledAmount(params.pool, params.amount, true) : params.amount;
+        uint256 amount = params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount;
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? amount.toInt256() : -amount.toInt256();
 
         try
-            IUniswapV3Pool(params.pool).swap(
+            IUniswapV3Pool(pool).swap(
                 address(this),
                 params.isBaseToQuote,
                 specifiedAmount,
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                abi.encode(params.isBaseToQuote, params.isExactInput)
+                abi.encode(params.baseToken)
             )
         // solhint-disable-next-line no-empty-blocks
         {
@@ -63,14 +76,14 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint24 uniswapFeeRatio = IUniswapV3Pool(params.pool).fee();
+            uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
             uint256 fee = FullMath.mulDivRoundingUp(quote, uniswapFeeRatio, 1e6);
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
             if (params.isBaseToQuote) {
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(params.pool, base, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, base, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
                 exchangedPositionNotional = quote.toInt256();
@@ -101,10 +114,16 @@ contract Quoter is IUniswapV3SwapCallback {
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes memory
-    ) external pure override {
-        // swaps entirely within 0-liquidity regions are not supported
-        require(amount0Delta > 0 || amount1Delta > 0, "Q_ZL");
+        bytes memory data
+    ) external view override {
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // Q_F0S: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "Q_F0S");
+
+        address baseToken = abi.decode(data, (address));
+        address pool = ClearingHouse(clearingHouse).getPool(baseToken);
+        // CH_FSV: failed swapCallback verification
+        require(msg.sender == pool, "Q_FSV");
 
         (uint256 base, uint256 quote) = (amount0Delta.abs(), amount1Delta.abs());
 

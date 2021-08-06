@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { defaultAbiCoder, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, Quoter, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
@@ -17,6 +17,8 @@ describe("Quoter.swap", () => {
     let pool: UniswapV3Pool
     let collateralDecimals: number
     let quoter: Quoter
+    let lowerTick
+    let upperTick
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -30,10 +32,10 @@ describe("Quoter.swap", () => {
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
-        quoter = (await quoterFactory.deploy()) as Quoter
+        quoter = (await quoterFactory.deploy(clearingHouse.address)) as Quoter
 
-        const lowerTick = 49000
-        const upperTick = 51400
+        lowerTick = 49000
+        upperTick = 51400
 
         // prepare maker alice
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -64,7 +66,7 @@ describe("Quoter.swap", () => {
         it("returns same result with the CH.swap when liquidity is enough", async () => {
             const quoteAmount = parseEther("250")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -90,7 +92,7 @@ describe("Quoter.swap", () => {
             const priceLimit = encodePriceSqrt(152, 1)
 
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -114,7 +116,7 @@ describe("Quoter.swap", () => {
         it("returns same result with CH.swap when liquidity is not enough", async () => {
             const quoteAmount = parseEther("30000")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -139,7 +141,7 @@ describe("Quoter.swap", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
             const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -165,7 +167,7 @@ describe("Quoter.swap", () => {
             const priceLimit = encodePriceSqrt(152, 1)
 
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // buy base
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -189,7 +191,7 @@ describe("Quoter.swap", () => {
             const baseAmount = parseEther("20")
             await expect(
                 quoter.callStatic.swap({
-                    pool: pool.address,
+                    baseToken: baseToken.address,
                     // buy base
                     isBaseToQuote: false,
                     isExactInput: false,
@@ -215,7 +217,7 @@ describe("Quoter.swap", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
             const baseAmount = parseEther("5")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -241,7 +243,7 @@ describe("Quoter.swap", () => {
             const priceLimit = encodePriceSqrt(151, 1)
 
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -264,7 +266,7 @@ describe("Quoter.swap", () => {
         it("returns same result with CH.swap when liquidity is not enough", async () => {
             const baseAmount = parseEther("30")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -289,7 +291,7 @@ describe("Quoter.swap", () => {
         it("returns same result with CH.swap when liquidity is enough", async () => {
             const quoteAmount = parseEther("100")
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -315,7 +317,7 @@ describe("Quoter.swap", () => {
             const priceLimit = encodePriceSqrt(151, 1)
 
             const quoteResponse = await quoter.callStatic.swap({
-                pool: pool.address,
+                baseToken: baseToken.address,
                 // sell base
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -339,7 +341,7 @@ describe("Quoter.swap", () => {
             const quoteAmount = parseEther("3000")
             await expect(
                 quoter.callStatic.swap({
-                    pool: pool.address,
+                    baseToken: baseToken.address,
                     // sell base
                     isBaseToQuote: true,
                     isExactInput: false,
@@ -361,11 +363,11 @@ describe("Quoter.swap", () => {
         })
     })
 
-    describe("Quote.swap with invalid params", async () => {
-        it("force error when zero input", async () => {
+    describe("Quote.swap in edge cases", async () => {
+        it("force error, zero input", async () => {
             await expect(
                 quoter.callStatic.swap({
-                    pool: pool.address,
+                    baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     // zero input
@@ -373,6 +375,51 @@ describe("Quoter.swap", () => {
                     sqrtPriceLimitX96: "0",
                 }),
             ).revertedWith("Q_ZI")
+        })
+
+        it("force error, 0 liquidity swap", async () => {
+            // remove alice's all liquidity
+            const aliceOrder = await clearingHouse
+                .connect(alice)
+                .getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+            await clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: lowerTick,
+                upperTick: upperTick,
+                liquidity: aliceOrder.liquidity,
+                minBase: "0",
+                minQuote: "0",
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await expect(
+                quoter.callStatic.swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    amount: "100",
+                    sqrtPriceLimitX96: "0",
+                }),
+            ).revertedWith("Q_F0S")
+        })
+
+        it("force error, base token not exists", async () => {
+            await expect(
+                quoter.callStatic.swap({
+                    // incorrectly use quote token address
+                    baseToken: quoteToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    amount: "100",
+                    sqrtPriceLimitX96: "0",
+                }),
+            ).revertedWith("Q_BTNE")
+        })
+
+        it("force error, unexpected call to callback function", async () => {
+            await expect(
+                quoter.uniswapV3SwapCallback("10", "20", defaultAbiCoder.encode(["address"], [baseToken.address])),
+            ).revertedWith("Q_FSV")
         })
     })
 })
