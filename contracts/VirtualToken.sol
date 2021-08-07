@@ -78,6 +78,6 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     ) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
         // not whitelisted
-        require(_whitelistMap[to], "VT_NW");
+        require(_whitelistMap[from], "VT_NW");
     }
 }
