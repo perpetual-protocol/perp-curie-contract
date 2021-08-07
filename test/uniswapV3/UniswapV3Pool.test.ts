@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { waffle } from "hardhat"
-import { TestERC20, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt, sortedTokens } from "../shared/utilities"
 

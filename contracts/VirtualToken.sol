@@ -9,20 +9,27 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     using SafeMath for uint256;
 
+    event WhitelistAdded(address account);
+    event WhitelistRemoved(address account);
+
     address public priceFeed;
     address public minter;
     uint8 private immutable _priceFeedDecimals;
+    mapping(address => bool) private _whitelistMap;
 
     constructor(
         string memory nameArg,
         string memory symbolArg,
         address priceFeedArg
     ) ERC20(nameArg, symbolArg) {
-        // BT_IA: invalid address
-        require(priceFeedArg != address(0), "BT_IA");
+        // invalid address
+        require(priceFeedArg != address(0), "VT_IA");
 
         priceFeed = priceFeedArg;
         _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+
+        // transfer to 0 = burn
+        _whitelistMap[address(0)] = true;
     }
 
     /**
@@ -44,11 +51,33 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
         minter = minterArg;
     }
 
+    function addWhitelist(address account) external onlyOwner {
+        _whitelistMap[account] = true;
+        emit WhitelistAdded(account);
+    }
+
+    function removeWhitelist(address account) external onlyOwner {
+        _whitelistMap[account] = false;
+        emit WhitelistRemoved(account);
+    }
+
+    /// @inheritdoc IIndexPrice
     function getIndexPrice(uint256 interval) external view override returns (uint256) {
         return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
         return _price.mul(10**uint256(decimals())).div(10**uint256(_priceFeedDecimals));
+    }
+
+    /// @inheritdoc ERC20
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        super._beforeTokenTransfer(from, to, amount);
+        // not whitelisted
+        require(_whitelistMap[to], "VT_NW");
     }
 }

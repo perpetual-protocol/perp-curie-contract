@@ -63,6 +63,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             uniV3Factory.address,
             3600, // fundingPeriod = 1 hour
         )) as ClearingHouse
+        await quoteToken.addWhitelist(clearingHouse.address)
 
         // set CH as the minter of all virtual tokens
         await vault.setClearingHouse(clearingHouse.address)
@@ -77,6 +78,9 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
+        await baseToken.addWhitelist(clearingHouse.address)
+        await baseToken.addWhitelist(pool.address)
+        await quoteToken.addWhitelist(pool.address)
 
         // deploy another pool
         const _token0Fixture = await token0Fixture(quoteToken.address)
@@ -86,6 +90,10 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         await uniV3Factory.createPool(baseToken2.address, quoteToken.address, feeTier)
         const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
+
+        await baseToken2.addWhitelist(clearingHouse.address)
+        await baseToken2.addWhitelist(pool2.address)
+        await quoteToken.addWhitelist(pool2.address)
 
         return {
             clearingHouse,

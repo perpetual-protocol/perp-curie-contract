@@ -1,10 +1,9 @@
-import { TestERC20, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
-import { ethers, waffle } from "hardhat"
-
-import { base0Quote1PoolFixture } from "../shared/fixtures"
-import { encodePriceSqrt } from "../shared/utilities"
 import { expect } from "chai"
 import { parseEther } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
+import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { base0Quote1PoolFixture } from "../shared/fixtures"
+import { encodePriceSqrt } from "../shared/utilities"
 
 describe("UniswapV3Broker swap", () => {
     const [wallet] = waffle.provider.getWallets()
@@ -31,6 +30,10 @@ describe("UniswapV3Broker swap", () => {
         // broker has the only permission to mint vToken
         await baseToken.setMinter(uniswapV3Broker.address)
         await quoteToken.setMinter(uniswapV3Broker.address)
+        await baseToken.addWhitelist(uniswapV3Broker.address)
+        await quoteToken.addWhitelist(uniswapV3Broker.address)
+        await baseToken.addWhitelist(pool.address)
+        await quoteToken.addWhitelist(pool.address)
     })
 
     describe("no liquidity", () => {

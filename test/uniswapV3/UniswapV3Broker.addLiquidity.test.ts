@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestERC20, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -31,6 +31,10 @@ describe("UniswapV3Broker addLiquidity", () => {
         // broker has the only permission to mint vToken
         await baseToken.setMinter(uniswapV3Broker.address)
         await quoteToken.setMinter(uniswapV3Broker.address)
+        await baseToken.addWhitelist(uniswapV3Broker.address)
+        await quoteToken.addWhitelist(uniswapV3Broker.address)
+        await baseToken.addWhitelist(pool.address)
+        await quoteToken.addWhitelist(pool.address)
     })
 
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=150902425
