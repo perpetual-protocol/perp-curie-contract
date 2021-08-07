@@ -29,6 +29,7 @@ describe("Quoter.swap", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
+        await pool.initialize(encodePriceSqrt(151.3733069, 1))
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
@@ -42,7 +43,6 @@ describe("Quoter.swap", () => {
         await deposit(alice, vault, 10000, collateral)
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1500"))
-        await pool.initialize(encodePriceSqrt(151.3733069, 1))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("10"),
