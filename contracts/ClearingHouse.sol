@@ -77,6 +77,11 @@ contract ClearingHouse is
         uint256 nextPremiumFractionIndex,
         int256 amount // +: trader pays, -: trader receives
     );
+    event GlobalFundingGrowthUpdated(
+        address indexed baseToken,
+        uint256 twPremiumGrowthX192,
+        uint256 twPremiumDivBySqrtPriceX96
+    );
     event Swapped(
         address indexed trader,
         address indexed baseToken,
@@ -114,6 +119,8 @@ contract ClearingHouse is
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
         mapping(address => uint256) nextPremiumFractionIndexMap;
+        // for taker
+        mapping(address => uint256) lastTwPremiumGrowthX192;
     }
 
     struct TokenInfo {
@@ -129,6 +136,8 @@ contract ClearingHouse is
         int24 upperTick;
         uint256 feeGrowthInsideClearingHouseLastX128;
         uint256 feeGrowthInsideUniswapLastX128;
+        uint256 lastTwPremiumGrowthX192;
+        uint256 lastTwPremiumDivBySqrtPriceX96;
     }
 
     struct MakerPosition {
@@ -256,6 +265,13 @@ contract ClearingHouse is
         address payer;
     }
 
+    struct GlobalFundingGrowth {
+        uint256 lastTradedTimestamp;
+        // tw: time-weighted; 192 = 96 * 2
+        uint256 twPremiumX192;
+        uint256 twPremiumDivBySqrtPriceX96;
+    }
+
     // 10 wei
     uint256 private constant _DUST = 10;
 
@@ -283,6 +299,9 @@ contract ClearingHouse is
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     // key: base token, value: pool
     mapping(address => uint256) private _feeGrowthGlobalX128Map;
+
+    // key: base token
+    mapping(address => GlobalFundingGrowth) private _globalFundingGrowthMap;
 
     uint256 public immutable fundingPeriod;
     // key: base token
@@ -648,7 +667,7 @@ contract ClearingHouse is
         int256 premiumFraction;
         {
             uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
-            uint256 markTwap = sqrtMarkTwapX96.formatX96ToX10_18();
+            uint256 markTwap = sqrtMarkTwapX96.formatSqrtPriceX96ToPriceX10_18();
             uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
 
             int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
@@ -1182,12 +1201,20 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
+    function _updateGlobalFundingGrowth(address baseToken) private {
+        uint256 twPremiumGrowthX192;
+        uint256 twPremiumDivBySqrtPriceX96;
+        emit GlobalFundingGrowthUpdated(baseToken, twPremiumGrowthX192, twPremiumDivBySqrtPriceX96);
+    }
+
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
         // _registerBaseToken(trader, baseTokenAddr);
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
+        // TODO funding
+        _updateGlobalFundingGrowth(baseTokenAddr);
 
         address pool = _poolMap[baseTokenAddr];
         SwapState memory state =

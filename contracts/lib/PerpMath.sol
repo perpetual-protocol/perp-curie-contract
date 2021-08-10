@@ -15,14 +15,18 @@ library PerpMath {
     // Note: overflow inspection:
     // say sqrtPriceX96 = 10000; the max value in this calculation process is: (10000 * (2 ^ 96)) ^ 2
     // -> the max number of digits required is log((10000 * (2 ^ 96)) ^ 2)/log(2) = 218.57 < 256
-    function formatX96ToX10_18(uint160 valueX96) internal pure returns (uint256) {
+    function formatSqrtPriceX96ToPriceX10_18(uint160 sqrtPriceX96) internal pure returns (uint256) {
         // sqrtPriceX96 = sqrtPrice * (2 ^ 96)
         // priceX96 = sqrtPriceX96 ^ 2 / (2 ^ 96) = ((sqrtPrice * (2 ^ 96)) ^ 2) / (2 ^ 96)
         //          = (sqrtPrice ^ 2) * (2 ^ 96) = price * (2 ^ 96)
-        uint256 priceX96 = FullMath.mulDiv(valueX96, valueX96, FixedPoint96.Q96);
+        uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
 
         // priceX10_18 = priceX96 * (10 ^ 18) / (2 ^ 96) = price * (2 ^ 96) * (10 ^ 18) / (2 ^ 96) = price * (10 ^ 18)
         return FullMath.mulDiv(priceX96, 1 ether, FixedPoint96.Q96);
+    }
+
+    function formatX10_18ToX96(uint160 valueX10_18) internal pure returns (uint256) {
+        return FullMath.mulDiv(valueX10_18, FixedPoint96.Q96, 1 ether);
     }
 
     function abs(int256 value) internal pure returns (uint256) {
