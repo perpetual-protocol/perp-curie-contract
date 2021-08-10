@@ -69,14 +69,16 @@ contract ClearingHouse is
         int256 quote,
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
+        // TODO funding
+        // fundingPayment
     );
-    event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
-    event FundingSettled(
-        address indexed trader,
-        address indexed baseToken,
-        uint256 nextPremiumFractionIndex,
-        int256 amount // +: trader pays, -: trader receives
-    );
+    // event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
+    // event FundingSettled(
+    //     address indexed trader,
+    //     address indexed baseToken,
+    //     uint256 nextPremiumFractionIndex,
+    //     int256 amount // +: trader pays, -: trader receives
+    // );
     event GlobalFundingGrowthUpdated(
         address indexed baseToken,
         uint256 twPremiumGrowthX192,
@@ -88,7 +90,7 @@ contract ClearingHouse is
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
         uint256 fee,
-        int256 fundingPayment,
+        // int256 fundingPayment,
         uint256 badDebt
     );
 
@@ -117,8 +119,8 @@ contract ClearingHouse is
         mapping(address => int256) openNotionalMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
-        // key: token address, value: next premium fraction index for settling funding payment
-        mapping(address => uint256) nextPremiumFractionIndexMap;
+        // // key: token address, value: next premium fraction index for settling funding payment
+        // mapping(address => uint256) nextPremiumFractionIndexMap;
         // for taker
         mapping(address => uint256) lastTwPremiumGrowthX192;
     }
@@ -146,10 +148,17 @@ contract ClearingHouse is
         mapping(bytes32 => OpenOrder) openOrderMap;
     }
 
-    struct FundingHistory {
-        int256 premiumFractions;
-        uint160 sqrtMarkPriceX96;
+    struct GlobalFundingGrowth {
+        uint256 lastTradedTimestamp;
+        // tw: time-weighted; 192 = 96 * 2
+        uint256 twPremiumX192;
+        uint256 twPremiumDivBySqrtPriceX96;
     }
+
+    // struct FundingHistory {
+    //     int256 premiumFractions;
+    //     uint160 sqrtMarkPriceX96;
+    // }
 
     struct AddLiquidityParams {
         address baseToken;
@@ -265,13 +274,6 @@ contract ClearingHouse is
         address payer;
     }
 
-    struct GlobalFundingGrowth {
-        uint256 lastTradedTimestamp;
-        // tw: time-weighted; 192 = 96 * 2
-        uint256 twPremiumX192;
-        uint256 twPremiumDivBySqrtPriceX96;
-    }
-
     // 10 wei
     uint256 private constant _DUST = 10;
 
@@ -303,18 +305,17 @@ contract ClearingHouse is
     // key: base token
     mapping(address => GlobalFundingGrowth) private _globalFundingGrowthMap;
 
-    uint256 public immutable fundingPeriod;
+    // uint256 public immutable fundingPeriod;
     // key: base token
-    mapping(address => uint256) private _nextFundingTimeMap;
-    mapping(address => FundingHistory[]) private _fundingHistoryMap;
+    // mapping(address => uint256) private _nextFundingTimeMap;
+    // mapping(address => FundingHistory[]) private _fundingHistoryMap;
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
     constructor(
         address vaultArg,
         address quoteTokenArg,
-        address uniV3FactoryArg,
-        uint256 fundingPeriodArg
+        address uniV3FactoryArg // uint256 fundingPeriodArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -328,7 +329,7 @@ contract ClearingHouse is
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
-        fundingPeriod = fundingPeriodArg;
+        // fundingPeriod = fundingPeriodArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -397,7 +398,7 @@ contract ClearingHouse is
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        _settleFunding(trader, params.baseToken);
+        // _settleFunding(trader, params.baseToken);
 
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
@@ -646,57 +647,57 @@ contract ClearingHouse is
         TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
-    /**
-     * @notice "pay funding" by registering the primitives for funding calculations (premiumFraction, markPrice, etc)
-     * so that we can defer the actual settlement of payment later for each market and each trader, respectively,
-     * therefore spread out the computational loads. It is expected to be called by a keeper every fundingPeriod.
-     * @param baseToken base token address
-     */
-    function updateFunding(address baseToken) external {
-        _requireHasBaseToken(baseToken);
+    // /**
+    //  * @notice "pay funding" by registering the primitives for funding calculations (premiumFraction, markPrice, etc)
+    //  * so that we can defer the actual settlement of payment later for each market and each trader, respectively,
+    //  * therefore spread out the computational loads. It is expected to be called by a keeper every fundingPeriod.
+    //  * @param baseToken base token address
+    //  */
+    // function updateFunding(address baseToken) external {
+    //     _requireHasBaseToken(baseToken);
 
-        // solhint-disable-next-line not-rely-on-time
-        uint256 nowTimestamp = _blockTimestamp();
-        // CH_UFTE update funding too early
-        require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
+    //     // solhint-disable-next-line not-rely-on-time
+    //     uint256 nowTimestamp = _blockTimestamp();
+    //     // CH_UFTE update funding too early
+    //     require(nowTimestamp >= _nextFundingTimeMap[baseToken], "CH_UFTE");
 
-        // premium = markTwap - indexTwap
-        // timeFraction = fundingPeriod(1 hour) / 1 day
-        // premiumFraction = premium * timeFraction
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
-        int256 premiumFraction;
-        {
-            uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
-            uint256 markTwap = sqrtMarkTwapX96.formatSqrtPriceX96ToPriceX10_18();
-            uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
+    //     // premium = markTwap - indexTwap
+    //     // timeFraction = fundingPeriod(1 hour) / 1 day
+    //     // premiumFraction = premium * timeFraction
+    //     IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
+    //     int256 premiumFraction;
+    //     {
+    //         uint160 sqrtMarkTwapX96 = UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], fundingPeriod);
+    //         uint256 markTwap = sqrtMarkTwapX96.formatSqrtPriceX96ToPriceX10_18();
+    //         uint256 indexTwap = _getIndexPrice(baseToken, fundingPeriod);
 
-            int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
-            premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
+    //         int256 premium = markTwap.toInt256().sub(indexTwap.toInt256());
+    //         premiumFraction = premium.mul(fundingPeriod.toInt256()).div(int256(1 days));
 
-            emit FundingRateUpdated(baseToken, premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
-        }
+    //         emit FundingRateUpdated(baseToken, premiumFraction.mul(1 ether).div(indexTwap.toInt256()), indexTwap);
+    //     }
 
-        // register primitives for funding calculations so we can settle it later
-        (uint160 sqrtMarkPriceX96, , , , , , ) = pool.slot0();
-        FundingHistory memory fundingHistory =
-            FundingHistory({ premiumFractions: premiumFraction, sqrtMarkPriceX96: sqrtMarkPriceX96 });
-        _fundingHistoryMap[baseToken].push(fundingHistory);
+    //     // register primitives for funding calculations so we can settle it later
+    //     (uint160 sqrtMarkPriceX96, , , , , , ) = pool.slot0();
+    //     FundingHistory memory fundingHistory =
+    //         FundingHistory({ premiumFractions: premiumFraction, sqrtMarkPriceX96: sqrtMarkPriceX96 });
+    //     _fundingHistoryMap[baseToken].push(fundingHistory);
 
-        // update next funding time requirements so we can prevent multiple funding settlement
-        // during very short time after network congestion
-        uint256 minNextValidFundingTime = nowTimestamp.add(fundingPeriod.div(2));
-        // (floor(nowTimestamp / fundingPeriod) + 1) * fundingPeriod
-        uint256 nextFundingTimeOnHourStart = nowTimestamp.div(fundingPeriod).add(1).mul(fundingPeriod);
-        // max(nextFundingTimeOnHourStart, minNextValidFundingTime)
-        _nextFundingTimeMap[baseToken] = nextFundingTimeOnHourStart > minNextValidFundingTime
-            ? nextFundingTimeOnHourStart
-            : minNextValidFundingTime;
-    }
+    //     // update next funding time requirements so we can prevent multiple funding settlement
+    //     // during very short time after network congestion
+    //     uint256 minNextValidFundingTime = nowTimestamp.add(fundingPeriod.div(2));
+    //     // (floor(nowTimestamp / fundingPeriod) + 1) * fundingPeriod
+    //     uint256 nextFundingTimeOnHourStart = nowTimestamp.div(fundingPeriod).add(1).mul(fundingPeriod);
+    //     // max(nextFundingTimeOnHourStart, minNextValidFundingTime)
+    //     _nextFundingTimeMap[baseToken] = nextFundingTimeOnHourStart > minNextValidFundingTime
+    //         ? nextFundingTimeOnHourStart
+    //         : minNextValidFundingTime;
+    // }
 
-    function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
-        _requireHasBaseToken(token);
-        return _settleFunding(trader, token);
-    }
+    // function settleFunding(address trader, address token) external returns (int256 fundingPayment) {
+    //     _requireHasBaseToken(token);
+    //     return _settleFunding(trader, token);
+    // }
 
     function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
         _requireHasBaseToken(baseToken);
@@ -908,7 +909,8 @@ contract ClearingHouse is
                     false // fetch quote token amount
                 )
             );
-            fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
+            // TODO funding
+            // fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
         }
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         int256 netQuoteBalance =
@@ -918,40 +920,41 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    function getNextFundingTime(address baseToken) external view returns (uint256) {
-        return _nextFundingTimeMap[baseToken];
-    }
+    // function getNextFundingTime(address baseToken) external view returns (uint256) {
+    //     return _nextFundingTimeMap[baseToken];
+    // }
 
-    function getPremiumFraction(address baseToken, uint256 idx) external view returns (int256) {
-        return _fundingHistoryMap[baseToken][idx].premiumFractions;
-    }
+    // function getPremiumFraction(address baseToken, uint256 idx) external view returns (int256) {
+    //     return _fundingHistoryMap[baseToken][idx].premiumFractions;
+    // }
 
-    function getFundingHistoryLength(address baseToken) external view returns (uint256) {
-        return _fundingHistoryMap[baseToken].length;
-    }
+    // function getFundingHistoryLength(address baseToken) external view returns (uint256) {
+    //     return _fundingHistoryMap[baseToken].length;
+    // }
 
-    function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
-        return _fundingHistoryMap[baseToken][idx].sqrtMarkPriceX96;
-    }
+    // function getSqrtMarkPriceX96AtIndex(address baseToken, uint256 idx) external view returns (uint160) {
+    //     return _fundingHistoryMap[baseToken][idx].sqrtMarkPriceX96;
+    // }
 
+    // TODO funding
     /// @dev +: trader pays, -: trader receives
-    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        Account storage account = _accountMap[trader];
-        int256 fundingPayment;
-        {
-            FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
-            uint256 indexEnd = fundingHistory.length;
-            for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
-                int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96);
-                fundingPayment = fundingPayment.add(fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18());
-            }
-        }
-        return fundingPayment;
-    }
+    // function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
+    //     Account storage account = _accountMap[trader];
+    //     int256 fundingPayment;
+    //     {
+    //         FundingHistory[] memory fundingHistory = _fundingHistoryMap[baseToken];
+    //         uint256 indexEnd = fundingHistory.length;
+    //         for (uint256 i = account.nextPremiumFractionIndexMap[baseToken]; i < indexEnd; i++) {
+    //             int256 posSize = _getPositionSize(trader, baseToken, fundingHistory[i].sqrtMarkPriceX96);
+    //             fundingPayment = fundingPayment.add(fundingHistory[i].premiumFractions.mul(posSize).divideBy10_18());
+    //         }
+    //     }
+    //     return fundingPayment;
+    // }
 
-    function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
-        return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
-    }
+    // function getNextFundingIndex(address trader, address baseToken) external view returns (uint256) {
+    //     return _accountMap[trader].nextPremiumFractionIndexMap[baseToken];
+    // }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
@@ -979,10 +982,10 @@ contract ClearingHouse is
         if (amount == 0) {
             return 0;
         }
-        if (token != quoteToken) {
-            // Revise after we have defined the user-facing functions.
-            _settleFunding(account, token);
-        }
+        // if (token != quoteToken) {
+        //     // Revise after we have defined the user-facing functions.
+        //     _settleFunding(account, token);
+        // }
 
         // update internal states
         TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
@@ -1010,9 +1013,9 @@ contract ClearingHouse is
             return;
         }
 
-        if (token != quoteToken) {
-            _settleFunding(account, token);
-        }
+        // if (token != quoteToken) {
+        //     _settleFunding(account, token);
+        // }
 
         TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
 
@@ -1201,6 +1204,7 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
+    // TODO funding
     function _updateGlobalFundingGrowth(address baseToken) private {
         uint256 twPremiumGrowthX192;
         uint256 twPremiumDivBySqrtPriceX96;
@@ -1212,7 +1216,7 @@ contract ClearingHouse is
         address baseTokenAddr = params.baseToken;
         // _registerBaseToken(trader, baseTokenAddr);
 
-        int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
+        // int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
         // TODO funding
         _updateGlobalFundingGrowth(baseTokenAddr);
 
@@ -1370,7 +1374,7 @@ contract ClearingHouse is
             exchangedPositionSize,
             exchangedPositionNotional,
             fee,
-            fundingPayment,
+            // fundingPayment, // TODO funding
             0 // TODO: badDebt
         );
 
@@ -1389,7 +1393,7 @@ contract ClearingHouse is
     {
         address trader = params.maker;
 
-        _settleFunding(trader, params.baseToken);
+        // _settleFunding(trader, params.baseToken);
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
@@ -1571,24 +1575,24 @@ contract ClearingHouse is
         return swapResponse;
     }
 
-    function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
-        uint256 historyLen = _fundingHistoryMap[baseToken].length;
-        if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
-            return 0;
-        }
+    // function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
+    //     uint256 historyLen = _fundingHistoryMap[baseToken].length;
+    //     if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
+    //         return 0;
+    //     }
 
-        fundingPayment = getPendingFundingPayment(trader, baseToken);
-        _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
+    //     fundingPayment = getPendingFundingPayment(trader, baseToken);
+    //     _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
 
-        if (fundingPayment == 0) {
-            return 0;
-        }
+    //     if (fundingPayment == 0) {
+    //         return 0;
+    //     }
 
-        // settle funding to owedRealizedPnl
-        _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
+    //     // settle funding to owedRealizedPnl
+    //     _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
 
-        emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
-    }
+    //     emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
+    // }
 
     //
     // INTERNAL VIEW FUNCTIONS
