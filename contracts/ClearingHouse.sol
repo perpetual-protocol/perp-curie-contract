@@ -208,6 +208,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        bool mint;
     }
 
     struct SwapResponse {
@@ -252,8 +253,9 @@ contract ClearingHouse is
     }
 
     struct SwapCallbackData {
-        bytes path;
-        address payer;
+        address trader;
+        address baseToken;
+        bool mint;
     }
 
     // 10 wei
@@ -365,7 +367,8 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    mint: false
                 })
             );
     }
@@ -615,15 +618,43 @@ contract ClearingHouse is
         // CH_F0S: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        address baseToken = abi.decode(data, (address));
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
+        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
         // CH_FSV: failed swapCallback verification
         require(_msgSender() == address(pool), "CH_FSV");
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-        // swap fail
+
+        bool isBaseToQuote = token == callbackData.baseToken;
+        uint256 exactSwappedAmount = amountToPay;
+
+        // we know the exact amount of a token is needed for swap in the swap callback
+        // we separate into two part
+        // 1. extra minted tokens due to quote only fee
+        // 2. tokens that a trader needs when openPosition
+
+        // 1. quote only fee
+        // if `isBaseToQuote`, the amountToPay is scaled
+        // so we need to scale down the amount to get the exact user's input amount
+        // the difference of these two values is minted for compensate the base fee
+        if (isBaseToQuote) {
+            // mint extra base token before swap
+            exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
+            // not use _mint() here since it will change trader's baseToken available/debt
+            IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
+        }
+
+        // 2. openPosition
+        if (callbackData.mint) {
+            uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+            if (availableBefore < exactSwappedAmount) {
+                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), true);
+            }
+        }
+
+        // swap
         TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
@@ -1185,7 +1216,6 @@ contract ClearingHouse is
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
-        // _registerBaseToken(trader, baseTokenAddr);
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
@@ -1203,20 +1233,17 @@ contract ClearingHouse is
         if (params.isBaseToQuote) {
             // mint extra base token before swap
             amount = FeeMath.calcScaledAmount(pool, params.amount, true);
-            // not use _mint() here since it will change trader's baseToken available/debt
-            IMintableERC20(baseTokenAddr).mint(address(this), amount.sub(params.amount));
         }
 
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
-                    baseTokenAddr,
-                    quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
                     amount,
-                    params.sqrtPriceLimitX96
+                    params.sqrtPriceLimitX96,
+                    abi.encode(SwapCallbackData(trader, baseTokenAddr, params.mint))
                 )
             );
 
@@ -1493,27 +1520,6 @@ contract ClearingHouse is
     }
 
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
-        uint256 baseAvailableBefore = getTokenInfo(params.trader, params.baseToken).available;
-        uint256 quoteAvailableBefore = getTokenInfo(params.trader, quoteToken).available;
-        uint256 minted;
-
-        // calculate if trader need to mint more quote or base for exact input
-        if (params.isExactInput) {
-            if (params.isBaseToQuote && baseAvailableBefore < params.amount) {
-                // check if trader has enough base to swap
-                minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
-            } else if (!params.isBaseToQuote && quoteAvailableBefore < params.amount) {
-                // check if trader has enough quote to swap
-                minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
-            }
-        } else {
-            // for exact output: can't use quoter to get how many input we need
-            // but we'll know the exact input numbers after swap
-            // so we'll mint max first, do the swap
-            // then calculate how many input we need to mint if we have quoter
-            minted = _mintMax(params.trader, params.isBaseToQuote ? params.baseToken : quoteToken);
-        }
-
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
                 InternalSwapParams({
@@ -1522,7 +1528,8 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    mint: true
                 })
             );
 

@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
+import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
@@ -47,12 +47,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             ).to.be.revertedWith("CH_F0S")
         })
@@ -82,12 +81,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -124,12 +122,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
                     amount: base,
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -166,12 +163,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
                     amount: parseEther(base.toString()),
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -208,12 +204,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     amount: parseEther(quote.toString()),
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             )
                 .to.emit(pool, "Swap")
@@ -254,12 +249,11 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
-                    baseToken: baseToken.address,
-                    quoteToken: quoteToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,
                     sqrtPriceLimitX96: "0",
+                    data: hexlify([]),
                 }),
             )
                 .to.emit(pool, "Swap")
