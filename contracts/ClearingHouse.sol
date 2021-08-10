@@ -151,7 +151,7 @@ contract ClearingHouse is
     struct GlobalFundingGrowth {
         uint256 lastTradedTimestamp;
         // tw: time-weighted; 192 = 96 * 2
-        uint256 twPremiumX192;
+        uint256 twPremiumX96;
         uint256 twPremiumDivBySqrtPriceX96;
     }
 
@@ -280,13 +280,17 @@ contract ClearingHouse is
     //
     // state variables
     //
-    uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
-    uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
-
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
     address public vault;
+
+    uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
+    uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
+    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
+
     uint8 private immutable _settlementTokenDecimals;
+
+    uint32 public twapInterval;
 
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
@@ -309,8 +313,6 @@ contract ClearingHouse is
     // key: base token
     // mapping(address => uint256) private _nextFundingTimeMap;
     // mapping(address => FundingHistory[]) private _fundingHistoryMap;
-
-    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
     constructor(
         address vaultArg,
@@ -574,6 +576,11 @@ contract ClearingHouse is
     function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg) external onlyOwner {
         liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
+    }
+
+    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+        twapInterval = twapIntervalArg;
+        // TODO event declaration and emit here
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
@@ -847,8 +854,10 @@ contract ClearingHouse is
         return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
     }
 
-    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
-        return IIndexPrice(token).getIndexPrice(twapInterval);
+    function _getIndexPrice(address token, uint256 twapIntervalArg) private view returns (uint256) {
+        // TODO decide on whether we should use twapInterval the state or the input twapIntervalArg
+        // if we use twapInterval, we need a require()
+        return IIndexPrice(token).getIndexPrice(twapIntervalArg);
     }
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
@@ -1204,11 +1213,31 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    // TODO funding
-    function _updateGlobalFundingGrowth(address baseToken) private {
-        uint256 twPremiumGrowthX192;
-        uint256 twPremiumDivBySqrtPriceX96;
-        emit GlobalFundingGrowthUpdated(baseToken, twPremiumGrowthX192, twPremiumDivBySqrtPriceX96);
+    function _updateGlobalFundingGrowth(address baseToken, address pool)
+        private
+        returns (uint256 twPremiumGrowthX96, uint256 twPremiumDivBySqrtPriceGrowthX96)
+    {
+        uint256 timestamp = _blockTimestamp();
+
+        GlobalFundingGrowth storage globalFundingGrowth = _globalFundingGrowthMap[baseToken];
+
+        twPremiumGrowthX96 = globalFundingGrowth.twPremiumX96.add(
+            _getIndexPrice(baseToken, twapInterval).formatX10_18ToX96().mul(
+                timestamp.sub(globalFundingGrowth.lastTradedTimestamp)
+            )
+        );
+        // according to FullMath, even if twPremiumGrowthX96 * 2**96 overflows, the result is still right
+        // thus, instead of storing twPremiumGrowth as X192, we should perform the upward scaling here
+        twPremiumDivBySqrtPriceGrowthX96 = globalFundingGrowth.twPremiumDivBySqrtPriceX96.add(
+            FullMath.mulDiv(twPremiumGrowthX96, 2**96, UniswapV3Broker.getSqrtMarkPriceX96(pool))
+        );
+
+        (
+            globalFundingGrowth.lastTradedTimestamp,
+            globalFundingGrowth.twPremiumX96,
+            globalFundingGrowth.twPremiumDivBySqrtPriceX96
+        ) = (timestamp, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
+        emit GlobalFundingGrowthUpdated(baseToken, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
     }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
@@ -1216,11 +1245,11 @@ contract ClearingHouse is
         address baseTokenAddr = params.baseToken;
         // _registerBaseToken(trader, baseTokenAddr);
 
-        // int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
-        // TODO funding
-        _updateGlobalFundingGrowth(baseTokenAddr);
-
         address pool = _poolMap[baseTokenAddr];
+        // int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
+        // TODO catch returned value; remind that there is stack-to-deep issue
+        _updateGlobalFundingGrowth(baseTokenAddr, pool);
+
         SwapState memory state =
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
