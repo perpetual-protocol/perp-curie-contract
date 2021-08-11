@@ -686,7 +686,26 @@ describe("ClearingHouse openPosition", () => {
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
-        it("open larger reverse position")
+        it("open larger reverse position", async () => {
+            // taker has 2 USD worth ETH long position
+            // then opens 10 USD worth ETH short position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: parseEther("10"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // position size = -0.05368894844
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
+
+            // openNotional = 8.0412624948
+            expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
+
+            // realizedPnl = -0.04126249485
+            expect(await clearingHouse.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
+        })
 
         // TODO: blocked by TWAP based _getDebtValue
         it.skip("force error, can't open another long if it's under collateral", async () => {
@@ -716,8 +735,6 @@ describe("ClearingHouse openPosition", () => {
                 }),
             ).to.be.revertedWith("CH_CNE")
         })
-
-        it("open larger reverse position")
     })
 
     describe("opening short first then", () => {
