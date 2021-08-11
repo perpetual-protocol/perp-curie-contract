@@ -110,6 +110,7 @@ contract ClearingHouse is
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
         // key: base token address, ?????
+        // TODO rename: openNotionalSubComponent? negativeTakerOpenNotional?
         mapping(address => int256) openNotionalFractionMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
@@ -1078,12 +1079,15 @@ contract ClearingHouse is
 
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
+        console.log("=== _swapAndCalculateOpenNotional ===");
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         int256 oldOpenNotionalFraction = _accountMap[params.trader].openNotionalFractionMap[params.baseToken];
         bool isOldPositionShort = positionSize < 0 ? true : false;
         SwapResponse memory response;
         int256 deltaAvailableQuote;
+        console.log("oldOpenNotional");
+        console.logInt(oldOpenNotional);
 
         // increase position if old/new position are in the same direction
         if (positionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
@@ -1094,7 +1098,11 @@ contract ClearingHouse is
             deltaAvailableQuote = params.isBaseToQuote
                 ? response.deltaAvailableQuote.toInt256()
                 : -response.deltaAvailableQuote.toInt256();
-            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.add(
+
+            // long buy base = deltaAvailableQuote negative => openNotional negative
+            // short sell base = deltaAvailableQuote positive => openNotional positive
+            // for pure taker case, openOptional = -openNotionalFraction
+            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.sub(
                 deltaAvailableQuote
             );
             console.log("deltaAvailableQuote");
@@ -1140,7 +1148,9 @@ contract ClearingHouse is
             // openNotional = -100 - (-40) = 60
             // realizedPnl = (40 -> 50) + (-40) = 10
             // realizedPnl = exchangedPositionNotional + reducedOpenNotional
-            realizedPnl = deltaAvailableQuote.sub(reducedOpenNotional);
+
+            // when reducing, oldOpenNotional has diff sign with deltaAvailableQuote
+            realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             console.log("close or open larger");
             // else: opens a larger reverse position
