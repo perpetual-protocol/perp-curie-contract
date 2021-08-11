@@ -60,12 +60,11 @@ library UniswapV3Broker {
 
     struct SwapParams {
         address pool;
-        address baseToken;
-        address quoteToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        bytes data;
     }
 
     struct SwapResponse {
@@ -159,7 +158,7 @@ library UniswapV3Broker {
                 params.sqrtPriceLimitX96 == 0
                     ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
                     : params.sqrtPriceLimitX96,
-                abi.encode(params.baseToken)
+                params.data
             );
 
         (uint256 amount0, uint256 amount1) = (signedAmount0.abs(), signedAmount1.abs());

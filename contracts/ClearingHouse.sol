@@ -208,6 +208,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        bool mintForTrader;
     }
 
     struct SwapResponse {
@@ -252,8 +253,9 @@ contract ClearingHouse is
     }
 
     struct SwapCallbackData {
-        bytes path;
-        address payer;
+        address trader;
+        address baseToken;
+        bool mintForTrader;
     }
 
     // 10 wei
@@ -365,7 +367,8 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    mintForTrader: false
                 })
             );
     }
@@ -449,49 +452,6 @@ contract ClearingHouse is
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
-    }
-
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
-        private
-        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
-    {
-        // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
-
-        uint256 feeGrowthInsideClearingHouseX128;
-        if (openOrder.liquidity == 0) {
-            // it's a new order
-            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
-            makerPosition.orderIds.push(orderId);
-
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
-        } else {
-            mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                params.feeGrowthGlobalClearingHouseX128
-            );
-            quoteFeeClearingHouse = _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
-            );
-            quoteFeeUniswap = _calcOwedFee(
-                openOrder.liquidity,
-                params.feeGrowthInsideQuoteX128,
-                openOrder.feeGrowthInsideUniswapLastX128
-            );
-        }
-
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
-        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
@@ -615,15 +575,43 @@ contract ClearingHouse is
         // CH_F0S: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        address baseToken = abi.decode(data, (address));
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[baseToken]);
+        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
         // CH_FSV: failed swapCallback verification
         require(_msgSender() == address(pool), "CH_FSV");
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-        // swap fail
+
+        bool isBaseToQuote = token == callbackData.baseToken;
+        uint256 exactSwappedAmount = amountToPay;
+
+        // we know the exact amount of a token is needed for swap in the swap callback
+        // we separate into two part
+        // 1. extra minted tokens due to quote only fee
+        // 2. tokens that a trader needs when openPosition
+
+        // 1. quote only fee
+        // if `isBaseToQuote`, the amountToPay is scaled
+        // so we need to scale down the amount to get the exact user's input amount
+        // the difference of these two values is minted for compensate the base fee
+        if (isBaseToQuote) {
+            // mint extra base token before swap
+            exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
+            // not use _mint() here since it will change trader's baseToken available/debt
+            IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
+        }
+
+        // 2. openPosition
+        if (callbackData.mintForTrader) {
+            uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+            if (availableBefore < exactSwappedAmount) {
+                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), false);
+            }
+        }
+
+        // swap
         TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
@@ -754,62 +742,11 @@ contract ClearingHouse is
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
     }
 
-    // return in settlement token decimals
-    function _getTotalCollateralValue(address account) private view returns (int256) {
-        int256 owedRealizedPnl = _accountMap[account].owedRealizedPnl;
-        return IVault(vault).balanceOf(account).toInt256().addS(owedRealizedPnl, _settlementTokenDecimals);
-    }
-
-    // return in virtual token decimals
-    function _getBuyingPower(address account) private view returns (uint256) {
-        int256 accountValue = getAccountValue(account);
-        int256 totalCollateralValue = _getTotalCollateralValue(account);
-        int256 minOfAccountAndCollateralValue =
-            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
-        int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
-        int256 buyingPower =
-            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
-        if (buyingPower < 0) {
-            return 0;
-        }
-        return buyingPower.toUint256().parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
-    }
-
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
-    }
-
-    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
-    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
-        Account storage account = _accountMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                // will not use negative value in this case
-                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
-                totalPositionValue = totalPositionValue.add(positionValue);
-            }
-        }
-        return totalPositionValue;
-    }
-
-    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
-        Account storage account = _accountMap[trader];
-        uint256 totalBaseDebtValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
-            }
-        }
-        return totalBaseDebtValue;
     }
 
     // NOTE: the negative value will only be used when calculating pnl
@@ -825,10 +762,6 @@ contract ClearingHouse is
 
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
-    }
-
-    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
-        return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
@@ -1044,6 +977,49 @@ contract ClearingHouse is
         }
     }
 
+    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
+        private
+        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
+    {
+        // load existing open order
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder =
+            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+
+        uint256 feeGrowthInsideClearingHouseX128;
+        if (openOrder.liquidity == 0) {
+            // it's a new order
+            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            makerPosition.orderIds.push(orderId);
+
+            openOrder.lowerTick = params.lowerTick;
+            openOrder.upperTick = params.upperTick;
+        } else {
+            mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
+            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
+                params.lowerTick,
+                params.upperTick,
+                UniswapV3Broker.getTick(params.pool),
+                params.feeGrowthGlobalClearingHouseX128
+            );
+            quoteFeeClearingHouse = _calcOwedFee(
+                openOrder.liquidity,
+                feeGrowthInsideClearingHouseX128,
+                openOrder.feeGrowthInsideClearingHouseLastX128
+            );
+            quoteFeeUniswap = _calcOwedFee(
+                openOrder.liquidity,
+                params.feeGrowthInsideQuoteX128,
+                openOrder.feeGrowthInsideUniswapLastX128
+            );
+        }
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
+        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
+    }
+
     // expensive
     function _deregisterBaseToken(address account, address baseToken) private {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
@@ -1179,13 +1155,16 @@ contract ClearingHouse is
         }
 
         // deltaPnl < 0 (has loss)
+        if (deltaPnlAbs > quoteTokenInfo.debt) {
+            // increase quote.debt enough so that subtraction wil not underflow
+            _mint(account, quoteToken, deltaPnlAbs.sub(quoteTokenInfo.debt), false);
+        }
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
-        // _registerBaseToken(trader, baseTokenAddr);
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
@@ -1203,20 +1182,17 @@ contract ClearingHouse is
         if (params.isBaseToQuote) {
             // mint extra base token before swap
             amount = FeeMath.calcScaledAmount(pool, params.amount, true);
-            // not use _mint() here since it will change trader's baseToken available/debt
-            IMintableERC20(baseTokenAddr).mint(address(this), amount.sub(params.amount));
         }
 
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
-                    baseTokenAddr,
-                    quoteToken,
                     params.isBaseToQuote,
                     params.isExactInput,
                     amount,
-                    params.sqrtPriceLimitX96
+                    params.sqrtPriceLimitX96,
+                    abi.encode(SwapCallbackData(trader, baseTokenAddr, params.mintForTrader))
                 )
             );
 
@@ -1493,27 +1469,6 @@ contract ClearingHouse is
     }
 
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
-        uint256 baseAvailableBefore = getTokenInfo(params.trader, params.baseToken).available;
-        uint256 quoteAvailableBefore = getTokenInfo(params.trader, quoteToken).available;
-        uint256 minted;
-
-        // calculate if trader need to mint more quote or base for exact input
-        if (params.isExactInput) {
-            if (params.isBaseToQuote && baseAvailableBefore < params.amount) {
-                // check if trader has enough base to swap
-                minted = _mint(params.trader, params.baseToken, params.amount.sub(baseAvailableBefore), true);
-            } else if (!params.isBaseToQuote && quoteAvailableBefore < params.amount) {
-                // check if trader has enough quote to swap
-                minted = _mint(params.trader, quoteToken, params.amount.sub(quoteAvailableBefore), true);
-            }
-        } else {
-            // for exact output: can't use quoter to get how many input we need
-            // but we'll know the exact input numbers after swap
-            // so we'll mint max first, do the swap
-            // then calculate how many input we need to mint if we have quoter
-            minted = _mintMax(params.trader, params.isBaseToQuote ? params.baseToken : quoteToken);
-        }
-
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
                 InternalSwapParams({
@@ -1522,7 +1477,8 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    mintForTrader: true
                 })
             );
 
@@ -1567,6 +1523,10 @@ contract ClearingHouse is
     // INTERNAL VIEW FUNCTIONS
     //
 
+    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
+        return IIndexPrice(token).getIndexPrice(twapInterval);
+    }
+
     // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
@@ -1582,6 +1542,57 @@ contract ClearingHouse is
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
         return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
+    }
+
+    // return in settlement token decimals
+    function _getTotalCollateralValue(address account) private view returns (int256) {
+        int256 owedRealizedPnl = _accountMap[account].owedRealizedPnl;
+        return IVault(vault).balanceOf(account).toInt256().addS(owedRealizedPnl, _settlementTokenDecimals);
+    }
+
+    // return in virtual token decimals
+    function _getBuyingPower(address account) private view returns (uint256) {
+        int256 accountValue = getAccountValue(account);
+        int256 totalCollateralValue = _getTotalCollateralValue(account);
+        int256 minOfAccountAndCollateralValue =
+            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
+        int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
+        int256 buyingPower =
+            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
+        if (buyingPower < 0) {
+            return 0;
+        }
+        return buyingPower.toUint256().parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
+    }
+
+    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
+    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                // will not use negative value in this case
+                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                totalPositionValue = totalPositionValue.add(positionValue);
+            }
+        }
+        return totalPositionValue;
+    }
+
+    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
+        uint256 totalBaseDebtValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            }
+        }
+        return totalBaseDebtValue;
     }
 
     function _getTotalTokenAmountInPool(

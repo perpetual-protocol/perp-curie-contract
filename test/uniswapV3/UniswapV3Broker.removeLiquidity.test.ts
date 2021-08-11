@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
+import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
@@ -224,12 +224,11 @@ describe("UniswapV3Broker removeLiquidity", () => {
             // exact base -> quote
             await uniswapV3Broker.swap({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: parseEther(base.toString()),
                 sqrtPriceLimitX96: "0",
+                data: hexlify([]),
             })
 
             const removeLiquidityParams = {
