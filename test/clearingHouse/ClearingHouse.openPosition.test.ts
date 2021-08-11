@@ -738,10 +738,41 @@ describe("ClearingHouse openPosition", () => {
     })
 
     describe("opening short first then", () => {
+        beforeEach(async () => {
+            await deposit(taker, vault, 1000, collateral)
+            // taker swap ? ETH for 2 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: parseEther("2"),
+                sqrtPriceLimitX96: 0,
+            })
+        })
         it("increase position")
         it("reduce position")
         it("close position")
-        it("open larger reverse position")
+
+        it("open larger reverse position", async () => {
+            // taker has 2 USD worth ETH short position
+            // then opens 10 USD worth ETH long position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                amount: parseEther("10"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
+
+            // because taker opens a larger reverse position, her position is closed and increase a new one
+            // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
+            const openNotional = await clearingHouse.getOpenNotional(taker.address, baseToken.address)
+            const realizedPnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+            expect(openNotional).to.eq("-7957914633138379981")
+            expect(openNotional).to.eq(parseEther("-8").sub(realizedPnl))
+        })
     })
 
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1258612497
