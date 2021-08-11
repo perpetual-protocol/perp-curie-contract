@@ -122,7 +122,7 @@ contract ClearingHouse is
         // // key: token address, value: next premium fraction index for settling funding payment
         // mapping(address => uint256) nextPremiumFractionIndexMap;
         // for taker
-        mapping(address => uint256) lastTwPremiumGrowthX192;
+        mapping(address => int256) lastTwPremiumGrowthX96;
     }
 
     struct TokenInfo {
@@ -139,8 +139,8 @@ contract ClearingHouse is
         uint256 feeGrowthInsideClearingHouseLastX128;
         uint256 feeGrowthInsideUniswapLastX128;
         // TODO funding
-        uint256 lastTwPremiumGrowthX192;
-        uint256 lastTwPremiumDivBySqrtPriceX96;
+        int256 lastTwPremiumGrowthX96;
+        int256 lastTwPremiumDivBySqrtPriceX96;
     }
 
     struct MakerPosition {
@@ -467,7 +467,7 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // mutate states
-        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
+        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap, ) =
             _addLiquidityToOrder(
                 AddLiquidityToOrderParams({
                     maker: trader,
@@ -494,7 +494,11 @@ contract ClearingHouse is
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
         private
-        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
+        returns (
+            uint256 quoteFeeClearingHouse,
+            uint256 quoteFeeUniswap,
+            int256 fundingPayment
+        )
     {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
@@ -510,11 +514,14 @@ contract ClearingHouse is
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
         } else {
+            int24 currentTick = UniswapV3Broker.getTick(params.pool);
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+            FundingGrowth memory globalFundingGrowth = _globalFundingGrowthX96Map[params.baseToken];
+
             feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
                 params.lowerTick,
                 params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
+                currentTick,
                 params.feeGrowthGlobalClearingHouseX128
             );
             quoteFeeClearingHouse = _calcOwedFee(
@@ -527,6 +534,16 @@ contract ClearingHouse is
                 params.feeGrowthInsideQuoteX128,
                 openOrder.feeGrowthInsideUniswapLastX128
             );
+
+            (int256 twPremiumGrowthInside, int256 twPremiumDivBySqrtPriceGrowthInside, int256 twPremiumGrowthOutside) =
+                tickMap.getAllFundingGrowth(
+                    params.lowerTick,
+                    params.upperTick,
+                    currentTick,
+                    globalFundingGrowth.twPremiumX96,
+                    globalFundingGrowth.twPremiumDivBySqrtPriceX96,
+                    openOrder.lastTwPremiumGrowthX96
+                );
         }
 
         // update open order with new liquidity
@@ -1736,6 +1753,7 @@ contract ClearingHouse is
                 // uncollected quote fee in ClearingHouse
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
+                // don't need to getPendingFundingPayment here, as funding payment belongs to realizedPnl
                 uint256 feeGrowthInsideClearingHouseX128 =
                     tickMap.getFeeGrowthInside(order.lowerTick, order.upperTick, tick, feeGrowthGlobalX128);
 
