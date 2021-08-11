@@ -454,49 +454,6 @@ contract ClearingHouse is
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
     }
 
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
-        private
-        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
-    {
-        // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
-
-        uint256 feeGrowthInsideClearingHouseX128;
-        if (openOrder.liquidity == 0) {
-            // it's a new order
-            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
-            makerPosition.orderIds.push(orderId);
-
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
-        } else {
-            mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                params.feeGrowthGlobalClearingHouseX128
-            );
-            quoteFeeClearingHouse = _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
-            );
-            quoteFeeUniswap = _calcOwedFee(
-                openOrder.liquidity,
-                params.feeGrowthInsideQuoteX128,
-                openOrder.feeGrowthInsideUniswapLastX128
-            );
-        }
-
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
-        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
-    }
-
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         nonReentrant()
@@ -785,62 +742,11 @@ contract ClearingHouse is
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
     }
 
-    // return in settlement token decimals
-    function _getTotalCollateralValue(address account) private view returns (int256) {
-        int256 owedRealizedPnl = _accountMap[account].owedRealizedPnl;
-        return IVault(vault).balanceOf(account).toInt256().addS(owedRealizedPnl, _settlementTokenDecimals);
-    }
-
-    // return in virtual token decimals
-    function _getBuyingPower(address account) private view returns (uint256) {
-        int256 accountValue = getAccountValue(account);
-        int256 totalCollateralValue = _getTotalCollateralValue(account);
-        int256 minOfAccountAndCollateralValue =
-            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
-        int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
-        int256 buyingPower =
-            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
-        if (buyingPower < 0) {
-            return 0;
-        }
-        return buyingPower.toUint256().parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
-    }
-
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
-    }
-
-    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
-    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
-        Account storage account = _accountMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                // will not use negative value in this case
-                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
-                totalPositionValue = totalPositionValue.add(positionValue);
-            }
-        }
-        return totalPositionValue;
-    }
-
-    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
-        Account storage account = _accountMap[trader];
-        uint256 totalBaseDebtValue;
-        uint256 tokenLen = account.tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
-            }
-        }
-        return totalBaseDebtValue;
     }
 
     // NOTE: the negative value will only be used when calculating pnl
@@ -856,10 +762,6 @@ contract ClearingHouse is
 
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
-    }
-
-    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
-        return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
     function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
@@ -1073,6 +975,49 @@ contract ClearingHouse is
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
         }
+    }
+
+    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
+        private
+        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
+    {
+        // load existing open order
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder =
+            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+
+        uint256 feeGrowthInsideClearingHouseX128;
+        if (openOrder.liquidity == 0) {
+            // it's a new order
+            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            makerPosition.orderIds.push(orderId);
+
+            openOrder.lowerTick = params.lowerTick;
+            openOrder.upperTick = params.upperTick;
+        } else {
+            mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
+            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
+                params.lowerTick,
+                params.upperTick,
+                UniswapV3Broker.getTick(params.pool),
+                params.feeGrowthGlobalClearingHouseX128
+            );
+            quoteFeeClearingHouse = _calcOwedFee(
+                openOrder.liquidity,
+                feeGrowthInsideClearingHouseX128,
+                openOrder.feeGrowthInsideClearingHouseLastX128
+            );
+            quoteFeeUniswap = _calcOwedFee(
+                openOrder.liquidity,
+                params.feeGrowthInsideQuoteX128,
+                openOrder.feeGrowthInsideUniswapLastX128
+            );
+        }
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
+        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
     }
 
     // expensive
@@ -1578,6 +1523,10 @@ contract ClearingHouse is
     // INTERNAL VIEW FUNCTIONS
     //
 
+    function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
+        return IIndexPrice(token).getIndexPrice(twapInterval);
+    }
+
     // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
@@ -1593,6 +1542,57 @@ contract ClearingHouse is
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
         return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
+    }
+
+    // return in settlement token decimals
+    function _getTotalCollateralValue(address account) private view returns (int256) {
+        int256 owedRealizedPnl = _accountMap[account].owedRealizedPnl;
+        return IVault(vault).balanceOf(account).toInt256().addS(owedRealizedPnl, _settlementTokenDecimals);
+    }
+
+    // return in virtual token decimals
+    function _getBuyingPower(address account) private view returns (uint256) {
+        int256 accountValue = getAccountValue(account);
+        int256 totalCollateralValue = _getTotalCollateralValue(account);
+        int256 minOfAccountAndCollateralValue =
+            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
+        int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
+        int256 buyingPower =
+            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
+        if (buyingPower < 0) {
+            return 0;
+        }
+        return buyingPower.toUint256().parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
+    }
+
+    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
+    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                // will not use negative value in this case
+                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                totalPositionValue = totalPositionValue.add(positionValue);
+            }
+        }
+        return totalPositionValue;
+    }
+
+    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
+        Account storage account = _accountMap[trader];
+        uint256 totalBaseDebtValue;
+        uint256 tokenLen = account.tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = account.tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            }
+        }
+        return totalBaseDebtValue;
     }
 
     function _getTotalTokenAmountInPool(
