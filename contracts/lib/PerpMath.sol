@@ -25,6 +25,10 @@ library PerpMath {
         return FullMath.mulDiv(priceX96, 1 ether, FixedPoint96.Q96);
     }
 
+    function formatSqrtPriceX96ToPriceX96(uint160 sqrtPriceX96) internal pure returns (uint256) {
+        return FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
+    }
+
     function formatX10_18ToX96(uint256 valueX10_18) internal pure returns (uint256) {
         return FullMath.mulDiv(valueX10_18, FixedPoint96.Q96, 1 ether);
     }
