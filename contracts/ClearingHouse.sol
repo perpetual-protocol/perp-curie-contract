@@ -208,7 +208,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        bool mint;
+        bool mintForTrader;
     }
 
     struct SwapResponse {
@@ -255,7 +255,7 @@ contract ClearingHouse is
     struct SwapCallbackData {
         address trader;
         address baseToken;
-        bool mint;
+        bool mintForTrader;
     }
 
     // 10 wei
@@ -368,7 +368,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mint: false
+                    mintForTrader: false
                 })
             );
     }
@@ -647,10 +647,10 @@ contract ClearingHouse is
         }
 
         // 2. openPosition
-        if (callbackData.mint) {
+        if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
             if (availableBefore < exactSwappedAmount) {
-                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), true);
+                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), false);
             }
         }
 
@@ -1210,6 +1210,10 @@ contract ClearingHouse is
         }
 
         // deltaPnl < 0 (has loss)
+        if (deltaPnlAbs > quoteTokenInfo.debt) {
+            // increase quote.debt enough so that subtraction wil not underflow
+            _mint(account, quoteToken, deltaPnlAbs.sub(quoteTokenInfo.debt), false);
+        }
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
@@ -1243,7 +1247,7 @@ contract ClearingHouse is
                     params.isExactInput,
                     amount,
                     params.sqrtPriceLimitX96,
-                    abi.encode(SwapCallbackData(trader, baseTokenAddr, params.mint))
+                    abi.encode(SwapCallbackData(trader, baseTokenAddr, params.mintForTrader))
                 )
             );
 
@@ -1529,7 +1533,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mint: true
+                    mintForTrader: true
                 })
             );
 
