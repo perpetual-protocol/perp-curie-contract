@@ -170,6 +170,19 @@ describe("ClearingHouse openPosition", () => {
         })
 
         describe("long", () => {
+            it.only("verify base and quote amount in static call", async () => {
+                // taker swap 1 USD for 6539527905092835/10^18 ETH
+                const response = await clearingHouse.connect(taker).callStatic.openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                })
+                expect(response.deltaBase).to.be.eq("6539527905092835")
+                expect(response.deltaQuote).to.be.eq("1000000000000000000")
+            })
+
             it("increase ? position when exact input", async () => {
                 const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 

@@ -111,6 +111,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
+
+                // Check uncollected fees by using static call
+                const response = await clearingHouse.connect(alice).callStatic.removeLiquidity(removeLiquidityParams)
+                expect(response.fee).to.be.eq("615133417572501")
+                expect(response.base).to.be.eq("0")
+                expect(response.quote).to.be.eq("0")
+
                 // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
                     .to.emit(clearingHouse, "LiquidityChanged")
@@ -131,7 +138,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     parseEther("100"), // available
                     parseEther("100"), // debt
                 ])
-                // 10000 - 0.122414646 + 0.0006151334176 = 9999.8782004874
+                // 10000 - 0.122414646(swapped quote) + 0.0006151334176(fee) = 9999.8782004874
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     parseEther("9999.878200487417572501"), // available
                     parseEther("10000"), // debt
