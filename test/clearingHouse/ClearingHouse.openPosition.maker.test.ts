@@ -9,7 +9,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse maker close position", () => {
+describe.only("ClearingHouse maker close position", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -160,8 +160,8 @@ describe("ClearingHouse maker close position", () => {
                 amount: posSize.div(2).abs().toString(),
                 sqrtPriceLimitX96: 0,
             })
-            // TODO should be less than the final pnl?
-            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897192"))
+
+            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-3.311153358681875803"))
         }
 
         // maker close the remain half position, the pnl should be the same
@@ -173,7 +173,7 @@ describe("ClearingHouse maker close position", () => {
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
         })
-        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897192"))
+        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897193"))
     })
 
     it("bob short, maker close", async () => {

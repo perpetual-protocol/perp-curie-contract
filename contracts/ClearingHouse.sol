@@ -451,6 +451,10 @@ contract ClearingHouse is
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).sub(
             response.quote
         );
+        _accountMap[trader].openNotionalFractionMap[params.baseToken] = _accountMap[trader].openNotionalFractionMap[
+            params.baseToken
+        ]
+            .add(response.quote.toInt256());
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
@@ -1455,6 +1459,10 @@ contract ClearingHouse is
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         baseTokenInfo.available = baseTokenInfo.available.add(base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(quote);
+        _accountMap[trader].openNotionalFractionMap[params.baseToken] = _accountMap[trader].openNotionalFractionMap[
+            params.baseToken
+        ]
+            .sub(quoteFeeClearingHouse.add(quoteFeeUniswap).add(quote).toInt256());
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
