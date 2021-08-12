@@ -32,58 +32,47 @@ library Tick {
         int24 upperTick,
         int24 currentTick,
         int256 twPremiumGrowthGlobalX96,
-        int256 twPremiumDivBySqrtPriceGrowthGlobalX96,
-        int256 lastTwPremiumGrowthX96
+        int256 twPremiumDivBySqrtPriceGrowthGlobalX96
     )
         internal
         view
         returns (
-            int256 twPremiumGrowthInside,
-            int256 twPremiumDivBySqrtPriceGrowthInside,
-            int256 twPremiumGrowthOutside
+            int256 twPremiumGrowthInsideX96,
+            int256 twPremiumDivBySqrtPriceGrowthInsideX96,
+            int256 twPremiumGrowthBelowX96
         )
     {
-        {
-            int256 lowerTwPremiumGrowthOutside = self[lowerTick].twPremiumX96;
-            int256 upperTwPremiumGrowthOutside = self[upperTick].twPremiumX96;
+        int256 lowerTwPremiumGrowthOutsideX96 = self[lowerTick].twPremiumX96;
+        int256 upperTwPremiumGrowthOutsideX96 = self[upperTick].twPremiumX96;
 
-            int256 twPremiumGrowthBelow =
-                currentTick >= lowerTick
-                    ? lowerTwPremiumGrowthOutside
-                    : twPremiumGrowthGlobalX96 - lowerTwPremiumGrowthOutside;
-            int256 twPremiumGrowthAbove =
-                currentTick < upperTick
-                    ? upperTwPremiumGrowthOutside
-                    : twPremiumGrowthGlobalX96 - upperTwPremiumGrowthOutside;
-
-            twPremiumGrowthInside = twPremiumGrowthGlobalX96 - twPremiumGrowthBelow - twPremiumGrowthAbove;
-            twPremiumGrowthOutside =
-                twPremiumGrowthGlobalX96 -
-                twPremiumGrowthInside -
-                twPremiumGrowthAbove -
-                lastTwPremiumGrowthX96;
-        }
-
-        int256 lowerTwPremiumDivBySqrtPriceGrowthOutside = self[lowerTick].twPremiumDivBySqrtPriceX96;
-        int256 upperTwPremiumDivBySqrtPriceGrowthOutside = self[upperTick].twPremiumDivBySqrtPriceX96;
-
-        int256 twPremiumDivBySqrtPriceGrowthBelow =
-            currentTick >= lowerTick
-                ? lowerTwPremiumDivBySqrtPriceGrowthOutside
-                : twPremiumDivBySqrtPriceGrowthGlobalX96 - lowerTwPremiumDivBySqrtPriceGrowthOutside;
-        int256 twPremiumDivBySqrtPriceGrowthAbove =
+        twPremiumGrowthBelowX96 = currentTick >= lowerTick
+            ? lowerTwPremiumGrowthOutsideX96
+            : twPremiumGrowthGlobalX96 - lowerTwPremiumGrowthOutsideX96;
+        int256 twPremiumGrowthAboveX96 =
             currentTick < upperTick
-                ? upperTwPremiumDivBySqrtPriceGrowthOutside
-                : twPremiumDivBySqrtPriceGrowthGlobalX96 - upperTwPremiumDivBySqrtPriceGrowthOutside;
+                ? upperTwPremiumGrowthOutsideX96
+                : twPremiumGrowthGlobalX96 - upperTwPremiumGrowthOutsideX96;
+
+        int256 lowerTwPremiumDivBySqrtPriceGrowthOutsideX96 = self[lowerTick].twPremiumDivBySqrtPriceX96;
+        int256 upperTwPremiumDivBySqrtPriceGrowthOutsideX96 = self[upperTick].twPremiumDivBySqrtPriceX96;
+
+        int256 twPremiumDivBySqrtPriceGrowthBelowX96 =
+            currentTick >= lowerTick
+                ? lowerTwPremiumDivBySqrtPriceGrowthOutsideX96
+                : twPremiumDivBySqrtPriceGrowthGlobalX96 - lowerTwPremiumDivBySqrtPriceGrowthOutsideX96;
+        int256 twPremiumDivBySqrtPriceGrowthAboveX96 =
+            currentTick < upperTick
+                ? upperTwPremiumDivBySqrtPriceGrowthOutsideX96
+                : twPremiumDivBySqrtPriceGrowthGlobalX96 - upperTwPremiumDivBySqrtPriceGrowthOutsideX96;
 
         // TODO verify what if these values overflow; will they have the same effect as before, when using uint256
         // these values can underflow per feeGrowthOutside specs
         return (
-            twPremiumGrowthInside,
+            twPremiumGrowthGlobalX96 - twPremiumGrowthBelowX96 - twPremiumGrowthAboveX96,
             twPremiumDivBySqrtPriceGrowthGlobalX96 -
-                twPremiumDivBySqrtPriceGrowthBelow -
-                twPremiumDivBySqrtPriceGrowthAbove,
-            twPremiumGrowthOutside
+                twPremiumDivBySqrtPriceGrowthBelowX96 -
+                twPremiumDivBySqrtPriceGrowthAboveX96,
+            twPremiumGrowthBelowX96
         );
     }
 

@@ -122,7 +122,7 @@ contract ClearingHouse is
         // // key: token address, value: next premium fraction index for settling funding payment
         // mapping(address => uint256) nextPremiumFractionIndexMap;
         // for taker
-        mapping(address => int256) lastTwPremiumGrowthX96;
+        mapping(address => int256) lastTwPremiumGrowthGlobalX96;
     }
 
     struct TokenInfo {
@@ -139,8 +139,9 @@ contract ClearingHouse is
         uint256 feeGrowthInsideClearingHouseLastX128;
         uint256 feeGrowthInsideUniswapLastX128;
         // TODO funding
-        int256 lastTwPremiumGrowthX96;
-        int256 lastTwPremiumDivBySqrtPriceX96;
+        int256 lastTwPremiumGrowthInsideX96;
+        int256 lastTwPremiumGrowthBelowX96;
+        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
     struct MakerPosition {
@@ -534,16 +535,6 @@ contract ClearingHouse is
                 params.feeGrowthInsideQuoteX128,
                 openOrder.feeGrowthInsideUniswapLastX128
             );
-
-            (int256 twPremiumGrowthInside, int256 twPremiumDivBySqrtPriceGrowthInside, int256 twPremiumGrowthOutside) =
-                tickMap.getAllFundingGrowth(
-                    params.lowerTick,
-                    params.upperTick,
-                    currentTick,
-                    globalFundingGrowth.twPremiumX96,
-                    globalFundingGrowth.twPremiumDivBySqrtPriceX96,
-                    openOrder.lastTwPremiumGrowthX96
-                );
         }
 
         // update open order with new liquidity
@@ -1651,24 +1642,74 @@ contract ClearingHouse is
         return swapResponse;
     }
 
-    // function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
-    //     uint256 historyLen = _fundingHistoryMap[baseToken].length;
-    //     if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
-    //         return 0;
-    //     }
+    function _settleFunding(address trader, address baseToken) private {
+        Account storage account = _accountMap[trader];
+        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
 
-    //     fundingPayment = getPendingFundingPayment(trader, baseToken);
-    //     _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
+        int256 fundingPayment;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
-    //     if (fundingPayment == 0) {
-    //         return 0;
-    //     }
+            int24 currentTick = UniswapV3Broker.getTick(_poolMap[baseToken]);
+            uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
+            uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
+            uint256 baseBelow =
+                UniswapV3Broker.getAmount0ForLiquidity(sqrtPriceAtLowerTick, sqrtPriceAtUpperTick, order.liquidity);
 
-    //     // settle funding to owedRealizedPnl
-    //     _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
+            mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+            FundingGrowth memory globalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
-    //     emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
-    // }
+            (
+                int256 twPremiumGrowthInsideX96,
+                int256 twPremiumDivBySqrtPriceGrowthInsideX96,
+                int256 twPremiumGrowthBelowX96
+            ) =
+                tickMap.getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    currentTick,
+                    globalFundingGrowth.twPremiumX96,
+                    globalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+
+            // TODO review bit operation in Solidity
+            int256 fundingBelow =
+                baseBelow.toInt256().mul(twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)) >> 96;
+
+            // fundingInside =
+            // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
+            int256 fundingInside =
+                uint256(order.liquidity).toInt256().mul(
+                    // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
+                    twPremiumDivBySqrtPriceGrowthInsideX96.sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96).sub(
+                        // ΔtwPremiumGrowthInsideX96
+                        // TODO review bit operation in Solidity
+                        (twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96) << 96).div(
+                            sqrtPriceAtUpperTick
+                        )
+                    )
+                    // TODO review bit operation in Solidity
+                ) >> 96;
+            fundingPayment = fundingPayment.add(fundingBelow).add(fundingInside);
+        }
+
+        // uint256 historyLen = _fundingHistoryMap[baseToken].length;
+        // if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
+        //     return 0;
+        // }
+
+        // fundingPayment = getPendingFundingPayment(trader, baseToken);
+        // _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
+
+        // if (fundingPayment == 0) {
+        //     return 0;
+        // }
+
+        // // settle funding to owedRealizedPnl
+        // _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
+
+        // emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
+    }
 
     //
     // INTERNAL VIEW FUNCTIONS
