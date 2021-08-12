@@ -1089,7 +1089,7 @@ contract ClearingHouse is
         console.log("oldOpenNotional");
         console.logInt(oldOpenNotional);
 
-        // increase position if old/new position are in the same direction
+        // if: increase position (old/new position are in the same direction)
         if (positionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
             response = _swap(params);
 
@@ -1099,17 +1099,21 @@ contract ClearingHouse is
                 ? response.deltaAvailableQuote.toInt256()
                 : -response.deltaAvailableQuote.toInt256();
 
-            // long buy base = deltaAvailableQuote negative => openNotional negative
-            // short sell base = deltaAvailableQuote positive => openNotional positive
-            // for pure taker case, openOptional = -openNotionalFraction
-
-            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.sub(
-                deltaAvailableQuote // -252.53
-            );
-            // fraction = 252.53, openNotional  = -252.53
             console.log("deltaAvailableQuote");
             console.logInt(deltaAvailableQuote);
-            console.log("_accountMap[params.trader].openNotionalFractionMap[params.baseToken]");
+
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=813431512
+            // taker:
+            // step 1: long 20 base
+            // deltaAvailableQuote = -252.53
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 0 - (-252.53) + 0 = 252.53
+            // openNotional = -openNotionalFraction = -252.53
+            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.sub(
+                deltaAvailableQuote
+            ); // there is no realizedPnl when increasing position
+
+            console.log("openNotionalFraction");
             console.logInt(_accountMap[params.trader].openNotionalFractionMap[params.baseToken]);
             return response;
         }
@@ -1126,69 +1130,67 @@ contract ClearingHouse is
         deltaAvailableQuote = params.isBaseToQuote
             ? response.deltaAvailableQuote.toInt256()
             : -response.deltaAvailableQuote.toInt256();
-
-        // reduce long (take short)
-        // deltaAvailableQuote = 137.5
+        console.log("deltaAvailableQuote");
+        console.logInt(deltaAvailableQuote);
 
         int256 realizedPnl;
-        // reduce position if old position size is larger
-        // or closedRatio > 1 ** baseToken.decimals
+        // if reduce or close position (closeRatio <= 1)
         if (positionSizeAbs >= response.deltaAvailableBase) {
-            console.log("reduce");
-            console.log("deltaAvailableQuote");
-            console.logInt(deltaAvailableQuote);
-            // reduced ratio = abs(exchangedPosSize / takerPosSize)
+            console.log("reduce or close position");
+
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 10 base (reduce half of the position)
+            // deltaAvailableQuote = 137.5
+            // closeRatio = 10/20 = 0.5
+            // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
+            // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 137.5 + 11.235 = 126.265
+            // openNotional = -openNotionalFraction = 126.265
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
             console.log("reducedOpenNotional");
             console.logInt(reducedOpenNotional);
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
-            // first long,
-            // openNotional = -252.53 , fraction = 252.53, clsoeRatio = 50%
-            // reducedOpenNotional = -252.53/2 = -126.265
-            // 252.53 - 137.5? -126.265?
+            console.log("realizedPnl");
+            console.logInt(realizedPnl);
             _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction
-                .sub(
-                deltaAvailableQuote // 137.5
-            )
+                .sub(deltaAvailableQuote)
                 .add(realizedPnl);
-            console.log("_accountMap[params.trader].openNotionalFractionMap[params.baseToken]");
+            console.log("openNotionalFraction");
             console.logInt(_accountMap[params.trader].openNotionalFractionMap[params.baseToken]);
-
-            // alice long 1 ETH first, openNotional = -100
-            // alice reduce 40% (short 0.4ETH), deltaAvailableBase = -0.4ETH, deltaAvailableQuote = 40 -> 50
-            // reducedOpenNotional = -100 * 40% = -40
-            // openNotional = -100 - (-40) = 60
-            // realizedPnl = (40 -> 50) + (-40) = 10
-            // realizedPnl = exchangedPositionNotional + reducedOpenNotional
-
-            // when reducing, oldOpenNotional has diff sign with deltaAvailableQuote
-            realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
-            console.log("open reverse larger");
             // else: opens a larger reverse position
-            // first long
-            // open a larger reverse position
-            // openNotional = -252.53, fraction = 252.53, clsoeRatio = 30/20 = 1.5
-            // deltaAvailableQuote = 337.5
-            // closedPositionNotional = deltaAvailableQuote / close ratio = 337.5 / 1.5 = 225
-            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-            // 252.53 - 137.5? -126.265?
+            console.log("open larger reverse position");
 
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 30 base (open a larger reverse position)
+            // deltaAvailableQuote = 337.5
+            // closeRatio = 30/20 = 1.5
+            // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
+            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+            // realizedPnl = oldOpenNotional + closedPositionNotional = -252.53 + 225 = -27.53
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 337.5 + -27.53 = -112.5
+            // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
             int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
-            // int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
+            console.log("closedPositionNotional");
+            console.logInt(closedPositionNotional);
             realizedPnl = oldOpenNotional.add(closedPositionNotional);
             console.log("realizedPnl");
             console.logInt(realizedPnl);
-            // 252.53 - 337.5 + -27.53 = -112.5
             _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction
-                .sub(
-                deltaAvailableQuote // 337.5
-            )
+                .sub(deltaAvailableQuote)
                 .add(realizedPnl);
-
-            // expect
-            // opennotional = remainsPositionNotional
-            // openNotionalFraction = -opennotional
+            console.log("openNotionalFraction");
+            console.logInt(_accountMap[params.trader].openNotionalFractionMap[params.baseToken]);
         }
 
         _realizePnl(params.trader, realizedPnl);
