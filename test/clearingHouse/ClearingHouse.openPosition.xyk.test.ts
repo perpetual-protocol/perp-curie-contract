@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe.only("ClearingHouse openPosition in xyk pool", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -152,7 +152,7 @@ describe("ClearingHouse openPosition", () => {
             })
         })
 
-        describe("reduce half", () => {
+        describe("reduce half long", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
@@ -214,7 +214,7 @@ describe("ClearingHouse openPosition", () => {
             })
         })
 
-        describe("reduce half", () => {
+        describe("reduce half short", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,

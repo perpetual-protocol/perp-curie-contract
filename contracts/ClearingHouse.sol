@@ -1102,9 +1102,11 @@ contract ClearingHouse is
             // long buy base = deltaAvailableQuote negative => openNotional negative
             // short sell base = deltaAvailableQuote positive => openNotional positive
             // for pure taker case, openOptional = -openNotionalFraction
+
             _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.sub(
-                deltaAvailableQuote
+                deltaAvailableQuote // -252.53
             );
+            // fraction = 252.53, openNotional  = -252.53
             console.log("deltaAvailableQuote");
             console.logInt(deltaAvailableQuote);
             console.log("_accountMap[params.trader].openNotionalFractionMap[params.baseToken]");
@@ -1125,6 +1127,9 @@ contract ClearingHouse is
             ? response.deltaAvailableQuote.toInt256()
             : -response.deltaAvailableQuote.toInt256();
 
+        // reduce long (take short)
+        // deltaAvailableQuote = 137.5
+
         int256 realizedPnl;
         // reduce position if old position size is larger
         // or closedRatio > 1 ** baseToken.decimals
@@ -1136,9 +1141,16 @@ contract ClearingHouse is
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
             console.log("reducedOpenNotional");
             console.logInt(reducedOpenNotional);
-            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction.add(
-                deltaAvailableQuote
-            );
+            realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
+            // first long,
+            // openNotional = -252.53 , fraction = 252.53, clsoeRatio = 50%
+            // reducedOpenNotional = -252.53/2 = -126.265
+            // 252.53 - 137.5? -126.265?
+            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction
+                .sub(
+                deltaAvailableQuote // 137.5
+            )
+                .add(realizedPnl);
             console.log("_accountMap[params.trader].openNotionalFractionMap[params.baseToken]");
             console.logInt(_accountMap[params.trader].openNotionalFractionMap[params.baseToken]);
 
