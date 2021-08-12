@@ -1179,7 +1179,7 @@ contract ClearingHouse is
     }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
-        _settleFunding(params.trader, params.baseToken);
+        int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
 
         address pool = _poolMap[params.baseToken];
         SwapState memory state =
@@ -1191,33 +1191,26 @@ contract ClearingHouse is
                 liquidity: UniswapV3Broker.getLiquidity(pool)
             });
 
-        UniswapV3Broker.SwapResponse memory response;
-        {
-            uint256 amount = params.amount;
-            if (params.isBaseToQuote) {
-                // mint extra base token before swap
-                amount = FeeMath.calcScaledAmount(pool, params.amount, true);
-            }
-
-            response = UniswapV3Broker.swap(
+        UniswapV3Broker.SwapResponse memory response =
+            UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
                     params.isBaseToQuote,
                     params.isExactInput,
-                    amount,
+                    // mint extra base token before swap
+                    params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount,
                     params.sqrtPriceLimitX96,
                     abi.encode(SwapCallbackData(params.trader, params.baseToken, params.mintForTrader))
                 )
             );
-        }
+
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         // we are going to replay txs by swapping "exactOutput" with the output token received
         state.amountSpecifiedRemaining = params.isBaseToQuote
             ? -(response.quote.toInt256())
             : -(response.base.toInt256());
-
-        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
-        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
@@ -1295,43 +1288,42 @@ contract ClearingHouse is
         _feeGrowthGlobalX128Map[params.baseToken] = state.feeGrowthGlobalX128;
 
         // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
-        {
-            uint256 fee;
-            int256 exchangedPositionSize;
-            int256 exchangedPositionNotional;
-            // calculate exchangedPositionSize and exchangedPositionNotional
-            TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
-
-            if (params.isBaseToQuote) {
-                fee = FullMath.mulDivRoundingUp(response.quote, clearingHouseFeeRatio, 1e6);
-                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, response.base, false).toInt256());
-                // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-                exchangedPositionNotional = response.quote.toInt256();
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        // calculate exchangedPositionSize and exchangedPositionNotional
+        if (params.isBaseToQuote) {
+            fee = FullMath.mulDivRoundingUp(response.quote, clearingHouseFeeRatio, 1e6);
+            // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+            exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, response.base, false).toInt256());
+            // due to base to quote fee, exchangedPositionNotional contains the fee
+            // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+            exchangedPositionNotional = response.quote.toInt256();
+        } else {
+            if (params.isExactInput) {
+                fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
             } else {
-                if (params.isExactInput) {
-                    fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
-                } else {
-                    // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-                    // qr * ((1 - x) / (1 - y)) * y
-                    // ==> qr * y * (1-x) / (1-y)
-                    fee = FullMath.mulDivRoundingUp(
-                        response.quote,
-                        (1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
-                        1e6 * (1e6 - clearingHouseFeeRatio)
-                    );
-                }
-                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-                exchangedPositionSize = response.base.toInt256();
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
+                // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+                // qr * ((1 - x) / (1 - y)) * y
+                // ==> qr * y * (1-x) / (1-y)
+                fee = FullMath.mulDivRoundingUp(
+                    response.quote,
+                    (1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
+                    1e6 * (1e6 - clearingHouseFeeRatio)
+                );
             }
+            // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+            exchangedPositionSize = response.base.toInt256();
+            // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
+            exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
+        }
 
+        {
             // update internal states
             // examples:
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+            TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
             quoteTokenInfo.available = quoteTokenInfo
                 .available
@@ -1339,25 +1331,25 @@ contract ClearingHouse is
                 .add(exchangedPositionNotional)
                 .toUint256()
                 .sub(fee);
-
-            emit Swapped(
-                params.trader,
-                params.baseToken,
-                exchangedPositionSize,
-                exchangedPositionNotional,
-                fee,
-                0,
-                0 // TODO: badDebt
-            );
-
-            return
-                SwapResponse(
-                    exchangedPositionSize.abs(), // deltaAvailableBase
-                    exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
-                    exchangedPositionSize.abs(),
-                    exchangedPositionNotional.abs()
-                );
         }
+
+        emit Swapped(
+            params.trader,
+            params.baseToken,
+            exchangedPositionSize,
+            exchangedPositionNotional,
+            fee,
+            fundingPayment,
+            0 // TODO: badDebt
+        );
+
+        return
+            SwapResponse(
+                exchangedPositionSize.abs(), // deltaAvailableBase
+                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
+                exchangedPositionSize.abs(),
+                exchangedPositionNotional.abs()
+            );
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
