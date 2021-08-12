@@ -152,6 +152,28 @@ describe.only("ClearingHouse openPosition in xyk pool", () => {
             })
         })
 
+        describe("open another long", () => {
+            beforeEach(async () => {
+                await clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: parseEther("20"),
+                    sqrtPriceLimitX96: 0,
+                })
+            })
+
+            it("increase positionSize and openNotional", async () => {
+                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("40"))
+
+                expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(
+                    parseEther("-673.400673400673400668"),
+                )
+
+                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq("0")
+            })
+        })
+
         describe("reduce half long", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).openPosition({
