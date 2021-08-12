@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe("ClearingHouse openPosition in xyk pool", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -152,7 +152,29 @@ describe("ClearingHouse openPosition", () => {
             })
         })
 
-        describe("reduce half", () => {
+        describe("open another long", () => {
+            beforeEach(async () => {
+                await clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: parseEther("20"),
+                    sqrtPriceLimitX96: 0,
+                })
+            })
+
+            it("increase positionSize and openNotional", async () => {
+                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("40"))
+
+                expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(
+                    parseEther("-673.400673400673400668"),
+                )
+
+                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq("0")
+            })
+        })
+
+        describe("reduce half long", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
@@ -214,7 +236,7 @@ describe("ClearingHouse openPosition", () => {
             })
         })
 
-        describe("reduce half", () => {
+        describe("reduce half short", () => {
             beforeEach(async () => {
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,

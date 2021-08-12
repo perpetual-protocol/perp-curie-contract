@@ -170,7 +170,7 @@ describe("ClearingHouse openPosition", () => {
         })
 
         describe("long", () => {
-            it.only("verify base and quote amount in static call", async () => {
+            it("verify base and quote amount in static call", async () => {
                 // taker swap 1 USD for 6539527905092835/10^18 ETH
                 const response = await clearingHouse.connect(taker).callStatic.openPosition({
                     baseToken: baseToken.address,
