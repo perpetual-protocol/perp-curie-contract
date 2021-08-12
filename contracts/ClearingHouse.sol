@@ -463,38 +463,45 @@ contract ClearingHouse is
         external
         nonReentrant()
         checkDeadline(params.deadline)
+        returns (
+            uint256 base,
+            uint256 quote,
+            uint256 fee
+        )
     {
         _requireHasBaseToken(params.baseToken);
-        (uint256 base, uint256 quote) =
-            _removeLiquidity(
-                InternalRemoveLiquidityParams({
-                    maker: _msgSender(),
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
+        (base, quote, fee) = _removeLiquidity(
+            InternalRemoveLiquidityParams({
+                maker: _msgSender(),
+                baseToken: params.baseToken,
+                lowerTick: params.lowerTick,
+                upperTick: params.upperTick,
+                liquidity: params.liquidity
+            })
+        );
 
         // price slippage check
         require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
-    function openPosition(OpenPositionParams memory params) external {
+    function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
-        _openPosition(
-            InternalOpenPositionParams({
-                trader: _msgSender(),
-                baseToken: params.baseToken,
-                isBaseToQuote: params.isBaseToQuote,
-                isExactInput: params.isExactInput,
-                amount: params.amount,
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                skipMarginRequirementCheck: false
-            })
-        );
+        SwapResponse memory response =
+            _openPosition(
+                InternalOpenPositionParams({
+                    trader: _msgSender(),
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    skipMarginRequirementCheck: false
+                })
+            );
+
+        return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
     // @inheritdoc IUniswapV3MintCallback
@@ -1373,7 +1380,11 @@ contract ClearingHouse is
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
         private
-        returns (uint256 base, uint256 quote)
+        returns (
+            uint256 base,
+            uint256 quote,
+            uint256 fee
+        )
     {
         address trader = params.maker;
 
@@ -1425,14 +1436,15 @@ contract ClearingHouse is
                 })
             );
 
+        fee = quoteFeeClearingHouse.add(quoteFeeUniswap);
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         baseTokenInfo.available = baseTokenInfo.available.add(base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).add(quote);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(quote).add(fee);
         _accountMap[trader].openNotionalFractionMap[params.baseToken] = _accountMap[trader].openNotionalFractionMap[
             params.baseToken
         ]
-            .sub(quoteFeeClearingHouse.add(quoteFeeUniswap).add(quote).toInt256());
+            .sub(quote.add(fee).toInt256());
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
