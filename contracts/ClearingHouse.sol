@@ -1176,7 +1176,7 @@ contract ClearingHouse is
             // closeRatio = 30/20 = 1.5
             // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
             // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-            // realizedPnl = oldOpenNotional + closedPositionNotional = -252.53 + 225 = -27.53
+            // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
             // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
             //                      = 252.53 - 337.5 + -27.53 = -112.5
             // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
