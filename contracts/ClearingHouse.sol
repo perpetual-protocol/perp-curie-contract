@@ -1386,13 +1386,12 @@ contract ClearingHouse is
             uint256 fee
         )
     {
-        address trader = params.maker;
-
-        _settleFunding(trader, params.baseToken);
+        _settleFunding(params.maker, params.baseToken);
 
         // load existing open order
-        bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _accountMap[trader].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder =
+            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
         // CH_ZL non-existent openOrder
         require(openOrder.liquidity > 0, "CH_NEO");
         // CH_NEL not enough liquidity
@@ -1426,7 +1425,7 @@ contract ClearingHouse is
         (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
             _removeLiquidityFromOrder(
                 RemoveLiquidityFromOrderParams({
-                    maker: trader,
+                    maker: params.maker,
                     baseToken: params.baseToken,
                     pool: pool,
                     lowerTick: params.lowerTick,
@@ -1437,17 +1436,16 @@ contract ClearingHouse is
             );
 
         fee = quoteFeeClearingHouse.add(quoteFeeUniswap);
-        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+        TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
         baseTokenInfo.available = baseTokenInfo.available.add(base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(quote).add(fee);
-        _accountMap[trader].openNotionalFractionMap[params.baseToken] = _accountMap[trader].openNotionalFractionMap[
-            params.baseToken
-        ]
+        _accountMap[params.maker].openNotionalFractionMap[params.baseToken] = _accountMap[params.maker]
+            .openNotionalFractionMap[params.baseToken]
             .sub(quote.add(fee).toInt256());
 
         // TODO move it back if we can fix stack too deep
-        _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
+        _emitLiquidityChanged(params.maker, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
     }
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params)
