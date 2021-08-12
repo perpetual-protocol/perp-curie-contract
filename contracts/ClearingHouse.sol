@@ -614,7 +614,7 @@ contract ClearingHouse is
         // so we need to scale down the amount to get the exact user's input amount
         // the difference of these two values is minted for compensate the base fee
 
-        // mint extra tokens before swap to ignore the uniswap fee impact
+        // mint extra base token before swap
         exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
