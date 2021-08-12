@@ -1164,17 +1164,31 @@ contract ClearingHouse is
             // when reducing, oldOpenNotional has diff sign with deltaAvailableQuote
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
-            console.log("close or open larger");
+            console.log("open reverse larger");
             // else: opens a larger reverse position
+            // first long
+            // open a larger reverse position
+            // openNotional = -252.53, fraction = 252.53, clsoeRatio = 30/20 = 1.5
+            // deltaAvailableQuote = 337.5
+            // closedPositionNotional = deltaAvailableQuote / close ratio = 337.5 / 1.5 = 225
+            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+            // 252.53 - 137.5? -126.265?
+
             int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
-            int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
+            // int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
+            realizedPnl = oldOpenNotional.add(closedPositionNotional);
+            console.log("realizedPnl");
+            console.logInt(realizedPnl);
+            // 252.53 - 337.5 + -27.53 = -112.5
+            _accountMap[params.trader].openNotionalFractionMap[params.baseToken] = oldOpenNotionalFraction
+                .sub(
+                deltaAvailableQuote // 337.5
+            )
+                .add(realizedPnl);
 
-            // close position: openNotional = 0
-            // then increase position: openNotional = remainsPositionNotional
-            // FIXME replace by openNotionalFractionMap
-            // _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
-
-            realizedPnl = closedPositionNotional.add(oldOpenNotional);
+            // expect
+            // opennotional = remainsPositionNotional
+            // openNotionalFraction = -opennotional
         }
 
         _realizePnl(params.trader, realizedPnl);
