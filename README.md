@@ -11,7 +11,11 @@ TODO
 ```bash
 export ARBITRUM_RINKEBY_WEB3_ENDPOINT=https://rinkeby.arbitrum.io/rpc
 export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="find mnemonic in 1Password"
+
 npm run deploy-staging
+
+# only run the specific deployment script
+npm run deploy-staging -- --tags Pool-vETHvUSD
 ```
 
 2. update CHANGELOG.md
