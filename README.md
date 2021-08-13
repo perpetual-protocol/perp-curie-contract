@@ -6,11 +6,11 @@ TODO
 
 ## Deployment
 
-1. deploy contracts
+1. Deploy contracts
 
 ```bash
-export ARBITRUM_RINKEBY_WEB3_ENDPOINT=https://rinkeby.arbitrum.io/rpc
-export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="find mnemonic in 1Password"
+export ARBITRUM_RINKEBY_WEB3_ENDPOINT="YOUR_RPC_ENDPOINT"
+export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="YOUR_MNEMONIC"
 
 npm run deploy-staging
 
@@ -18,11 +18,17 @@ npm run deploy-staging
 npm run deploy-staging -- --tags Pool-vETHvUSD
 ```
 
-2. update CHANGELOG.md
+2. Update CHANGELOG.md
 
-3. update `version` of `package.json` and `package-lock.json`
+3. Update `version` of `package.json` and `package-lock.json`
 
-4. publish npm package
+4. **Verify what's included in the packaged npm package**
+
+```bash
+npm pack
+```
+
+5. Publish npm package
 
 ```bash
 # push tag to trigger "Publish NPM package" workflow
