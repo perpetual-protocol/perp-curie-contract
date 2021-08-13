@@ -72,13 +72,11 @@ contract ClearingHouse is
         // TODO funding
         // fundingPayment
     );
-    // event FundingRateUpdated(address indexed baseToken, int256 rate, uint256 underlyingPrice);
-    // event FundingSettled(
-    //     address indexed trader,
-    //     address indexed baseToken,
-    //     uint256 nextPremiumFractionIndex,
-    //     int256 amount // +: trader pays, -: trader receives
-    // );
+    event FundingSettled(
+        address indexed trader,
+        address indexed baseToken,
+        int256 amount // +: trader pays, -: trader receives
+    );
     event GlobalFundingGrowthUpdated(
         address indexed baseToken,
         int256 twPremiumGrowthX192,
@@ -90,7 +88,6 @@ contract ClearingHouse is
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
         uint256 fee,
-        // int256 fundingPayment,
         uint256 badDebt
     );
 
@@ -120,9 +117,8 @@ contract ClearingHouse is
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // // key: token address, value: next premium fraction index for settling funding payment
-        // mapping(address => uint256) nextPremiumFractionIndexMap;
-        // for taker
-        mapping(address => int256) lastTwPremiumGrowthGlobalX96;
+        // key: token address, value: the last twPremiumGrowthGlobalX96
+        mapping(address => int256) lastTwPremiumGrowthGlobalX96Map;
     }
 
     struct TokenInfo {
@@ -277,6 +273,8 @@ contract ClearingHouse is
 
     // 10 wei
     uint256 private constant _DUST = 10;
+    // int 2^96
+    int256 private constant _IQ96 = 0x1000000000000000000000000;
 
     //
     // state variables
@@ -973,6 +971,7 @@ contract ClearingHouse is
     // }
 
     // TODO funding
+    // this function has to be up-to-date
     /// @dev +: trader pays, -: trader receives
     // function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
     //     Account storage account = _accountMap[trader];
@@ -1240,36 +1239,42 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _updateGlobalFundingGrowth(address baseToken, address pool) private returns (FundingGrowth memory) {
+    // TODO extract getPendingGlobalFundingGrowth()
+    function _updateGlobalFundingGrowth(address baseToken) private returns (FundingGrowth memory) {
         uint256 timestamp = _blockTimestamp();
         FundingGrowth storage globalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
-        uint160 sqrtPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
-        int256 twPremiumGrowthX96 =
-            globalFundingGrowth.twPremiumX96.add(
-                sqrtPriceX96
-                    .formatSqrtPriceX96ToPriceX96()
-                    .toInt256()
-                    .sub(_getIndexPrice(baseToken, twapInterval).formatX10_18ToX96().toInt256())
-                    .mul(timestamp.sub(_lastTradedTimestampMap[baseToken]).toInt256())
-            );
+        // update only in the first tx of a block
+        if (_lastTradedTimestampMap[baseToken] != timestamp) {
+            address pool = _poolMap[baseToken];
+            uint160 sqrtPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+            int256 twPremiumGrowthX96 =
+                globalFundingGrowth.twPremiumX96.add(
+                    sqrtPriceX96
+                        .formatSqrtPriceX96ToPriceX96()
+                        .toInt256()
+                        .sub(_getIndexPrice(baseToken, twapInterval).formatX10_18ToX96().toInt256())
+                        .mul(timestamp.sub(_lastTradedTimestampMap[baseToken]).toInt256())
+                );
 
-        // overflow inspection:
-        // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-        // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-        int256 twPremiumDivBySqrtPriceGrowthX96 =
-            globalFundingGrowth.twPremiumDivBySqrtPriceX96.add(
-                (twPremiumGrowthX96 << 96).div(uint256(sqrtPriceX96).toInt256())
-            );
+            // overflow inspection:
+            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
+            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            int256 twPremiumDivBySqrtPriceGrowthX96 =
+                globalFundingGrowth.twPremiumDivBySqrtPriceX96.add(
+                    (twPremiumGrowthX96.mul(_IQ96)).div(uint256(sqrtPriceX96).toInt256())
+                );
 
-        (
-            _lastTradedTimestampMap[baseToken],
-            globalFundingGrowth.twPremiumX96,
-            globalFundingGrowth.twPremiumDivBySqrtPriceX96
-        ) = (timestamp, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
-        emit GlobalFundingGrowthUpdated(baseToken, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
+            (
+                _lastTradedTimestampMap[baseToken],
+                globalFundingGrowth.twPremiumX96,
+                globalFundingGrowth.twPremiumDivBySqrtPriceX96
+            ) = (timestamp, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
+            emit GlobalFundingGrowthUpdated(baseToken, twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
 
-        return FundingGrowth(twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
+            return FundingGrowth(twPremiumGrowthX96, twPremiumDivBySqrtPriceGrowthX96);
+        }
+        return globalFundingGrowth;
     }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
@@ -1279,7 +1284,7 @@ contract ClearingHouse is
 
         address pool = _poolMap[baseTokenAddr];
         // int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
-        FundingGrowth memory globalFundingGrowth = _updateGlobalFundingGrowth(baseTokenAddr, pool);
+        FundingGrowth memory globalFundingGrowth = _updateGlobalFundingGrowth(baseTokenAddr);
 
         SwapState memory state =
             SwapState({
@@ -1441,7 +1446,6 @@ contract ClearingHouse is
             exchangedPositionSize,
             exchangedPositionNotional,
             fee,
-            // fundingPayment, // TODO funding
             0 // TODO: badDebt
         );
 
@@ -1647,6 +1651,8 @@ contract ClearingHouse is
         bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
 
         int256 fundingPayment;
+        FundingGrowth memory globalFundingGrowth = _updateGlobalFundingGrowth(baseToken);
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
 
@@ -1655,9 +1661,6 @@ contract ClearingHouse is
             uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
             uint256 baseBelow =
                 UniswapV3Broker.getAmount0ForLiquidity(sqrtPriceAtLowerTick, sqrtPriceAtUpperTick, order.liquidity);
-
-            mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-            FundingGrowth memory globalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
             (
                 int256 twPremiumGrowthInsideX96,
@@ -1672,43 +1675,38 @@ contract ClearingHouse is
                     globalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
 
-            // TODO review bit operation in Solidity
             int256 fundingBelow =
-                baseBelow.toInt256().mul(twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)) >> 96;
+                baseBelow.toInt256().mul(twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)).div(_IQ96);
 
             // fundingInside =
             // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
             int256 fundingInside =
-                uint256(order.liquidity).toInt256().mul(
+                uint256(order.liquidity)
+                    .toInt256()
+                    .mul(
                     // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
                     twPremiumDivBySqrtPriceGrowthInsideX96.sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96).sub(
                         // ΔtwPremiumGrowthInsideX96
-                        // TODO review bit operation in Solidity
-                        (twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96) << 96).div(
+                        (twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(_IQ96)).div(
                             sqrtPriceAtUpperTick
                         )
                     )
-                    // TODO review bit operation in Solidity
-                ) >> 96;
+                )
+                    .div(_IQ96);
             fundingPayment = fundingPayment.add(fundingBelow).add(fundingInside);
         }
 
-        // uint256 historyLen = _fundingHistoryMap[baseToken].length;
-        // if (_accountMap[trader].nextPremiumFractionIndexMap[baseToken] == historyLen || historyLen == 0) {
-        //     return 0;
-        // }
+        TokenInfo memory tokenInfo = account.tokenInfoMap[baseToken];
+        fundingPayment = fundingPayment.add(
+            tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256()).mul(
+                globalFundingGrowth.twPremiumX96.sub(account.lastTwPremiumGrowthGlobalX96Map[baseToken])
+            )
+        );
 
-        // fundingPayment = getPendingFundingPayment(trader, baseToken);
-        // _accountMap[trader].nextPremiumFractionIndexMap[baseToken] = historyLen;
-
-        // if (fundingPayment == 0) {
-        //     return 0;
-        // }
-
-        // // settle funding to owedRealizedPnl
-        // _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
-
-        // emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
+        if (fundingPayment != 0) {
+            emit FundingSettled(trader, baseToken, fundingPayment);
+            account.owedRealizedPnl = account.owedRealizedPnl.sub(fundingPayment);
+        }
     }
 
     //
