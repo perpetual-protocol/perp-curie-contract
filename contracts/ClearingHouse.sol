@@ -1172,21 +1172,20 @@ contract ClearingHouse is
     function _swapLikeUniswapV3(
         address baseToken,
         bool isBaseToQuote,
+        bool isExactInput,
         int256 amount,
         uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio,
         uint160 sqrtMarkPriceX96
     ) private returns (SwapState memory state) {
         address pool = _poolMap[baseToken];
         state = SwapState({
             tick: UniswapV3Broker.getTick(pool),
             sqrtPriceX96: sqrtMarkPriceX96,
-            amountSpecifiedRemaining: 0,
+            amountSpecifiedRemaining: amount,
             feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseToken],
             liquidity: UniswapV3Broker.getLiquidity(pool)
         });
-
-        // we are going to replay txs by swapping "exactOutput" with the output token received
-        state.amountSpecifiedRemaining = amount;
 
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
@@ -1221,10 +1220,14 @@ contract ClearingHouse is
                     : step.nextSqrtPriceX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
-                clearingHouseFeeRatio
+                isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
             );
 
-            state.amountSpecifiedRemaining += step.amountOut.toInt256();
+            if (isExactInput) {
+                state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+            } else {
+                state.amountSpecifiedRemaining += step.amountOut.toInt256();
+            }
 
             // update CH's global fee growth if there is liquidity in this range
             // note CH only collects quote fee when swapping base -> quote
@@ -1285,8 +1288,16 @@ contract ClearingHouse is
             _swapLikeUniswapV3(
                 params.baseToken,
                 params.isBaseToQuote,
-                params.isBaseToQuote ? -(response.quote.toInt256()) : -(response.base.toInt256()),
+                params.isExactInput,
+                params.isBaseToQuote
+                    ? params.isExactInput
+                        ? FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
+                        : -FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
+                    : params.isExactInput
+                    ? params.amount.toInt256()
+                    : -params.amount.toInt256(),
                 clearingHouseFeeRatio,
+                uniswapFeeRatioMap[pool],
                 sqrtMarkPriceX96
             );
 

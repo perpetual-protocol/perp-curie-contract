@@ -234,6 +234,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }
 
+                    // 0.001135501474999999 - fee in uniswap
                     // expect 1% of quote = 0.001135501475
                     // there's one wei of imprecision, thus expecting 0.001135501474999999
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
@@ -256,7 +257,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("10000"), // debt
                     ])
 
-                    // there is only fee in base
                     // 0.001135501474999999 * 2 ^ 128 = 3.863911296E35
                     expect(
                         await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
@@ -267,7 +267,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         // add the decimal point to prevent overflow, according to the following 10^18 comparison
                         // 386391129557376066102652522378417873
                         //                  1000000000000000000
-                        parseEther("0"), // feeGrowthInsideClearingHouseLastX128
+                        parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideClearingHouseLastX128
                         parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideUniswapLastX128
                     ])
 
@@ -278,7 +278,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     )
                     // quote diff: 0.1135501475 (bob swap) - 0.001135501475 (alice removeLiquidity) = 0.112414646
                     expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                        parseEther("0.112414646025000001"),
+                        parseEther("0.112414646025000000"),
                     )
                 })
 
