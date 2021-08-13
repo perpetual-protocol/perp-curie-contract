@@ -340,6 +340,7 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
+        clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 

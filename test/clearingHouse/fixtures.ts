@@ -63,6 +63,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             uniV3Factory.address,
             3600, // fundingPeriod = 1 hour
         )) as ClearingHouse
+
         await quoteToken.addWhitelist(clearingHouse.address)
 
         // set CH as the minter of all virtual tokens
@@ -94,6 +95,9 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         await baseToken2.addWhitelist(clearingHouse.address)
         await baseToken2.addWhitelist(pool2.address)
         await quoteToken.addWhitelist(pool2.address)
+
+        await clearingHouse.setFeeRatio(baseToken.address, feeTier)
+        await clearingHouse.setFeeRatio(baseToken2.address, feeTier)
 
         return {
             clearingHouse,
