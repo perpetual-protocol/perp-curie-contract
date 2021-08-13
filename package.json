@@ -23,7 +23,7 @@
     "slither": "ts-node --files scripts/slither.ts"
   },
   "author": "",
-  "license": "BSD 3-Clause License",
+  "license": "GPL-2.0-or-later",
   "devDependencies": {
     "@chainlink/contracts": "0.1.7",
     "@eth-optimism/smock": "1.1.4",
