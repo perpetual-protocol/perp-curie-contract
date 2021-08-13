@@ -1,13 +1,10 @@
 {
   "name": "@perp/lushan",
-  "version": "0.2.0",
+  "version": "0.3.3",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
     "artifacts/contracts/",
-    "!artifacts/contracts/test",
-    "!artifacts/contracts/uniswap",
-    "!artifacts/contracts/**/*.dbg.json",
     "metadata/"
   ],
   "scripts": {
@@ -21,6 +18,7 @@
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
     "deploy-staging": "hardhat deploy --network arbitrumRinkeby",
+    "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
   },
