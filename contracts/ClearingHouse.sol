@@ -1169,23 +1169,15 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _swapLikeUniswapV3(
+    function _updateClearingHouseFee(
+        SwapState memory state,
         address baseToken,
         bool isBaseToQuote,
         bool isExactInput,
-        int256 amount,
         uint24 clearingHouseFeeRatio,
-        uint24 uniswapFeeRatio,
-        uint160 sqrtMarkPriceX96
-    ) private returns (SwapState memory state) {
+        uint24 uniswapFeeRatio
+    ) private {
         address pool = _poolMap[baseToken];
-        state = SwapState({
-            tick: UniswapV3Broker.getTick(pool),
-            sqrtPriceX96: sqrtMarkPriceX96,
-            amountSpecifiedRemaining: amount,
-            feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseToken],
-            liquidity: UniswapV3Broker.getLiquidity(pool)
-        });
 
         uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
@@ -1220,6 +1212,10 @@ contract ClearingHouse is
                     : step.nextSqrtPriceX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
+                // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
+                //                   replay the swap in uniswap pool
+                // if quote to base: use clearing house fee for calculation because the fee is charged
+                //                   on quote token in clearing house
                 isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
             );
 
@@ -1263,13 +1259,29 @@ contract ClearingHouse is
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
             }
         }
+
+        // update global states since swap state transitions are all done
+        _feeGrowthGlobalX128Map[baseToken] = state.feeGrowthGlobalX128;
     }
 
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
         address pool = _poolMap[params.baseToken];
 
-        uint160 sqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: params.isBaseToQuote
+                    ? params.isExactInput
+                        ? FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
+                        : -FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
+                    : params.isExactInput
+                    ? params.amount.toInt256()
+                    : -params.amount.toInt256(),
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -1284,25 +1296,16 @@ contract ClearingHouse is
             );
 
         uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
-        SwapState memory state =
-            _swapLikeUniswapV3(
-                params.baseToken,
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.isBaseToQuote
-                    ? params.isExactInput
-                        ? FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
-                        : -FeeMath.calcScaledAmount(pool, params.amount, true).toInt256()
-                    : params.isExactInput
-                    ? params.amount.toInt256()
-                    : -params.amount.toInt256(),
-                clearingHouseFeeRatio,
-                uniswapFeeRatioMap[pool],
-                sqrtMarkPriceX96
-            );
-
-        // update global states since swap state transitions are all done
-        _feeGrowthGlobalX128Map[params.baseToken] = state.feeGrowthGlobalX128;
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        // replay the swap to calculate the fees charged in clearing house
+        _updateClearingHouseFee(
+            state,
+            params.baseToken,
+            params.isBaseToQuote,
+            params.isExactInput,
+            clearingHouseFeeRatio,
+            uniswapFeeRatio
+        );
 
         // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
         int256 exchangedPositionSize;
@@ -1325,7 +1328,7 @@ contract ClearingHouse is
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
                 fee = FullMath.mulDivRoundingUp(
                     response.quote,
-                    (1e6 - uniswapFeeRatioMap[pool]) * clearingHouseFeeRatio,
+                    (1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
                     1e6 * (1e6 - clearingHouseFeeRatio)
                 );
             }
