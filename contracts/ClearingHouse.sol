@@ -109,9 +109,6 @@ contract ClearingHouse is
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
-        // key: base token address
-        // a fraction of open notional that can unify the openNotional for both maker and taker
-        mapping(address => int256) openNotionalFractionMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
@@ -279,6 +276,10 @@ contract ClearingHouse is
 
     // key: trader
     mapping(address => Account) private _accountMap;
+
+    // key: accountBaseTokenKey, which is a hash of account and baseToken
+    // value: fraction of open notional that can unify the openNotional for both maker and taker
+    mapping(bytes32 => int256) private _openNotionalFractionMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **quote fee transformed from base fee** outside each tick of each pool
@@ -782,7 +783,7 @@ contract ClearingHouse is
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
         uint160 sqrtMarkPrice = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
         int256 quoteInPool = _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPrice, false).toInt256();
-        int256 openNotionalFraction = _accountMap[trader].openNotionalFractionMap[baseToken];
+        int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
         return quoteInPool.sub(openNotionalFraction);
     }
 
@@ -1567,10 +1568,8 @@ contract ClearingHouse is
         address baseToken,
         int256 delta
     ) private {
-        _accountMap[account].openNotionalFractionMap[baseToken] = _accountMap[account].openNotionalFractionMap[
-            baseToken
-        ]
-            .add(delta);
+        bytes32 accountBaseTokenId = _getAccountBaseTokenKey(account, baseToken);
+        _openNotionalFractionMap[accountBaseTokenId] = _openNotionalFractionMap[accountBaseTokenId].add(delta);
     }
 
     //
@@ -1760,6 +1759,10 @@ contract ClearingHouse is
         int24 upperTick
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
+    }
+
+    function _getAccountBaseTokenKey(address account, address baseToken) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(account, baseToken));
     }
 
     function _calcOwedFee(
