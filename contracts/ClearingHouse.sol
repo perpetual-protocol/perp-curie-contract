@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
@@ -108,8 +109,9 @@ contract ClearingHouse is
         address[] tokens; // all tokens (base only) this account is in debt of
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
-        // key: base token address, negative when long, positive when short
-        mapping(address => int256) openNotionalMap;
+        // key: base token address
+        // a fraction of open notional that can unify the openNotional for both maker and taker
+        mapping(address => int256) openNotionalFractionMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
@@ -455,6 +457,7 @@ contract ClearingHouse is
         // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(fee).sub(response.quote);
+        _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(trader, params, response, fee);
@@ -783,8 +786,12 @@ contract ClearingHouse is
         return _accountMap[trader].tokenInfoMap[token];
     }
 
-    function getOpenNotional(address trader, address token) external view returns (int256) {
-        return _accountMap[trader].openNotionalMap[token];
+    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
+        // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
+        uint160 sqrtMarkPrice = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+        int256 quoteInPool = _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPrice, false).toInt256();
+        int256 openNotionalFraction = _accountMap[trader].openNotionalFractionMap[baseToken];
+        return quoteInPool.sub(openNotionalFraction);
     }
 
     function getOwedRealizedPnl(address trader) external view returns (int256) {
@@ -1081,12 +1088,12 @@ contract ClearingHouse is
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
-        int256 oldOpenNotional = _accountMap[params.trader].openNotionalMap[params.baseToken];
+        int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
-        // increase position if old/new position are in the same direction
+        // if: increase position (old/new position are in the same direction)
         if (positionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
             response = _swap(params);
 
@@ -1095,7 +1102,17 @@ contract ClearingHouse is
             deltaAvailableQuote = params.isBaseToQuote
                 ? response.deltaAvailableQuote.toInt256()
                 : -response.deltaAvailableQuote.toInt256();
-            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.add(deltaAvailableQuote);
+
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=813431512
+            // taker:
+            // step 1: long 20 base
+            // deltaAvailableQuote = -252.53
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 0 - (-252.53) + 0 = 252.53
+            // openNotional = -openNotionalFraction = -252.53
+            _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
+
+            // there is no realizedPnl when increasing position
             return response;
         }
 
@@ -1113,32 +1130,45 @@ contract ClearingHouse is
             : -response.deltaAvailableQuote.toInt256();
 
         int256 realizedPnl;
-        // reduce position if old position size is larger
-        // or closedRatio > 1 ** baseToken.decimals
-        if (positionSizeAbs > response.deltaAvailableBase) {
-            // reduced ratio = abs(exchangedPosSize / takerPosSize)
+        // if reduce or close position (closeRatio <= 1)
+        if (positionSizeAbs >= response.deltaAvailableBase) {
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 10 base (reduce half of the position)
+            // deltaAvailableQuote = 137.5
+            // closeRatio = 10/20 = 0.5
+            // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
+            // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 137.5 + 11.235 = 126.265
+            // openNotional = -openNotionalFraction = 126.265
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
-            _accountMap[params.trader].openNotionalMap[params.baseToken] = oldOpenNotional.sub(reducedOpenNotional);
-
-            // alice long 1 ETH first, openNotional = -100
-            // alice reduce 40% (short 0.4ETH), deltaAvailableBase = -0.4ETH, deltaAvailableQuote = 40 -> 50
-            // reducedOpenNotional = -100 * 40% = -40
-            // openNotional = -100 - (-40) = 60
-            // realizedPnl = (40 -> 50) + (-40) = 10
-            // realizedPnl = exchangedPositionNotional + reducedOpenNotional
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             // else: opens a larger reverse position
+
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 30 base (open a larger reverse position)
+            // deltaAvailableQuote = 337.5
+            // closeRatio = 30/20 = 1.5
+            // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
+            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+            // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
+            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 337.5 + -27.53 = -112.5
+            // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
             int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
-            int256 remainsPositionNotional = deltaAvailableQuote.sub(closedPositionNotional);
-
-            // close position: openNotional = 0
-            // then increase position: openNotional = remainsPositionNotional
-            _accountMap[params.trader].openNotionalMap[params.baseToken] = remainsPositionNotional;
-
-            realizedPnl = closedPositionNotional.add(oldOpenNotional);
+            realizedPnl = oldOpenNotional.add(closedPositionNotional);
         }
 
+        _addOpenNotionalFraction(params.trader, params.baseToken, realizedPnl.sub(deltaAvailableQuote));
         _realizePnl(params.trader, realizedPnl);
         return response;
     }
@@ -1430,13 +1460,12 @@ contract ClearingHouse is
                 liquidity: params.liquidity
             })
         );
-
-        {
-            TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
-            baseTokenInfo.available = baseTokenInfo.available.add(base);
-            quoteTokenInfo.available = quoteTokenInfo.available.add(quote).add(fee);
-        }
+        uint256 removedQuoteAmount = quote.add(fee);
+        TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
+        baseTokenInfo.available = baseTokenInfo.available.add(base);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
+        _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
         // TODO move it back if we can fix stack too deep
         _emitLiquidityChanged(params.maker, params, response, fee);
     }
@@ -1557,6 +1586,17 @@ contract ClearingHouse is
         emit FundingSettled(trader, baseToken, historyLen, fundingPayment);
     }
 
+    function _addOpenNotionalFraction(
+        address account,
+        address baseToken,
+        int256 delta
+    ) private {
+        _accountMap[account].openNotionalFractionMap[baseToken] = _accountMap[account].openNotionalFractionMap[
+            baseToken
+        ]
+            .add(delta);
+    }
+
     //
     // INTERNAL VIEW FUNCTIONS
     //
@@ -1633,6 +1673,7 @@ contract ClearingHouse is
         return totalBaseDebtValue;
     }
 
+    // including uncollected fee
     function _getTotalTokenAmountInPool(
         address trader,
         address baseToken,

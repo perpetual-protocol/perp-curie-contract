@@ -7,12 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2021-08-13
+
+### Fixed
+
+- fix how realizedPnl and openNotional calculate for maker/taker
+
+### Added
+
+- add whitelist feature for `VirtualToken`
 
 ## [0.2.0] - 2021-08-04
-### Changed
-- rename `ClearingHouse.getTotalMarketPnl` to `ClearingHouse.getTotalUnrealizedPnl` 
-- fix `Vault.getFreeCollateral` wrong numbers
 
+### Changed
+
+- rename `ClearingHouse.getTotalMarketPnl` to `ClearingHouse.getTotalUnrealizedPnl`
+- fix `Vault.getFreeCollateral` wrong numbers
 
 ## [0.1.5] - 2021-08-03
 
