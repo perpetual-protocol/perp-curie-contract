@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse removeLiquidity with fee", () => {
+describe("ClearingHouse removeLiquidity with fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -788,29 +788,34 @@ describe.only("ClearingHouse removeLiquidity with fee", () => {
                 ])
 
                 // when bob swap Q2B
-                //   feeGrowthInsideUniswapLastX128: (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
+                //   feeGrowthInsideClearingHouseLastX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
                 // when bob swap B2Q:
-                //   feeGrowthInsideClearingHouseLastX128: (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 7.531488121E35
+                //   feeGrowthInsideClearingHouseLastX128 += (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 15.139051879E35
                 expect(
                     await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
                 ).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
-                    parseEther("753148811845900693.779859193673057458"),
+                    parseEther("1513905187670593422.371233202167056941"),
                 ])
 
+                console.log(
+                    (
+                        await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
+                    ).feeGrowthInsideClearingHouseLastX128.toString(),
+                )
                 // when bob swap Q2B
-                //   feeGrowthInsideUniswapLastX128: 0.001236511576 * 2 ^ 128 = 4.207630858E35
+                //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:
-                //   feeGrowthInsideClearingHouseLastX128: 0.00122414646 * 2 ^ 128 = 4.165554549E35
+                //   feeGrowthInsideClearingHouseLastX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
                 expect(
                     await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick),
                 ).to.deep.eq([
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
                     Number(middleTick), // upperTick
-                    parseEther("416555454600544895.623688456386774085"),
+                    parseEther("837318540278413362.255760211374487196"),
                 ])
 
                 // verify CH balance changes
