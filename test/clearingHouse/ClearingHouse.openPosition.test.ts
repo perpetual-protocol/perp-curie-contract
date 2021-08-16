@@ -148,7 +148,7 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
-                        amount: parseEther("10000000"),
+                        amount: parseEther("100000"),
                         sqrtPriceLimitX96: 0,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
