@@ -602,8 +602,6 @@ contract ClearingHouse is
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
 
-        uint256 exactSwappedAmount = amountToPay;
-
         // we know the exact amount of a token is needed for swap in the swap callback
         // we separate into two part
         // 1. extra minted tokens due to quote only fee
@@ -614,18 +612,17 @@ contract ClearingHouse is
         // so we need to scale down the amount to get the exact user's input amount
         // the difference of these two values is minted for compensate the base fee
 
-        if (token == callbackData.baseToken) {
-            // mint extra base token before swap
-            exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
-            // not use _mint() here since it will change trader's baseToken available/debt
-            IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
-        }
+        // mint extra token before swap to cover uniswap fee
+        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
+        // not use _mint() here since it will change trader's baseToken available/debt
+        IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
         // 2. openPosition
         if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            if (availableBefore < exactSwappedAmount) {
-                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), false);
+            amountToPay = token == callbackData.baseToken ? exactSwappedAmount : amountToPay;
+            if (availableBefore < amountToPay) {
+                _mint(callbackData.trader, token, amountToPay.sub(availableBefore), false);
             }
         }
 
