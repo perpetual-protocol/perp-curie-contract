@@ -38,8 +38,8 @@ library Tick {
         view
         returns (
             int256 twPremiumGrowthInsideX96,
-            int256 twPremiumDivBySqrtPriceGrowthInsideX96,
-            int256 twPremiumGrowthBelowX96
+            int256 twPremiumGrowthBelowX96,
+            int256 twPremiumDivBySqrtPriceGrowthInsideX96
         )
     {
         int256 lowerTwPremiumGrowthOutsideX96 = self[lowerTick].twPremiumX96;
@@ -65,14 +65,14 @@ library Tick {
                 ? upperTwPremiumDivBySqrtPriceGrowthOutsideX96
                 : twPremiumDivBySqrtPriceGrowthGlobalX96 - upperTwPremiumDivBySqrtPriceGrowthOutsideX96;
 
-        // TODO verify what if these values overflow; will they have the same effect as before, when using uint256
+        // TODO funding verify what if these values overflow; will they have the same effect as using uint256 or not
         // these values can underflow per feeGrowthOutside specs
         return (
             twPremiumGrowthGlobalX96 - twPremiumGrowthBelowX96 - twPremiumGrowthAboveX96,
+            twPremiumGrowthBelowX96,
             twPremiumDivBySqrtPriceGrowthGlobalX96 -
                 twPremiumDivBySqrtPriceGrowthBelowX96 -
-                twPremiumDivBySqrtPriceGrowthAboveX96,
-            twPremiumGrowthBelowX96
+                twPremiumDivBySqrtPriceGrowthAboveX96
         );
     }
 

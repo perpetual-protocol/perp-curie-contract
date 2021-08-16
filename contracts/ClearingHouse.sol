@@ -131,7 +131,6 @@ contract ClearingHouse is
         int24 upperTick;
         uint256 feeGrowthInsideClearingHouseLastX128;
         uint256 feeGrowthInsideUniswapLastX128;
-        // TODO funding
         int256 lastTwPremiumGrowthInsideX96;
         int256 lastTwPremiumGrowthBelowX96;
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
@@ -1307,6 +1306,7 @@ contract ClearingHouse is
                 .toUint256()
                 .sub(fee);
         }
+        _updateAccountFundingGrowth(trader, baseTokenAddr, updatedGlobalFundingGrowth);
 
         emit Swapped(
             trader,
@@ -1324,6 +1324,39 @@ contract ClearingHouse is
                 exchangedPositionSize.abs(),
                 exchangedPositionNotional.abs()
             );
+    }
+
+    function _updateAccountFundingGrowth(
+        address trader,
+        address baseToken,
+        FundingGrowth memory updatedGlobalFundingGrowth
+    ) private {
+        Account storage account = _accountMap[trader];
+        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+
+        // update openOrder's fundingGrowth
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            (
+                int256 twPremiumGrowthInsideX96,
+                int256 twPremiumGrowthBelowX96,
+                int256 twPremiumDivBySqrtPriceGrowthInsideX96
+            ) =
+                tickMap.getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    updatedGlobalFundingGrowth.twPremiumX96,
+                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+            order.lastTwPremiumGrowthInsideX96 = twPremiumGrowthInsideX96;
+            order.lastTwPremiumGrowthBelowX96 = twPremiumGrowthBelowX96;
+            order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = twPremiumDivBySqrtPriceGrowthInsideX96;
+        }
+
+        // update position's fundingGrowth
+        account.lastTwPremiumGrowthGlobalX96Map[baseToken] = updatedGlobalFundingGrowth.twPremiumX96;
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
@@ -1697,8 +1730,8 @@ contract ClearingHouse is
             address pool = _poolMap[baseToken];
             (
                 int256 twPremiumGrowthInsideX96,
-                int256 twPremiumDivBySqrtPriceGrowthInsideX96,
-                int256 twPremiumGrowthBelowX96
+                int256 twPremiumGrowthBelowX96,
+                int256 twPremiumDivBySqrtPriceGrowthInsideX96
             ) =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
