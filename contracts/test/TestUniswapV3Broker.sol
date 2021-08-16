@@ -91,4 +91,8 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
     {
         return UniswapV3Broker.swap(params);
     }
+
+    function getPositionKey(int24 lowerTick, int24 upperTick) external view returns (bytes32) {
+        return PositionKey.compute(address(this), lowerTick, upperTick);
+    }
 }
