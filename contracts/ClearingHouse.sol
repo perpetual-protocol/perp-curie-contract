@@ -781,8 +781,8 @@ contract ClearingHouse is
     function cancelExcessOrders(
         address maker,
         address baseToken,
-        bytes32[] calldata orderIds
-    ) external nonReentrant() {
+        bytes32[] memory orderIds
+    ) public nonReentrant() {
         _requireHasBaseToken(baseToken);
 
         // CH_EAV: enough account value
@@ -811,6 +811,11 @@ contract ClearingHouse is
 
         // burn maker's quote to reduce maker's init margin requirement
         _burnMax(maker, quoteToken);
+    }
+
+    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
+        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     function settle(address account) external override returns (int256) {
