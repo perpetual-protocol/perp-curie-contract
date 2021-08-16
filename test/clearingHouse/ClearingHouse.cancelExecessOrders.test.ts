@@ -140,7 +140,7 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
 
     it("force fail, alice has enough account value so shouldn't be canceled", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
+            return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
         const openOrderIdsBefore = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
@@ -151,17 +151,5 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
 
         const openOrderIdsAfter = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
-    })
-
-    it("force fail, cancel a non-existed orderId", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
-        })
-
-        await expect(
-            clearingHouse.cancelExcessOrders(alice.address, baseToken.address, [
-                ethers.utils.formatBytes32String("non-existed"),
-            ]),
-        ).to.be.revertedWith("CH_NEO")
     })
 })
