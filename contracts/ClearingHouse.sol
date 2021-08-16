@@ -275,7 +275,7 @@ contract ClearingHouse is
     mapping(address => Account) private _accountMap;
 
     // key: orderId, which is a hash of account, baseToken, lowerTick and upperTick
-    mapping(bytes32 => OpenOrder) _openOrderMap;
+    mapping(bytes32 => OpenOrder) private _openOrderMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **quote fee transformed from base fee** outside each tick of each pool
