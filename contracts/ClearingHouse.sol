@@ -645,7 +645,12 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        _removeAllLiquidity(trader, baseToken);
+        address[] memory tokens = _accountMap[trader].tokens;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            bytes32[] memory orderIds = _accountMap[trader].makerPositionMap[tokens[i]].orderIds;
+            // CH_NEO: not empty order
+            require(orderIds.length == 0, "CH_NEO");
+        }
 
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
@@ -778,11 +783,11 @@ contract ClearingHouse is
         return _settleFunding(trader, token);
     }
 
-    function cancelExcessOrders(
+    function _cancelExcessOrders(
         address maker,
         address baseToken,
         bytes32[] memory orderIds
-    ) public nonReentrant() {
+    ) private {
         _requireHasBaseToken(baseToken);
 
         // CH_EAV: enough account value
@@ -813,9 +818,17 @@ contract ClearingHouse is
         _burnMax(maker, quoteToken);
     }
 
+    function cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external nonReentrant() {
+        _cancelExcessOrders(maker, baseToken, orderIds);
+    }
+
     function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
         bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
-        cancelExcessOrders(maker, baseToken, orderIds);
+        _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     function settle(address account) external override returns (int256) {
