@@ -37,18 +37,14 @@ describe("UniswapV3Broker addLiquidity", () => {
         await quoteToken.addWhitelist(pool.address)
     })
 
-    it("won't break the PositionKey.computation", async () => {
+    it("cases (upper & lower) won't break the getPositionKey() computation", async () => {
         const posKey = await uniswapV3Broker.getPositionKey(50000, 50400)
         expect((await pool.positions(posKey)).liquidity.eq(0)).be.true
-
-        // the current price of token0 (base) = reserve1/reserve0 = 151.3733069/1
-        // P(50200) = 1.0001^50200 ~= 151.3733069
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
         const base = parseEther("0.000808693720084599")
         const quote = parseEther("0.122414646")
 
-        // the emission of event is from Uniswap v3, with params representing the real minting conditions
         await uniswapV3Broker.addLiquidity({
             pool: pool.address,
             baseToken: baseToken.address,
