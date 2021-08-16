@@ -153,6 +153,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     //                  1000000000000000000
                     parseEther("209319055280823885.560625816574200262"), // feeGrowthInsideClearingHouseLastX128
                     parseEther("0"), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes
@@ -262,6 +265,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         //                  1000000000000000000
                         parseEther("0"), // feeGrowthInsideClearingHouseLastX128
                         parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideUniswapLastX128
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                     ])
 
                     // verify CH balance changes
@@ -380,6 +386,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         //                  1000000000000000000
                         parseEther("382527218153424753.553269907241820406"), // feeGrowthInsideClearingHouseLastX128
                         parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideUniswapLastX128
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                        parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                     ])
 
                     // verify CH balance changes
@@ -568,6 +577,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     Number(upperTick), // upperTick
                     feeGrowthInsideClearingHouseLastX128,
                     feeGrowthInsideUniswapLastX128,
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
                 expect(
                     await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick),
@@ -577,6 +589,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     Number(upperTick), // upperTick
                     feeGrowthInsideClearingHouseLastX128,
                     feeGrowthInsideUniswapLastX128,
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes
@@ -797,6 +812,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     Number(upperTick), // upperTick
                     parseEther("753148811845900693.779859193673057458"),
                     parseEther("760756375824692728.591374008493999483"),
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // when bob swap Q2B
@@ -811,6 +829,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     Number(middleTick), // upperTick
                     parseEther("416555454600544895.623688456386774085"),
                     parseEther("420763085677868466.632071754987713111"),
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes

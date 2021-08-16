@@ -126,6 +126,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 0, // upperTick
                 parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
                 parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
             ])
 
             // verify CH balance changes
@@ -223,6 +226,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
                     parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes
@@ -290,6 +296,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
                     parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes
@@ -355,6 +364,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
                     parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+                    parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
                 ])
 
                 // verify CH balance changes
@@ -481,6 +493,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             50400, // upperTick
             parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
             parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+            parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
+            parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
+            parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
         ])
 
         // verify CH balance changes
