@@ -1221,6 +1221,13 @@ contract ClearingHouse is
                 isBaseToQuote
             );
 
+            // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
+            if (step.nextTick < TickMath.MIN_TICK) {
+                step.nextTick = TickMath.MIN_TICK;
+            } else if (step.nextTick > TickMath.MAX_TICK) {
+                step.nextTick = TickMath.MAX_TICK;
+            }
+
             // get the next price of this step (either next tick's price or the ending price)
             // use sqrtPrice instead of tick is more precise
             step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
@@ -1285,6 +1292,7 @@ contract ClearingHouse is
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
             }
         }
+        mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseToken];
 
         // update global states since swap state transitions are all done
         _feeGrowthGlobalX128Map[baseToken] = state.feeGrowthGlobalX128;
@@ -1436,6 +1444,20 @@ contract ClearingHouse is
 
             base = response.base;
             quote = response.quote;
+
+            // update token info based on existing open order
+            fee = _removeLiquidityFromOrder(
+                RemoveLiquidityFromOrderParams({
+                    maker: params.maker,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
+                    liquidity: params.liquidity
+                })
+            );
+
             // if flipped from initialized to uninitialized, clear the tick info
             if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
                 _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.lowerTick);
@@ -1445,18 +1467,6 @@ contract ClearingHouse is
             }
         }
 
-        // update token info based on existing open order
-        fee = _removeLiquidityFromOrder(
-            RemoveLiquidityFromOrderParams({
-                maker: params.maker,
-                baseToken: params.baseToken,
-                pool: pool,
-                lowerTick: params.lowerTick,
-                upperTick: params.upperTick,
-                feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                liquidity: params.liquidity
-            })
-        );
         uint256 removedQuoteAmount = quote.add(fee);
         TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
