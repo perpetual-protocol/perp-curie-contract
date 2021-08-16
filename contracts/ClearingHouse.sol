@@ -795,7 +795,7 @@ contract ClearingHouse is
         return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
     }
 
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
+    function getOpenOrderIds(address trader, address baseToken) public view returns (bytes32[] memory) {
         return _accountMap[trader].openOrderIdsMap[baseToken];
     }
 
@@ -1484,7 +1484,7 @@ contract ClearingHouse is
     }
 
     function _removeAllLiquidity(address maker, address baseToken) private {
-        bytes32[] memory orderIds = _getOrderIds(maker, baseToken);
+        bytes32[] memory orderIds = getOpenOrderIds(maker, baseToken);
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
             OpenOrder memory openOrder = _openOrderMap[orderId];
@@ -1565,9 +1565,6 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW FUNCTIONS
     //
-    function _getOrderIds(address account, address baseToken) private view returns (bytes32[] memory) {
-        return _accountMap[account].openOrderIdsMap[baseToken];
-    }
 
     function _getIndexPrice(address token, uint256 twapInterval) private view returns (uint256) {
         return IIndexPrice(token).getIndexPrice(twapInterval);
@@ -1648,7 +1645,7 @@ contract ClearingHouse is
         uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) private view returns (uint256 tokenAmount) {
-        bytes32[] memory orderIds = _getOrderIds(trader, baseToken);
+        bytes32[] memory orderIds = getOpenOrderIds(trader, baseToken);
 
         //
         // tick:    lower             upper
