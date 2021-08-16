@@ -124,13 +124,11 @@ contract ClearingHouse is
     }
 
     /// @param feeGrowthInsideClearingHouseLastX128 there is only quote fee in ClearingHouse
-    /// @param feeGrowthInsideUniswapLastX128 we only care about quote fee
     struct OpenOrder {
         uint128 liquidity;
         int24 lowerTick;
         int24 upperTick;
         uint256 feeGrowthInsideClearingHouseLastX128;
-        uint256 feeGrowthInsideUniswapLastX128;
     }
 
     struct MakerPosition {
@@ -1031,7 +1029,6 @@ contract ClearingHouse is
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
         openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
     }
 
     // expensive
@@ -1495,7 +1492,6 @@ contract ClearingHouse is
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
             openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-            openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
         }
     }
 
@@ -1720,18 +1716,6 @@ contract ClearingHouse is
 
             if (!fetchBase) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
-
-                // uncollected quote fee in Uniswap pool
-                uint256 feeGrowthInsideUniswapX128 =
-                    UniswapV3Broker.getFeeGrowthInsideQuote(
-                        _poolMap[baseToken],
-                        order.lowerTick,
-                        order.upperTick,
-                        tick
-                    );
-                tokenAmount = tokenAmount.add(
-                    _calcOwedFee(order.liquidity, feeGrowthInsideUniswapX128, order.feeGrowthInsideUniswapLastX128)
-                );
 
                 // uncollected quote fee in ClearingHouse
                 mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseToken];
