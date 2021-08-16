@@ -108,7 +108,6 @@ describe("ClearingHouse", () => {
                     50000, // lowerTick
                     50200, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -169,7 +168,6 @@ describe("ClearingHouse", () => {
                     50000, // lowerTick
                     50200, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -230,7 +228,6 @@ describe("ClearingHouse", () => {
                     50000, // lowerTick
                     50400, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -293,7 +290,6 @@ describe("ClearingHouse", () => {
                     50000, // lowerTick
                     50400, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -353,7 +349,6 @@ describe("ClearingHouse", () => {
                     50000, // lowerTick
                     50400, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -541,7 +536,6 @@ describe("ClearingHouse", () => {
                     50200, // lowerTick
                     50400, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
@@ -602,7 +596,6 @@ describe("ClearingHouse", () => {
                     50200, // lowerTick
                     50400, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideLastQuote
                 ])
 
                 // verify CH balance changes
