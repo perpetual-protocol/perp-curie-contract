@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse cancelExcessOrders()", () => {
+describe("ClearingHouse cancelAllExcessOrders()", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -74,7 +74,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
-            await clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
         })
 
         it("has 0 open orders left", async () => {
@@ -118,7 +118,7 @@ describe("ClearingHouse cancelExcessOrders()", () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
 
-            await clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
         })
 
         it("has 0 open orders left", async () => {
@@ -140,16 +140,28 @@ describe("ClearingHouse cancelExcessOrders()", () => {
 
     it("force fail, alice has enough account value so shouldn't be canceled", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("100000", 6), 0, 0, 0]
         })
 
         const openOrderIdsBefore = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
-        await expect(clearingHouse.cancelExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
+        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
 
         const openOrderIdsAfter = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+    })
+
+    it("force fail, cancel a non-existed orderId", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100000", 6), 0, 0, 0]
+        })
+
+        await expect(
+            clearingHouse.cancelExcessOrders(alice.address, baseToken.address, [
+                ethers.utils.formatBytes32String("non-existed"),
+            ]),
+        ).to.be.revertedWith("CH_NEO")
     })
 })
