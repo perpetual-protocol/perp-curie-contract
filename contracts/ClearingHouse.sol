@@ -614,10 +614,12 @@ contract ClearingHouse is
         // so we need to scale down the amount to get the exact user's input amount
         // the difference of these two values is minted for compensate the base fee
 
-        // mint extra base token before swap
-        exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
-        // not use _mint() here since it will change trader's baseToken available/debt
-        IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
+        if (token == callbackData.baseToken) {
+            // mint extra base token before swap
+            exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
+            // not use _mint() here since it will change trader's baseToken available/debt
+            IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
+        }
 
         // 2. openPosition
         if (callbackData.mintForTrader) {
@@ -1355,10 +1357,11 @@ contract ClearingHouse is
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
                 fee = FullMath.mulDivRoundingUp(
                     response.quote,
-                    (1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
-                    1e6 * (1e6 - clearingHouseFeeRatio)
+                    uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
+                    uint256(1e6) * (1e6 - clearingHouseFeeRatio)
                 );
             }
+
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
             // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
