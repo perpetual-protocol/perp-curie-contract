@@ -69,8 +69,6 @@ contract ClearingHouse is
         int256 quote,
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
-        // TODO funding
-        // fundingPayment
     );
     event FundingSettled(
         address indexed trader,
@@ -116,7 +114,6 @@ contract ClearingHouse is
         mapping(address => int256) openNotionalMap;
         // key: token address, e.g. vETH, vUSDC...
         mapping(address => MakerPosition) makerPositionMap; // open orders for maker
-        // // key: token address, value: next premium fraction index for settling funding payment
         // key: token address, value: the last twPremiumGrowthGlobalX96
         mapping(address => int256) lastTwPremiumGrowthGlobalX96Map;
     }
@@ -307,7 +304,7 @@ contract ClearingHouse is
     constructor(
         address vaultArg,
         address quoteTokenArg,
-        address uniV3FactoryArg // uint256 fundingPeriodArg
+        address uniV3FactoryArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -321,7 +318,6 @@ contract ClearingHouse is
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
-        // fundingPeriod = fundingPeriodArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -386,11 +382,10 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
-
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        // _settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
@@ -456,7 +451,7 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // mutate states
-        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap, ) =
+        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
             _addLiquidityToOrder(
                 AddLiquidityToOrderParams({
                     maker: trader,
@@ -483,11 +478,7 @@ contract ClearingHouse is
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
         private
-        returns (
-            uint256 quoteFeeClearingHouse,
-            uint256 quoteFeeUniswap,
-            int256 fundingPayment
-        )
+        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
     {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
@@ -505,7 +496,6 @@ contract ClearingHouse is
         } else {
             int24 currentTick = UniswapV3Broker.getTick(params.pool);
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-            FundingGrowth memory globalFundingGrowth = _globalFundingGrowthX96Map[params.baseToken];
 
             feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
                 params.lowerTick,
@@ -881,9 +871,9 @@ contract ClearingHouse is
                     false // fetch quote token amount
                 )
             );
-            // TODO funding
-            // fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
+            fundingPayment = fundingPayment.add(_getPendingFundingPayment(trader, baseToken));
         }
+
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
         int256 netQuoteBalance =
             quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256()).sub(
@@ -1359,8 +1349,7 @@ contract ClearingHouse is
         returns (uint256 base, uint256 quote)
     {
         address trader = params.maker;
-
-        // _settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         // load existing open order
         bytes32 orderId = _getOrderId(trader, params.baseToken, params.lowerTick, params.upperTick);
@@ -1546,8 +1535,8 @@ contract ClearingHouse is
         int256 fundingPayment = _getPendingFundingPayment(trader, baseToken);
 
         if (fundingPayment != 0) {
-            emit FundingSettled(trader, baseToken, fundingPayment);
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
+            emit FundingSettled(trader, baseToken, fundingPayment);
         }
         _updateGlobalFundingGrowth(baseToken);
     }
@@ -1573,6 +1562,7 @@ contract ClearingHouse is
         return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
     }
 
+    /// @dev funding payment belongs to realizedPnl, not token amount
     function _getTotalTokenAmountInPool(
         address trader,
         address baseToken,
@@ -1635,7 +1625,6 @@ contract ClearingHouse is
                 // uncollected quote fee in ClearingHouse
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
-                // don't need to getPendingFundingPayment here, as funding payment belongs to realizedPnl
                 uint256 feeGrowthInsideClearingHouseX128 =
                     tickMap.getFeeGrowthInside(order.lowerTick, order.upperTick, tick, feeGrowthGlobalX128);
 
