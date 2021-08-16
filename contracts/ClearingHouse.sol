@@ -620,9 +620,9 @@ contract ClearingHouse is
         // 2. openPosition
         if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            amountToPay = token == callbackData.baseToken ? exactSwappedAmount : amountToPay;
-            if (availableBefore < amountToPay) {
-                _mint(callbackData.trader, token, amountToPay.sub(availableBefore), false);
+            uint256 amount = token == callbackData.baseToken ? exactSwappedAmount : amountToPay;
+            if (availableBefore < amount) {
+                _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
         }
 
