@@ -778,8 +778,13 @@ contract ClearingHouse is
         return _settleFunding(trader, token);
     }
 
-    function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
+    function cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external nonReentrant() {
         _requireHasBaseToken(baseToken);
+
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(
@@ -787,7 +792,6 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
             OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
