@@ -113,7 +113,7 @@ contract ClearingHouse is
         // a fraction of open notional that can unify the openNotional for both maker and taker
         mapping(address => int256) openNotionalFractionMap;
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => MakerPosition) makerPositionMap; // open orders for maker
+        mapping(address => bytes32[]) openOrderIdsMap; // open orders for maker
         // key: token address, value: next premium fraction index for settling funding payment
         mapping(address => uint256) nextPremiumFractionIndexMap;
     }
@@ -131,12 +131,6 @@ contract ClearingHouse is
         int24 upperTick;
         uint256 feeGrowthInsideClearingHouseLastX128;
         uint256 feeGrowthInsideUniswapLastX128;
-    }
-
-    struct MakerPosition {
-        bytes32[] orderIds;
-        // key: order id
-        mapping(bytes32 => OpenOrder) openOrderMap;
     }
 
     struct FundingHistory {
@@ -279,6 +273,9 @@ contract ClearingHouse is
 
     // key: trader
     mapping(address => Account) private _accountMap;
+
+    // key: orderId, which is a hash of account, baseToken, lowerTick and upperTick
+    mapping(bytes32 => OpenOrder) private _openOrderMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **quote fee transformed from base fee** outside each tick of each pool
@@ -686,10 +683,9 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
         for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            OpenOrder memory openOrder = _openOrderMap[orderIds[i]];
             _removeLiquidity(
                 InternalRemoveLiquidityParams(
                     maker,
@@ -796,14 +792,11 @@ contract ClearingHouse is
         int24 lowerTick,
         int24 upperTick
     ) external view returns (OpenOrder memory) {
-        return
-            _accountMap[trader].makerPositionMap[baseToken].openOrderMap[
-                _getOrderId(trader, baseToken, lowerTick, upperTick)
-            ];
+        return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
     }
 
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _accountMap[trader].makerPositionMap[baseToken].orderIds;
+    function getOpenOrderIds(address trader, address baseToken) public view returns (bytes32[] memory) {
+        return _accountMap[trader].openOrderIdsMap[baseToken];
     }
 
     function getTotalTokenAmountInPool(address trader, address baseToken)
@@ -997,14 +990,12 @@ contract ClearingHouse is
     {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
         if (openOrder.liquidity == 0) {
             // it's a new order
-            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
-            makerPosition.orderIds.push(orderId);
+            _accountMap[params.maker].openOrderIdsMap[params.baseToken].push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
@@ -1381,8 +1372,7 @@ contract ClearingHouse is
 
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
         // CH_ZL non-existent openOrder
         require(openOrder.liquidity > 0, "CH_NEO");
         // CH_NEL not enough liquidity
@@ -1445,8 +1435,7 @@ contract ClearingHouse is
         // update token info based on existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
         uint256 feeGrowthInsideClearingHouseX128 =
             tickMap.getFeeGrowthInside(
                 params.lowerTick,
@@ -1480,25 +1469,25 @@ contract ClearingHouse is
         address baseToken,
         bytes32 orderId
     ) private {
-        MakerPosition storage makerPosition = _accountMap[maker].makerPositionMap[baseToken];
+        bytes32[] storage orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
         uint256 idx;
-        for (idx = 0; idx < makerPosition.orderIds.length; idx++) {
-            if (makerPosition.orderIds[idx] == orderId) {
+        for (idx = 0; idx < orderIds.length; idx++) {
+            if (orderIds[idx] == orderId) {
                 // found the existing order ID
                 // remove it from the array efficiently by re-ordering and deleting the last element
-                makerPosition.orderIds[idx] = makerPosition.orderIds[makerPosition.orderIds.length - 1];
-                makerPosition.orderIds.pop();
+                orderIds[idx] = orderIds[orderIds.length - 1];
+                orderIds.pop();
                 break;
             }
         }
-        delete makerPosition.openOrderMap[orderId];
+        delete _openOrderMap[orderId];
     }
 
     function _removeAllLiquidity(address maker, address baseToken) private {
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = getOpenOrderIds(maker, baseToken);
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            OpenOrder memory openOrder = _openOrderMap[orderId];
             _removeLiquidity(
                 InternalRemoveLiquidityParams(
                     maker,
@@ -1656,8 +1645,7 @@ contract ClearingHouse is
         uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) private view returns (uint256 tokenAmount) {
-        Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = getOpenOrderIds(trader, baseToken);
 
         //
         // tick:    lower             upper
@@ -1672,7 +1660,7 @@ contract ClearingHouse is
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
 
             uint256 amount;
             {
