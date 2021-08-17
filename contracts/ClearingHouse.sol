@@ -298,6 +298,13 @@ contract ClearingHouse is
     // key: base token
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
 
+    struct TickStatus {
+        int24 tickLastBlock;
+        uint256 lastUpdatedBlock;
+    }
+    // key: base token
+    mapping(address => TickStatus) private _tickStatusMap;
+
     constructor(
         address vaultArg,
         address quoteTokenArg,
@@ -1210,6 +1217,13 @@ contract ClearingHouse is
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
+
+        // update tickStatus when it's the 1st swap during that block
+        if (_blockNumber() != _tickStatusMap[params.baseToken].lastUpdatedBlock) {
+            _tickStatusMap[params.baseToken].lastUpdatedBlock = _blockNumber();
+            // TODO refactor after merged
+            _tickStatusMap[params.baseToken].lastUpdatedBlockTick = UniswapV3Broker.getTick(pool);
+        }
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
