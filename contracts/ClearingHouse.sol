@@ -499,9 +499,27 @@ contract ClearingHouse is
         require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
+    function _isIncreasePosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    ) private returns (bool) {
+        int256 positionSize =
+            _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        // increase position == old/new position are in the same direction
+        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
+    }
+
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
+
+        // !isIncreasePosition() == reduce or close position
+        if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
+            // CH_OPI: over price impact
+            require(_isOverPriceImpact(params), "CH_OPI");
+        }
 
         SwapResponse memory response =
             _openPosition(
@@ -1234,13 +1252,13 @@ contract ClearingHouse is
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
+        address pool = _poolMap[baseTokenAddr];
 
         // must before swap
         _updateTickStatus(params.baseToken);
 
         int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
 
-        address pool = _poolMap[baseTokenAddr];
         SwapState memory state =
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
@@ -1544,6 +1562,130 @@ contract ClearingHouse is
                 )
             );
         }
+    }
+
+    // TODO: remove unused params or variables
+    function _getTickAfterSimulateSwap(
+        SwapState memory state,
+        address baseToken,
+        bool isBaseToQuote,
+        uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio
+    ) private {
+        address pool = _poolMap[baseToken];
+        bool isExactInput = state.amountSpecifiedRemaining > 0;
+
+        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                state.tick,
+                UniswapV3Broker.getTickSpacing(pool),
+                isBaseToQuote
+            );
+
+            // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
+            if (step.nextTick < TickMath.MIN_TICK) {
+                step.nextTick = TickMath.MIN_TICK;
+            } else if (step.nextTick > TickMath.MAX_TICK) {
+                step.nextTick = TickMath.MAX_TICK;
+            }
+
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
+
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+                state.sqrtPriceX96,
+                (
+                    isBaseToQuote
+                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
+                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
+                )
+                    ? endingSqrtMarkPriceX96
+                    : step.nextSqrtPriceX96,
+                state.liquidity,
+                state.amountSpecifiedRemaining,
+                // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
+                //                   replay the swap in uniswap pool
+                // if quote to base: use clearing house fee for calculation because the fee is charged
+                //                   on quote token in clearing house
+                isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
+            );
+
+            if (isExactInput) {
+                state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+            } else {
+                state.amountSpecifiedRemaining += step.amountOut.toInt256();
+            }
+
+            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                // update state.tick corresponding to the current price if the price has changed in this step
+                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+            }
+        }
+    }
+
+    function _isOverPriceImpact(OpenPositionParams memory params) private returns (bool) {
+        uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+
+        int256 tickLastBlock = _tickStatusMap[params.baseToken].tickLastBlock;
+        int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
+        int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
+
+        // TODO: copy from this, might need to refine
+        // https://github.com/perpetual-protocol/perp-lushan/blob/feature/clearing-house-fee/contracts/ClearingHouse.sol
+        uint24 clearingHouseFeeRatio = 123;
+        uint24 uniswapFeeRatio = 123;
+        address pool = _poolMap[params.baseToken];
+
+        uint256 scaledAmount =
+            params.isBaseToQuote
+                ? params.isExactInput
+                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
+                    : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
+                : params.isExactInput
+                ? FeeMath.calcScaledAmount(
+                    FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
+                    uniswapFeeRatio,
+                    true
+                )
+                : params.amount;
+
+        int256 signedScaledAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: signedScaledAmount,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        int256 tickAfterSwap =
+            _getTickAfterSimulateSwap(
+                state,
+                params.baseToken,
+                params.isBaseToQuote,
+                clearingHouseFeeRatio,
+                uniswapFeeRatio
+            );
+
+        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
 
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
