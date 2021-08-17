@@ -280,7 +280,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     )
                 })
 
-                it("a trader swaps quote to base and then base to quote, thus the maker receives quote fee of two kinds (normal/in Uniswap & B2QFee/in ClearingHouse)", async () => {
+                it("a trader swaps quote to base and then base to quote, thus the maker receives quote fee of two kinds", async () => {
                     const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                     const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 

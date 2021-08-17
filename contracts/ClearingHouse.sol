@@ -30,6 +30,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -531,7 +532,7 @@ contract ClearingHouse is
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        clearingHouseFeeRatioMap[baseToken] = feeRatio;
+        clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
@@ -612,16 +613,30 @@ contract ClearingHouse is
         // so we need to scale down the amount to get the exact user's input amount
         // the difference of these two values is minted for compensate the base fee
 
+        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[address(pool)];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[address(pool)];
+
         // mint extra token before swap to cover uniswap fee
-        uint256 exactSwappedAmount =
-            FeeMath.calcScaledAmount(amountToPay, UniswapV3Broker.getUniswapFeeRatio(address(pool)), false);
+        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, uniswapFeeRatio, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
+
+        // clearing house fee: 2%, uniswap fee: 1%
+        // exact input: 1 quote
+        // mint 0.98/0.99*0.01 for uniswap fee
+
+        // -- Q2B, exact In
+        // mint for user: (0.98/0.99)*0.99/0.98 = 1
+        // --> qr * (1 - x) / (1 - y)
+        // user available: 1
 
         // 2. openPosition
         if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            uint256 amount = token == callbackData.baseToken ? exactSwappedAmount : amountToPay;
+            uint256 amount =
+                token == callbackData.baseToken
+                    ? exactSwappedAmount
+                    : FullMath.mulDivRoundingUp(amountToPay, (1e6 - uniswapFeeRatio), (1e6 - clearingHouseFeeRatio));
             if (availableBefore < amount) {
                 _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
@@ -1252,6 +1267,9 @@ contract ClearingHouse is
                 //                   on quote token in clearing house
                 isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
             );
+            // user input 1 quote:
+            // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
+            // fee = 0.98989899 * 2% = 0.01979798
 
             if (isExactInput) {
                 state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
@@ -1318,7 +1336,12 @@ contract ClearingHouse is
                     )
                     : params.amount;
 
-            int256 signedScaledAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
+            int256 signedScaledAmount =
+                params.isBaseToQuote
+                    ? params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
+                    : params.isExactInput
+                    ? params.amount.toInt256()
+                    : -params.amount.toInt256();
             SwapState memory state =
                 SwapState({
                     tick: UniswapV3Broker.getTick(pool),
@@ -1369,6 +1392,8 @@ contract ClearingHouse is
         } else {
             if (params.isExactInput) {
                 fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
+                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
+                exchangedPositionNotional = -(params.amount.sub(fee).toInt256());
             } else {
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
                 fee = FullMath.mulDivRoundingUp(
@@ -1376,12 +1401,17 @@ contract ClearingHouse is
                     uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
                     uint256(1e6) * (1e6 - clearingHouseFeeRatio)
                 );
+                exchangedPositionNotional = -(
+                    FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256()
+                );
             }
+            console.log("response.quote", response.quote);
+            console.log("fee", fee);
+            console.log("exchangedPositionNotional");
+            console.logInt(exchangedPositionNotional);
 
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-            exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
         }
 
         {
@@ -1390,6 +1420,7 @@ contract ClearingHouse is
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
             TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
             TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
+            console.log("Quote available", quoteTokenInfo.available);
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
             quoteTokenInfo.available = quoteTokenInfo
                 .available
@@ -1501,6 +1532,8 @@ contract ClearingHouse is
                 UniswapV3Broker.getTick(params.pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
+        console.log("feeGrowthInsideClearingHouseX128", feeGrowthInsideClearingHouseX128);
+        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
         fee = _calcOwedFee(
             openOrder.liquidity,
             feeGrowthInsideClearingHouseX128,
