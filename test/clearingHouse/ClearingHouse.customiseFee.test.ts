@@ -121,7 +121,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(fee).to.be.closeTo(parseEther("0.02"), 1)
                 expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.02")))
             })
@@ -165,7 +164,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(fee).to.be.closeTo(parseEther("3.132819252941863777"), 1)
 
                 expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
@@ -212,7 +210,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(fee).to.be.closeTo(parseEther("2.985940683714657555"), 2)
 
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
@@ -255,7 +252,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(fee).to.be.closeTo(parseEther("0.02040816326530612"), 1)
 
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
@@ -303,7 +299,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(fee).to.be.closeTo(parseEther("0.06"), 1)
 
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19416937961245645")
@@ -354,7 +349,6 @@ describe.only("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                // @ts-ignore
                 expect(feeAfterSwap.sub(feeBeforeSwap)).to.be.closeTo(parseEther("3.132819252941863777"), 1)
                 expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(
                     balanceBefore.add(parseEther("3.132819252941863777")),
@@ -407,7 +401,6 @@ describe.only("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // @ts-ignore
             expect(fee).to.be.closeTo(parseEther("0.005"), 1)
             expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.005")))
         })
@@ -451,7 +444,6 @@ describe.only("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // @ts-ignore
             expect(fee).to.be.closeTo(parseEther("0.771397705498247865"), 1)
 
             expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
@@ -498,7 +490,6 @@ describe.only("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // @ts-ignore
             expect(fee).to.be.closeTo(parseEther("0.746485170928664389"), 2)
 
             expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
@@ -541,7 +532,6 @@ describe.only("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // @ts-ignore
             expect(fee).to.be.closeTo(parseEther("0.005025125628140704"), 2)
 
             expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
