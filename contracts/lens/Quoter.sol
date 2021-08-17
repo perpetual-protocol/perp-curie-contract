@@ -47,68 +47,68 @@ contract Quoter is IUniswapV3SwapCallback {
         clearingHouse = clearingHouseArg;
     }
 
-    function swap(SwapParams memory params) external returns (SwapResponse memory response) {
-        // Q_ZI: zero input
-        require(params.amount > 0, "Q_ZI");
+    // function swap(SwapParams memory params) external returns (SwapResponse memory response) {
+    //     // Q_ZI: zero input
+    //     require(params.amount > 0, "Q_ZI");
 
-        address pool = ClearingHouse(clearingHouse).getPool(params.baseToken);
-        // Q_BTNE: base token not exists
-        require(pool != address(0), "Q_BTNE");
+    //     address pool = ClearingHouse(clearingHouse).getPool(params.baseToken);
+    //     // Q_BTNE: base token not exists
+    //     require(pool != address(0), "Q_BTNE");
 
-        // scale up base token before swap for quote only fee calculation
-        uint256 amount = params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount;
-        // UniswapV3Pool will use a signed value to determine isExactInput or not.
-        int256 specifiedAmount = params.isExactInput ? amount.toInt256() : -amount.toInt256();
+    //     // scale up base token before swap for quote only fee calculation
+    //     uint256 amount = params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount;
+    //     // UniswapV3Pool will use a signed value to determine isExactInput or not.
+    //     int256 specifiedAmount = params.isExactInput ? amount.toInt256() : -amount.toInt256();
 
-        try
-            IUniswapV3Pool(pool).swap(
-                address(this),
-                params.isBaseToQuote,
-                specifiedAmount,
-                params.sqrtPriceLimitX96 == 0
-                    ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
-                    : params.sqrtPriceLimitX96,
-                abi.encode(params.baseToken)
-            )
-        // solhint-disable-next-line no-empty-blocks
-        {
+    //     try
+    //         IUniswapV3Pool(pool).swap(
+    //             address(this),
+    //             params.isBaseToQuote,
+    //             specifiedAmount,
+    //             params.sqrtPriceLimitX96 == 0
+    //                 ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+    //                 : params.sqrtPriceLimitX96,
+    //             abi.encode(params.baseToken)
+    //         )
+    //     // solhint-disable-next-line no-empty-blocks
+    //     {
 
-        } catch (bytes memory reason) {
-            (uint256 base, uint256 quote) = _parseRevertReason(reason);
+    //     } catch (bytes memory reason) {
+    //         (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
-            uint256 fee = FullMath.mulDivRoundingUp(quote, uniswapFeeRatio, 1e6);
-            int256 exchangedPositionSize;
-            int256 exchangedPositionNotional;
+    //         uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
+    //         uint256 fee = FullMath.mulDivRoundingUp(quote, uniswapFeeRatio, 1e6);
+    //         int256 exchangedPositionSize;
+    //         int256 exchangedPositionNotional;
 
-            if (params.isBaseToQuote) {
-                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, base, false).toInt256());
-                // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-                exchangedPositionNotional = quote.toInt256();
-            } else {
-                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-                exchangedPositionSize = base.toInt256();
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(quote.sub(fee).toInt256());
-            }
-            response = SwapResponse(
-                exchangedPositionSize.abs(), // deltaAvailableBase
-                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
-                exchangedPositionSize.abs(),
-                exchangedPositionNotional.abs()
-            );
+    //         if (params.isBaseToQuote) {
+    //             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+    //             exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, base, false).toInt256());
+    //             // due to base to quote fee, exchangedPositionNotional contains the fee
+    //             // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+    //             exchangedPositionNotional = quote.toInt256();
+    //         } else {
+    //             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+    //             exchangedPositionSize = base.toInt256();
+    //             // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
+    //             exchangedPositionNotional = -(quote.sub(fee).toInt256());
+    //         }
+    //         response = SwapResponse(
+    //             exchangedPositionSize.abs(), // deltaAvailableBase
+    //             exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
+    //             exchangedPositionSize.abs(),
+    //             exchangedPositionNotional.abs()
+    //         );
 
-            // if the cache has been populated, ensure that the full output amount has been receive
-            if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
-                uint256 amountReceived =
-                    params.isBaseToQuote ? response.deltaAvailableQuote : response.deltaAvailableBase;
-                // Q_UOA: unmatched output amount
-                require(amountReceived == params.amount, "Q_UOA");
-            }
-        }
-    }
+    //         // if the cache has been populated, ensure that the full output amount has been receive
+    //         if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
+    //             uint256 amountReceived =
+    //                 params.isBaseToQuote ? response.deltaAvailableQuote : response.deltaAvailableBase;
+    //             // Q_UOA: unmatched output amount
+    //             require(amountReceived == params.amount, "Q_UOA");
+    //         }
+    //     }
+    // }
 
     /// @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(

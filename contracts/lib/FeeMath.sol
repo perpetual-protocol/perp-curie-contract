@@ -11,14 +11,31 @@ library FeeMath {
 
     // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
     function calcScaledAmount(
-        address pool,
         uint256 amount,
+        uint24 feeRatio,
         bool isScaledUp
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         // when scaling up, round up to avoid imprecision; it's okay as long as we round down later
         return
             isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
-                : FullMath.mulDiv(amount, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)), 1e6);
+                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(feeRatio))
+                : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
+    }
+
+    // calculate amount * (1-numeratorFee) / (1-denominatorFee)
+    function magicFactor(
+        uint256 amount,
+        uint24 numeratorFeeRatio,
+        uint24 denominatorFeeRatio,
+        bool roundUp
+    ) internal pure returns (uint256) {
+        return
+            roundUp
+                ? FullMath.mulDivRoundingUp(
+                    amount,
+                    uint256(1e6 - numeratorFeeRatio),
+                    uint256(1e6) * (1e6 - denominatorFeeRatio)
+                )
+                : FullMath.mulDiv(amount, uint256(1e6 - numeratorFeeRatio), uint256(1e6) * (1e6 - denominatorFeeRatio));
     }
 }

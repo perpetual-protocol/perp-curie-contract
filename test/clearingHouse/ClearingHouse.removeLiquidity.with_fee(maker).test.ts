@@ -800,11 +800,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     parseEther("1513905187670593422.371233202167056941"),
                 ])
 
-                console.log(
-                    (
-                        await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
-                    ).feeGrowthInsideClearingHouseLastX128.toString(),
-                )
                 // when bob swap Q2B
                 //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:

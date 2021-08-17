@@ -613,7 +613,8 @@ contract ClearingHouse is
         // the difference of these two values is minted for compensate the base fee
 
         // mint extra token before swap to cover uniswap fee
-        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
+        uint256 exactSwappedAmount =
+            FeeMath.calcScaledAmount(amountToPay, UniswapV3Broker.getUniswapFeeRatio(address(pool)), false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
@@ -1305,7 +1306,18 @@ contract ClearingHouse is
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
         {
             uint256 scaledAmount =
-                params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount;
+                params.isBaseToQuote
+                    ? params.isExactInput
+                        ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
+                        : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
+                    : params.isExactInput
+                    ? FeeMath.calcScaledAmount(
+                        FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
+                        uniswapFeeRatio,
+                        true
+                    )
+                    : params.amount;
+
             int256 signedScaledAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
             SwapState memory state =
                 SwapState({
@@ -1321,7 +1333,7 @@ contract ClearingHouse is
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap
-                    params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount,
+                    scaledAmount,
                     params.sqrtPriceLimitX96,
                     abi.encode(SwapCallbackData(params.trader, params.baseToken, params.mintForTrader))
                 )
@@ -1350,7 +1362,7 @@ contract ClearingHouse is
         if (params.isBaseToQuote) {
             fee = FullMath.mulDivRoundingUp(response.quote, clearingHouseFeeRatio, 1e6);
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, response.base, false).toInt256());
+            exchangedPositionSize = -(FeeMath.calcScaledAmount(response.base, uniswapFeeRatio, false).toInt256());
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
             exchangedPositionNotional = response.quote.toInt256();
