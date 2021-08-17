@@ -504,10 +504,9 @@ contract ClearingHouse is
         address baseToken,
         bool isBaseToQuote
     ) private returns (bool) {
-        int256 positionSize =
-            _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
-        bool isOldPositionShort = positionSize < 0 ? true : false;
         // increase position == old/new position are in the same direction
+        int256 positionSize = getPositionSize(trader, baseToken);
+        bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
@@ -1124,12 +1123,11 @@ contract ClearingHouse is
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
         // if: increase position (old/new position are in the same direction)
-        if (positionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
+        if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
             // TODO change _swap.response.deltaAvailableQuote to int
