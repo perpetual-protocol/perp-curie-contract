@@ -7,6 +7,12 @@ library Tick {
         int256 twPremiumDivBySqrtPriceX96;
     }
 
+    struct FundingGrowthRangeInfo {
+        int256 twPremiumGrowthInsideX96;
+        int256 twPremiumGrowthBelowX96;
+        int256 twPremiumDivBySqrtPriceGrowthInsideX96;
+    }
+
     function getFeeGrowthInside(
         mapping(int24 => GrowthInfo) storage self,
         int24 lowerTick,
@@ -33,19 +39,11 @@ library Tick {
         int24 currentTick,
         int256 twPremiumGrowthGlobalX96,
         int256 twPremiumDivBySqrtPriceGrowthGlobalX96
-    )
-        internal
-        view
-        returns (
-            int256 twPremiumGrowthInsideX96,
-            int256 twPremiumGrowthBelowX96,
-            int256 twPremiumDivBySqrtPriceGrowthInsideX96
-        )
-    {
+    ) internal view returns (FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
         int256 lowerTwPremiumGrowthOutsideX96 = self[lowerTick].twPremiumX96;
         int256 upperTwPremiumGrowthOutsideX96 = self[upperTick].twPremiumX96;
 
-        twPremiumGrowthBelowX96 = currentTick >= lowerTick
+        fundingGrowthRangeInfo.twPremiumGrowthBelowX96 = currentTick >= lowerTick
             ? lowerTwPremiumGrowthOutsideX96
             : twPremiumGrowthGlobalX96 - lowerTwPremiumGrowthOutsideX96;
         int256 twPremiumGrowthAboveX96 =
@@ -67,13 +65,14 @@ library Tick {
 
         // TODO funding verify what if these values overflow; will they have the same effect as using uint256 or not
         // these values can underflow per feeGrowthOutside specs
-        return (
-            twPremiumGrowthGlobalX96 - twPremiumGrowthBelowX96 - twPremiumGrowthAboveX96,
-            twPremiumGrowthBelowX96,
+        fundingGrowthRangeInfo.twPremiumGrowthInsideX96 =
+            twPremiumGrowthGlobalX96 -
+            fundingGrowthRangeInfo.twPremiumGrowthBelowX96 -
+            twPremiumGrowthAboveX96;
+        fundingGrowthRangeInfo.twPremiumDivBySqrtPriceGrowthInsideX96 =
             twPremiumDivBySqrtPriceGrowthGlobalX96 -
-                twPremiumDivBySqrtPriceGrowthBelowX96 -
-                twPremiumDivBySqrtPriceGrowthAboveX96
-        );
+            twPremiumDivBySqrtPriceGrowthBelowX96 -
+            twPremiumDivBySqrtPriceGrowthAboveX96;
     }
 
     // if (liquidityGrossBefore == 0 && liquidityDelta != 0), call this function
