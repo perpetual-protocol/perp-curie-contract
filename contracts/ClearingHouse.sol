@@ -295,6 +295,9 @@ contract ClearingHouse is
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
+    // key: base token
+    mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
+
     constructor(
         address vaultArg,
         address quoteTokenArg,
@@ -336,6 +339,11 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
+    function setMaxTickCrossedWithinBlockMap(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+        _requireHasBaseToken(baseToken);
+        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     function mint(address token, uint256 amount) external nonReentrant() {
