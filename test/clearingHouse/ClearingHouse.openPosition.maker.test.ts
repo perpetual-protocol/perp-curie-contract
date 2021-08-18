@@ -121,7 +121,7 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // available + earned fee - debt = (124.75 - 31.75 - 0.32) + (2.5 * 10%) - 100 = -7.07
-        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897192"))
+        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(parseEther("-7.069408740359897192"), 1)
     })
 
     it("bob long, maker remove, reduce half then close", async () => {
@@ -161,7 +161,10 @@ describe("ClearingHouse maker close position", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-3.311153358681875803"))
+            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(
+                parseEther("-3.311153358681875803"),
+                1,
+            )
         }
 
         // maker close the remain half position, the pnl should be the same
@@ -173,7 +176,7 @@ describe("ClearingHouse maker close position", () => {
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
         })
-        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897193"))
+        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).closeTo(parseEther("-7.069408740359897191"), 1)
     })
 
     it("bob short, maker close", async () => {
@@ -295,7 +298,10 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // should be same as the situation when adding liquidity in 1 pool
-            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-7.069408740359897192"))
+            expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(
+                parseEther("-7.069408740359897192"),
+                1,
+            )
         })
 
         it("bob short, maker close", async () => {
