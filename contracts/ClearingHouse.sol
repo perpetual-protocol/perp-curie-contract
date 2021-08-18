@@ -1699,7 +1699,7 @@ contract ClearingHouse is
         }
     }
 
-    function _isOverPriceImpact(PriceLimitParams memory params) private returns (bool) {
+    function _isOverPriceImpact(PriceLimitParams memory params) private view returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
             return false;
@@ -1709,17 +1709,21 @@ contract ClearingHouse is
         int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
         int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
 
-        // TODO: copy from this, might need to refine
-        // https://github.com/perpetual-protocol/perp-lushan/blob/feature/clearing-house-fee/contracts/ClearingHouse.sol
         address pool = _poolMap[params.baseToken];
+        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
 
         uint256 scaledAmount =
             params.isBaseToQuote
                 ? params.isExactInput
-                    ? FeeMath.calcScaledAmount(pool, params.amount, true)
-                    : FeeMath.calcScaledAmount(pool, params.amount, true)
+                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
+                    : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
                 : params.isExactInput
-                ? FeeMath.calcScaledAmount(pool, FeeMath.calcScaledAmount(pool, params.amount, false), true)
+                ? FeeMath.calcScaledAmount(
+                    FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
+                    uniswapFeeRatio,
+                    true
+                )
                 : params.amount;
 
         int256 signedScaledAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
