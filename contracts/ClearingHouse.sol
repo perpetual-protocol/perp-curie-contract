@@ -619,40 +619,42 @@ contract ClearingHouse is
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
 
-        // we know the exact amount of a token is needed for swap in the swap callback
-        // we separate into two part
-        // 1. extra minted tokens due to quote only fee
-        // 2. tokens that a trader needs when openPosition
-
-        // 1. quote only fee
-        // if `isBaseToQuote`, the amountToPay is scaled
-        // so we need to scale down the amount to get the exact user's input amount
-        // the difference of these two values is minted for compensate the base fee
-
         uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[address(pool)];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[address(pool)];
 
-        // mint extra token before swap to cover uniswap fee
+        // we know the exact amount of a token needed for swap in the swap callback
+        // we separate into two part
+        // 1. extra minted tokens because the fee is charged by CH now
+        // 2. tokens that a trader needs when openPosition
+        //
+        // check here for the design of custom fee ,
+        // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+        // y = clearingHouseFeeRatio, x = uniswapFeeRatio
+
+        // 1. fee charged by CH
+        // because the amountToPay is scaled up,
+        // we need to scale down the amount to get the exact user's input amount
+        // the difference of these two values is minted for compensate the base/quote fee
+        // here is an example for custom fee
+        //  - clearing house fee: 2%, uniswap fee: 1%, use input with exact input: 1 quote
+        //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
+        //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
+        //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
         uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, uniswapFeeRatio, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
-        // clearing house fee: 2%, uniswap fee: 1%
-        // exact input: 1 quote
-        // mint 0.98/0.99*0.01 for uniswap fee
-
-        // -- Q2B, exact In
-        // mint for user: (0.98/0.99)*0.99/0.98 = 1
-        // --> qr * (1 - x) / (1 - y)
-        // user available: 1
-
         // 2. openPosition
         if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+            // Q2B, --> the amount minted for users is amountToPay * (1 - x) / (1 - y)
+            // for custom fee, follow above example,
+            // a user input 1 quote, we mint 1 quote for him/her no matter how much fee goes to uniswap pool or CH
+            // `exactSwappedAmount` is 0.98(amountToPay * (1 - x)) now, we divide it by 0.98, which make it become 1
             uint256 amount =
                 token == callbackData.baseToken
                     ? exactSwappedAmount
-                    : FullMath.mulDivRoundingUp(amountToPay, (1e6 - uniswapFeeRatio), (1e6 - clearingHouseFeeRatio));
+                    : FeeMath.calcScaledAmount(exactSwappedAmount, (1e6 - clearingHouseFeeRatio), true);
             if (availableBefore < amount) {
                 _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
@@ -1346,17 +1348,25 @@ contract ClearingHouse is
         });
     }
 
+    // check here for custom fee design,
+    // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+    // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         // must before swap
         _updateTickStatus(params.baseToken);
 
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
-        address pool = _poolMap[params.baseToken];
 
         UniswapV3Broker.SwapResponse memory response;
+        address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
         {
+            // input or output amount for swap
+            // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
+            // 2. Q2B && exact out --> output base(params.base)
+            // 3. B2Q && exact in  --> input base / (1 - x)
+            // 4. B2Q && exact out --> output base / (1 - y)
             uint256 scaledAmount =
                 params.isBaseToQuote
                     ? params.isExactInput
@@ -1370,6 +1380,10 @@ contract ClearingHouse is
                     )
                     : params.amount;
 
+            // if Q2B, we use params.amount directly
+            // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
+            // we simulate the swap step in `_updateClearingHouseFee`.
+            // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_updateClearingHouseFee` won't be 0.03.
             int256 signedScaledAmount =
                 params.isBaseToQuote
                     ? params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
@@ -1408,14 +1422,10 @@ contract ClearingHouse is
         // we need to scale up base or quote amount in some cases because
         // 1. fee is charged by CH not uniswap pool
         // 2. CH fee may be different from uniswap pool's fee
-        // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-        // y = clearingHouseFeeRatio, x = uniswapFeeRatio
-
-        // due to base to quote fee always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
-        // calculate exchangedPositionSize and exchangedPositionNotional
+        // due to base to quote fee always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
         if (params.isBaseToQuote) {
             fee = FullMath.mulDivRoundingUp(response.quote, clearingHouseFeeRatio, 1e6);
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
@@ -1429,6 +1439,7 @@ contract ClearingHouse is
                 // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
                 exchangedPositionNotional = -(params.amount.sub(fee).toInt256());
             } else {
+                // check the doc of custom fee for more details,
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
                 fee = FullMath.mulDivRoundingUp(
                     response.quote,
