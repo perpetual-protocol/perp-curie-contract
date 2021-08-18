@@ -30,7 +30,6 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -1405,10 +1404,6 @@ contract ClearingHouse is
                     FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256()
                 );
             }
-            console.log("response.quote", response.quote);
-            console.log("fee", fee);
-            console.log("exchangedPositionNotional");
-            console.logInt(exchangedPositionNotional);
 
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
@@ -1420,7 +1415,6 @@ contract ClearingHouse is
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
             TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
             TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
-            console.log("Quote available", quoteTokenInfo.available);
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
             quoteTokenInfo.available = quoteTokenInfo
                 .available
@@ -1532,8 +1526,6 @@ contract ClearingHouse is
                 UniswapV3Broker.getTick(params.pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
-        console.log("feeGrowthInsideClearingHouseX128", feeGrowthInsideClearingHouseX128);
-        console.log("openOrder.feeGrowthInsideClearingHouseLastX128", openOrder.feeGrowthInsideClearingHouseLastX128);
         fee = _calcOwedFee(
             openOrder.liquidity,
             feeGrowthInsideClearingHouseX128,

@@ -1,4 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
@@ -539,8 +540,154 @@ describe.only("ClearingHouse customized fee", () => {
     })
 
     describe("change CH fee ratio", async () => {
-        it("change from 2% to 3%", async () => {})
-        it("change from 2% to 1%", async () => {})
-        it("change from 2% to 3% and then to 5%", async () => {})
+        let balanceBefore: BigNumber
+        beforeEach(async () => {
+            // set fee ratio to 0.5%
+            await clearingHouse.setFeeRatio(baseToken.address, 20000)
+            await deposit(taker, vault, 1000, collateral)
+
+            balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
+        })
+
+        it("change from 2% to 3%", async () => {
+            await clearingHouse.setFeeRatio(baseToken.address, 30000)
+
+            // taker swap 1 USD for ? ETH
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            )
+                .to.emit(clearingHouse, "Swapped")
+                .withArgs(
+                    taker.address, // trader
+                    baseToken.address, // baseToken
+                    "6406274427766891", // exchangedPositionSize
+                    parseEther("-0.97"), // costBasis
+                    parseEther("0.03"), // fee = 1 * 0.03
+                    parseEther("0"), // fundingPayment
+                    parseEther("0"), // badDebt
+                )
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("12879752442217497")
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee).to.be.closeTo(parseEther("0.05"), 1)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.05")))
+        })
+
+        it("change from 2% to 1%", async () => {
+            await clearingHouse.setFeeRatio(baseToken.address, 10000)
+
+            // taker swap 1 USD for ? ETH
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            )
+                .to.emit(clearingHouse, "Swapped")
+                .withArgs(
+                    taker.address, // trader
+                    baseToken.address, // baseToken
+                    "6538350548602818", // exchangedPositionSize
+                    parseEther("-0.99"), // costBasis
+                    parseEther("0.01"), // fee = 1 * 0.01
+                    parseEther("0"), // fundingPayment
+                    parseEther("0"), // badDebt
+                )
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("13011828563053424")
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee).to.be.closeTo(parseEther("0.03"), 1)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.03")))
+        })
+
+        it("change from 2% to 3% and then to 5%", async () => {
+            await clearingHouse.setFeeRatio(baseToken.address, 30000)
+
+            // taker swap 1 USD for ? ETH
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            await clearingHouse.setFeeRatio(baseToken.address, 50000)
+
+            // taker swap 1 USD for ? ETH
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            )
+                .to.emit(clearingHouse, "Swapped")
+                .withArgs(
+                    taker.address, // trader
+                    baseToken.address, // baseToken
+                    "6273079857818529", // exchangedPositionSize
+                    parseEther("-0.95"), // costBasis
+                    parseEther("0.05"), // fee = 1 * 0.05
+                    parseEther("0"), // fundingPayment
+                    parseEther("0"), // badDebt
+                )
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19152832300036026")
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee).to.be.closeTo(parseEther("0.1"), 1)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.1")))
+        })
     })
 })
