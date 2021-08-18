@@ -541,7 +541,7 @@ contract ClearingHouse is
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
             // CH_OPI: over price impact
             require(
-                !_isOverPriceImpact(
+                !_isOverPriceLimit(
                     PriceLimitParams({
                         baseToken: params.baseToken,
                         isBaseToQuote: params.isBaseToQuote,
@@ -1410,7 +1410,7 @@ contract ClearingHouse is
         uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
         {
-            // TODO refactoring to a function to avoid copy/paste when _isOverPriceImpact AFTER #150
+            // TODO refactoring to a function to avoid copy/paste when _isOverPriceLimit AFTER #150
             //            (uint256 scaledAmount, int256 signedScaledAmount) =
             //                _getScaledAmount(
             //                    params.isBaseToQuote,
@@ -1672,7 +1672,7 @@ contract ClearingHouse is
         }
     }
 
-    function _isOverPriceImpact(PriceLimitParams memory params) private returns (bool) {
+    function _isOverPriceLimit(PriceLimitParams memory params) private returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
             return false;
@@ -1800,7 +1800,7 @@ contract ClearingHouse is
                 amount: positionSize.abs()
             });
 
-        if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
+        if (partialCloseRatio > 0 && _isOverPriceLimit(params)) {
             params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
         }
 
