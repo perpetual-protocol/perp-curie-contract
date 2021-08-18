@@ -196,6 +196,13 @@ contract ClearingHouse is
         uint128 liquidity;
     }
 
+    struct PriceLimitParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+    }
+
     struct SwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -512,6 +519,45 @@ contract ClearingHouse is
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
+    function closePosition(
+        address trader,
+        address baseToken,
+        uint160 sqrtPriceLimitX96
+    ) external returns (uint256 deltaBase, uint256 deltaQuote) {
+        _requireHasBaseToken(baseToken);
+
+        int256 positionSize = getPositionSize(trader, baseToken);
+        // CH_PSZ: position size is zero
+        require(positionSize != 0, "CH_PSZ");
+
+        PriceLimitParams memory params =
+            PriceLimitParams({
+                baseToken: baseToken,
+                isBaseToQuote: positionSize > 0 ? true : false,
+                isExactInput: positionSize > 0 ? true : false,
+                amount: positionSize.abs()
+            });
+
+        if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
+            params.amount = params.amount.mul(partialCloseRatio).div(1 ether);
+        }
+
+        SwapResponse memory response =
+            _openPosition(
+                InternalOpenPositionParams({
+                    trader: _msgSender(),
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: sqrtPriceLimitX96,
+                    skipMarginRequirementCheck: true
+                })
+            );
+
+        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+    }
+
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
@@ -519,7 +565,17 @@ contract ClearingHouse is
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
             // CH_OPI: over price impact
-            require(_isOverPriceImpact(params), "CH_OPI");
+            require(
+                _isOverPriceImpact(
+                    PriceLimitParams({
+                        baseToken: params.baseToken,
+                        isBaseToQuote: params.isBaseToQuote,
+                        isExactInput: params.isExactInput,
+                        amount: params.amount
+                    })
+                ),
+                "CH_OPI"
+            );
         }
 
         SwapResponse memory response =
@@ -1569,7 +1625,7 @@ contract ClearingHouse is
         }
     }
 
-    function _isOverPriceImpact(OpenPositionParams memory params) private returns (bool) {
+    function _isOverPriceImpact(PriceLimitParams memory params) private returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
             return false;

@@ -82,9 +82,10 @@ describe.only("ClearingHouse partial liquidate in xyk pool", () => {
             // so 1% / 0.01% = 100
             // we limit price impact to 1% means the tick should not cross 100 ticks
             await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+            await clearingHouse.connect(admin).setPartialCloseRatio(parseEther("0.25"))
         })
 
-        it("taker should be partially liquidated", async () => {
+        it("taker should be partially closed", async () => {
             // carol shorts 25 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
@@ -101,7 +102,8 @@ describe.only("ClearingHouse partial liquidate in xyk pool", () => {
 
             // should be partially liquidated
             // remain position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            // await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            await clearingHouse.connect(carol).closePosition(carol.address, baseToken.address, parseEther("0"))
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
     })
