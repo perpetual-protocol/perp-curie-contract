@@ -654,7 +654,7 @@ contract ClearingHouse is
             uint256 amount =
                 token == callbackData.baseToken
                     ? exactSwappedAmount
-                    : FeeMath.calcScaledAmount(exactSwappedAmount, (1e6 - clearingHouseFeeRatio), true);
+                    : FullMath.mulDivRoundingUp(amountToPay, (1e6 - uniswapFeeRatio), (1e6 - clearingHouseFeeRatio));
             if (availableBefore < amount) {
                 _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
