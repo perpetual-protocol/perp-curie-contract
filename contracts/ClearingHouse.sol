@@ -564,7 +564,7 @@ contract ClearingHouse is
 
     function setPartialCloseRatio(uint256 partialCloseRatioArg) external onlyOwner {
         partialCloseRatio = partialCloseRatioArg;
-        emit PartialCloseRatioArgChanged(partialCloseRatioArg);
+        emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
