@@ -320,6 +320,7 @@ contract ClearingHouse is
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
+        // TODO funding whether there should be a twapInterval param
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -813,8 +814,10 @@ contract ClearingHouse is
     }
 
     function _getIndexPrice(address token, uint256 twapIntervalArg) private view returns (uint256) {
-        // TODO decide on whether we should use twapInterval the state or the input twapIntervalArg
+        // TODO funding
+        // 1. decide on whether we should use twapInterval the state or the input twapIntervalArg
         // if we use twapInterval, we need a require()
+        // 2. if this should be a private function, should not be in this area
         return IIndexPrice(token).getIndexPrice(twapIntervalArg);
     }
 

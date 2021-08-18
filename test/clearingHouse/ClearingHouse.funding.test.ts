@@ -115,7 +115,7 @@ describe.only("ClearingHouse.funding", () => {
     describe("# _settleFundingAndUpdateFundingGrowth", () => {
         describe("one maker with one order, multiple takers", () => {
             it("one taker swaps once; positive funding", async () => {
-                // TODO note that hardhat uses real timestamp, so it is possible that by the time getPendingFundingPayment() is called,
+                // TODO funding note that hardhat uses real timestamp, so it is possible that by the time getPendingFundingPayment() is called,
                 //   one or more seconds has passed and the total duration becomes larger than 3600. The test could fail
                 //   because of that so we have to be careful.
 

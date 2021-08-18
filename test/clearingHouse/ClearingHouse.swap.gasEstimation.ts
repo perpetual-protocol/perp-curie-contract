@@ -91,7 +91,6 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
                 sqrtPriceLimitX96: 0,
             })
             await forward(3600)
-            // await clearingHouse.updateFunding(baseToken.address)
         }
 
         // maker remove liquidity position

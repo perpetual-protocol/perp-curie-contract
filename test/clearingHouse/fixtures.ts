@@ -61,7 +61,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             vault.address,
             quoteToken.address,
             uniV3Factory.address,
-            // 3600, // fundingPeriod = 1 hour
+            // TODO funding whether there should be a twapInterval param
         )) as ClearingHouse
         await quoteToken.addWhitelist(clearingHouse.address)
 
@@ -176,7 +176,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedVault.address,
         mockedVUSD.address,
         mockedUniV3Factory.address,
-        // 3600,
+        // TODO funding whether there should be a twapInterval param
     )) as ClearingHouse
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
