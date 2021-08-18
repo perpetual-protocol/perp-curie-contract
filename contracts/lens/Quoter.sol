@@ -122,7 +122,7 @@ contract Quoter is IUniswapV3SwapCallback {
                 exchangedPositionNotional.abs()
             );
 
-            // if the cache has been populated, ensure that the full output amount has been receive
+            // if it's exact output with a price limit, ensure that the full output amount has been receive
             if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
                 uint256 amountReceived =
                     params.isBaseToQuote ? response.deltaAvailableQuote : response.deltaAvailableBase;
