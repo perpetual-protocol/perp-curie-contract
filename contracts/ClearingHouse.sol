@@ -124,13 +124,11 @@ contract ClearingHouse is
     }
 
     /// @param feeGrowthInsideClearingHouseLastX128 there is only quote fee in ClearingHouse
-    /// @param feeGrowthInsideUniswapLastX128 we only care about quote fee
     struct OpenOrder {
         uint128 liquidity;
         int24 lowerTick;
         int24 upperTick;
         uint256 feeGrowthInsideClearingHouseLastX128;
-        uint256 feeGrowthInsideUniswapLastX128;
     }
 
     struct MakerPosition {
@@ -225,7 +223,9 @@ contract ClearingHouse is
         int24 nextTick;
         bool isNextTickInitialized;
         uint160 nextSqrtPriceX96;
+        uint256 amountIn;
         uint256 amountOut;
+        uint256 feeAmount;
     }
 
     struct SwapState {
@@ -300,6 +300,10 @@ contract ClearingHouse is
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
+    // uniswapFeeRatioMap cache only
+    mapping(address => uint24) public uniswapFeeRatioMap;
+    mapping(address => uint24) public clearingHouseFeeRatioMap;
+
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
 
@@ -347,6 +351,8 @@ contract ClearingHouse is
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "CH_PNI");
 
         _poolMap[baseToken] = pool;
+        uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
+        clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
@@ -448,7 +454,7 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // mutate states
-        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
+        uint256 fee =
             _addLiquidityToOrder(
                 AddLiquidityToOrderParams({
                     maker: trader,
@@ -465,13 +471,11 @@ contract ClearingHouse is
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(quoteFeeClearingHouse).add(quoteFeeUniswap).sub(
-            response.quote
-        );
+        quoteTokenInfo.available = quoteTokenInfo.available.add(fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
         // TODO move it back if we can fix stack too deep
-        _emitLiquidityChanged(trader, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
+        _emitLiquidityChanged(trader, params, response, fee);
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
@@ -543,6 +547,10 @@ contract ClearingHouse is
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
+    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
+        clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+    }
+
     function liquidate(address trader, address baseToken) external nonReentrant() {
         _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
@@ -611,30 +619,44 @@ contract ClearingHouse is
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
 
-        bool isBaseToQuote = token == callbackData.baseToken;
-        uint256 exactSwappedAmount = amountToPay;
+        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[address(pool)];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[address(pool)];
 
-        // we know the exact amount of a token is needed for swap in the swap callback
+        // we know the exact amount of a token needed for swap in the swap callback
         // we separate into two part
-        // 1. extra minted tokens due to quote only fee
+        // 1. extra minted tokens because the fee is charged by CH now
         // 2. tokens that a trader needs when openPosition
+        //
+        // check here for the design of custom fee ,
+        // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+        // y = clearingHouseFeeRatio, x = uniswapFeeRatio
 
-        // 1. quote only fee
-        // if `isBaseToQuote`, the amountToPay is scaled
-        // so we need to scale down the amount to get the exact user's input amount
-        // the difference of these two values is minted for compensate the base fee
-        if (isBaseToQuote) {
-            // mint extra base token before swap
-            exactSwappedAmount = FeeMath.calcScaledAmount(address(pool), amountToPay, false);
-            // not use _mint() here since it will change trader's baseToken available/debt
-            IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
-        }
+        // 1. fee charged by CH
+        // because the amountToPay is scaled up,
+        // we need to scale down the amount to get the exact user's input amount
+        // the difference of these two values is minted for compensate the base/quote fee
+        // here is an example for custom fee
+        //  - clearing house fee: 2%, uniswap fee: 1%, use input with exact input: 1 quote
+        //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
+        //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
+        //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
+        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, uniswapFeeRatio, false);
+        // not use _mint() here since it will change trader's baseToken available/debt
+        IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
         // 2. openPosition
         if (callbackData.mintForTrader) {
             uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            if (availableBefore < exactSwappedAmount) {
-                _mint(callbackData.trader, token, exactSwappedAmount.sub(availableBefore), false);
+            // Q2B, --> the amount minted for users is amountToPay * (1 - x) / (1 - y)
+            // for custom fee, follow above example,
+            // a user input 1 quote, we mint 1 quote for him/her no matter how much fee goes to uniswap pool or CH
+            // `exactSwappedAmount` is 0.98(amountToPay * (1 - x)) now, we divide it by 0.98, which make it become 1
+            uint256 amount =
+                token == callbackData.baseToken
+                    ? exactSwappedAmount
+                    : FeeMath.calcScaledAmount(exactSwappedAmount, (1e6 - clearingHouseFeeRatio), true);
+            if (availableBefore < amount) {
+                _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
         }
 
@@ -1008,10 +1030,7 @@ contract ClearingHouse is
         }
     }
 
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params)
-        private
-        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
-    {
+    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder =
@@ -1033,22 +1052,16 @@ contract ClearingHouse is
                 UniswapV3Broker.getTick(params.pool),
                 params.feeGrowthGlobalClearingHouseX128
             );
-            quoteFeeClearingHouse = _calcOwedFee(
+            fee = _calcOwedFee(
                 openOrder.liquidity,
                 feeGrowthInsideClearingHouseX128,
                 openOrder.feeGrowthInsideClearingHouseLastX128
-            );
-            quoteFeeUniswap = _calcOwedFee(
-                openOrder.liquidity,
-                params.feeGrowthInsideQuoteX128,
-                openOrder.feeGrowthInsideUniswapLastX128
             );
         }
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
         openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
     }
 
     // expensive
@@ -1216,6 +1229,110 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
+    function _updateClearingHouseFee(
+        SwapState memory state,
+        address baseToken,
+        bool isBaseToQuote,
+        uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio
+    ) private {
+        address pool = _poolMap[baseToken];
+        bool isExactInput = state.amountSpecifiedRemaining > 0;
+
+        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                state.tick,
+                UniswapV3Broker.getTickSpacing(pool),
+                isBaseToQuote
+            );
+
+            // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
+            if (step.nextTick < TickMath.MIN_TICK) {
+                step.nextTick = TickMath.MIN_TICK;
+            } else if (step.nextTick > TickMath.MAX_TICK) {
+                step.nextTick = TickMath.MAX_TICK;
+            }
+
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
+
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+                state.sqrtPriceX96,
+                (
+                    isBaseToQuote
+                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
+                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
+                )
+                    ? endingSqrtMarkPriceX96
+                    : step.nextSqrtPriceX96,
+                state.liquidity,
+                state.amountSpecifiedRemaining,
+                // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
+                //                   replay the swap in uniswap pool
+                // if quote to base: use clearing house fee for calculation because the fee is charged
+                //                   on quote token in clearing house
+                isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
+            );
+            // user input 1 quote:
+            // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
+            // fee = 0.98989899 * 2% = 0.01979798
+
+            if (isExactInput) {
+                state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+            } else {
+                state.amountSpecifiedRemaining += step.amountOut.toInt256();
+            }
+
+            // update CH's global fee growth if there is liquidity in this range
+            // note CH only collects quote fee when swapping base -> quote
+            if (state.liquidity > 0) {
+                if (isBaseToQuote) {
+                    state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                        FullMath.mulDiv(step.amountOut, clearingHouseFeeRatio, 1e6),
+                        FixedPoint128.Q128,
+                        state.liquidity
+                    );
+                } else {
+                    state.feeGrowthGlobalX128 += FullMath.mulDiv(step.feeAmount, FixedPoint128.Q128, state.liquidity);
+                }
+            }
+
+            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                // we have reached the tick's boundary
+                if (step.isNextTickInitialized) {
+                    // update the tick if it has been initialized
+                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseToken];
+                    // according to the above updating logic,
+                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
+                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
+
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    if (isBaseToQuote) liquidityNet = -liquidityNet;
+                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+                }
+
+                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                // update state.tick corresponding to the current price if the price has changed in this step
+                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+            }
+        }
+        // update global states since swap state transitions are all done
+        _feeGrowthGlobalX128Map[baseToken] = state.feeGrowthGlobalX128;
+    }
+
     // TODO refactor after merged (add tick to arg)
     function _updateTickStatus(address baseToken) private {
         // when it's the 1st swap in this block, update tickStatus
@@ -1231,151 +1348,115 @@ contract ClearingHouse is
         });
     }
 
+    // check here for custom fee design,
+    // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+    // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
-        address trader = params.trader;
-        address baseTokenAddr = params.baseToken;
-
         // must before swap
         _updateTickStatus(params.baseToken);
 
-        int256 fundingPayment = _settleFunding(trader, baseTokenAddr);
+        int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
 
-        address pool = _poolMap[baseTokenAddr];
-        SwapState memory state =
-            SwapState({
-                tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: 0,
-                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[baseTokenAddr],
-                liquidity: UniswapV3Broker.getLiquidity(pool)
-            });
+        UniswapV3Broker.SwapResponse memory response;
+        address pool = _poolMap[params.baseToken];
+        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        {
+            // input or output amount for swap
+            // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
+            // 2. Q2B && exact out --> output base(params.base)
+            // 3. B2Q && exact in  --> input base / (1 - x)
+            // 4. B2Q && exact out --> output base / (1 - y)
+            uint256 scaledAmount =
+                params.isBaseToQuote
+                    ? params.isExactInput
+                        ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
+                        : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
+                    : params.isExactInput
+                    ? FeeMath.calcScaledAmount(
+                        FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
+                        uniswapFeeRatio,
+                        true
+                    )
+                    : params.amount;
 
-        uint256 amount = params.amount;
-        if (params.isBaseToQuote) {
-            // mint extra base token before swap
-            amount = FeeMath.calcScaledAmount(pool, params.amount, true);
-        }
-
-        UniswapV3Broker.SwapResponse memory response =
-            UniswapV3Broker.swap(
+            // if Q2B, we use params.amount directly
+            // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
+            // we simulate the swap step in `_updateClearingHouseFee`.
+            // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_updateClearingHouseFee` won't be 0.03.
+            int256 signedScaledAmount =
+                params.isBaseToQuote
+                    ? params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
+                    : params.isExactInput
+                    ? params.amount.toInt256()
+                    : -params.amount.toInt256();
+            SwapState memory state =
+                SwapState({
+                    tick: UniswapV3Broker.getTick(pool),
+                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                    amountSpecifiedRemaining: signedScaledAmount,
+                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                    liquidity: UniswapV3Broker.getLiquidity(pool)
+                });
+            response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
                     params.isBaseToQuote,
                     params.isExactInput,
-                    amount,
+                    // mint extra base token before swap
+                    scaledAmount,
                     params.sqrtPriceLimitX96,
-                    abi.encode(SwapCallbackData(trader, baseTokenAddr, params.mintForTrader))
+                    abi.encode(SwapCallbackData(params.trader, params.baseToken, params.mintForTrader))
                 )
             );
-
-        uint160 endingSqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(pool);
-        // we are going to replay txs by swapping "exactOutput" with the output token received
-        state.amountSpecifiedRemaining = params.isBaseToQuote
-            ? -(response.quote.toInt256())
-            : -(response.base.toInt256());
-
-        uint24 uniswapFeeRatio = UniswapV3Broker.getUniswapFeeRatio(pool);
-
-        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
-        // which is safer for the system
-        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != endingSqrtMarkPriceX96) {
-            SwapStep memory step;
-            step.initialSqrtPriceX96 = state.sqrtPriceX96;
-
-            // find next tick
-            // note the search is bounded in one word
-            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                pool,
-                state.tick,
-                UniswapV3Broker.getTickSpacing(pool),
-                params.isBaseToQuote
-            );
-
-            // get the next price of this step (either next tick's price or the ending price)
-            // use sqrtPrice instead of tick is more precise
-            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-
-            // find the next swap checkpoint
-            // (either reached the next price of this step, or exhausted remaining amount specified)
-            (state.sqrtPriceX96, , step.amountOut, ) = SwapMath.computeSwapStep(
-                state.sqrtPriceX96,
-                (
-                    params.isBaseToQuote
-                        ? step.nextSqrtPriceX96 < endingSqrtMarkPriceX96
-                        : step.nextSqrtPriceX96 > endingSqrtMarkPriceX96
-                )
-                    ? endingSqrtMarkPriceX96
-                    : step.nextSqrtPriceX96,
-                state.liquidity,
-                state.amountSpecifiedRemaining,
+            // replay the swap to calculate the fees charged in clearing house
+            _updateClearingHouseFee(
+                state,
+                params.baseToken,
+                params.isBaseToQuote,
+                clearingHouseFeeRatio,
                 uniswapFeeRatio
             );
+        }
 
-            state.amountSpecifiedRemaining += step.amountOut.toInt256();
-
-            // update CH's global fee growth if there is liquidity in this range
-            // note CH only collects quote fee when swapping base -> quote
-            if (state.liquidity > 0 && params.isBaseToQuote) {
-                state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    FullMath.mulDiv(step.amountOut, uniswapFeeRatio, 1e6),
-                    FixedPoint128.Q128,
-                    state.liquidity
+        // we need to scale up base or quote amount in some cases because
+        // 1. fee is charged by CH not uniswap pool
+        // 2. CH fee may be different from uniswap pool's fee
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        // due to base to quote fee always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
+        if (params.isBaseToQuote) {
+            fee = FullMath.mulDivRoundingUp(response.quote, clearingHouseFeeRatio, 1e6);
+            // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+            exchangedPositionSize = -(FeeMath.calcScaledAmount(response.base, uniswapFeeRatio, false).toInt256());
+            // due to base to quote fee, exchangedPositionNotional contains the fee
+            // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+            exchangedPositionNotional = response.quote.toInt256();
+        } else {
+            if (params.isExactInput) {
+                fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
+            } else {
+                // check the doc of custom fee for more details,
+                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
+                fee = FullMath.mulDivRoundingUp(
+                    response.quote,
+                    uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
+                    uint256(1e6) * (1e6 - clearingHouseFeeRatio)
                 );
             }
 
-            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
-                // we have reached the tick's boundary
-                if (step.isNextTickInitialized) {
-                    // update the tick if it has been initialized
-                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseTokenAddr];
-                    // according to the above updating logic,
-                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
-
-                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
-                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
-                }
-
-                state.tick = params.isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // update state.tick corresponding to the current price if the price has changed in this step
-                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
-            }
+            // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+            exchangedPositionSize = response.base.toInt256();
+            exchangedPositionNotional = -(FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256());
         }
 
-        // only update global CH fee growth when swapping base -> quote
-        // because otherwise the fee is collected by the uniswap pool instead
-        if (params.isBaseToQuote) {
-            // update global states since swap state transitions are all done
-            _feeGrowthGlobalX128Map[baseTokenAddr] = state.feeGrowthGlobalX128;
-        }
-
-        // due to base to quote fee/ always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
-        uint256 fee = FullMath.mulDivRoundingUp(response.quote, uniswapFeeRatio, 1e6);
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
         {
-            // calculate exchangedPositionSize and exchangedPositionNotional
-            TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[baseTokenAddr];
-            TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-
-            if (params.isBaseToQuote) {
-                // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, response.base, false).toInt256());
-                // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-                exchangedPositionNotional = response.quote.toInt256();
-            } else {
-                // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-                exchangedPositionSize = response.base.toInt256();
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(response.quote.sub(fee).toInt256());
-            }
-
             // update internal states
             // examples:
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+            TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
             baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
             quoteTokenInfo.available = quoteTokenInfo
                 .available
@@ -1386,8 +1467,8 @@ contract ClearingHouse is
         }
 
         emit Swapped(
-            trader,
-            baseTokenAddr,
+            params.trader,
+            params.baseToken,
             exchangedPositionSize,
             exchangedPositionNotional,
             fee,
@@ -1427,29 +1508,23 @@ contract ClearingHouse is
         UniswapV3Broker.RemoveLiquidityResponse memory response;
         {
             uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
+            uint256 quoteBalanceBefore = IERC20Metadata(quoteToken).balanceOf(address(this));
             response = UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
             );
-            // burn base fee
-            // base fee of all makers in the range of lowerTick and upperTick should be
-            // baseBalanceAfter - baseBalanceBefore - response.base
+            // burn base/quote fee
+            // base/quote fee of all makers in the range of lowerTick and upperTick should be
+            // balanceAfter - balanceBefore - response.base / response.quote
             uint256 baseBalanceAfter = IERC20Metadata(params.baseToken).balanceOf(address(this));
+            uint256 quoteBalanceAfter = IERC20Metadata(quoteToken).balanceOf(address(this));
             IMintableERC20(params.baseToken).burn(baseBalanceAfter.sub(baseBalanceBefore).sub(response.base));
+            IMintableERC20(quoteToken).burn(quoteBalanceAfter.sub(quoteBalanceBefore).sub(response.quote));
 
             base = response.base;
             quote = response.quote;
-            // if flipped from initialized to uninitialized, clear the tick info
-            if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.lowerTick);
-            }
-            if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.upperTick);
-            }
-        }
 
-        // update token info based on existing open order
-        (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap) =
-            _removeLiquidityFromOrder(
+            // update token info based on existing open order
+            fee = _removeLiquidityFromOrder(
                 RemoveLiquidityFromOrderParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
@@ -1461,22 +1536,26 @@ contract ClearingHouse is
                 })
             );
 
-        fee = quoteFeeClearingHouse.add(quoteFeeUniswap);
+            // if flipped from initialized to uninitialized, clear the tick info
+            if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.lowerTick);
+            }
+            if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+                _feeGrowthOutsideX128TickMap[params.baseToken].clear(params.upperTick);
+            }
+        }
+
         uint256 removedQuoteAmount = quote.add(fee);
         TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
         baseTokenInfo.available = baseTokenInfo.available.add(base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
         _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
-
         // TODO move it back if we can fix stack too deep
-        _emitLiquidityChanged(params.maker, params, response, quoteFeeClearingHouse.add(quoteFeeUniswap));
+        _emitLiquidityChanged(params.maker, params, response, fee);
     }
 
-    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params)
-        private
-        returns (uint256 quoteFeeClearingHouse, uint256 quoteFeeUniswap)
-    {
+    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256 fee) {
         // update token info based on existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
@@ -1489,15 +1568,10 @@ contract ClearingHouse is
                 UniswapV3Broker.getTick(params.pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
-        quoteFeeClearingHouse = _calcOwedFee(
+        fee = _calcOwedFee(
             openOrder.liquidity,
             feeGrowthInsideClearingHouseX128,
             openOrder.feeGrowthInsideClearingHouseLastX128
-        );
-        quoteFeeUniswap = _calcOwedFee(
-            openOrder.liquidity,
-            params.feeGrowthInsideQuoteX128,
-            openOrder.feeGrowthInsideUniswapLastX128
         );
 
         // update open order with new liquidity
@@ -1506,7 +1580,6 @@ contract ClearingHouse is
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
             openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-            openOrder.feeGrowthInsideUniswapLastX128 = params.feeGrowthInsideQuoteX128;
         }
     }
 
@@ -1731,18 +1804,6 @@ contract ClearingHouse is
 
             if (!fetchBase) {
                 int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
-
-                // uncollected quote fee in Uniswap pool
-                uint256 feeGrowthInsideUniswapX128 =
-                    UniswapV3Broker.getFeeGrowthInsideQuote(
-                        _poolMap[baseToken],
-                        order.lowerTick,
-                        order.upperTick,
-                        tick
-                    );
-                tokenAmount = tokenAmount.add(
-                    _calcOwedFee(order.liquidity, feeGrowthInsideUniswapX128, order.feeGrowthInsideUniswapLastX128)
-                );
 
                 // uncollected quote fee in ClearingHouse
                 mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseToken];
