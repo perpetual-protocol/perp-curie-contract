@@ -103,7 +103,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             })
 
             // remaining position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse.connect(carol).closePosition(carol.address, baseToken.address, parseEther("0"))
+            await clearingHouse.connect(carol).closePosition(baseToken.address, 0)
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 

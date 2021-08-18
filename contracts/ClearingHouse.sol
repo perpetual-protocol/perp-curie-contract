@@ -521,46 +521,12 @@ contract ClearingHouse is
         require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
-    function closePosition(
-        address trader,
-        address baseToken,
-        uint160 sqrtPriceLimitX96
-    ) external returns (uint256 deltaBase, uint256 deltaQuote) {
+    function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
+        external
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
         _requireHasBaseToken(baseToken);
-
-        int256 positionSize = getPositionSize(trader, baseToken);
-
-        // CH_PSZ: position size is zero
-        require(positionSize != 0, "CH_PSZ");
-
-        // must before price impact check
-        _saveTickBeforeFirstSwapThisBlock(baseToken);
-
-        PriceLimitParams memory params =
-            PriceLimitParams({
-                baseToken: baseToken,
-                isBaseToQuote: positionSize > 0 ? true : false,
-                isExactInput: positionSize > 0 ? true : false,
-                amount: positionSize.abs()
-            });
-
-        if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
-            params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
-        }
-
-        SwapResponse memory response =
-            _openPosition(
-                InternalOpenPositionParams({
-                    trader: _msgSender(),
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    isExactInput: params.isExactInput,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: true
-                })
-            );
-
+        SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
@@ -650,41 +616,7 @@ contract ClearingHouse is
 
         _removeAllLiquidity(trader, baseToken);
 
-        // since all liquidity has been removed, there's no position in pool now
-        TokenInfo memory tokenInfo = getTokenInfo(trader, baseToken);
-        int256 positionSize = tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256());
-
-        // if trader is on long side, baseToQuote: true, exactInput: true
-        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-        bool isLong = positionSize > 0 ? true : false;
-
-        PriceLimitParams memory params =
-            PriceLimitParams({
-                baseToken: baseToken,
-                isBaseToQuote: isLong,
-                isExactInput: isLong,
-                amount: positionSize.abs()
-            });
-
-        // must before price impact check
-        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
-
-        if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
-            params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
-        }
-
-        SwapResponse memory response =
-            _openPosition(
-                InternalOpenPositionParams({
-                    trader: trader,
-                    baseToken: baseToken,
-                    isBaseToQuote: isLong,
-                    isExactInput: isLong,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: 0,
-                    skipMarginRequirementCheck: true
-                })
-            );
+        SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
@@ -700,7 +632,7 @@ contract ClearingHouse is
             trader,
             baseToken,
             response.exchangedPositionNotional,
-            params.amount,
+            response.deltaAvailableBase,
             liquidationFee,
             liquidator
         );
@@ -1803,6 +1735,49 @@ contract ClearingHouse is
         }
 
         return swapResponse;
+    }
+
+    function _closePosition(
+        address trader,
+        address baseToken,
+        uint160 sqrtPriceLimitX96
+    ) private returns (SwapResponse memory) {
+        int256 positionSize = getPositionSize(trader, baseToken);
+
+        // CH_PSZ: position size is zero
+        require(positionSize != 0, "CH_PSZ");
+
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(baseToken);
+
+        // if trader is on long side, baseToQuote: true, exactInput: true
+        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
+        bool isLong = positionSize > 0 ? true : false;
+
+        PriceLimitParams memory params =
+            PriceLimitParams({
+                baseToken: baseToken,
+                isBaseToQuote: isLong,
+                isExactInput: isLong,
+                amount: positionSize.abs()
+            });
+
+        if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
+            params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
+        }
+
+        return
+            _openPosition(
+                InternalOpenPositionParams({
+                    trader: trader,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: sqrtPriceLimitX96,
+                    skipMarginRequirementCheck: true
+                })
+            );
     }
 
     function _settleFunding(address trader, address baseToken) private returns (int256 fundingPayment) {
