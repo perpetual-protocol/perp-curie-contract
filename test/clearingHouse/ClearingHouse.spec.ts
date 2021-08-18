@@ -100,6 +100,44 @@ describe("ClearingHouse Spec", () => {
         })
     })
 
+    describe("owner only setter", () => {
+        it("setLiquidationPenaltyRatio", async () => {
+            await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
+            await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5"))
+            expect(await clearingHouse.liquidationPenaltyRatio()).eq(parseEther("0.5"))
+        })
+
+        it("setPartialCloseRatio", async () => {
+            await expect(clearingHouse.setPartialCloseRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
+            await clearingHouse.setPartialCloseRatio(parseEther("0.5"))
+            expect(await clearingHouse.partialCloseRatio()).eq(parseEther("0.5"))
+        })
+
+        it("setMaxTickCrossedWithinBlock", async () => {
+            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
+                "CH_BTNE",
+            )
+
+            // add pool
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            const mockedPool = await smockit(pool)
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+            await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+
+            await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
+            expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
+        })
+
+        // FIXME change all ratio to uint24?
+        it.skip("setFeeRatio", async () => {
+            await expect(clearingHouse.setFeeRatio(baseToken.address, parseEther("2"))).to.be.revertedWith("CH_RO")
+            await clearingHouse.setFeeRatio(baseToken.address, parseEther("0.5"))
+            expect(await clearingHouse.getFeeRatio(baseToken.address)).eq(parseEther("0.5"))
+        })
+    })
+
     describe("# getRequiredCollateral", () => {})
 
     describe("# settle", () => {
