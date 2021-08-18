@@ -105,8 +105,6 @@ contract Quoter is IUniswapV3SwapCallback {
             } else {
                 if (params.isExactInput) {
                     fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
-                    // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                    exchangedPositionNotional = -(params.amount.sub(fee).toInt256());
                 } else {
                     // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
                     fee = FullMath.mulDivRoundingUp(
@@ -114,11 +112,11 @@ contract Quoter is IUniswapV3SwapCallback {
                         uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
                         uint256(1e6) * (1e6 - clearingHouseFeeRatio)
                     );
-                    exchangedPositionNotional = -(FeeMath.calcScaledAmount(quote, uniswapFeeRatio, false).toInt256());
                 }
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
+                exchangedPositionNotional = -(FeeMath.calcScaledAmount(quote, uniswapFeeRatio, false).toInt256());
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase

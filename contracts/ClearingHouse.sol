@@ -1436,8 +1436,6 @@ contract ClearingHouse is
         } else {
             if (params.isExactInput) {
                 fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(params.amount.sub(fee).toInt256());
             } else {
                 // check the doc of custom fee for more details,
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
@@ -1446,13 +1444,11 @@ contract ClearingHouse is
                     uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
                     uint256(1e6) * (1e6 - clearingHouseFeeRatio)
                 );
-                exchangedPositionNotional = -(
-                    FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256()
-                );
             }
 
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
+            exchangedPositionNotional = -(FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256());
         }
 
         {
