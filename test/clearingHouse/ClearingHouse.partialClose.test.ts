@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse partial close in xyk pool", () => {
+describe.only("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -75,20 +75,18 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await collateral.mint(carol.address, carolCollateral)
         await collateral.connect(carol).approve(clearingHouse.address, carolCollateral)
         await deposit(carol, vault, 1000, collateral)
+
+        // price delta for every tick is 0.01%
+        // if we want to limit price impact to 1%, and 1% / 0.01% = 100
+        // so limiting price impact to 1% means tick should not cross 100 ticks
+        await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+        await clearingHouse.connect(admin).setPartialCloseRatio(parseEther("0.25"))
     })
 
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159
     describe("partial close", () => {
         beforeEach(async () => {
-            // if we want to limit price impact to 1%, and price delta for every tick is 0.01%
-            // so 1% / 0.01% = 100
-            // we limit price impact to 1% means the tick should not cross 100 ticks
-            await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-            await clearingHouse.connect(admin).setPartialCloseRatio(parseEther("0.25"))
-        })
-
-        it("taker should be partially closed", async () => {
-            // carol shorts 25 eth
+            // carol first shorts 25 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -97,28 +95,19 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 sqrtPriceLimitX96: 0,
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+        })
 
+        it("carol would be partially closed using closePosition", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
 
-            // should be partially closed
-            // remain position size = -25 - (-25 * 1/4) = -18.75
+            // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(carol).closePosition(carol.address, baseToken.address, parseEther("0"))
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
-        it("taker cannot open reverse position, is over price limit", async () => {
-            // carol shorts 25 eth
-            await clearingHouse.connect(carol).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: parseEther("25"),
-                sqrtPriceLimitX96: 0,
-            })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
-
+        it("carol cannot open reverse position, is over price limit", async () => {
             // carol longs 25 eth
             await expect(
                 clearingHouse.connect(carol).openPosition({
@@ -131,22 +120,12 @@ describe("ClearingHouse partial close in xyk pool", () => {
             ).to.revertedWith("CH_OPI")
         })
 
-        it("taker can reduce position, is not over price limit", async () => {
-            // carol shorts 25 eth
-            await clearingHouse.connect(carol).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: parseEther("25"),
-                sqrtPriceLimitX96: 0,
-            })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
-
+        it("carol can reduce position, is not over price limit", async () => {
             mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
                 return 2
             })
 
-            // carol longs 1 eth
+            // carol longs 0.1 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -161,15 +140,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159
     describe("partial liquidate", () => {
         beforeEach(async () => {
-            // if we want to limit price impact to 1%, and price delta for every tick is 0.01%
-            // so 1% / 0.01% = 100
-            // we limit price impact to 1% means the tick should not cross 100 ticks
-            await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-            await clearingHouse.connect(admin).setPartialCloseRatio(parseEther("0.25"))
-        })
-
-        it("taker should be partially liquidated", async () => {
-            // carol shorts 25 eth
+            // carol first shorts 25 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -178,13 +149,15 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 sqrtPriceLimitX96: 0,
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+        })
 
+        it("taker should be partially liquidated", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
 
             // should be partially liquidated
-            // remain position size = -25 - (-25 * 1/4) = -18.75
+            // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
