@@ -303,7 +303,7 @@ describe("ClearingHouse openPosition", () => {
                 })
             })
 
-            it.only("mint missing amount of vUSD for swapping", async () => {
+            it("mint missing amount of vUSD for swapping", async () => {
                 await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("1"))
                 const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
