@@ -311,7 +311,7 @@ contract ClearingHouse is
 
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
-    mapping(address => uint24) public clearingHouseFeeRatioMap;
+    mapping(address => uint24) private _clearingHouseFeeRatioMap;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
@@ -344,6 +344,15 @@ contract ClearingHouse is
     }
 
     //
+    // MODIFIER
+    //
+    modifier checkRatio(uint256 ratio) {
+        // CH_RL1: ratio overflow
+        require(ratio <= 1 ether, "CH_RO");
+        _;
+    }
+
+    //
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
@@ -361,7 +370,7 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
-        clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
+        _clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
@@ -613,18 +622,22 @@ contract ClearingHouse is
         }
     }
 
-    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg) external onlyOwner {
+    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg)
+        external
+        checkRatio(liquidationPenaltyRatioArg)
+        onlyOwner
+    {
         liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
-    function setPartialCloseRatio(uint256 partialCloseRatioArg) external onlyOwner {
+    function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
         partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+        _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
@@ -711,7 +724,7 @@ contract ClearingHouse is
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
 
-        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[address(pool)];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[address(pool)];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[address(pool)];
 
         // we know the exact amount of a token needed for swap in the swap callback
@@ -874,8 +887,16 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPool(address baseToken) external view returns (address poolAddress) {
+    function getPool(address baseToken) external view returns (address) {
         return _poolMap[baseToken];
+    }
+
+    function getFeeRatio(address baseToken) external view returns (uint24) {
+        return _clearingHouseFeeRatioMap[baseToken];
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
     // return in settlement token decimals
@@ -1454,7 +1475,7 @@ contract ClearingHouse is
 
         UniswapV3Broker.SwapResponse memory response;
         address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
         {
             // input or output amount for swap
@@ -1720,7 +1741,7 @@ contract ClearingHouse is
         int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
 
         address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
 
         uint256 scaledAmount =
