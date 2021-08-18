@@ -30,7 +30,6 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -270,7 +269,7 @@ contract ClearingHouse is
     }
 
     struct TickStatus {
-        int24 lastUpdatedBlockTick;
+        int24 finalTickFromLastBlock;
         uint256 lastUpdatedBlock;
     }
 
@@ -513,17 +512,6 @@ contract ClearingHouse is
         require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
-    function _isIncreasePosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) private returns (bool) {
-        // increase position == old/new position are in the same direction
-        int256 positionSize = getPositionSize(trader, baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
-        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
-    }
-
     function closePosition(
         address trader,
         address baseToken,
@@ -531,11 +519,13 @@ contract ClearingHouse is
     ) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
 
-        console.log("closePosition");
         int256 positionSize = getPositionSize(trader, baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
+
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(baseToken);
 
         PriceLimitParams memory params =
             PriceLimitParams({
@@ -569,10 +559,11 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
-        console.log("openPosition");
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
+
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
-            console.log("not increase pos");
             // CH_OPI: over price impact
             require(
                 !_isOverPriceImpact(
@@ -661,6 +652,9 @@ contract ClearingHouse is
                 isExactInput: isLong,
                 amount: positionSize.abs()
             });
+
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
 
         if (partialCloseRatio > 0 && _isOverPriceImpact(params)) {
             params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
@@ -1438,37 +1432,17 @@ contract ClearingHouse is
         return state.tick;
     }
 
-    // TODO refactor after merged (add tick to arg)
-    function _updateTickStatus(address baseToken) private {
-        // block 2 alice open 1
-        // priceImpact check:
-        //    isFirstTradeOfThisBlock = true
-        //    check lastBlock's tickAfterSwap = 100
-        // after alice swap:
-        //    tickAfterSwap = 100 -> 110
-
-        // block 2 alice open 2
-        // priceImpact check:
-        //    isFirstTradeOfThisBlock = false
-        //    check lastBlock's tickAfterSwap = 100
-        // after alice swap:
-        //    tickAfterSwap = 100 -> 120
-
-        // block 3 alice open
-        // priceImpact check:
-        //    isFirstTradeOfThisBlock = true
-        //    check lastBlock's tickAfterSwap = 100
-
-        // when it's the 1st swap in this block, update tickStatus
+    function _saveTickBeforeFirstSwapThisBlock(address baseToken) private {
+        // only do this when it's the first swap in this block
         uint256 blockNumber = _blockNumber();
         if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
             return;
         }
 
-        // if it's the 1st swap in this block, the current tick before swap = final tick last block
+        // the current tick before swap = final tick last block
         _tickStatusMap[baseToken] = TickStatus({
             lastUpdatedBlock: blockNumber,
-            lastUpdatedBlockTick: UniswapV3Broker.getTick(_poolMap[baseToken])
+            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
         });
     }
 
@@ -1581,9 +1555,6 @@ contract ClearingHouse is
                 .toUint256()
                 .sub(fee);
         }
-
-        // must after swap
-        _updateTickStatus(params.baseToken);
 
         emit Swapped(
             params.trader,
@@ -1744,9 +1715,7 @@ contract ClearingHouse is
             return false;
         }
 
-        int256 tickLastBlock = _tickStatusMap[params.baseToken].lastUpdatedBlockTick;
-        console.log("tickLastBlock");
-        console.logInt(tickLastBlock);
+        int256 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
         int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
         int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
 
@@ -1779,8 +1748,6 @@ contract ClearingHouse is
 
         int24 tickAfterSwap =
             _replaySwap(state, params.baseToken, params.isBaseToQuote, clearingHouseFeeRatio, uniswapFeeRatio, false);
-        console.log("tickAfterSwap");
-        console.logInt(tickAfterSwap);
 
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
@@ -2013,6 +1980,17 @@ contract ClearingHouse is
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
+    }
+
+    function _isIncreasePosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    ) private returns (bool) {
+        // increase position == old/new position are in the same direction
+        int256 positionSize = getPositionSize(trader, baseToken);
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
     function _getOrderId(

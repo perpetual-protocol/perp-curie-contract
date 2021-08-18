@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse partial close in xyk pool", () => {
+describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -87,7 +87,7 @@ describe.only("ClearingHouse partial close in xyk pool", () => {
             await clearingHouse.connect(admin).setPartialCloseRatio(parseEther("0.25"))
         })
 
-        it.only("taker should be partially closed", async () => {
+        it("taker should be partially closed", async () => {
             // carol shorts 25 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
