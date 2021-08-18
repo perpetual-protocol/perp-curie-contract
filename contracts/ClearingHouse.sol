@@ -30,6 +30,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -530,6 +531,7 @@ contract ClearingHouse is
     ) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
 
+        console.log("closePosition");
         int256 positionSize = getPositionSize(trader, baseToken);
 
         // CH_PSZ: position size is zero
@@ -567,11 +569,13 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
+        console.log("openPosition");
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
+            console.log("not increase pos");
             // CH_OPI: over price impact
             require(
-                _isOverPriceImpact(
+                !_isOverPriceImpact(
                     PriceLimitParams({
                         baseToken: params.baseToken,
                         isBaseToQuote: params.isBaseToQuote,
@@ -1436,6 +1440,25 @@ contract ClearingHouse is
 
     // TODO refactor after merged (add tick to arg)
     function _updateTickStatus(address baseToken) private {
+        // block 2 alice open 1
+        // priceImpact check:
+        //    isFirstTradeOfThisBlock = true
+        //    check lastBlock's tickAfterSwap = 100
+        // after alice swap:
+        //    tickAfterSwap = 100 -> 110
+
+        // block 2 alice open 2
+        // priceImpact check:
+        //    isFirstTradeOfThisBlock = false
+        //    check lastBlock's tickAfterSwap = 100
+        // after alice swap:
+        //    tickAfterSwap = 100 -> 120
+
+        // block 3 alice open
+        // priceImpact check:
+        //    isFirstTradeOfThisBlock = true
+        //    check lastBlock's tickAfterSwap = 100
+
         // when it's the 1st swap in this block, update tickStatus
         uint256 blockNumber = _blockNumber();
         if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
@@ -1453,9 +1476,6 @@ contract ClearingHouse is
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
-        // must before swap
-        _updateTickStatus(params.baseToken);
-
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
 
         UniswapV3Broker.SwapResponse memory response;
@@ -1561,6 +1581,9 @@ contract ClearingHouse is
                 .toUint256()
                 .sub(fee);
         }
+
+        // must after swap
+        _updateTickStatus(params.baseToken);
 
         emit Swapped(
             params.trader,
@@ -1722,6 +1745,8 @@ contract ClearingHouse is
         }
 
         int256 tickLastBlock = _tickStatusMap[params.baseToken].lastUpdatedBlockTick;
+        console.log("tickLastBlock");
+        console.logInt(tickLastBlock);
         int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
         int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
 
@@ -1754,6 +1779,8 @@ contract ClearingHouse is
 
         int24 tickAfterSwap =
             _replaySwap(state, params.baseToken, params.isBaseToQuote, clearingHouseFeeRatio, uniswapFeeRatio, false);
+        console.log("tickAfterSwap");
+        console.logInt(tickAfterSwap);
 
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
