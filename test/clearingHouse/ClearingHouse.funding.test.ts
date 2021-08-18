@@ -1,478 +1,358 @@
-// import { MockContract } from "@eth-optimism/smock"
-// import { parseEther } from "@ethersproject/units"
-// import { expect } from "chai"
-// import { parseUnits } from "ethers/lib/utils"
-// import { ethers, waffle } from "hardhat"
-// import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-// import { VirtualToken } from "../../typechain/VirtualToken"
-// import { deposit } from "../helper/token"
-// import { forward } from "../shared/time"
-// import { encodePriceSqrt } from "../shared/utilities"
-// import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { MockContract } from "@eth-optimism/smock"
+import { parseEther } from "@ethersproject/units"
+import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
+import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { VirtualToken } from "../../typechain/VirtualToken"
+import { deposit } from "../helper/token"
+import { forward } from "../shared/time"
+import { encodePriceSqrt } from "../shared/utilities"
+import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-// describe("ClearingHouse.funding", () => {
-//     const [admin, alice, bob, carol] = waffle.provider.getWallets()
-//     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-//     let clearingHouse: ClearingHouse
-//     let vault: Vault
-//     let collateral: TestERC20
-//     let baseToken: VirtualToken
-//     let quoteToken: VirtualToken
-//     let mockedBaseAggregator: MockContract
-//     let pool: UniswapV3Pool
-//     let collateralDecimals: number
+describe.only("ClearingHouse.funding", () => {
+    const [admin, alice, bob, carol] = waffle.provider.getWallets()
+    const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    const twapInterval = 15 * 90 // 5 minutes
+    let clearingHouse: ClearingHouse
+    let vault: Vault
+    let collateral: TestERC20
+    let baseToken: VirtualToken
+    let quoteToken: VirtualToken
+    let mockedBaseAggregator: MockContract
+    let pool: UniswapV3Pool
+    let collateralDecimals: number
 
-//     beforeEach(async () => {
-//         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-//         clearingHouse = _clearingHouseFixture.clearingHouse
-//         vault = _clearingHouseFixture.vault
-//         collateral = _clearingHouseFixture.USDC
-//         baseToken = _clearingHouseFixture.baseToken
-//         quoteToken = _clearingHouseFixture.quoteToken
-//         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-//         pool = _clearingHouseFixture.pool
-//         collateralDecimals = await collateral.decimals()
+    beforeEach(async () => {
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        clearingHouse = _clearingHouseFixture.clearingHouse
+        vault = _clearingHouseFixture.vault
+        collateral = _clearingHouseFixture.USDC
+        baseToken = _clearingHouseFixture.baseToken
+        quoteToken = _clearingHouseFixture.quoteToken
+        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
 
-//         // price at 50400 == 154.4310961
-//         await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-//         // add pool after it's initialized
-//         await clearingHouse.addPool(baseToken.address, 10000)
+        // price at 50400 == 154.4310961
+        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-//         // alice add long limit order
-//         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
-//         await deposit(alice, vault, 10000, collateral)
+        // add pool after it's initialized
+        await clearingHouse.addPool(baseToken.address, 10000)
+        // set twapInterval
+        await clearingHouse.setTwapInterval(twapInterval)
 
-//         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-//         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
+        // alice add long limit order
+        await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
+        await deposit(alice, vault, 10000, collateral)
+        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
+        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
-//         // alice:
-//         //   base.liquidity = 0
-//         //   quote.liquidity = 100
-//         await clearingHouse.connect(alice).addLiquidity({
-//             baseToken: baseToken.address,
-//             base: parseEther("0"),
-//             quote: parseEther("100"),
-//             lowerTick: 50200,
-//             upperTick: 50400,
-//             minBase: 0,
-//             minQuote: 0,
-//             deadline: ethers.constants.MaxUint256,
-//         })
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseEther("0"),
+            quote: parseEther("100"),
+            lowerTick: 50200,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
+        })
 
-//         // bob short
-//         await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
-//         await deposit(bob, vault, 1000, collateral)
+        await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
+        await deposit(bob, vault, 1000, collateral)
+        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
 
-//         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
+        await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
+        await deposit(carol, vault, 1000, collateral)
+        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
+    })
 
-//         await clearingHouse.connect(bob).swap({
-//             // sell base
-//             baseToken: baseToken.address,
-//             isBaseToQuote: true,
-//             isExactInput: true,
-//             amount: parseEther("0.099"),
-//             sqrtPriceLimitX96: 0,
-//         })
+    describe("# getPendingFundingPayment", () => {
+        beforeEach(async () => {
+            // bob short
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("0.099"),
+                sqrtPriceLimitX96: 0,
+            })
 
-//         // alice:
-//         //   base.liquidity = 0
-//         //   quote.liquidity = 100
-//         // bob:
-//         //   base.available = 2 - 0.099 = 1.901
-//         //   base.debt = 2
-//         //   quote.available = 15.1128025359
-//         //   quote.debt = 0
+            // alice:
+            //   base.liquidity = 0
+            //   quote.liquidity = 100
+            // bob:
+            //   base.available = 2 - 0.099 = 1.901
+            //   base.debt = 2
+            //   quote.available = 15.1128025359
+            //   quote.debt = 0
+            // mark price should be 153.9623330511 (tick ~= 50369)
 
-//         // mark price should be 153.9623330511 (tick ~= 50369)
+            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
+            // check why is that the case
+        })
 
-//         // forward 3600 secs to get 1hr twap in UniV3 pool
-//         await forward(3600)
+        it("no funding payment when it's still the same block as swapping", async () => {
+            // carol's position size = 0
+            expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
+        })
 
-//         // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-//         //  check why is that the case
-//     })
+        it("no funding payment when there is no position/ no such a trader", async () => {
+            // carol's position size = 0
+            expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
+        })
 
-//     describe("# getPendingFundingPayment", () => {
-//         it("has no pending funding payment before any update funding", async () => {
-//             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(0)
-//             expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
-//         })
+        it("force error, base token does not exist", async () => {
+            await expect(clearingHouse.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.revertedWith(
+                "CH_BTNE",
+            )
+        })
+    })
 
-//         describe("positive funding rate (market=153, index=150)", () => {
-//             let bobAccountValueBefore
-//             beforeEach(async () => {
-//                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                     return [0, parseUnits("150.953124", 6), 0, 0, 0]
-//                 })
-//                 bobAccountValueBefore = await clearingHouse.getAccountValue(bob.address)
-//                 await clearingHouse.updateFunding(baseToken.address)
-//             })
+    describe("# _settleFundingAndUpdateFundingGrowth", () => {
+        describe("one maker with one order, multiple takers", () => {
+            it("one taker swaps once; positive funding", async () => {
+                // TODO note that hardhat uses real timestamp, so it is possible that by the time getPendingFundingPayment() is called,
+                //   one or more seconds has passed and the total duration becomes larger than 3600. The test could fail
+                //   because of that so we have to be careful.
 
-//             it("increase short position (bob)'s account value", async () => {
-//                 const bobAccountValueAfter = await clearingHouse.getAccountValue(bob.address)
-//                 expect(bobAccountValueAfter.sub(bobAccountValueBefore).gt(0)).be.true
-//             })
+                // set index price for a positive funding
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150.953124", 6), 0, 0, 0]
+                })
 
-//             it("update getPendingFundingPayment", async () => {
-//                 // alice
-//                 // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
-//                 // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
-//                 expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
-//                 // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
-//                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
-//                     "12375003379192555",
-//                 )
-//                 // position size = -0.099
-//                 expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
-//                 // funding payment = -0.099 * (153.9531248192 - 150.953124) / 24 = -0.01237500338
-//                 expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
-//                     "-12375003379192555",
-//                 )
-//             })
-//         })
+                // bob short
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.099"),
+                    sqrtPriceLimitX96: 0,
+                })
+                await forward(3600)
 
-//         describe("negative funding rate (market=153, index=156)", () => {
-//             let bobAccountValueBefore
-//             beforeEach(async () => {
-//                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                     return [0, parseUnits("156.953124", 6), 0, 0, 0]
-//                 })
-//                 bobAccountValueBefore = await clearingHouse.getAccountValue(bob.address)
-//                 await clearingHouse.updateFunding(baseToken.address)
-//             })
+                // bob's funding payment = -0.099 * (153.9531248192 - 150.953124) * 3600 / 86400 = -0.01237500338
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
+                    parseEther("-0.012375003379192556"),
+                )
+                // alice's funding payment = -(bob's funding payment)
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("0.012375003379192556"),
+                )
 
-//             it("decrease short position (bob)'s account value", async () => {
-//                 const bobAccountValueAfter = await clearingHouse.getAccountValue(bob.address)
-//                 expect(bobAccountValueBefore.sub(bobAccountValueAfter).gt(0)).be.true
-//             })
+                await forward(3600)
 
-//             it("get correct number for maker in negative funding rate", async () => {
-//                 // alice
-//                 // position size = 0.099 (bob swaps in CH) -> 0.099 / 0.99 (in Uni; before swap fee charged) -> 0.1 * 0.99 (in Uni; fee charged)
-//                 // 0.099 / 0.99 * 0.99 = 0.099; has one wei of imprecision
-//                 expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("98999999999999999")
-//                 // funding payment = 0.099 * (153.9531248192 - 156.953124) / 24 = -0.01237499662
-//                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
-//                     "-12374996620807443",
-//                 )
-//                 // position size = -0.099
-//                 expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.099"))
-//                 // funding payment = -0.099 * (153.9531248192 - 156.953124) / 24 = 0.01237499662
-//                 expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).eq(
-//                     "12374996620807443",
-//                 )
-//             })
-//         })
+                // bob's funding payment = -0.099 * (153.9531248192 - 150.953124) * 7200 / 86400 = -0.02475000676
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
+                    parseEther("-0.024750006758385112"),
+                )
+                // alice's funding payment = -(bob's funding payment)
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("0.024750006758385112"),
+                )
 
-//         it("get correct number for maker in multiple orders and funding rates", async () => {
-//             // alice to add her second open order
-//             await clearingHouse.connect(alice).addLiquidity({
-//                 baseToken: baseToken.address,
-//                 base: parseEther("0"),
-//                 quote: parseEther("100"),
-//                 lowerTick: 50000,
-//                 upperTick: 50200,
-//                 minBase: 0,
-//                 minQuote: 0,
-//                 deadline: ethers.constants.MaxUint256,
-//             })
+                const owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//             // first update funding
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
-//             })
-//             await clearingHouse.updateFunding(baseToken.address)
+                // swaps arbitrary amount to trigger funding settlement
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.0000000001"),
+                    sqrtPriceLimitX96: 0,
+                })
+                const owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//             // bob short
-//             await clearingHouse.connect(bob).swap({
-//                 // sell base
-//                 baseToken: baseToken.address,
-//                 isBaseToQuote: true,
-//                 isExactInput: true,
-//                 amount: parseEther("0.99"),
-//                 sqrtPriceLimitX96: 0,
-//             })
+                // due to hardhat compilation environment, there is time diff
+                // -0.099 * (153.9531248192 - 150.953124) * 7201 / 86400 = -0.02475344426
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.024753444259323776"))
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(0)
+            })
 
-//             // afterwards, mark price = 149.403346446539268519
+            it("one taker swaps twice; negative funding", async () => {
+                // set index price for a negative funding
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("156.953124", 6), 0, 0, 0]
+                })
 
-//             // forward another 3600 secs
-//             await forward(3600)
+                // bob short
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.099"),
+                    sqrtPriceLimitX96: 0,
+                })
+                await forward(3600)
 
-//             // second update funding
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("152.403346", 6), 0, 0, 0]
-//             })
-//             await clearingHouse.updateFunding(baseToken.address)
+                // bob's funding payment = -0.099 * (153.9531248192 - 156.953124) * 3600 / 86400 = 0.01237499662
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
+                    parseEther("0.012374996620807443"),
+                )
+                // alice's funding payment = -(bob's funding payment)
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("-0.012374996620807443"),
+                )
 
-//             // alice
-//             // position size (0.099 + 0.99) / 0.99 * 0.99 = 1.089; has one wei of imprecision
-//             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq("1088999999999999997")
-//             // funding payment = 0.099 * (153.9531248192 - 150.953124) / 24 = 0.01237500338
-//             // funding payment = 1.089 * (149.403346446539268519 - 152.403346) / 24 = -0.1361249797
-//             // 0.01237500338 + (-0.1361249797) = -0.1237499763
-//             expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).eq(
-//                 "-123749976359088135",
-//             )
-//         })
+                const owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//         it("get correct number when there is no positions", async () => {
-//             // carol mint token but not trading (zero positions)
-//             await collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
-//             await deposit(carol, vault, 10000, collateral)
+                // bob short again
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.101"),
+                    sqrtPriceLimitX96: 0,
+                })
 
-//             await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
+                await forward(3600)
 
-//             // update funding
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("152.403346", 6), 0, 0, 0]
-//             })
-//             await clearingHouse.updateFunding(baseToken.address)
+                // bob's funding payment = -0.2 * (153.4766329005 - 156.953124) * 3600 / 86400 = 0.02897075916
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
+                    parseEther("0.028970759162474927"),
+                )
+                // alice's funding payment = -(sum of bob's funding payment)
+                // there is time diff caused by hardhat: -(-0.099 * (153.9531248192 - 156.953124) * 3601 / 86400) + -(0.02897075916) = -0.04134919328
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("-0.041349193282343706"),
+                )
 
-//             // carol
-//             // position size = 0
-//             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(0)
-//             // funding payment = 0 * (154.4310961 - 152.403346) / 24 = 0
-//             expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
-//         })
+                // swaps arbitrary amount to trigger funding settlement
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.0000000001"),
+                    sqrtPriceLimitX96: 0,
+                })
+                const owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//         it("get correct number when base token does not exist", async () => {
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
-//             })
+                // due to hardhat compilation environment, there is time diff
+                // -0.099 * (153.9531248192 - 156.953124) * 3601 / 86400 + -0.2 * (153.4766329005 - 156.953124) * 3601 / 86400 = 0.04135724072
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("-0.041357240715444393"))
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(0)
+            })
 
-//             await clearingHouse.updateFunding(baseToken.address)
+            it("two takers; first positive then negative funding", async () => {
+                // set index price for a positive funding
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150.953124", 6), 0, 0, 0]
+                })
 
-//             // alice
-//             expect(await clearingHouse.getPendingFundingPayment(alice.address, quoteToken.address)).eq(0)
-//         })
+                // bob short
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.099"),
+                    sqrtPriceLimitX96: 0,
+                })
+                await forward(3600)
 
-//         it("get correct number when trader does not exist", async () => {
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("152.403346", 6), 0, 0, 0]
-//             })
-//             await clearingHouse.updateFunding(baseToken.address)
+                // carol long
+                await clearingHouse.connect(carol).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: parseEther("0.09"),
+                    sqrtPriceLimitX96: 0,
+                })
 
-//             // carol
-//             // position size = 0
-//             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(0)
-//             // funding payment = 0 * (154.4310961 - 152.403346) / 24 = 0
-//             expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
-//         })
-//     })
+                // alice's funding payment shouldn't change after carol swaps
+                // there is time diff caused by hardhat: -(-0.099 * (153.9531248192 - 150.953124) * 3601 / 86400) = 0.01237844088
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("0.012378440880131220"),
+                )
 
-//     describe("# settleFunding - receiving funding", () => {
-//         beforeEach(async () => {
-//             // so bob has some liquidity to remove for a future test
-//             await clearingHouse.connect(bob).addLiquidity({
-//                 baseToken: baseToken.address,
-//                 base: parseEther("1"),
-//                 quote: parseEther("0"),
-//                 lowerTick: 50400,
-//                 upperTick: 50600,
-//                 minBase: 0,
-//                 minQuote: 0,
-//                 deadline: ethers.constants.MaxUint256,
-//             })
+                await forward(3600)
 
-//             // bob
-//             //   base.available = 1.901 - 1 = 0.901
-//             //   base.liquidity = 1
-//             //   base.debt = 2
-//             //   quote.available = 15.1128025359
-//             //   quote.debt = 0
+                // set index price for a negative funding
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("156.953124", 6), 0, 0, 0]
+                })
 
-//             // bob hold a short position 0.099
-//             // (153.9531248192 - 150.953124) / 24 = 0.1250000341
-//             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                 return [0, parseUnits("150.953124", 6), 0, 0, 0]
-//             })
-//             await clearingHouse.updateFunding(baseToken.address)
-//         })
+                // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 3601 + (154.3847760162 - 156.953124) * 3600) / 86400 = -0.001784005447
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
+                    parseEther("-0.001784005446830714"),
+                )
+                // carol's funding payment = 0.09 * (154.3847760162 - 156.953124) * 3600 / 86400 = -0.009631304939
+                expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
+                    parseEther("-0.009631304939364096"),
+                )
+                // alice's funding payment = -(sum of takers' funding payments) = -(-0.001784005447 + -0.009631304939) = 0.01141531039
+                expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
+                    parseEther("0.011415310386194810"),
+                )
 
-//         it("settle directly", async () => {
-//             await expect(clearingHouse.settleFunding(bob.address, baseToken.address))
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
+                // settle bob's funding
+                let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
+                // swaps arbitrary amount to trigger funding settlement
+                await clearingHouse.connect(bob).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("0.0000000001"),
+                    sqrtPriceLimitX96: 0,
+                })
+                let owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(bob.address)
 
-//             // should not settle again
-//             await expect(clearingHouse.settleFunding(bob.address, baseToken.address)).not.emit(
-//                 clearingHouse,
-//                 "FundingSettled",
-//             )
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
+                // due to hardhat compilation environment, there is time diff
+                // -0.099 * ((153.9531248192 - 150.953124) * 3601 + (154.3847760162 - 156.953124) * 3601) / 86400 = -0.001781062548
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.001781062548099241"))
+                expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(0)
 
-//         it("settle funding in mint()", async () => {
-//             await expect(clearingHouse.connect(bob).mint(baseToken.address, parseEther("1")))
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
+                // ----------------------
+                // settle carol's funding
+                owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(carol.address)
 
-//         it("settle funding in burn()", async () => {
-//             await expect(clearingHouse.connect(bob).burn(baseToken.address, parseEther("0.1")))
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
+                // swaps arbitrary amount to trigger funding settlement
+                await clearingHouse.connect(carol).swap({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    amount: parseEther("0.0000000001"),
+                    sqrtPriceLimitX96: 0,
+                })
+                owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(carol.address)
 
-//         it("settle funding in swap()", async () => {
-//             await expect(
-//                 clearingHouse.connect(bob).swap({
-//                     // sell base
-//                     baseToken: baseToken.address,
-//                     isBaseToQuote: true,
-//                     isExactInput: false,
-//                     amount: parseEther("1"), // swap to exactly 1 quote token
-//                     sqrtPriceLimitX96: 0,
-//                 }),
-//             )
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
-//                 .to.emit(clearingHouse, "Swapped")
-//                 .withArgs(
-//                     bob.address, // trader
-//                     baseToken.address, // baseToken
-//                     "-6561362585509647", // exchangedPositionSize
-//                     parseEther("1.010101010101010102"), // costBasis
-//                     "10101010101010102", // fee: 1.010101010101010102 * 0.01 = 0.010101010101010102
-//                     parseEther("0"), // badDebt
-//                 )
+                // due to hardhat compilation environment, there is time diff
+                // 0.09 * (154.3847760162 - 156.953124) * 3602 / 86400 = -0.009636655664
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.009636655664330410"))
+                expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
+            })
+        })
 
-//             // 1 + 0.012375003379192556 = 1.012375003379192556
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
+        describe("one maker with multiple orders, one taker", () => {
+            //           |-----|
+            //      |-------------------|
+            //   -----------------------------> p
+            //         x-----------> trade
+            //
+            it("two orders are both used, and then reduce & remove liquidity of one order; positive funding", async () => {})
+        })
 
-//         it("settle funding in addLiquidity()", async () => {
-//             await expect(
-//                 clearingHouse.connect(bob).addLiquidity({
-//                     baseToken: baseToken.address,
-//                     base: parseEther("0.1"),
-//                     quote: parseEther("0"),
-//                     lowerTick: 50400,
-//                     upperTick: 50600,
-//                     minBase: 0,
-//                     minQuote: 0,
-//                     deadline: ethers.constants.MaxUint256,
-//                 }),
-//             )
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
+        describe("multiple makers with one order each and one maker also becomes taker", () => {
+            it("does not swap his/her own liquidity", async () => {})
 
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
+            it("swaps his/her own liquidity; positive funding", async () => {})
 
-//         it("settle funding in removeLiquidity()", async () => {
-//             await expect(
-//                 clearingHouse.connect(bob).removeLiquidity({
-//                     baseToken: baseToken.address,
-//                     lowerTick: 50400,
-//                     upperTick: 50600,
-//                     liquidity: (
-//                         await clearingHouse.getOpenOrder(bob.address, baseToken.address, 50400, 50600)
-//                     ).liquidity,
-//                     minBase: 0,
-//                     minQuote: 0,
-//                     deadline: ethers.constants.MaxUint256,
-//                 }),
-//             )
-//                 .to.emit(clearingHouse, "FundingSettled")
-//                 .withArgs(
-//                     bob.address,
-//                     baseToken.address,
-//                     1, // one funding history item
-//                     "-12375003379192556", // 0.1250000341 * 0.099 = 0.01237500338
-//                 )
+            it("swaps his/her own liquidity; negative funding", async () => {})
+        })
+    })
+})
 
-//             expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq("12375003379192556")
-//             expect(await clearingHouse.getNextFundingIndex(bob.address, baseToken.address)).eq(1)
-//         })
-
-//         it("force error, settle quote token", async () => {
-//             await expect(clearingHouse.settleFunding(bob.address, quoteToken.address)).to.be.revertedWith("CH_BTNE")
-//         })
-
-//         describe("paying funding payment", () => {
-//             beforeEach(async () => {
-//                 // carol long
-//                 await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
-//                 await deposit(carol, vault, 1000, collateral)
-
-//                 await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("200"))
-//                 await clearingHouse.connect(carol).swap({
-//                     baseToken: baseToken.address,
-//                     isBaseToQuote: false,
-//                     isExactInput: true,
-//                     amount: parseEther("100"),
-//                     sqrtPriceLimitX96: 0,
-//                 })
-
-//                 // bob
-//                 //   base.available = 1.901 - 1 = 0.901
-//                 //   base.liquidity = 1
-//                 //   base.debt = 2
-//                 //   quote.available = 15.1128025359
-//                 //   quote.debt = 0
-//                 //
-//                 // carol
-//                 //   base.available = 0.638303511
-//                 //   base.debt = 0
-//                 //   quote.available = 200
-//                 //   quote.debt = 100
-
-//                 // current price = 156.0922973283
-//                 // current tick = 50507
-
-//                 await forward(3600)
-
-//                 // carol hold a long position 0.638303511
-//                 // (156.0922973283 - 150.953124) / 24 = 0.1250000341
-//                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-//                     return [0, parseUnits("150.953124", 6), 0, 0, 0]
-//                 })
-//                 await clearingHouse.updateFunding(baseToken.address)
-//                 await clearingHouse.settleFunding(carol.address, baseToken.address)
-
-//                 expect(await clearingHouse.getOwedRealizedPnl(bob.address)).eq(0)
-//             })
-
-//             it("decrease net quote balance", async () => {
-//                 const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(carol.address)
-//                 expect(owedRealizedPnl.lt(0)).be.true
-//             })
-//         })
-//     })
-// })
+// // === useful console.log for verifying stats ===
+// console.log("markTwapX96")
+// console.log((await clearingHouse.getMarkTwapX96(baseToken.address, twapInterval)).toString())
+// console.log("pending funding payment")
+// console.log("bob")
+// console.log((await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).toString())
+// console.log("carol")
+// console.log((await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).toString())
+// console.log("alice")
+// console.log((await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).toString())
+// // === useful console.log for verifying stats ===
