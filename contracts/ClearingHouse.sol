@@ -1434,17 +1434,13 @@ contract ClearingHouse is
             // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
             exchangedPositionNotional = response.quote.toInt256();
         } else {
-            if (params.isExactInput) {
-                fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
-            } else {
-                // check the doc of custom fee for more details,
-                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-                fee = FullMath.mulDivRoundingUp(
-                    response.quote,
-                    uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
-                    uint256(1e6) * (1e6 - clearingHouseFeeRatio)
-                );
-            }
+            // check the doc of custom fee for more details,
+            // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
+            fee = FullMath.mulDivRoundingUp(
+                response.quote,
+                uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
+                uint256(1e6) * (1e6 - clearingHouseFeeRatio)
+            );
 
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
