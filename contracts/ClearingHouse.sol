@@ -654,7 +654,7 @@ contract ClearingHouse is
             uint256 amount =
                 token == callbackData.baseToken
                     ? exactSwappedAmount
-                    : FullMath.mulDivRoundingUp(amountToPay, (1e6 - uniswapFeeRatio), (1e6 - clearingHouseFeeRatio));
+                    : FeeMath.magicFactor(amountToPay, uniswapFeeRatio, clearingHouseFeeRatio, true);
             if (availableBefore < amount) {
                 _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
@@ -1373,11 +1373,7 @@ contract ClearingHouse is
                         ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
                         : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
                     : params.isExactInput
-                    ? FeeMath.calcScaledAmount(
-                        FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
-                        uniswapFeeRatio,
-                        true
-                    )
+                    ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
                     : params.amount;
 
             // if Q2B, we use params.amount directly
@@ -1436,11 +1432,9 @@ contract ClearingHouse is
         } else {
             // check the doc of custom fee for more details,
             // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-            fee = FullMath.mulDivRoundingUp(
-                response.quote,
-                uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
-                uint256(1e6) * (1e6 - clearingHouseFeeRatio)
-            );
+            fee = FeeMath
+                .magicFactor(response.quote * clearingHouseFeeRatio, uniswapFeeRatio, clearingHouseFeeRatio, true)
+                .div(1e6);
 
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();

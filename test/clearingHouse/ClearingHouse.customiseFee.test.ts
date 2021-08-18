@@ -104,7 +104,7 @@ describe("ClearingHouse customized fee", () => {
                         baseToken.address, // baseToken
                         "6473478014450606", // exchangedPositionSize
                         parseEther("-0.98"), // costBasis
-                        parseEther("0.020000000000000001"), // fee = 1 * 0.02
+                        parseEther("0.02"), // fee = 1 * 0.02
                         parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
@@ -151,7 +151,7 @@ describe("ClearingHouse customized fee", () => {
                         baseToken.address, // baseToken
                         parseEther("1"), // exchangedPositionSize
                         "-153508143394151325059", // costBasis
-                        "3132819252941863777", // fee
+                        "3132819252941863776", // fee
                         parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
@@ -168,10 +168,11 @@ describe("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                expect(fee).to.be.closeTo(parseEther("3.132819252941863777"), 1)
+                expect(fee).to.be.closeTo(parseEther("3.132819252941863776"), 1)
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
-                    balanceBefore.add(parseEther("3.132819252941863777")),
+                expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                    balanceBefore.add(parseEther("3.132819252941863776")),
+                    1,
                 )
             })
 
@@ -357,8 +358,9 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(feeAfterSwap.sub(feeBeforeSwap)).to.be.closeTo(parseEther("3.132819252941863777"), 1)
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.closeTo(
                     balanceBefore.add(parseEther("3.132819252941863777")),
+                    1,
                 )
             })
         })
@@ -390,7 +392,7 @@ describe("ClearingHouse customized fee", () => {
                     baseToken.address, // baseToken
                     "6572552804907016", // exchangedPositionSize
                     parseEther("-0.995"), // costBasis
-                    parseEther("0.005000000000000001"), // fee = 1 * 0.005
+                    parseEther("0.005"), // fee = 1 * 0.005
                     parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
@@ -437,7 +439,7 @@ describe("ClearingHouse customized fee", () => {
                     baseToken.address, // baseToken
                     parseEther("1"), // exchangedPositionSize
                     "-153508143394151325059", // costBasis
-                    parseEther("0.771397705498247865"), // fee
+                    parseEther("0.771397705498247864"), // fee
                     parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
@@ -456,8 +458,9 @@ describe("ClearingHouse customized fee", () => {
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.771397705498247865"), 1)
 
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
                 balanceBefore.add(parseEther("0.771397705498247865")),
+                1,
             )
         })
 
@@ -584,7 +587,7 @@ describe("ClearingHouse customized fee", () => {
                     baseToken.address, // baseToken
                     "6406274427766891", // exchangedPositionSize
                     parseEther("-0.97"), // costBasis
-                    parseEther("0.030000000000000001"), // fee = 1 * 0.03
+                    parseEther("0.03"), // fee = 1 * 0.03
                     parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
@@ -683,7 +686,7 @@ describe("ClearingHouse customized fee", () => {
                     baseToken.address, // baseToken
                     "6273079857818529", // exchangedPositionSize
                     parseEther("-0.95"), // costBasis
-                    parseEther("0.050000000000000001"), // fee = 1 * 0.05
+                    parseEther("0.05"), // fee = 1 * 0.05
                     parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
