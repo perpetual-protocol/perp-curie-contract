@@ -37,6 +37,26 @@ describe("UniswapV3Broker addLiquidity", () => {
         await quoteToken.addWhitelist(pool.address)
     })
 
+    it("cases (upper & lower) won't break the getPositionKey() computation", async () => {
+        const posKey = await uniswapV3Broker.getPositionKey(50000, 50400)
+        expect((await pool.positions(posKey)).liquidity.eq(0)).be.true
+        await pool.initialize(encodePriceSqrt(151.3733069, 1))
+
+        const base = parseEther("0.000808693720084599")
+        const quote = parseEther("0.122414646")
+
+        await uniswapV3Broker.addLiquidity({
+            pool: pool.address,
+            baseToken: baseToken.address,
+            quoteToken: quoteToken.address,
+            lowerTick: 50000, // 148.3760629
+            upperTick: 50400, // 154.4310961
+            base,
+            quote,
+        })
+        expect((await pool.positions(posKey)).liquidity.gt(0)).be.true
+    })
+
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=150902425
     it("mint range order includes current price", async () => {
         // the current price of token0 (base) = reserve1/reserve0 = 151.3733069/1

@@ -260,6 +260,11 @@ contract ClearingHouse is
         bool mintForTrader;
     }
 
+    struct TickStatus {
+        int24 lastUpdatedBlockTick;
+        uint256 lastUpdatedBlock;
+    }
+
     // 10 wei
     uint256 private constant _DUST = 10;
 
@@ -298,6 +303,13 @@ contract ClearingHouse is
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
     mapping(address => uint24) public clearingHouseFeeRatioMap;
+
+    // key: base token. a threshold to limit the price impact per block when reducing or closing the position
+    mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
+
+    // key: base token. tracking the final tick from last block
+    // will be used for comparing if it exceeds maxTickCrossedWithinBlock
+    mapping(address => TickStatus) private _tickStatusMap;
 
     constructor(
         address vaultArg,
@@ -342,6 +354,11 @@ contract ClearingHouse is
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
         clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
+    function setMaxTickCrossedWithinBlockMap(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+        _requireHasBaseToken(baseToken);
+        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     function mint(address token, uint256 amount) external nonReentrant() {
@@ -1314,7 +1331,25 @@ contract ClearingHouse is
         _feeGrowthGlobalX128Map[baseToken] = state.feeGrowthGlobalX128;
     }
 
+    // TODO refactor after merged (add tick to arg)
+    function _updateTickStatus(address baseToken) private {
+        // when it's the 1st swap in this block, update tickStatus
+        uint256 blockNumber = _blockNumber();
+        if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
+            return;
+        }
+
+        // if it's the 1st swap in this block, the current tick before swap = final tick last block
+        _tickStatusMap[baseToken] = TickStatus({
+            lastUpdatedBlock: blockNumber,
+            lastUpdatedBlockTick: UniswapV3Broker.getTick(_poolMap[baseToken])
+        });
+    }
+
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
+        // must before swap
+        _updateTickStatus(params.baseToken);
+
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
         address pool = _poolMap[params.baseToken];
 

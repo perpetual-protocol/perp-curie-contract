@@ -17,6 +17,7 @@ interface ClearingHouseFixture {
     baseToken2: VirtualToken
     mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
+    mockedArbSys: MockContract
 }
 
 interface UniswapV3BrokerFixture {
@@ -99,6 +100,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         await clearingHouse.setFeeRatio(baseToken.address, feeTier)
         await clearingHouse.setFeeRatio(baseToken2.address, feeTier)
 
+        const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
             vault,
@@ -112,6 +114,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             baseToken2,
             mockedBaseAggregator2,
             pool2,
+            mockedArbSys,
         }
     }
 }
@@ -155,6 +158,16 @@ export async function mockedTokenTo(longerThan: boolean, targetAddr: string): Pr
         mockedToken = await smockit(token)
     }
     return mockedToken
+}
+
+async function getMockedArbSys(): Promise<MockContract> {
+    const arbSysFactory = await ethers.getContractFactory("TestArbSys")
+    const arbSys = await arbSysFactory.deploy()
+    const mockedArbSys = await smockit(arbSys, { address: "0x0000000000000000000000000000000000000064" })
+    mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
+        return 0
+    })
+    return mockedArbSys
 }
 
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
