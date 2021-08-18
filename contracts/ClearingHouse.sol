@@ -1149,26 +1149,6 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _updateGlobalFundingGrowth(address baseToken, FundingGrowth memory updatedGlobalFundingGrowth) private {
-        FundingGrowth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
-
-        (
-            _lastSettledTimestampMap[baseToken],
-            outdatedGlobalFundingGrowth.twPremiumX96,
-            outdatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-        ) = (
-            _blockTimestamp(),
-            updatedGlobalFundingGrowth.twPremiumX96,
-            updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-        );
-
-        emit GlobalFundingGrowthUpdated(
-            baseToken,
-            updatedGlobalFundingGrowth.twPremiumX96,
-            updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-        );
-    }
-
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
         address trader = params.trader;
         address baseTokenAddr = params.baseToken;
@@ -1556,7 +1536,25 @@ contract ClearingHouse is
 
         // only update in the first tx of a block
         if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
-            _updateGlobalFundingGrowth(baseToken, updatedGlobalFundingGrowth);
+            FundingGrowth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
+            (
+                _lastSettledTimestampMap[baseToken],
+                outdatedGlobalFundingGrowth.twPremiumX96,
+                outdatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+            ) = (
+                _blockTimestamp(),
+                updatedGlobalFundingGrowth.twPremiumX96,
+                updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+            );
+
+            // TODO funding
+            // 1. revise if having two separate events are better than one combining the two
+            // 2. catch event emission in tests
+            emit GlobalFundingGrowthUpdated(
+                baseToken,
+                updatedGlobalFundingGrowth.twPremiumX96,
+                updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+            );
         }
     }
 
