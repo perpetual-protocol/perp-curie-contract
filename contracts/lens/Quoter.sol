@@ -103,16 +103,13 @@ contract Quoter is IUniswapV3SwapCallback {
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
                 exchangedPositionNotional = quote.toInt256();
             } else {
-                if (params.isExactInput) {
-                    fee = FullMath.mulDivRoundingUp(params.amount, clearingHouseFeeRatio, 1e6);
-                } else {
-                    // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-                    fee = FullMath.mulDivRoundingUp(
-                        quote,
-                        uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
-                        uint256(1e6) * (1e6 - clearingHouseFeeRatio)
-                    );
-                }
+                // check the doc of custom fee for more details,
+                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
+                fee = FullMath.mulDivRoundingUp(
+                    quote,
+                    uint256(1e6 - uniswapFeeRatio) * clearingHouseFeeRatio,
+                    uint256(1e6) * (1e6 - clearingHouseFeeRatio)
+                );
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
