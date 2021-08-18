@@ -1675,21 +1675,14 @@ contract ClearingHouse is
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
-
-        uint256 scaledAmount =
-            params.isBaseToQuote
-                ? params.isExactInput
-                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
-                    : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
-                : params.isExactInput
-                ? FeeMath.calcScaledAmount(
-                    FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, false),
-                    uniswapFeeRatio,
-                    true
-                )
-                : params.amount;
-
-        int256 signedScaledAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
+        int256 signedScaledAmount =
+            _getScaledAmount(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                clearingHouseFeeRatio,
+                uniswapFeeRatio
+            );
         SwapState memory state =
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
@@ -1703,6 +1696,41 @@ contract ClearingHouse is
             _replaySwap(state, params.baseToken, params.isBaseToQuote, clearingHouseFeeRatio, uniswapFeeRatio, false);
 
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+    }
+
+    function _getScaledAmount(
+        bool isBaseToQuote,
+        bool isExactInput,
+        uint256 amount,
+        uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio
+    ) private view returns (int256) {
+        // input or output amount for swap
+        // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
+        // 2. Q2B && exact out --> output base(params.base)
+        // 3. B2Q && exact in  --> input base / (1 - x)
+        // 4. B2Q && exact out --> output base / (1 - y)
+        uint256 scaledAmount =
+            isBaseToQuote
+                ? isExactInput
+                    ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
+                    : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
+                : isExactInput
+                ? FeeMath.calcScaledAmount(
+                    FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, false),
+                    uniswapFeeRatio,
+                    true
+                )
+                : amount;
+
+        // if Q2B, we use params.amount directly
+        // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
+        // we simulate the swap step in `_replaySwap`.
+        // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_replaySwap` won't be 0.03.
+        return
+            isBaseToQuote ? isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256() : isExactInput
+                ? amount.toInt256()
+                : -amount.toInt256();
     }
 
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
