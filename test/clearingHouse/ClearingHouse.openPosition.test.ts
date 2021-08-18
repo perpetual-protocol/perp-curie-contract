@@ -148,7 +148,7 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
-                        amount: parseEther("10000000"),
+                        amount: parseEther("100000"),
                         sqrtPriceLimitX96: 0,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
@@ -214,7 +214,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                 expect(quoteInfo.debt).be.deep.eq(parseEther("1"))
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore)
+                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.01")))
             })
 
             describe("exact output", () => {
@@ -251,7 +251,9 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
-                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore)
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+                        balanceBefore.add(parseEther("1.550587307011629547")),
+                    )
                 })
 
                 it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
@@ -273,7 +275,9 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
-                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.sub(parseEther("50")))
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+                        balanceBefore.sub(parseEther("50")).add(parseEther("1.550587307011629547")),
+                    )
                 })
 
                 it("mint more but burn all of them after swap because there's enough available", async () => {
@@ -324,7 +328,9 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteInfo.available.eq(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("2"))).to.be.true
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore.sub(parseEther("1")))
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(
+                    balanceBefore.sub(parseEther("1")).add(parseEther("0.02")),
+                )
             })
 
             it("does not mint anything if the vUSD is sufficient", async () => {
@@ -494,7 +500,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
             expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
 
-            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore.add(parseEther("0.01")))
         })
 
         it("reduce position", async () => {
