@@ -13,7 +13,6 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse.funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    const twapInterval = 15 * 90 // 5 minutes
     let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
@@ -41,8 +40,6 @@ describe("ClearingHouse.funding", () => {
 
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
-        // set twapInterval
-        await clearingHouse.setTwapInterval(twapInterval)
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -429,18 +426,18 @@ describe("ClearingHouse.funding", () => {
                     return [0, parseUnits("152.953124", 6), 0, 0, 0]
                 })
 
-                // bob's funding payment = -0.099 * (154.2458991654 - 152.953124) * 250 / 86400 = -0.0003703262193
+                // bob's funding payment = -0.099 * (154.2767498877 - 152.953124) * 250 / 86400 = -0.0003791636657
                 expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                    parseEther("-0.000370326219640269"),
+                    parseEther("-0.000379163666139115"),
                 )
-                // carol's funding payment = 0.09 * ((154.1996346489 - 156.953124) * 451 + (154.2458991654 - 152.953124) * 250) / 86400 = -0.0009569061521
+                // carol's funding payment = 0.09 * ((154.1996346489 - 156.953124) * 451 + (154.2767498877 - 152.953124) * 250) / 86400 = -0.0009488721098
                 expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
-                    parseEther("-0.000956906152069054"),
+                    parseEther("-0.000948872109805491"),
                 )
-                // alice's funding payment = -(sum of takers' funding payments) = 0.0009056179689 + -(-0.0003703262193 + 0.09 * (154.2458991654 - 152.953124) * 250 / 86400) = 0.0009392839889
+                // alice's funding payment = -(sum of takers' funding payments) = 0.0009056179689 + -(-0.0003791636657 + 0.09 * (154.2767498877 - 152.953124) * 250 / 86400) = 0.000940087393
                 // there is minor imprecision thx to hardhat and choose to ignore it in this case
                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                    parseEther("0.000938997167705205"),
+                    parseEther("0.000939800571940488"),
                 )
             })
         })
