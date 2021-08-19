@@ -332,6 +332,8 @@ contract ClearingHouse is
 
         // quoteToken is 0
         require(quoteTokenArg != address(0), "CH_QI0");
+        // CH_QDN18: quoteToken decimals is not 18
+        require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
 
         // uniV3Factory is 0
         require(uniV3FactoryArg != address(0), "CH_U10");
