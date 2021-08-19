@@ -123,7 +123,10 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("0.02"), 1)
-                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.02")))
+                expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                    balanceBefore.add(parseEther("0.02")),
+                    1,
+                )
             })
 
             it("long and exact out", async () => {
@@ -167,8 +170,9 @@ describe("ClearingHouse customized fee", () => {
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("3.132819252941863777"), 1)
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+                expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
                     balanceBefore.add(parseEther("3.132819252941863777")),
+                    1,
                 )
             })
 
@@ -253,7 +257,7 @@ describe("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                expect(fee).to.be.closeTo(parseEther("0.02040816326530612"), 1)
+                expect(fee).to.be.closeTo(parseEther("0.020408163265306123"), 1)
 
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
             })
@@ -304,7 +308,10 @@ describe("ClearingHouse customized fee", () => {
 
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19416937961245645")
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore.add(parseEther("0.02")))
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.closeTo(
+                    balanceBefore.add(parseEther("0.02")),
+                    1,
+                )
             })
 
             it("increase position and exact out", async () => {
@@ -351,8 +358,9 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(feeAfterSwap.sub(feeBeforeSwap)).to.be.closeTo(parseEther("3.132819252941863777"), 1)
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.closeTo(
                     balanceBefore.add(parseEther("3.132819252941863777")),
+                    1,
                 )
             })
         })
@@ -403,7 +411,10 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.005"), 1)
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.005")))
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                balanceBefore.add(parseEther("0.005")),
+                1,
+            )
         })
 
         it("long and exact out", async () => {
@@ -447,8 +458,9 @@ describe("ClearingHouse customized fee", () => {
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.771397705498247865"), 1)
 
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
                 balanceBefore.add(parseEther("0.771397705498247865")),
+                1,
             )
         })
 
@@ -594,7 +606,10 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.05"), 1)
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.05")))
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                balanceBefore.add(parseEther("0.05")),
+                2,
+            )
         })
 
         it("change from 2% to 1%", async () => {
@@ -635,7 +650,10 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.03"), 1)
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.03")))
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                balanceBefore.add(parseEther("0.03")),
+                1,
+            )
         })
 
         it("change from 2% to 3% and then to 5%", async () => {
@@ -687,7 +705,73 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.1"), 1)
-            expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.1")))
+            expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                balanceBefore.add(parseEther("0.1")),
+                3,
+            )
+        })
+    })
+
+    describe("cross many ticks to make sure CH mint enough token to transfer to Uniswap pool", async () => {
+        beforeEach(async () => {
+            const takerCollateral = parseUnits("9000", collateralDecimals)
+            await collateral.mint(taker.address, takerCollateral)
+            await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
+            await deposit(taker, vault, 10000, collateral)
+
+            // set fee ratio to 2%
+            await clearingHouse.setFeeRatio(baseToken.address, 20000)
+        })
+
+        it("Q2B and exact in", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("8000"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+
+            const after = await quoteToken.balanceOf(clearingHouse.address)
+            expect(after.sub(balanceBefore).sub(fee)).gte(0)
+        })
+
+        it("Q2B and exact out", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: parseEther("30"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            const after = await quoteToken.balanceOf(clearingHouse.address)
+            expect(after.sub(balanceBefore).sub(fee)).gte(0)
         })
     })
 })
