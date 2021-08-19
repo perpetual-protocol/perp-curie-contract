@@ -30,8 +30,6 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
-import "hardhat/console.sol";
-
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
@@ -170,6 +168,7 @@ contract ClearingHouse is
         uint256 feeGrowthGlobalClearingHouseX128;
         uint256 feeGrowthInsideQuoteX128;
         uint256 liquidity;
+        FundingGrowth globalFundingGrowth;
     }
 
     /// @param liquidity collect fee when 0
@@ -463,7 +462,8 @@ contract ClearingHouse is
                     upperTick: params.upperTick,
                     feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
                     feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: response.liquidity.toUint256()
+                    liquidity: response.liquidity.toUint256(),
+                    globalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
 
@@ -488,6 +488,7 @@ contract ClearingHouse is
             _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         if (openOrder.liquidity == 0) {
             // it's a new order
             MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
@@ -495,9 +496,21 @@ contract ClearingHouse is
 
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
+
+            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+                tickMap.getAllFundingGrowth(
+                    openOrder.lowerTick,
+                    openOrder.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[params.baseToken]),
+                    params.globalFundingGrowth.twPremiumX96,
+                    params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+            openOrder.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
+            openOrder.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
+            openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
+                .twPremiumDivBySqrtPriceGrowthInsideX96;
         } else {
             int24 currentTick = UniswapV3Broker.getTick(params.pool);
-            mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
 
             feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
                 params.lowerTick,
@@ -1547,9 +1560,6 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
             );
 
-            // TODO funding
-            // 1. revise if having two separate events are better than one combining the two
-            // 2. catch event emission in tests
             emit GlobalFundingGrowthUpdated(
                 baseToken,
                 updatedGlobalFundingGrowth.twPremiumX96,
@@ -1571,7 +1581,7 @@ contract ClearingHouse is
         int256 liquidityCoefficientInFundingPayment;
         // update funding of liquidity
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            OpenOrder storage order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -1581,15 +1591,15 @@ contract ClearingHouse is
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
 
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+            );
+
+            // TODO funding review whether this section should be here or go upward -> should be a yes
             order.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
             order.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
-
-            liquidityCoefficientInFundingPayment = _getLiquidityCoefficientInFundingPayment(
-                order,
-                fundingGrowthRangeInfo
-            );
         }
 
         int256 availableAndDebtCoefficientInFundingPayment =
@@ -1635,9 +1645,8 @@ contract ClearingHouse is
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
 
-            liquidityCoefficientInFundingPayment = _getLiquidityCoefficientInFundingPayment(
-                order,
-                fundingGrowthRangeInfo
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
             );
         }
 
@@ -1786,9 +1795,6 @@ contract ClearingHouse is
         returns (FundingGrowth memory updatedGlobalFundingGrowth)
     {
         FundingGrowth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
-        // console.log("------------------------");
-        // console.log("outdatedGlobalFundingGrowth.twPremiumX96");
-        // console.logInt(outdatedGlobalFundingGrowth.twPremiumX96);
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
@@ -1799,15 +1805,6 @@ contract ClearingHouse is
                     .mul(_blockTimestamp().sub(lastSettledTimestamp).toInt256());
 
             updatedGlobalFundingGrowth.twPremiumX96 = outdatedGlobalFundingGrowth.twPremiumX96.add(twPremiumDeltaX96);
-
-            // console.log("updatedGlobalFundingGrowth.twPremiumX96");
-            // console.logInt(updatedGlobalFundingGrowth.twPremiumX96);
-            // console.log("_blockTimestamp()", _blockTimestamp());
-            // console.log("getMarkTwapX96(baseToken, twapInterval)", getMarkTwapX96(baseToken, twapInterval));
-            // console.log(
-            //     "_getIndexPrice(baseToken, twapInterval).formatX10_18ToX96()",
-            //     _getIndexPrice(baseToken, twapInterval).formatX10_18ToX96()
-            // );
 
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
@@ -1829,19 +1826,19 @@ contract ClearingHouse is
         OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) private pure returns (int256 liquidityCoefficientInFundingPayment) {
-        uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
+        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
-        int256 fundingBelowX96 =
-            // base amount below the range
-            UniswapV3Broker
-                .getAmount0ForLiquidity(
+        // base amount below the range
+        uint256 baseAmountBelow =
+            UniswapV3Broker.getAmount0ForLiquidity(
                 TickMath.getSqrtRatioAtTick(order.lowerTick),
-                sqrtPriceAtUpperTick,
-                order
-                    .liquidity
-            )
-                .toInt256()
-                .mul(fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96));
+                sqrtPriceX96AtUpperTick,
+                order.liquidity
+            );
+        int256 fundingBelowX96 =
+            baseAmountBelow.toInt256().mul(
+                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
+            );
 
         // funding inside the range =
         // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
@@ -1854,7 +1851,7 @@ contract ClearingHouse is
                     .sub(
                     // ΔtwPremiumGrowthInsideX96
                     (fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(_IQ96))
-                        .div(sqrtPriceAtUpperTick)
+                        .div(sqrtPriceX96AtUpperTick)
                 )
             );
 
@@ -1865,13 +1862,7 @@ contract ClearingHouse is
         TokenInfo memory tokenInfo,
         int256 twPremiumGrowthGlobalX96,
         int256 lastTwPremiumGrowthGlobalX96
-    ) private view returns (int256 availableAndDebtCoefficientInFundingPayment) {
-        // console.log("tokenInfo.available", tokenInfo.available);
-        // console.log("tokenInfo.debt", tokenInfo.debt);
-        // console.log("twPremiumGrowthGlobalX96");
-        // console.logInt(twPremiumGrowthGlobalX96);
-        // console.log("lastTwPremiumGrowthGlobalX96");
-        // console.logInt(lastTwPremiumGrowthGlobalX96);
+    ) private pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
         return
             tokenInfo
                 .available
