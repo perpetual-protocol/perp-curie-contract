@@ -19,7 +19,7 @@ describe("ClearingHouse Spec", () => {
         const _clearingHouseFixture = await loadFixture(mockedClearingHouseFixture)
         clearingHouse = _clearingHouseFixture.clearingHouse
         baseToken = _clearingHouseFixture.mockedBaseToken
-        quoteToken = _clearingHouseFixture.mockedVUSD
+        quoteToken = _clearingHouseFixture.mockedQuoteToken
         uniV3Factory = _clearingHouseFixture.mockedUniV3Factory
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
