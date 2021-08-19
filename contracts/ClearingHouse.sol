@@ -211,6 +211,15 @@ contract ClearingHouse is
         bool mintForTrader;
     }
 
+    struct InternalFeeUpdateParams {
+        SwapState state;
+        address baseToken;
+        bool isBaseToQuote;
+        uint160 sqrtPriceLimitX96;
+        uint24 clearingHouseFeeRatio;
+        uint24 uniswapFeeRatio;
+    }
+
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
@@ -1224,34 +1233,27 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _updateClearingHouseFee(
-        SwapState memory state,
-        address baseToken,
-        bool isBaseToQuote,
-        uint160 sqrtPriceLimitX96,
-        uint24 clearingHouseFeeRatio,
-        uint24 uniswapFeeRatio
-    ) private returns (uint256 fee) {
-        address pool = _poolMap[baseToken];
-        bool isExactInput = state.amountSpecifiedRemaining > 0;
+    function _updateClearingHouseFee(InternalFeeUpdateParams memory params) private returns (uint256 fee) {
+        address pool = _poolMap[params.baseToken];
+        bool isExactInput = params.state.amountSpecifiedRemaining > 0;
 
-        sqrtPriceLimitX96 = sqrtPriceLimitX96 == 0
-            ? (isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
-            : sqrtPriceLimitX96;
+        params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
+            ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+            : params.sqrtPriceLimitX96;
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
-        while (state.amountSpecifiedRemaining != 0 && state.sqrtPriceX96 != sqrtPriceLimitX96) {
+        while (params.state.amountSpecifiedRemaining != 0 && params.state.sqrtPriceX96 != params.sqrtPriceLimitX96) {
             SwapStep memory step;
-            step.initialSqrtPriceX96 = state.sqrtPriceX96;
+            step.initialSqrtPriceX96 = params.state.sqrtPriceX96;
 
             // find next tick
             // note the search is bounded in one word
             (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
                 pool,
-                state.tick,
+                params.state.tick,
                 UniswapV3Broker.getTickSpacing(pool),
-                isBaseToQuote
+                params.isBaseToQuote
             );
 
             // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
@@ -1267,61 +1269,69 @@ contract ClearingHouse is
 
             // find the next swap checkpoint
             // (either reached the next price of this step, or exhausted remaining amount specified)
-            (state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
-                state.sqrtPriceX96,
-                (isBaseToQuote ? step.nextSqrtPriceX96 < sqrtPriceLimitX96 : step.nextSqrtPriceX96 > sqrtPriceLimitX96)
-                    ? sqrtPriceLimitX96
+            (params.state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+                params.state.sqrtPriceX96,
+                (
+                    params.isBaseToQuote
+                        ? step.nextSqrtPriceX96 < params.sqrtPriceLimitX96
+                        : step.nextSqrtPriceX96 > params.sqrtPriceLimitX96
+                )
+                    ? params.sqrtPriceLimitX96
                     : step.nextSqrtPriceX96,
-                state.liquidity,
-                state.amountSpecifiedRemaining,
+                params.state.liquidity,
+                params.state.amountSpecifiedRemaining,
                 // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
                 //                   replay the swap in uniswap pool
                 // if quote to base: use clearing house fee for calculation because the fee is charged
                 //                   on quote token in clearing house
-                isBaseToQuote ? uniswapFeeRatio : clearingHouseFeeRatio
+                params.isBaseToQuote ? params.uniswapFeeRatio : params.clearingHouseFeeRatio
             );
+
             // user input 1 quote:
             // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
             // fee = 0.98989899 * 2% = 0.01979798
-
             if (isExactInput) {
-                state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+                params.state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
             } else {
-                state.amountSpecifiedRemaining += step.amountOut.toInt256();
+                params.state.amountSpecifiedRemaining += step.amountOut.toInt256();
             }
 
             // update CH's global fee growth if there is liquidity in this range
             // note CH only collects quote fee when swapping base -> quote
-            if (state.liquidity > 0) {
-                if (isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, clearingHouseFeeRatio, 1e6);
+            if (params.state.liquidity > 0) {
+                if (params.isBaseToQuote) {
+                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.clearingHouseFeeRatio, 1e6);
                 }
                 fee += step.feeAmount;
-                state.feeGrowthGlobalX128 += FullMath.mulDiv(step.feeAmount, FixedPoint128.Q128, state.liquidity);
+                params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
+                    step.feeAmount,
+                    FixedPoint128.Q128,
+                    params.state.liquidity
+                );
             }
 
-            if (state.sqrtPriceX96 == step.nextSqrtPriceX96) {
+            if (params.state.sqrtPriceX96 == step.nextSqrtPriceX96) {
                 // we have reached the tick's boundary
                 if (step.isNextTickInitialized) {
                     // update the tick if it has been initialized
-                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[baseToken];
+                    mapping(int24 => uint256) storage tickMap = _feeGrowthOutsideX128TickMap[params.baseToken];
                     // according to the above updating logic,
                     // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                    tickMap.cross(step.nextTick, state.feeGrowthGlobalX128);
+                    tickMap.cross(step.nextTick, params.state.feeGrowthGlobalX128);
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (isBaseToQuote) liquidityNet = -liquidityNet;
-                    state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
+                    params.state.liquidity = LiquidityMath.addDelta(params.state.liquidity, liquidityNet);
                 }
 
-                state.tick = isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (state.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                params.state.tick = params.isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (params.state.sqrtPriceX96 != step.initialSqrtPriceX96) {
                 // update state.tick corresponding to the current price if the price has changed in this step
-                state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+                params.state.tick = TickMath.getTickAtSqrtRatio(params.state.sqrtPriceX96);
             }
         }
         // update global states since swap state transitions are all done
-        _feeGrowthGlobalX128Map[baseToken] = state.feeGrowthGlobalX128;
+        _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
     }
 
     // TODO refactor after merged (add tick to arg)
@@ -1389,12 +1399,14 @@ contract ClearingHouse is
                 });
             // simulate the swap to calculate the fees charged in clearing house
             fee = _updateClearingHouseFee(
-                state,
-                params.baseToken,
-                params.isBaseToQuote,
-                params.sqrtPriceLimitX96,
-                clearingHouseFeeRatio,
-                uniswapFeeRatio
+                InternalFeeUpdateParams(
+                    state,
+                    params.baseToken,
+                    params.isBaseToQuote,
+                    params.sqrtPriceLimitX96,
+                    clearingHouseFeeRatio,
+                    uniswapFeeRatio
+                )
             );
             response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
