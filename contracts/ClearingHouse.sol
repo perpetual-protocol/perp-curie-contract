@@ -348,7 +348,8 @@ contract ClearingHouse is
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
-        // TODO enforce decimals = 18
+        // CH_BDN18: baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "CH_BDN18");
         // to ensure the base is always token0 and quote is always token1
         // CH_IB: invalid baseToken
         require(baseToken < quoteToken, "CH_IB");
