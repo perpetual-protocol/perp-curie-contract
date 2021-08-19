@@ -7,8 +7,9 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { forwardBlock } from "../shared/time"
 
-describe("ClearingHouse partial close in xyk pool", () => {
+describe.only("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -94,7 +95,12 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
             })
+
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+
+            // move to next block to simplify test case
+            // otherwise we need to bring another trader to move the price further away
+            await forwardBlock(mockedArbSys)
         })
 
         it("carol would be partially closed using closePosition", async () => {
@@ -121,10 +127,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("carol can reduce position, is not over price limit", async () => {
-            mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
-                return 2
-            })
-
             // carol longs 0.1 eth
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
@@ -149,6 +151,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 sqrtPriceLimitX96: 0,
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+
+            // liquidation can't happen in the same block becuase it's based on the index price
+            await forwardBlock(mockedArbSys)
         })
 
         it("taker should be partially liquidated", async () => {
