@@ -114,7 +114,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // Check uncollected fees by using static call
                 const response = await clearingHouse.connect(alice).callStatic.removeLiquidity(removeLiquidityParams)
-                expect(response.fee).to.be.eq("615133417572501")
+                expect(response.fee).to.be.eq("615133417572502")
                 expect(response.base).to.be.eq("0")
                 expect(response.quote).to.be.eq("0")
 
@@ -130,7 +130,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "0",
                         "0",
                         "0",
-                        "615133417572501",
+                        "615133417572502",
                     )
 
                 // no base fee
@@ -140,7 +140,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 ])
                 // 10000 - 0.122414646(added liquidity) + 0.000615133417572501(fee) = 9999.8782004874
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    parseEther("9999.878200487417572501"), // available
+                    parseEther("9999.878200487417572502"), // available
                     parseEther("10000"), // debt
                 ])
                 // note skipping Bob's/ taker's balance
@@ -148,7 +148,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // B2QFee: there is only quote fee
                 // 0.000615133417572502 * 2 ^ 128 = 2.093190553037369773206693664E+35
                 // =  209319055303736977320669366400000000
-                // ~= 209319055280823885560625816574200262
+                // ~= 209319055280824225842992700263677914
                 expect(
                     await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
                 ).to.deep.eq([
@@ -158,7 +158,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // add the decimal point to prevent overflow, according to the following 10^18 comparison
                     // 209319055280823885560625816574200262
                     //                  1000000000000000000
-                    parseEther("209319055280823885.560625816574200262"), // feeGrowthInsideClearingHouseLastX128
+                    parseEther("209319055280824225.842992700263677914"), // feeGrowthInsideClearingHouseLastX128
                 ])
 
                 // verify CH balance changes
@@ -357,7 +357,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                             "0",
                             "0",
                             "0",
-                            parseEther("0.002259647934931506"),
+                            parseEther("0.002259647934931507"),
                         )
 
                     // no base fee
@@ -368,7 +368,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
                     // 10000 + 0.002259647934931506 = 10000.002259647934931506
                     expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                        parseEther("10000.002259647934931506"), // available
+                        parseEther("10000.002259647934931507"), // available
                         parseEther("10000"), // debt
                     ])
 
@@ -380,9 +380,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         Number(lowerTick), // lowerTick
                         Number(upperTick), // upperTick
                         // add the decimal point to prevent overflow, according to the following 10^18 comparison
-                        // 768918347710800819655922429620238279
+                        // 768918347710801159938289352460269026
                         //                  1000000000000000000
-                        parseEther("768918347710800819.655922429620238279"), // feeGrowthInsideClearingHouseLastX128
+                        parseEther("768918347710801159.938289352460269026"), // feeGrowthInsideClearingHouseLastX128
                     ])
 
                     // verify CH balance changes
@@ -513,7 +513,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "0",
                         "0",
                         "0",
-                        parseEther("0.001688966920907493"),
+                        parseEther("0.001688966920907494"),
                     )
 
                 // B2QFee: expect 25% of 1% of quote in ClearingHouse = 0.001116454419 * 0.25 = 0.0002791136048
@@ -540,7 +540,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 ])
                 // 10000 + 0.00168896693 = 10000.0016889669
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    parseEther("10000.001688966920907493"), // available
+                    parseEther("10000.001688966920907494"), // available
                     parseEther("10000"), // debt
                 ])
 
@@ -555,15 +555,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     parseEther("10000"), // debt
                 ])
 
-                // feeGrowthInsideClearingHouseLastX128: (0.001116454419 / 4) * 2 ^ 128 = 9.497743806E34
-                // feeGrowthInsideUniswapLastX128: (0.001135501474999999 / 4) * 2 ^ 128 = 9.659778239E34
-                //  94977438110917025341579557909888383
-                //  96597782389344016525663130594604468
+                // feeGrowthInsideClearingHouseLastX128: (0.001116454419 / 4) * 2 ^ 128 + (0.001135501474999999 / 4) * 2 ^ 128 = 1.9157522e35
+                // 191575220500261126937834419214500538
                 //                  1000000000000000000
                 // add the decimal point to prevent overflow, according to the above 10^18 comparison
-                const feeGrowthInsideClearingHouseLastX128 = parseEther("94977438110917025.341579557909888383").add(
-                    parseEther("96597782389344016.525663130594604468"),
-                )
+                const feeGrowthInsideClearingHouseLastX128 = parseEther("191575220500261126.937834419214500538")
                 expect(
                     await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
                 ).to.deep.eq([
@@ -723,7 +719,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "0",
                         "0",
                         "0",
-                        parseEther("0.004448967489567408"),
+                        parseEther("0.004448967489567409"),
                     )
 
                 // carol remove 0 liquidity; should get fee
@@ -754,7 +750,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "0",
                         "0",
                         "0",
-                        parseEther("0.002460658034826346"),
+                        parseEther("0.002460658034826347"),
                     )
 
                 // alice stats:
@@ -768,7 +764,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   quote.available = 10000 + 0.00444896749 = 10000.00444896749
                 //   quote.debt = 10000
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    parseEther("10000.004448967489567408"), // available
+                    parseEther("10000.004448967489567409"), // available
                     parseEther("10000"), // debt
                 ])
 
@@ -783,7 +779,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   quote.available = 10000 + 0.002460658036 = 10000.002460658036
                 //   quote.debt = 10000
                 expect(await clearingHouse.getTokenInfo(carol.address, quoteToken.address)).to.deep.eq([
-                    parseEther("10000.002460658034826346"), // available
+                    parseEther("10000.002460658034826347"), // available
                     parseEther("10000"), // debt
                 ])
 
@@ -797,7 +793,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
-                    parseEther("1513905187670593422.371233202167056941"),
+                    parseEther("1513905187670593932.794783574578872579"),
                 ])
 
                 // when bob swap Q2B
@@ -810,7 +806,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
                     Number(middleTick), // upperTick
-                    parseEther("837318540278413362.255760211374487196"),
+                    parseEther("837318540278413532.396943670424856473"),
                 ])
 
                 // verify CH balance changes

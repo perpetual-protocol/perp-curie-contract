@@ -22,20 +22,17 @@ library FeeMath {
                 : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
     }
 
-    // calculate amount * (1-numeratorFee) / (1-denominatorFee)
+    // FIXME: have a better name
+    // calculate amount * (1-uniswapFeeRatio) / (1-clearingHouseFeeRatio)
     function magicFactor(
         uint256 amount,
-        uint24 numeratorFeeRatio,
-        uint24 denominatorFeeRatio,
-        bool roundUp
+        uint24 uniswapFeeRatio,
+        uint24 clearingHouseFeeRatio,
+        bool isScaledUp
     ) internal pure returns (uint256) {
         return
-            roundUp
-                ? FullMath.mulDivRoundingUp(
-                    amount,
-                    uint256(1e6 - numeratorFeeRatio),
-                    uint256(1e6) * (1e6 - denominatorFeeRatio)
-                )
-                : FullMath.mulDiv(amount, uint256(1e6 - numeratorFeeRatio), uint256(1e6) * (1e6 - denominatorFeeRatio));
+            isScaledUp
+                ? FullMath.mulDivRoundingUp(amount, uint256(1e6 - uniswapFeeRatio), 1e6 - clearingHouseFeeRatio)
+                : FullMath.mulDivRoundingUp(amount, uint256(1e6 - clearingHouseFeeRatio), 1e6 - uniswapFeeRatio);
     }
 }

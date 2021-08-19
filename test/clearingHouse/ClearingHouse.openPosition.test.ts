@@ -251,8 +251,9 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
-                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
                         balanceBefore.add(parseEther("1.550587307011629547")),
+                        1,
                     )
                 })
 
@@ -275,8 +276,9 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
-                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
                         balanceBefore.sub(parseEther("50")).add(parseEther("1.550587307011629547")),
+                        1,
                     )
                 })
 

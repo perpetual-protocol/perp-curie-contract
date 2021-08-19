@@ -108,8 +108,9 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 sqrtPriceLimitX96: 0,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("20"))
-            expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(
+            expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).closeTo(
                 parseEther("-252.525252525252525252"),
+                1,
             )
         })
 
@@ -166,8 +167,9 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             it("increase positionSize and openNotional", async () => {
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("40"))
 
-                expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(
-                    parseEther("-673.400673400673400668"),
+                expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).closeTo(
+                    parseEther("-673.400673400673400666"),
+                    2,
                 )
 
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq("0")
@@ -204,7 +206,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     amount: pos,
                     sqrtPriceLimitX96: 0,
                 })
-                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq(parseEther("-5.025252525252525255"))
+                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
+                    parseEther("-5.025252525252525255"),
+                    2,
+                )
             })
         })
 
@@ -265,7 +270,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     sqrtPriceLimitX96: 0,
                 })
                 // should be exact -4?
-                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq(parseEther("-4.020202020202020205"))
+                expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
+                    parseEther("-4.020202020202020203"),
+                    2,
+                )
             })
         })
 
