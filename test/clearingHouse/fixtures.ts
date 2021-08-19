@@ -174,7 +174,7 @@ async function getMockedArbSys(): Promise<MockContract> {
 }
 
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
-    const { token0, mockedAggregator0, token1, mockedAggregator1 } = await tokensFixture()
+    const { token1 } = await tokensFixture()
 
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -207,9 +207,4 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
 
     return { clearingHouse, mockedUniV3Factory, mockedVault, mockedQuoteToken, mockedUSDC, mockedBaseToken }
-}
-
-export async function deployERC20(): Promise<TestERC20> {
-    const tokenFactory = await ethers.getContractFactory("TestERC20")
-    return (await tokenFactory.deploy("Test", "Test")) as TestERC20
 }
