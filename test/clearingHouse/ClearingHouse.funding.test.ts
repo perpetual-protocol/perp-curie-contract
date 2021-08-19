@@ -47,6 +47,9 @@ describe("ClearingHouse.funding", () => {
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
+        // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+        // because the very first funding settlement on the market only records the timestamp and
+        // does not calculate or change anything else
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0"),
@@ -411,13 +414,19 @@ describe("ClearingHouse.funding", () => {
                 )
 
                 // bob swaps to trigger funding update
-                await clearingHouse.connect(bob).swap({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    amount: parseEther("0.0000000001"),
-                    sqrtPriceLimitX96: 0,
-                })
+                // -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 451) / 86400 = 0.000388235204
+                await expect(
+                    clearingHouse.connect(bob).swap({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        amount: parseEther("0.0000000001"),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                )
+                    .to.emit(clearingHouse, "FundingSettled")
+                    .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
+
                 // note that bob will settle his pending funding payment here
                 await forward(250)
 
