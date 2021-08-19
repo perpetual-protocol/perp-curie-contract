@@ -176,7 +176,7 @@ describe("ClearingHouse maker close position", () => {
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
         })
-        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).closeTo(parseEther("-7.069408740359897191"), 1)
+        expect(await clearingHouse.getOwedRealizedPnl(alice.address)).closeTo(parseEther("-7.069408740359897191"), 3)
     })
 
     it("bob short, maker close", async () => {

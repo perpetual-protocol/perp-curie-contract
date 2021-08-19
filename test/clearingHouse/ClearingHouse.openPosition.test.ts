@@ -239,7 +239,7 @@ describe("ClearingHouse openPosition", () => {
                             baseToken.address, // baseToken
                             parseEther("1"), // exchangedPositionSize
                             "-153508143394151325059", // costBasis
-                            "1550587307011629546", // fee
+                            "1550587307011629547", // fee
                             parseEther("0"), // fundingPayment
                             parseEther("0"), // badDebt
                         )

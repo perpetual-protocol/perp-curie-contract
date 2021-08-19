@@ -151,7 +151,7 @@ describe("ClearingHouse customized fee", () => {
                         baseToken.address, // baseToken
                         parseEther("1"), // exchangedPositionSize
                         "-153508143394151325059", // costBasis
-                        "3132819252941863776", // fee
+                        "3132819252941863777", // fee
                         parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
@@ -168,10 +168,10 @@ describe("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                expect(fee).to.be.closeTo(parseEther("3.132819252941863776"), 1)
+                expect(fee).to.be.closeTo(parseEther("3.132819252941863777"), 1)
 
                 expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-                    balanceBefore.add(parseEther("3.132819252941863776")),
+                    balanceBefore.add(parseEther("3.132819252941863777")),
                     1,
                 )
             })
@@ -257,7 +257,7 @@ describe("ClearingHouse customized fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).fee
-                expect(fee).to.be.closeTo(parseEther("0.02040816326530612"), 1)
+                expect(fee).to.be.closeTo(parseEther("0.020408163265306123"), 1)
 
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
             })
@@ -439,7 +439,7 @@ describe("ClearingHouse customized fee", () => {
                     baseToken.address, // baseToken
                     parseEther("1"), // exchangedPositionSize
                     "-153508143394151325059", // costBasis
-                    parseEther("0.771397705498247864"), // fee
+                    parseEther("0.771397705498247865"), // fee
                     parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )

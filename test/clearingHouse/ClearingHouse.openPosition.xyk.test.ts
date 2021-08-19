@@ -169,7 +169,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
 
                 expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).closeTo(
                     parseEther("-673.400673400673400666"),
-                    1,
+                    2,
                 )
 
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq("0")
@@ -208,7 +208,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 })
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
                     parseEther("-5.025252525252525255"),
-                    1,
+                    2,
                 )
             })
         })
@@ -272,7 +272,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 // should be exact -4?
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
                     parseEther("-4.020202020202020203"),
-                    1,
+                    2,
                 )
             })
         })
