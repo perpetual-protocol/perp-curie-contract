@@ -1409,12 +1409,10 @@ contract ClearingHouse is
             );
         }
 
-        // we need to scale up base or quote amount in some cases because
-        // 1. fee is charged by CH not uniswap pool
-        // 2. CH fee may be different from uniswap pool's fee
+        // because we charge fee in CH instead of uniswap pool,
+        // we need to scale up base or quote amount to get exact exchanged position size and notional
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
-        // due to base to quote fee always charge fee from quote, fee is always (uniswapFeeRatios)% of response.quote
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
             exchangedPositionSize = -(FeeMath.calcScaledAmount(response.base, uniswapFeeRatio, false).toInt256());

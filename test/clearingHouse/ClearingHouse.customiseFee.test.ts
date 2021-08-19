@@ -711,4 +711,67 @@ describe("ClearingHouse customized fee", () => {
             )
         })
     })
+
+    describe("cross many ticks to make sure CH mint enough token to transfer to Uniswap pool", async () => {
+        beforeEach(async () => {
+            const takerCollateral = parseUnits("9000", collateralDecimals)
+            await collateral.mint(taker.address, takerCollateral)
+            await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
+            await deposit(taker, vault, 10000, collateral)
+
+            // set fee ratio to 2%
+            await clearingHouse.setFeeRatio(baseToken.address, 20000)
+        })
+
+        it("Q2B and exact in", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("8000"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+
+            const after = await quoteToken.balanceOf(clearingHouse.address)
+            expect(after.sub(balanceBefore).sub(fee)).gte(0)
+        })
+
+        it("Q2B and exact out", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: parseEther("30"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            const after = await quoteToken.balanceOf(clearingHouse.address)
+            expect(after.sub(balanceBefore).sub(fee)).gte(0)
+        })
+    })
 })
