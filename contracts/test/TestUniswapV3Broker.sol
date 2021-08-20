@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
@@ -89,5 +90,9 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
         returns (UniswapV3Broker.SwapResponse memory response)
     {
         return UniswapV3Broker.swap(params);
+    }
+
+    function getPositionKey(int24 lowerTick, int24 upperTick) external view returns (bytes32) {
+        return PositionKey.compute(address(this), lowerTick, upperTick);
     }
 }

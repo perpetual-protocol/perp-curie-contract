@@ -151,7 +151,7 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
-                        amount: parseEther("10000000"),
+                        amount: parseEther("100000"),
                         sqrtPriceLimitX96: 0,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
@@ -173,7 +173,22 @@ describe("ClearingHouse openPosition", () => {
         })
 
         describe("long", () => {
+            it("verify base and quote amount in static call", async () => {
+                // taker swap 1 USD for 6539527905092835/10^18 ETH
+                const response = await clearingHouse.connect(taker).callStatic.openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                })
+                expect(response.deltaBase).to.be.eq("6539527905092835")
+                expect(response.deltaQuote).to.be.eq("1000000000000000000")
+            })
+
             it("increase ? position when exact input", async () => {
+                const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+
                 // taker swap 1 USD for ? ETH
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -200,6 +215,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseInfo.debt).be.deep.eq(parseEther("0"))
                 expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                 expect(quoteInfo.debt).be.deep.eq(parseEther("1"))
+
+                expect(await quoteToken.balanceOf(clearingHouse.address)).be.eq(balanceBefore.add(parseEther("0.01")))
             })
 
             describe("exact output", () => {
@@ -207,6 +224,7 @@ describe("ClearingHouse openPosition", () => {
                     // taker swap ? USD for 1 ETH -> quote to base -> fee is charged before swapping
                     //   exchanged notional = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
                     //   taker fee = 153.508143394 / 0.99 * 0.01 = 1.550587307
+                    const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                     await expect(
                         clearingHouse.connect(taker).openPosition({
@@ -233,10 +251,16 @@ describe("ClearingHouse openPosition", () => {
                     expect(baseInfo.debt).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
+
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                        balanceBefore.add(parseEther("1.550587307011629547")),
+                        1,
+                    )
                 })
 
                 it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
                     await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("50"))
+                    const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                     // taker swap ? USD for 1 ETH
                     await clearingHouse.connect(taker).openPosition({
@@ -252,31 +276,39 @@ describe("ClearingHouse openPosition", () => {
                     expect(baseInfo.debt).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.available).be.deep.eq(parseEther("0"))
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
+
+                    expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
+                        balanceBefore.sub(parseEther("50")).add(parseEther("1.550587307011629547")),
+                        1,
+                    )
                 })
 
-                // FIXME add this back after mint during swapCallback is implemented
-                it.skip("mint more but burn all of them after swap because there's enough available", async () => {
+                it("mint more but burn all of them after swap because there's enough available", async () => {
                     await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("200"))
 
                     // taker swap ? USD for 1 ETH
-                    await clearingHouse.connect(taker).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: false,
-                        isExactInput: false,
-                        amount: parseEther("1"),
-                        sqrtPriceLimitX96: 0,
-                    })
+                    await expect(
+                        clearingHouse.connect(taker).openPosition({
+                            baseToken: baseToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: false,
+                            amount: parseEther("1"),
+                            sqrtPriceLimitX96: 0,
+                        }),
+                    ).not.emit(clearingHouse, "Minted")
+
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
                     expect(baseInfo.available.eq(parseEther("1"))).to.be.true
                     expect(baseInfo.debt.eq(parseEther("0"))).to.be.true
-                    expect(quoteInfo.available.toString()).eq("44941269298837045394") // around 200 - 151 with slippage
+                    expect(quoteInfo.available.toString()).eq("0")
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
                 })
             })
 
             it("mint missing amount of vUSD for swapping", async () => {
                 await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("1"))
+                const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                 // taker swap 2 USD for ? ETH
                 // it will mint 1 more USD
@@ -298,6 +330,10 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseInfo.debt.eq(parseEther("0"))).to.be.true
                 expect(quoteInfo.available.eq(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("2"))).to.be.true
+
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(
+                    balanceBefore.sub(parseEther("1")).add(parseEther("0.02")),
+                )
             })
 
             it("does not mint anything if the vUSD is sufficient", async () => {
@@ -331,6 +367,8 @@ describe("ClearingHouse openPosition", () => {
                 //   taker exchangedNotional = 10884.6906588362 - 71.9062751863 * 10884.6906588362 / (71.9062751863 + 1) = 149.2970341856
                 //   taker fee = 149.2970341856 * 0.01 = 1.492970341856
 
+                const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
+
                 // taker swap 1 ETH for ? USD
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -357,9 +395,13 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseInfo.debt.eq(parseEther("1"))).to.be.true
                 expect(quoteInfo.available.gt(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("0"))).to.be.true
+
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
             })
+
             it("mint missing amount of vETH for swapping", async () => {
                 await clearingHouse.connect(taker).mint(baseToken.address, parseEther("1"))
+                const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
                 // taker swap 2 ETH for ? USD
                 // it will mint 1 more ETH
@@ -381,6 +423,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(baseInfo.debt.eq(parseEther("2"))).to.be.true
                 expect(quoteInfo.available.gt(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("0"))).to.be.true
+
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore.sub(parseEther("1")))
             })
 
             it("will not mint anything if vETH is sufficient", async () => {
@@ -426,17 +470,23 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("increase position", async () => {
+            const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
+
             const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
 
             // taker swap 1 USD for ? ETH again
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: parseEther("1"),
-                sqrtPriceLimitX96: 0,
-            })
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            )
+                .to.emit(clearingHouse, "Minted")
+                .withArgs(taker.address, quoteToken.address, parseEther("1"))
 
             // increase ? USD debt, increase 1 ETH available, the rest remains the same
             const baseInfoAfter = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -451,6 +501,8 @@ describe("ClearingHouse openPosition", () => {
             // pos size: 0.01961501593
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
             expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
+
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore.add(parseEther("0.01")))
         })
 
         it("reduce position", async () => {
@@ -460,13 +512,15 @@ describe("ClearingHouse openPosition", () => {
             // reduced base = 0.006538933220746360
             const reducedBase = baseInfoBefore.available.div(2)
             // taker reduce 50% ETH position for ? USD
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: reducedBase,
-                sqrtPriceLimitX96: 0,
-            })
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: reducedBase,
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).not.emit(clearingHouse, "Minted")
 
             // increase ? USD available, reduce 1 ETH available, the rest remains the same
             const baseInfoAfter = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -497,13 +551,15 @@ describe("ClearingHouse openPosition", () => {
             //   amount out would be:
             //     10886.6706588362 - 884.6906588359 ^ 2 / (71.8931973198 + 0.013077866441492721) = 1.98000000000026751159
             // taker gets 1.98000000000026751159 * 0.99 = 1.9602000000002648364741
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: posSize,
-                sqrtPriceLimitX96: 0,
-            })
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: posSize,
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).not.emit(clearingHouse, "Minted")
 
             // base debt and available will be 0
             {
@@ -593,6 +649,7 @@ describe("ClearingHouse openPosition", () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
+            const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
             // prepare collateral for carol
             const carolAmount = parseEther("1000")
@@ -609,6 +666,10 @@ describe("ClearingHouse openPosition", () => {
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // 0.0130787866
+            expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore)
+
             // virtual base liquidity = 71.8931973198 + 7.3526936796 = 79.2458909994
             // virtual quote liquidity = 10886.6706588362 - 1010.101010101 = 9876.5696487352
 
@@ -646,7 +707,26 @@ describe("ClearingHouse openPosition", () => {
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
-        it("open larger reverse position")
+        it("open larger reverse position", async () => {
+            // taker has 2 USD worth ETH long position
+            // then opens 10 USD worth ETH short position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: parseEther("10"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // position size = -0.05368894844
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
+
+            // openNotional = 8.0412624948
+            expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
+
+            // realizedPnl = -0.04126249485
+            expect(await clearingHouse.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
+        })
 
         // TODO: blocked by TWAP based _getDebtValue
         it.skip("force error, can't open another long if it's under collateral", async () => {
@@ -676,15 +756,44 @@ describe("ClearingHouse openPosition", () => {
                 }),
             ).to.be.revertedWith("CH_CNE")
         })
-
-        it("open larger reverse position")
     })
 
     describe("opening short first then", () => {
+        beforeEach(async () => {
+            await deposit(taker, vault, 1000, collateral)
+            // taker swap ? ETH for 2 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: parseEther("2"),
+                sqrtPriceLimitX96: 0,
+            })
+        })
         it("increase position")
         it("reduce position")
         it("close position")
-        it("open larger reverse position")
+
+        it("open larger reverse position", async () => {
+            // taker has 2 USD worth ETH short position
+            // then opens 10 USD worth ETH long position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                amount: parseEther("10"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
+
+            // because taker opens a larger reverse position, her position is closed and increase a new one
+            // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
+            const openNotional = await clearingHouse.getOpenNotional(taker.address, baseToken.address)
+            const realizedPnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+            expect(openNotional).to.eq("-7957914633138379981")
+            expect(openNotional).to.eq(parseEther("-8").sub(realizedPnl))
+        })
     })
 
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1258612497

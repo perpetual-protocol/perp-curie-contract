@@ -55,10 +55,21 @@ contract Quoter is IUniswapV3SwapCallback {
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");
 
-        // scale up base token before swap for quote only fee calculation
-        uint256 amount = params.isBaseToQuote ? FeeMath.calcScaledAmount(pool, params.amount, true) : params.amount;
+        // TODO: maybe can merge this two fee ratios into one
+        uint24 uniswapFeeRatio = ClearingHouse(clearingHouse).uniswapFeeRatioMap(pool);
+        uint24 clearingHouseFeeRatio = ClearingHouse(clearingHouse).clearingHouseFeeRatioMap(pool);
+
+        // scale up before swap to cover uniswap fee
+        uint256 scaledAmount =
+            params.isBaseToQuote
+                ? params.isExactInput
+                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
+                    : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
+                : params.isExactInput
+                ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
+                : params.amount;
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
-        int256 specifiedAmount = params.isExactInput ? amount.toInt256() : -amount.toInt256();
+        int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
 
         try
             IUniswapV3Pool(pool).swap(
@@ -76,22 +87,27 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
-            uint256 fee = FullMath.mulDivRoundingUp(quote, uniswapFeeRatio, 1e6);
+            uint256 fee = FullMath.mulDivRoundingUp(quote, clearingHouseFeeRatio, 1e6);
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
             if (params.isBaseToQuote) {
+                fee = FullMath.mulDivRoundingUp(quote, clearingHouseFeeRatio, 1e6);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(pool, base, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcScaledAmount(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
                 exchangedPositionNotional = quote.toInt256();
             } else {
+                // check the doc of custom fee for more details,
+                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
+                fee = FeeMath
+                    .magicFactor(quote * clearingHouseFeeRatio, uniswapFeeRatio, clearingHouseFeeRatio, true)
+                    .div(1e6);
+
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
-                // as fee is charged by Uniswap pool already, exchangedPositionNotional does not include fee
-                exchangedPositionNotional = -(quote.sub(fee).toInt256());
+                exchangedPositionNotional = -(FeeMath.calcScaledAmount(quote, uniswapFeeRatio, false).toInt256());
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase
@@ -100,7 +116,7 @@ contract Quoter is IUniswapV3SwapCallback {
                 exchangedPositionNotional.abs()
             );
 
-            // if the cache has been populated, ensure that the full output amount has been receive
+            // if it's exact output with a price limit, ensure that the full output amount has been receive
             if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
                 uint256 amountReceived =
                     params.isBaseToQuote ? response.deltaAvailableQuote : response.deltaAvailableBase;

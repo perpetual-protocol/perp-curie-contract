@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
@@ -10,14 +11,28 @@ library FeeMath {
 
     // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
     function calcScaledAmount(
-        address pool,
         uint256 amount,
+        uint24 feeRatio,
         bool isScaledUp
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         // when scaling up, round up to avoid imprecision; it's okay as long as we round down later
         return
             isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)))
-                : FullMath.mulDiv(amount, uint256(1e6).sub(UniswapV3Broker.getUniswapFeeRatio(pool)), 1e6);
+                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(feeRatio))
+                : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
+    }
+
+    // FIXME: have a better name
+    // calculate amount * (1-uniswapFeeRatio) / (1-clearingHouseFeeRatio)
+    function magicFactor(
+        uint256 amount,
+        uint24 uniswapFeeRatio,
+        uint24 clearingHouseFeeRatio,
+        bool isScaledUp
+    ) internal pure returns (uint256) {
+        return
+            isScaledUp
+                ? FullMath.mulDivRoundingUp(amount, uint256(1e6 - uniswapFeeRatio), 1e6 - clearingHouseFeeRatio)
+                : FullMath.mulDivRoundingUp(amount, uint256(1e6 - clearingHouseFeeRatio), 1e6 - uniswapFeeRatio);
     }
 }

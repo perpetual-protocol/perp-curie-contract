@@ -107,8 +107,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
                     50200, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -171,8 +170,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
                     50200, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -235,8 +233,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801018159"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -301,8 +298,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("61828103017711334685748"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -364,8 +360,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("81689571696303801018158"), // liquidity
                     50000, // lowerTick
                     50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -555,8 +550,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
                     50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96
@@ -619,8 +613,7 @@ describe("ClearingHouse", () => {
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
                     50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
-                    parseUnits("0", await quoteToken.decimals()), // feeGrowthInsideUniswapLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthInsideX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumGrowthBelowX96
                     parseUnits("0", await baseToken.decimals()), // lastTwPremiumDivBySqrtPriceGrowthInsideX96

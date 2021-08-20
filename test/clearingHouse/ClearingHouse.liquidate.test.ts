@@ -467,8 +467,8 @@ describe("ClearingHouse liquidate", () => {
             // console.log(
             //     `getTotalOpenOrderMarginRequirement=${formatEther(getTotalOpenOrderMarginRequirement.toString())}`,
             // )
-            // // accountValue = collateral + totalMarketPnl
-            // // totalMarketPnl = netQuoteBalance + totalPosValue
+            // accountValue = collateral + totalMarketPnl
+            // totalMarketPnl = netQuoteBalance + totalPosValue
             // const getTotalUnrealizedPnl = await clearingHouse.getTotalUnrealizedPnl(alice.address)
             // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool

@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
+import "../arbitrum/ArbSys.sol";
 
-// copied from https://developer.offchainlabs.com/docs/arbsys
-/**
- * @title Precompiled contract that exists in every Arbitrum chain at address(100),
- * 0x0000000000000000000000000000000000000064. Exposes a variety of system-level functionality.
- */
-interface ArbSys {
+contract TestArbSys is ArbSys {
+    constructor() {}
+
     /**
      * @notice Get internal version number identifying an ArbOS build
      * @return version number as int
      */
-    function arbOSVersion() external pure returns (uint256);
+    function arbOSVersion() external pure override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice Get Arbitrum block number (distinct from L1 block number; Arbitrum genesis block has block number 0)
      * @return block number as int
      */
-    function arbBlockNumber() external view returns (uint256);
+    function arbBlockNumber() external view override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice Send given amount of Eth to dest from sender.
@@ -25,7 +27,9 @@ interface ArbSys {
      * @param destination recipient address on L1
      * @return unique identifier for this L2-to-L1 transaction.
      */
-    function withdrawEth(address destination) external payable returns (uint256);
+    function withdrawEth(address destination) external payable override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice Send a transaction to L1
@@ -33,7 +37,9 @@ interface ArbSys {
      * @param calldataForL1 (optional) calldata for L1 contract call
      * @return a unique identifier for this L2-to-L1 transaction.
      */
-    function sendTxToL1(address destination, bytes calldata calldataForL1) external payable returns (uint256);
+    function sendTxToL1(address destination, bytes calldata calldataForL1) external payable override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice get the number of transactions issued by the given external account or the account sequence number
@@ -42,7 +48,9 @@ interface ArbSys {
      * @return the number of transactions issued by the given external account or the account sequence number
      *         of the given contract
      */
-    function getTransactionCount(address account) external view returns (uint256);
+    function getTransactionCount(address account) external view override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice get the value of target L2 storage slot
@@ -51,26 +59,15 @@ interface ArbSys {
      * @param index target index of storage slot
      * @return stotage value for the given account at the given index
      */
-    function getStorageAt(address account, uint256 index) external view returns (uint256);
+    function getStorageAt(address account, uint256 index) external view override returns (uint256) {
+        revert();
+    }
 
     /**
      * @notice check if current call is coming from l1
      * @return true if the caller of this was called directly from L1
      */
-    function isTopLevelCall() external view returns (bool);
-
-    event EthWithdrawal(address indexed destAddr, uint256 amount);
-
-    event L2ToL1Transaction(
-        address caller,
-        address indexed destination,
-        uint256 indexed uniqueId,
-        uint256 indexed batchNumber,
-        uint256 indexInBatch,
-        uint256 arbBlockNum,
-        uint256 ethBlockNum,
-        uint256 timestamp,
-        uint256 callvalue,
-        bytes data
-    );
+    function isTopLevelCall() external view override returns (bool) {
+        revert();
+    }
 }

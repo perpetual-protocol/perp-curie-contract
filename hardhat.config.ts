@@ -5,6 +5,7 @@ import "hardhat-contract-sizer"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
+import "hardhat-dependency-compiler"
 import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 import {
@@ -74,6 +75,9 @@ const config: HardhatUserConfig = {
         },
 
         // TODO add USDC for production
+    },
+    dependencyCompiler: {
+        paths: ["@uniswap/v3-core/contracts/UniswapV3Factory.sol", "@uniswap/v3-core/contracts/UniswapV3Pool.sol"],
     },
     external: {
         contracts: [
