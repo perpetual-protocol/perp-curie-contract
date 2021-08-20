@@ -168,7 +168,7 @@ async function getMockedArbSys(): Promise<MockContract> {
     const arbSys = await arbSysFactory.deploy()
     const mockedArbSys = await smockit(arbSys, { address: "0x0000000000000000000000000000000000000064" })
     mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
-        return 0
+        return 1
     })
     return mockedArbSys
 }
