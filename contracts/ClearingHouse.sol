@@ -297,6 +297,7 @@ contract ClearingHouse is
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
     address public vault;
+    address public insuranceFund;
     uint8 private immutable _settlementTokenDecimals;
 
     // key: base token, value: pool
@@ -324,6 +325,7 @@ contract ClearingHouse is
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
     mapping(address => uint24) private _clearingHouseFeeRatioMap;
+    mapping(address => uint24) private _insuranceFundFeeRatioMap;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
@@ -337,6 +339,7 @@ contract ClearingHouse is
 
     constructor(
         address vaultArg,
+        address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         uint256 fundingPeriodArg,
@@ -345,6 +348,8 @@ contract ClearingHouse is
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
+        // InsuranceFund is 0
+        require(insuranceFundArg != address(0), "CH_IFI0");
 
         // quoteToken is 0
         require(quoteTokenArg != address(0), "CH_QI0");
@@ -355,6 +360,7 @@ contract ClearingHouse is
         require(uniV3FactoryArg != address(0), "CH_U10");
 
         vault = vaultArg;
+        insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
