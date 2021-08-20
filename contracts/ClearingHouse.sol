@@ -1654,6 +1654,7 @@ contract ClearingHouse is
 
         _burnMax(params.trader, params.baseToken);
         _burnMax(params.trader, quoteToken);
+        _deregisterBaseToken(params.trader, params.baseToken);
 
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)

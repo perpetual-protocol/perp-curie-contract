@@ -196,6 +196,8 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedVUSD.address,
         mockedUniV3Factory.address,
         3600,
+        0,
+        0,
     )) as ClearingHouse
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
