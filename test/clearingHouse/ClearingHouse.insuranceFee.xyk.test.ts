@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { ClearingHouse, InsuranceFund, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -13,6 +13,7 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let vault: Vault
+    let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: VirtualToken
     let quoteToken: VirtualToken
@@ -26,6 +27,7 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
         vault = _clearingHouseFixture.vault
+        insuranceFund = _clearingHouseFixture.insuranceFund
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
@@ -38,6 +40,7 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
         })
         await pool.initialize(encodePriceSqrt("10", "1"))
         await clearingHouse.addPool(baseToken.address, "10000")
+        await clearingHouse.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -118,8 +121,9 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            // 250 * 1% * 90% = 2.25
-            expect(resp1.fee).eq(parseEther("2.25"))
+            // maker fee = swapped quote * ClearingHouseFeeRatio * (100% - InsuranceFundFeeRatio) * (maker's liquidity / total liquidity within the range)
+            // 250 * 1% * 60% * 90% = 1.35
+            expect(resp1.fee).eq(parseEther("1.35"))
 
             const resp2 = await clearingHouse.connect(maker2).callStatic.removeLiquidity({
                 baseToken: baseToken.address,
@@ -130,8 +134,12 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            // 250 * 1% * 10% ~= 0.25
-            expect(resp2.fee).eq(parseEther("0.249999999999999999"))
+            // 250 * 1% * 60% * 10% ~= 0.15
+            expect(resp2.fee).eq(parseEther("0.15"))
+
+            const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+            // 250 * 1% * 40% ~= 1
+            expect(owedRealizedPnl).eq(parseEther("1"))
         })
     })
 

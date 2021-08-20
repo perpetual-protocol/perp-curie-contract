@@ -15,6 +15,7 @@ import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared
 interface ClearingHouseFixture {
     clearingHouse: ClearingHouse
     vault: Vault
+    insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
     feeTier: number
@@ -118,6 +119,7 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         return {
             clearingHouse,
             vault,
+            insuranceFund,
             uniV3Factory,
             pool,
             feeTier,

@@ -631,6 +631,10 @@ contract ClearingHouse is
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
+    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
+        _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
+    }
+
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
         _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
