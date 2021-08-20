@@ -135,7 +135,7 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
             })
             // 250 * 1% * 60% * 10% ~= 0.15
-            expect(resp2.fee).eq(parseEther("0.15"))
+            expect(resp2.fee).eq(parseEther("0.149999999999999999"))
 
             const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
             // 250 * 1% * 40% ~= 1
@@ -174,8 +174,8 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            // 200 * 1% * 90% = 1.8
-            expect(resp1.fee).eq(parseEther("1.8"))
+            // 200 * 1% * 60% * 90% = 1.08
+            expect(resp1.fee).eq(parseEther("1.08"))
 
             const resp2 = await clearingHouse.connect(maker2).callStatic.removeLiquidity({
                 baseToken: baseToken.address,
@@ -186,8 +186,8 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            // 200 * 1% * 10% ~= 0.2
-            expect(resp2.fee).eq(parseEther("0.199999999999999999"))
+            // 200 * 1% * 60% * 10% ~= 0.12
+            expect(resp2.fee).eq(parseEther("0.119999999999999999"))
         })
     })
 })

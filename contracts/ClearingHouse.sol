@@ -1312,9 +1312,17 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _replaySwap(InternalFeeUpdateParams memory params) private returns (uint256 fee, int24 tick) {
+    function _replaySwap(InternalFeeUpdateParams memory params)
+        private
+        returns (
+            uint256 fee, // clearingHouse fee
+            uint256 insuranceFundFee, // fee * insuranceFundFeeRatio
+            int24 tick
+        )
+    {
         address pool = _poolMap[params.baseToken];
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
+        uint24 insuranceFundFeeRatio = _insuranceFundFeeRatioMap[params.baseToken];
 
         params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
             ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
@@ -1381,9 +1389,12 @@ contract ClearingHouse is
                 if (params.isBaseToQuote) {
                     step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.clearingHouseFeeRatio, 1e6);
                 }
+
                 fee += step.feeAmount;
+                insuranceFundFee += FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
+                uint256 makerFee = step.feeAmount.sub(insuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    step.feeAmount,
+                    makerFee,
                     FixedPoint128.Q128,
                     params.state.liquidity
                 );
@@ -1416,7 +1427,7 @@ contract ClearingHouse is
             _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
         }
 
-        return (fee, params.state.tick);
+        return (fee, insuranceFundFee, params.state.tick);
     }
 
     function _saveTickBeforeFirstSwapThisBlock(address baseToken) private {
@@ -1445,6 +1456,7 @@ contract ClearingHouse is
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
 
         uint256 fee;
+        // uint256 insuranceFundFee;
         {
             (uint256 scaledAmount, int256 signedScaledAmount) =
                 _getScaledAmount(
@@ -1463,7 +1475,7 @@ contract ClearingHouse is
                     liquidity: UniswapV3Broker.getLiquidity(pool)
                 });
             // simulate the swap to calculate the fees charged in clearing house
-            (fee, ) = _replaySwap(
+            (fee, , ) = _replaySwap(
                 InternalFeeUpdateParams({
                     state: state,
                     baseToken: params.baseToken,
@@ -1701,7 +1713,7 @@ contract ClearingHouse is
                 liquidity: UniswapV3Broker.getLiquidity(pool)
             });
 
-        (, int24 tickAfterSwap) =
+        (, , int24 tickAfterSwap) =
             _replaySwap(
                 InternalFeeUpdateParams({
                     state: state,
