@@ -37,6 +37,9 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
         })
 
         await pool.initialize(encodePriceSqrt("100", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
 

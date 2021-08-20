@@ -36,7 +36,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
+
         await pool.initialize(encodePriceSqrt("10", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()

@@ -43,7 +43,11 @@ describe("ClearingHouse maker close position", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
+
         await pool.initialize(encodePriceSqrt("10", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
@@ -226,6 +230,9 @@ describe("ClearingHouse maker close position", () => {
                 return [0, parseUnits("10", 6), 0, 0, 0]
             })
             await pool2.initialize(encodePriceSqrt("10", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             await clearingHouse.addPool(baseToken2.address, "10000")
 
             // alice add liquidity to BTC
