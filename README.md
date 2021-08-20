@@ -12,10 +12,10 @@ TODO
 export ARBITRUM_RINKEBY_WEB3_ENDPOINT="YOUR_RPC_ENDPOINT"
 export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="YOUR_MNEMONIC"
 
-npm run deploy-staging
+npm run clean-deploy:staging
 
 # only run the specific deployment script
-npm run deploy-staging -- --tags Pool-vETHvUSD
+npm run deploy:staging -- --tags Pool-vETHvUSD
 ```
 
 2. Update CHANGELOG.md
