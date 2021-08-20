@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse insurance fee in xyk pool", () => {
+describe("ClearingHouse insurance fee in xyk pool", () => {
     const [admin, maker1, maker2, taker1, taker2, insurance] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -188,6 +188,10 @@ describe.only("ClearingHouse insurance fee in xyk pool", () => {
             })
             // 200 * 1% * 60% * 10% ~= 0.12
             expect(resp2.fee).eq(parseEther("0.119999999999999999"))
+
+            const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+            // 200 * 1% * 40% ~= 0.8
+            expect(owedRealizedPnl).eq(parseEther("0.8"))
         })
     })
 })

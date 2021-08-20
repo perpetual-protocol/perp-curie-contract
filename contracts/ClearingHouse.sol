@@ -285,6 +285,14 @@ contract ClearingHouse is
         uint256 lastUpdatedBlock;
     }
 
+    struct InternalSwapState {
+        address pool;
+        uint24 clearingHouseFeeRatio;
+        uint24 uniswapFeeRatio;
+        uint256 fee;
+        uint256 insuranceFundFee;
+    }
+
     // 10 wei
     uint256 private constant _DUST = 10;
 
@@ -1451,50 +1459,54 @@ contract ClearingHouse is
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
 
         UniswapV3Broker.SwapResponse memory response;
-        address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
-        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
-
-        uint256 fee;
-        uint256 insuranceFundFee;
+        InternalSwapState memory internalSwapState =
+            InternalSwapState({
+                pool: _poolMap[params.baseToken],
+                clearingHouseFeeRatio: _clearingHouseFeeRatioMap[_poolMap[params.baseToken]],
+                uniswapFeeRatio: uniswapFeeRatioMap[_poolMap[params.baseToken]],
+                fee: 0,
+                insuranceFundFee: 0
+            });
         {
             (uint256 scaledAmount, int256 signedScaledAmount) =
                 _getScaledAmount(
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
-                    clearingHouseFeeRatio,
-                    uniswapFeeRatio
+                    internalSwapState.clearingHouseFeeRatio,
+                    internalSwapState.uniswapFeeRatio
                 );
             SwapState memory state =
                 SwapState({
-                    tick: UniswapV3Broker.getTick(pool),
-                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                    tick: UniswapV3Broker.getTick(internalSwapState.pool),
+                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(internalSwapState.pool),
                     amountSpecifiedRemaining: signedScaledAmount,
                     feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: UniswapV3Broker.getLiquidity(pool)
+                    liquidity: UniswapV3Broker.getLiquidity(internalSwapState.pool)
                 });
             // simulate the swap to calculate the fees charged in clearing house
-            (fee, insuranceFundFee, ) = _replaySwap(
+            (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
                 InternalFeeUpdateParams({
                     state: state,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio: clearingHouseFeeRatio,
-                    uniswapFeeRatio: uniswapFeeRatio
+                    clearingHouseFeeRatio: internalSwapState.clearingHouseFeeRatio,
+                    uniswapFeeRatio: internalSwapState.uniswapFeeRatio
                 })
             );
             response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
-                    pool,
+                    internalSwapState.pool,
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap
                     scaledAmount,
                     params.sqrtPriceLimitX96,
-                    abi.encode(SwapCallbackData(params.trader, params.baseToken, params.mintForTrader, fee))
+                    abi.encode(
+                        SwapCallbackData(params.trader, params.baseToken, params.mintForTrader, internalSwapState.fee)
+                    )
                 )
             );
         }
@@ -1505,14 +1517,18 @@ contract ClearingHouse is
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(FeeMath.calcScaledAmount(response.base, uniswapFeeRatio, false).toInt256());
+            exchangedPositionSize = -(
+                FeeMath.calcScaledAmount(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
+            );
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
             exchangedPositionNotional = response.quote.toInt256();
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = -(FeeMath.calcScaledAmount(response.quote, uniswapFeeRatio, false).toInt256());
+            exchangedPositionNotional = -(
+                FeeMath.calcScaledAmount(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
+            );
         }
 
         {
@@ -1527,10 +1543,10 @@ contract ClearingHouse is
                 .toInt256()
                 .add(exchangedPositionNotional)
                 .toUint256()
-                .sub(fee);
+                .sub(internalSwapState.fee);
 
             _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
-                insuranceFundFee.toInt256()
+                internalSwapState.insuranceFundFee.toInt256()
             );
         }
 
@@ -1539,7 +1555,7 @@ contract ClearingHouse is
             params.baseToken,
             exchangedPositionSize,
             exchangedPositionNotional,
-            fee,
+            internalSwapState.fee,
             fundingPayment,
             0 // TODO: badDebt
         );
@@ -1547,7 +1563,7 @@ contract ClearingHouse is
         return
             SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase
-                exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
+                exchangedPositionNotional.sub(internalSwapState.fee.toInt256()).abs(), // deltaAvailableQuote
                 exchangedPositionSize.abs(),
                 exchangedPositionNotional.abs()
             );
