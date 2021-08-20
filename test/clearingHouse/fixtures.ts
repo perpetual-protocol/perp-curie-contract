@@ -63,6 +63,8 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             quoteToken.address,
             uniV3Factory.address,
             3600, // fundingPeriod = 1 hour
+            0,
+            0,
         )) as ClearingHouse
 
         await quoteToken.addWhitelist(clearingHouse.address)

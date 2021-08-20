@@ -16,8 +16,10 @@ describe("ClearingHouse", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
+    let baseToken2: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let pool2: UniswapV3Pool
     let collateralDecimals: number
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
@@ -28,8 +30,10 @@ describe("ClearingHouse", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
+        baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
@@ -49,8 +53,10 @@ describe("ClearingHouse", () => {
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 // add pool after it's initialized
                 await clearingHouse.addPool(baseToken.address, 10000)
+                await clearingHouse.addPool(baseToken2.address, 10000)
 
                 // mint
                 await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
@@ -470,6 +476,72 @@ describe("ClearingHouse", () => {
             it("force error, non-registered pool calls mint callback", async () => {
                 const encodedData = defaultAbiCoder.encode(["address"], [baseToken.address])
                 await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_FMV")
+            })
+
+            it("force error, orders number exceeded", async () => {
+                await clearingHouse.setMaxOrdersPerMarket("1")
+                await clearingHouse.connect(alice).mint(baseToken2.address, baseAmount)
+
+                // alice's first order
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("15", await baseToken.decimals()),
+                    quote: parseUnits("2500", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                // alice's second order, reverted
+                await expect(
+                    clearingHouse.connect(alice).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: parseUnits("15", await baseToken.decimals()),
+                        quote: parseUnits("2500", await quoteToken.decimals()),
+                        lowerTick: 49800,
+                        upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_ONE")
+
+                // should be fine to add a order in market2,
+                await expect(
+                    clearingHouse.connect(alice).addLiquidity({
+                        baseToken: baseToken2.address,
+                        base: parseUnits("15", await baseToken.decimals()),
+                        quote: parseUnits("2500", await quoteToken.decimals()),
+                        lowerTick: 50000,
+                        upperTick: 50400,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.emit(clearingHouse, "LiquidityChanged")
+            })
+
+            it("force error, markets number exceeded", async () => {
+                await clearingHouse.setMaxMarketsPerAccount("1")
+
+                // alice's order in market1
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("15", await baseToken.decimals()),
+                    quote: parseUnits("2500", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                // alice mint in market2 (reverted)
+                await expect(clearingHouse.connect(alice).mint(baseToken2.address, baseAmount)).to.be.revertedWith(
+                    "CH_MNE",
+                )
             })
         })
 

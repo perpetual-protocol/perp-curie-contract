@@ -14,8 +14,10 @@ describe("ClearingHouse openPosition", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
+    let baseToken2: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
@@ -27,9 +29,11 @@ describe("ClearingHouse openPosition", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
+        baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -37,8 +41,10 @@ describe("ClearingHouse openPosition", () => {
         })
 
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
+        await clearingHouse.addPool(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -802,5 +808,31 @@ describe("ClearingHouse openPosition", () => {
     describe("maker has order within price range", () => {
         it("will not affect her range order")
         it("force error if she is going to liquidate herself")
+    })
+
+    describe("markets number exceeded", () => {
+        it("force error, markets number exceeded", async () => {
+            await clearingHouse.setMaxMarketsPerAccount("1")
+
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.emit(clearingHouse, "Swapped")
+
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.be.revertedWith("CH_MNE")
+        })
     })
 })

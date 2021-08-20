@@ -311,11 +311,16 @@ contract ClearingHouse is
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
 
+    uint8 public maxOrdersPerMarket;
+    uint8 public maxMarketsPerAccount;
+
     constructor(
         address vaultArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint256 fundingPeriodArg
+        uint256 fundingPeriodArg,
+        uint8 maxOrdersPerMarketArg,
+        uint8 maxMarketsPerAccountArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -330,6 +335,8 @@ contract ClearingHouse is
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         fundingPeriod = fundingPeriodArg;
+        maxOrdersPerMarket = maxOrdersPerMarketArg;
+        maxMarketsPerAccount = maxMarketsPerAccountArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -549,6 +556,14 @@ contract ClearingHouse is
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
         clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+    }
+
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
+        maxOrdersPerMarket = maxOrdersPerMarketArg;
+    }
+
+    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
+        maxMarketsPerAccount = maxMarketsPerAccountArg;
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
@@ -1040,6 +1055,8 @@ contract ClearingHouse is
         if (openOrder.liquidity == 0) {
             // it's a new order
             MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            // CH_ONE: orders number exceeded
+            require(maxOrdersPerMarket == 0 || makerPosition.orderIds.length < maxOrdersPerMarket, "CH_ONE");
             makerPosition.orderIds.push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
@@ -1110,6 +1127,8 @@ contract ClearingHouse is
                 }
             }
             if (!hit) {
+                // CH_MNE: markets number exceeded
+                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
                 _accountMap[trader].tokens.push(token);
             }
         }
