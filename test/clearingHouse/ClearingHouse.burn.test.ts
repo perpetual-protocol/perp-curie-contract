@@ -73,6 +73,9 @@ describe("ClearingHouse.burn", () => {
         it("# can not burn more than debt, even there's enough available", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -166,6 +169,9 @@ describe("ClearingHouse.burn", () => {
         it("# burn quote 10 when debt = 10, available < 10", async () => {
             // P(50400) = 1.0001^50400 ~= 151.4310961
             await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -246,6 +252,9 @@ describe("ClearingHouse.burn", () => {
         beforeEach(async () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt("148.3760629", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 

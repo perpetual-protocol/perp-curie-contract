@@ -56,11 +56,17 @@ describe("ClearingHouse liquidate", () => {
 
         // initialize ETH pool
         await pool.initialize(encodePriceSqrt("151.3733069", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
 
         // initialize BTC pool
         await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken2.address, 10000)
 

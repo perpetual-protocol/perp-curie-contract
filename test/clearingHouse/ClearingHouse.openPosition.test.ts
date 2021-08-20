@@ -37,6 +37,9 @@ describe("ClearingHouse openPosition", () => {
         })
 
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
 

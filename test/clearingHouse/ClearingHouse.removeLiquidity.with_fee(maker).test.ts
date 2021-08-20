@@ -55,6 +55,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         describe("one maker; current price is in maker's range", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
                 await pool.initialize(encodePriceSqrt(151.3733069, 1))
+                // the initial number of oracle can be recorded is 1; thus, have to expand it
+                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                 // add pool after it's initialized
                 await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -172,6 +175,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             describe("initialized price = 148.3760629", () => {
                 beforeEach(async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                    // the initial number of oracle can be recorded is 1; thus, have to expand it
+                    await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                     // add pool after it's initialized
                     await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -412,6 +418,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         describe("multi makers", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                // the initial number of oracle can be recorded is 1; thus, have to expand it
+                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                 // add pool after it's initialized
                 await clearingHouse.addPool(baseToken.address, 10000)
 
