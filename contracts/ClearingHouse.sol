@@ -1323,8 +1323,8 @@ contract ClearingHouse is
     function _replaySwap(InternalFeeUpdateParams memory params)
         private
         returns (
-            uint256 fee, // clearingHouse fee
-            uint256 insuranceFundFee, // fee * insuranceFundFeeRatio
+            uint256 fee, // clearingHouseFee
+            uint256 insuranceFundFee, // insuranceFundFee = clearingHouseFee * insuranceFundFeeRatio
             int24 tick
         )
     {
@@ -1399,10 +1399,11 @@ contract ClearingHouse is
                 }
 
                 fee += step.feeAmount;
-                insuranceFundFee += FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
-                uint256 makerFee = step.feeAmount.sub(insuranceFundFee);
+                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
+                insuranceFundFee += stepInsuranceFundFee;
+                uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    makerFee,
+                    stepMakerFee,
                     FixedPoint128.Q128,
                     params.state.liquidity
                 );
@@ -1459,6 +1460,7 @@ contract ClearingHouse is
         int256 fundingPayment = _settleFunding(params.trader, params.baseToken);
 
         UniswapV3Broker.SwapResponse memory response;
+        // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
         InternalSwapState memory internalSwapState =
             InternalSwapState({
                 pool: _poolMap[params.baseToken],
