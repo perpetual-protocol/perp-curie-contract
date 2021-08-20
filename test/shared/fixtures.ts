@@ -103,18 +103,3 @@ export async function base0Quote1PoolFixture(): Promise<PoolFixture> {
 
     return { factory, pool, baseToken: token0, quoteToken: token1 }
 }
-
-// for cases of reverse tokens order
-export async function base1Quote0PoolFixture(): Promise<PoolFixture> {
-    const { token0, token1 } = await tokensFixture()
-    const factory = await uniswapV3FactoryFixture()
-
-    const tx = await factory.createPool(token0.address, token1.address, "10000")
-    const receipt = await tx.wait()
-    const poolAddress = receipt.events?.[0].args?.pool as string
-
-    const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-    const pool = poolFactory.attach(poolAddress) as UniswapV3Pool
-
-    return { factory, pool, baseToken: token1, quoteToken: token0 }
-}
