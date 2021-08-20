@@ -836,11 +836,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:
                 //   feeGrowthInsideClearingHouseLastX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
-                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
                 expect(openOrder).to.deep.eq([
                     liquidityCarol,
-                    0, // lowerTick
-                    0, // upperTick
+                    Number(lowerTick), // lowerTick
+                    Number(middleTick), // upperTick
                     parseEther("837318540278413532.396943670424856473"),
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
