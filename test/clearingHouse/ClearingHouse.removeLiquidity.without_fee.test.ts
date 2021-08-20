@@ -123,8 +123,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
             expect(openOrder).to.deep.eq([
                 BigNumber.from(0), // liquidity
-                50200, // lowerTick
-                50400, // upperTick
+                0, // lowerTick
+                0, // upperTick
                 parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                 openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
@@ -223,8 +223,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
-                    50000, // lowerTick
-                    50200, // upperTick
+                    0, // lowerTick
+                    0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
@@ -293,8 +293,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
-                    50000, // lowerTick
-                    50400, // upperTick
+                    0, // lowerTick
+                    0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
@@ -361,8 +361,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
-                    50000, // lowerTick
-                    50400, // upperTick
+                    0, // lowerTick
+                    0, // upperTick
                     parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here

@@ -839,8 +839,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityCarol,
-                    Number(lowerTick), // lowerTick
-                    Number(upperTick), // upperTick
+                    0, // lowerTick
+                    0, // upperTick
                     parseEther("837318540278413532.396943670424856473"),
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
