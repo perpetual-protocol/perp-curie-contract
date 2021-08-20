@@ -1456,7 +1456,7 @@ contract ClearingHouse is
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
 
         uint256 fee;
-        // uint256 insuranceFundFee;
+        uint256 insuranceFundFee;
         {
             (uint256 scaledAmount, int256 signedScaledAmount) =
                 _getScaledAmount(
@@ -1475,7 +1475,7 @@ contract ClearingHouse is
                     liquidity: UniswapV3Broker.getLiquidity(pool)
                 });
             // simulate the swap to calculate the fees charged in clearing house
-            (fee, , ) = _replaySwap(
+            (fee, insuranceFundFee, ) = _replaySwap(
                 InternalFeeUpdateParams({
                     state: state,
                     baseToken: params.baseToken,
@@ -1528,6 +1528,10 @@ contract ClearingHouse is
                 .add(exchangedPositionNotional)
                 .toUint256()
                 .sub(fee);
+
+            _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
+                insuranceFundFee.toInt256()
+            );
         }
 
         emit Swapped(
