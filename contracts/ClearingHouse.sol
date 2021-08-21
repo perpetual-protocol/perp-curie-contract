@@ -424,14 +424,14 @@ contract ClearingHouse is
     /**
      * @param amount the amount of debt to burn
      */
-    function burn(address token, uint256 amount) public nonReentrant() {
+    function burn(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
         }
         _burn(_msgSender(), token, amount);
     }
 
-    function swap(SwapParams memory params) public nonReentrant() returns (SwapResponse memory) {
+    function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
@@ -939,7 +939,7 @@ contract ClearingHouse is
     }
 
     /// @return fundingPayment; > 0 is payment and < 0 is receipt
-    function getAllPendingFundingPayment(address trader) public view returns (int256) {
+    function getAllPendingFundingPayment(address trader) external view returns (int256) {
         return _getAllPendingFundingPayment(trader);
     }
 
