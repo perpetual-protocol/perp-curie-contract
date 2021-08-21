@@ -13,7 +13,7 @@ import { VirtualToken } from "../../typechain/VirtualToken"
 import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
-    clearingHouse: TestClearingHouse
+    clearingHouse: TestClearingHouse | ClearingHouse
     vault: Vault
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
@@ -37,7 +37,10 @@ export enum BaseQuoteOrdering {
     BASE_1_QUOTE_0,
 }
 
-export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering): () => Promise<ClearingHouseFixture> {
+export function createClearingHouseFixture(
+    baseQuoteOrdering: BaseQuoteOrdering,
+    canMockTime: boolean = true,
+): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -65,12 +68,22 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const vault = (await vaultFactory.deploy(USDC.address)) as Vault
 
         // deploy clearingHouse
-        const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
-        const clearingHouse = (await clearingHouseFactory.deploy(
-            vault.address,
-            quoteToken.address,
-            uniV3Factory.address,
-        )) as TestClearingHouse
+        let clearingHouse: ClearingHouse | TestClearingHouse
+        if (canMockTime) {
+            const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
+            clearingHouse = (await clearingHouseFactory.deploy(
+                vault.address,
+                quoteToken.address,
+                uniV3Factory.address,
+            )) as TestClearingHouse
+        } else {
+            const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+            clearingHouse = (await clearingHouseFactory.deploy(
+                vault.address,
+                quoteToken.address,
+                uniV3Factory.address,
+            )) as ClearingHouse
+        }
 
         await quoteToken.addWhitelist(clearingHouse.address)
 
