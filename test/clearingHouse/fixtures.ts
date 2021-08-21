@@ -63,6 +63,8 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
             quoteToken.address,
             uniV3Factory.address,
             3600, // fundingPeriod = 1 hour
+            0,
+            0,
         )) as ClearingHouse
 
         await quoteToken.addWhitelist(clearingHouse.address)
@@ -201,6 +203,8 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
         3600,
+        0,
+        0,
     )) as ClearingHouse
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1

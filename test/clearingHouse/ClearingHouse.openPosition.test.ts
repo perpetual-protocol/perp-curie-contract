@@ -14,8 +14,10 @@ describe("ClearingHouse openPosition", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
+    let baseToken2: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
@@ -27,9 +29,11 @@ describe("ClearingHouse openPosition", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
+        baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -37,8 +41,10 @@ describe("ClearingHouse openPosition", () => {
         })
 
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
+        await clearingHouse.addPool(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -159,14 +165,6 @@ describe("ClearingHouse openPosition", () => {
     describe("taker open position from zero", async () => {
         beforeEach(async () => {
             await deposit(taker, vault, 1000, collateral)
-
-            // expect all available and debt are zero
-            const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-            expect(baseInfo.available.eq(0)).to.be.true
-            expect(baseInfo.debt.eq(0)).to.be.true
-            expect(quoteInfo.available.eq(0)).to.be.true
-            expect(quoteInfo.debt.eq(0)).to.be.true
         })
 
         describe("long", () => {
@@ -804,5 +802,75 @@ describe("ClearingHouse openPosition", () => {
     describe("maker has order within price range", () => {
         it("will not affect her range order")
         it("force error if she is going to liquidate herself")
+    })
+
+    describe("markets number exceeded", () => {
+        beforeEach(async () => {
+            await clearingHouse.connect(maker).mint(baseToken2.address, parseEther("65.943787")) // should only mint exact amount
+            await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
+            await clearingHouse.connect(maker).addLiquidity({
+                baseToken: baseToken2.address,
+                base: parseEther("65.943787"),
+                quote: parseEther("10000"),
+                lowerTick,
+                upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await deposit(taker, vault, 1000, collateral)
+            await clearingHouse.setMaxMarketsPerAccount("1")
+        })
+        it("after closing position on market A, could open on market B ", async () => {
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // close market of baseToken
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken2.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("10"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.emit(clearingHouse, "Swapped")
+        })
+
+        it("force error, markets number exceeded", async () => {
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.emit(clearingHouse, "Swapped")
+
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken2.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                }),
+            ).to.be.revertedWith("CH_MNE")
+        })
     })
 })
