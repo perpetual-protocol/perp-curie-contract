@@ -3,17 +3,17 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtX96 } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse liquidate", () => {
+describe("ClearingHouse liquidate", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let million
     let hundred
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -182,9 +182,6 @@ describe.only("ClearingHouse liquidate", () => {
                 // pnl = 84.085192745971593683 - 90 = -5.914807254
                 // account value: 10 + (-5.914807254) = 4.085192746
                 // fee = 84.085192745971593683 * 0.025 = 2.1021298186
-                // pending funding = 0.588407511354640018 * (151.464153551862182601 - 151.478045) * 1 / 86400 = -0.000000094604542
-
-                // settled funding = -0.000000094604542 + (0.588407511354640018 * (147.1349858681 - 143.032679) * 1 / 86400) = 0.00002784322156
                 await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
                     .to.emit(clearingHouse, "PositionLiquidated")
                     .withArgs(
@@ -195,20 +192,16 @@ describe.only("ClearingHouse liquidate", () => {
                         "2102129818649289842",
                         davis.address,
                     )
-                    .to.emit(clearingHouse, "FundingSettled")
-                    .withArgs(alice.address, baseToken.address, parseEther("0.000027843221558581"))
-
                 // price after liq. 142.8549872
-                // setPool1IndexPrice(142.8549872)
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                setPool1IndexPrice(142.854987)
 
                 // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
                 // deltaAvailableQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
-                // pnl - settled funding = 83.2443408185118 - 90 - 2.1021298186 - 0.00002784322156 = -8.8578168433
-                // account value = collateral + pnl - pending funding = 10 - 8.8578168433 - 0 = 1.1421831567
+                // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
+                // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
                 // openOrderMarginRequirement = 0
-                // free collateral = 1.1421831567 - 0 = 1.1421831567
-                expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142183", 6))
+                // free collateral = 1.1422109998625 - 0 = 1.1422109998625
+                expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
 
                 // liquidator gets liquidation reward
                 const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
@@ -316,8 +309,8 @@ describe.only("ClearingHouse liquidate", () => {
                 amount: parseEther("80"),
                 sqrtPriceLimitX96: 0,
             })
-            // price after Bob short: 135.0801007405
-            // setPool1IndexPrice(135.0801007405)
+            // price after Bob short: 138.130291
+            // setPool1IndexPrice(138.130291)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
             // bob long BTC
@@ -391,16 +384,16 @@ describe.only("ClearingHouse liquidate", () => {
             await deposit(alice, vault, 10, collateral)
 
             // freeCollateral = min(collateral, accountValue) - (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-            // ETH position value = ETH size * indexPrice = 0.294254629696195230 * 135.0801 = 39.7479448048
+            // ETH position value = ETH size * indexPrice = 0.294254629696195230 * 138.130291 = 40.645477628
 
             // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
             // deltaAvailableQuote of BTC = 44.58424198139300 * 0.99 (1% fee) = 44.1383995616
             // realizedPnl = 44.1383995616 - 45 - 1.1146 = -1.9762004384
             // collateral = 20 -1.9762004384 = 18.0237995616
-            // account value = collateral + pnl = 18.0237995616 + (39.7479448048(ETH) - 45) = 12.7717443664
+            // account value = collateral + pnl = 18.0237995616 + (40.645477628(ETH) - 45) = 13.6692771896
             // (totalBaseDebt + totalQuoteDebt) * imRatio = 45 * 0.1 = 4.5
-            // freeCollateral = 12.7717383169 - 4.5 = 8.2717383169
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.271737", collateralDecimals))
+            // freeCollateral = 13.6692771896 - 4.5 = 9.1692771896
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.16927", collateralDecimals))
 
             // liquidator gets liquidation reward
             const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
