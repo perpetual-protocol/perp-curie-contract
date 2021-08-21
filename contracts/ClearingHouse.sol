@@ -7,7 +7,7 @@ import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
@@ -41,10 +41,10 @@ contract ClearingHouse is
 {
     using SafeMath for uint256;
     using SafeMath for uint160;
-    using SafeCast for uint256;
-    using SafeCast for uint128;
+    using PerpSafeCast for uint256;
+    using PerpSafeCast for uint128;
     using SignedSafeMath for int256;
-    using SafeCast for int256;
+    using PerpSafeCast for int256;
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;

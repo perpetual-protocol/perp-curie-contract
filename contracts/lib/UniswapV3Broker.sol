@@ -11,7 +11,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 
@@ -23,10 +23,10 @@ import { PerpMath } from "../lib/PerpMath.sol";
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
-    using SafeCast for uint256;
+    using PerpSafeCast for uint256;
     using SafeMath for uint256;
-    using SafeCast for uint128;
-    using SafeCast for int256;
+    using PerpSafeCast for uint128;
+    using PerpSafeCast for int256;
     using PerpMath for int256;
 
     struct AddLiquidityParams {

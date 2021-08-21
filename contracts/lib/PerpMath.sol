@@ -4,12 +4,12 @@ pragma abicoder v2;
 
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
 library PerpMath {
-    using SafeCast for int256;
+    using PerpSafeCast for int256;
     using SignedSafeMath for int256;
     using SafeMath for uint256;
 
