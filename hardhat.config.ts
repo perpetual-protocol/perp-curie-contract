@@ -91,6 +91,9 @@ const config: HardhatUserConfig = {
         runOnCompile: true,
         disambiguatePaths: false,
     },
+    gasReporter: {
+        excludeContracts: ["test"],
+    },
 }
 
 export default config

@@ -79,7 +79,7 @@ library UniswapV3Broker {
 
         {
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
-            response.liquidity = nts.getLiquidityForAmounts(
+            response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 getSqrtMarkPriceX96(params.pool),
                 TickMath.getSqrtRatioAtTick(params.lowerTick),
                 TickMath.getSqrtRatioAtTick(params.upperTick),

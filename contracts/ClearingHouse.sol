@@ -943,14 +943,6 @@ contract ClearingHouse is
         return _getAllPendingFundingPayment(trader);
     }
 
-    function getMarkTwapX96(address baseToken) public view returns (uint256) {
-        return _getMarkTwapX96(baseToken);
-    }
-
-    function getIndexPrice(address baseToken) public view returns (uint256) {
-        return _getIndexPrice(baseToken, twapInterval);
-    }
-
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
         uint256 tokenLen = _accountMap[trader].tokens.length;
