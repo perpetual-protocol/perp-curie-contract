@@ -1852,13 +1852,15 @@ contract ClearingHouse is
     }
 
     function _getMarkTwapX96(address token) private view returns (uint256) {
-        uint256 twapIntervalArg = twapInterval;
+        uint32 twapIntervalArg = twapInterval;
 
         // shorten twapInterval if there is no prior observation
         if (_firstTradedTimestampMap[token] == 0) {
             twapIntervalArg = 0;
         } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[token])) {
-            twapIntervalArg = _blockTimestamp().sub(_firstTradedTimestampMap[token]);
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[token]));
         }
 
         return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapIntervalArg).formatSqrtPriceX96ToPriceX96();

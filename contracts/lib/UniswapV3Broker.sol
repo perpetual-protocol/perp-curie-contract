@@ -220,7 +220,7 @@ library UniswapV3Broker {
     }
 
     // note assuming base token == token0
-    function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
+    function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
             return getSqrtMarkPriceX96(pool);
         }
@@ -228,11 +228,11 @@ library UniswapV3Broker {
         uint32[] memory secondsAgos = new uint32[](2);
 
         // solhint-disable-next-line not-rely-on-time
-        secondsAgos[0] = uint32(twapInterval);
-        secondsAgos[1] = uint32(0);
+        secondsAgos[0] = twapInterval;
+        secondsAgos[1] = 0;
         (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
 
-        return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / uint32(twapInterval)));
+        return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
     }
 
     /// copied from UniswapV3-periphery
