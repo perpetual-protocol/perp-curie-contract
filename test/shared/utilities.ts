@@ -38,18 +38,6 @@ export interface BaseQuoteAmountPair {
     quote: BigNumberish
 }
 
-export function token01toBaseQuote(
-    baseAddr: string,
-    quoteAddr: string,
-    token0: BigNumberish,
-    token1: BigNumberish,
-): BaseQuoteAmountPair {
-    if (isAscendingTokenOrder(baseAddr, quoteAddr)) {
-        return { base: token0, quote: token1 }
-    }
-    return { base: token1, quote: token0 }
-}
-
 export function isAscendingTokenOrder(addr0: string, addr1: string): boolean {
     return addr0.toLowerCase() < addr1.toLowerCase()
 }

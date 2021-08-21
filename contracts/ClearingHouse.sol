@@ -91,6 +91,7 @@ contract ClearingHouse is
     );
 
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
+    event PartialCloseRatioChanged(uint256 partialCloseRatio);
 
     event PositionLiquidated(
         address indexed trader,
@@ -200,6 +201,14 @@ contract ClearingHouse is
         uint128 liquidity;
     }
 
+    struct PriceLimitParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96;
+    }
+
     struct SwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -222,6 +231,7 @@ contract ClearingHouse is
         SwapState state;
         address baseToken;
         bool isBaseToQuote;
+        bool shouldUpdateState;
         uint160 sqrtPriceLimitX96;
         uint24 clearingHouseFeeRatio;
         uint24 uniswapFeeRatio;
@@ -279,7 +289,7 @@ contract ClearingHouse is
     }
 
     struct TickStatus {
-        int24 lastUpdatedBlockTick;
+        int24 finalTickFromLastBlock;
         uint256 lastUpdatedBlock;
     }
 
@@ -297,7 +307,6 @@ contract ClearingHouse is
 
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
-    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
 
     uint8 private immutable _settlementTokenDecimals;
 
@@ -322,9 +331,12 @@ contract ClearingHouse is
     mapping(address => uint256) private _lastSettledTimestampMap;
     mapping(address => FundingGrowth) private _globalFundingGrowthX96Map;
 
+    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
+    uint256 public partialCloseRatio = 0.25 ether; // partial close ratio, 25%
+
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
-    mapping(address => uint24) public clearingHouseFeeRatioMap;
+    mapping(address => uint24) private _clearingHouseFeeRatioMap;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
@@ -333,16 +345,23 @@ contract ClearingHouse is
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
 
+    uint8 public maxOrdersPerMarket;
+    uint8 public maxMarketsPerAccount;
+
     constructor(
         address vaultArg,
         address quoteTokenArg,
-        address uniV3FactoryArg
+        address uniV3FactoryArg,
+        uint8 maxOrdersPerMarketArg,
+        uint8 maxMarketsPerAccountArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
 
         // quoteToken is 0
         require(quoteTokenArg != address(0), "CH_QI0");
+        // CH_QDN18: quoteToken decimals is not 18
+        require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
 
         // uniV3Factory is 0
         require(uniV3FactoryArg != address(0), "CH_U10");
@@ -350,15 +369,27 @@ contract ClearingHouse is
         vault = vaultArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
+        maxOrdersPerMarket = maxOrdersPerMarketArg;
+        maxMarketsPerAccount = maxMarketsPerAccountArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
+    }
+
+    //
+    // MODIFIER
+    //
+    modifier checkRatio(uint256 ratio) {
+        // CH_RL1: ratio overflow
+        require(ratio <= 1 ether, "CH_RO");
+        _;
     }
 
     //
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
-        // TODO enforce decimals = 18
+        // CH_BDN18: baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "CH_BDN18");
         // to ensure the base is always token0 and quote is always token1
         // CH_IB: invalid baseToken
         require(baseToken < quoteToken, "CH_IB");
@@ -372,11 +403,11 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
-        clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
+        _clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
-    function setMaxTickCrossedWithinBlockMap(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
@@ -540,9 +571,38 @@ contract ClearingHouse is
         require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
     }
 
+    function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
+        external
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
+        _requireHasBaseToken(baseToken);
+        SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
+        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+    }
+
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
+
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
+
+        // !isIncreasePosition() == reduce or close position
+        if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
+            // CH_OPI: over price impact
+            require(
+                !_isOverPriceLimit(
+                    PriceLimitParams({
+                        baseToken: params.baseToken,
+                        isBaseToQuote: params.isBaseToQuote,
+                        isExactInput: params.isExactInput,
+                        amount: params.amount,
+                        sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    })
+                ),
+                "CH_OPI"
+            );
+        }
 
         SwapResponse memory response =
             _openPosition(
@@ -579,7 +639,11 @@ contract ClearingHouse is
         }
     }
 
-    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg) external onlyOwner {
+    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg)
+        external
+        checkRatio(liquidationPenaltyRatioArg)
+        onlyOwner
+    {
         liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
@@ -589,8 +653,21 @@ contract ClearingHouse is
         // TODO event declaration and emit here
     }
 
+    function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+        partialCloseRatio = partialCloseRatioArg;
+        emit PartialCloseRatioChanged(partialCloseRatioArg);
+    }
+
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+        _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+    }
+
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
+        maxOrdersPerMarket = maxOrdersPerMarketArg;
+    }
+
+    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
+        maxMarketsPerAccount = maxMarketsPerAccountArg;
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
@@ -603,25 +680,7 @@ contract ClearingHouse is
 
         _removeAllLiquidity(trader, baseToken);
 
-        // since all liquidity has been removed, there's no position in pool now
-        TokenInfo memory tokenInfo = getTokenInfo(trader, baseToken);
-        int256 positionSize = tokenInfo.available.toInt256().sub(tokenInfo.debt.toInt256());
-
-        // if trader is on long side, baseToQuote: true, exactInput: true
-        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-        bool isLong = positionSize > 0 ? true : false;
-        SwapResponse memory response =
-            _openPosition(
-                InternalOpenPositionParams({
-                    trader: trader,
-                    baseToken: baseToken,
-                    isBaseToQuote: isLong,
-                    isExactInput: isLong,
-                    amount: positionSize.abs(),
-                    sqrtPriceLimitX96: 0,
-                    skipMarginRequirementCheck: true
-                })
-            );
+        SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
@@ -637,7 +696,7 @@ contract ClearingHouse is
             trader,
             baseToken,
             response.exchangedPositionNotional,
-            positionSize.abs(),
+            response.deltaAvailableBase,
             liquidationFee,
             liquidator
         );
@@ -766,8 +825,16 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getPool(address baseToken) external view returns (address poolAddress) {
+    function getPool(address baseToken) external view returns (address) {
         return _poolMap[baseToken];
+    }
+
+    function getFeeRatio(address baseToken) external view returns (uint24) {
+        return _clearingHouseFeeRatioMap[baseToken];
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
     // return in settlement token decimals
@@ -996,6 +1063,8 @@ contract ClearingHouse is
         if (openOrder.liquidity == 0) {
             // it's a new order
             MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            // CH_ONE: orders number exceeded
+            require(maxOrdersPerMarket == 0 || makerPosition.orderIds.length < maxOrdersPerMarket, "CH_ONE");
             makerPosition.orderIds.push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
@@ -1078,6 +1147,8 @@ contract ClearingHouse is
                 }
             }
             if (!hit) {
+                // CH_MNE: markets number exceeded
+                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
                 _accountMap[trader].tokens.push(token);
             }
         }
@@ -1087,12 +1158,11 @@ contract ClearingHouse is
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
         // if: increase position (old/new position are in the same direction)
-        if (positionSize == 0 || isOldPositionShort == params.isBaseToQuote) {
+        if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
             // TODO change _swap.response.deltaAvailableQuote to int
@@ -1197,7 +1267,7 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _updateClearingHouseFee(InternalFeeUpdateParams memory params) private returns (uint256 fee) {
+    function _replaySwap(InternalFeeUpdateParams memory params) private returns (uint256 fee, int24 tick) {
         address pool = _poolMap[params.baseToken];
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
 
@@ -1277,18 +1347,20 @@ contract ClearingHouse is
             if (params.state.sqrtPriceX96 == step.nextSqrtPriceX96) {
                 // we have reached the tick's boundary
                 if (step.isNextTickInitialized) {
-                    // update the tick if it has been initialized
-                    mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-                    // according to the above updating logic,
-                    // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                    tickMap.cross(
-                        step.nextTick,
-                        Tick.GrowthInfo({
-                            feeX128: params.state.feeGrowthGlobalX128,
-                            twPremiumX96: params.globalFundingGrowth.twPremiumX96,
-                            twPremiumDivBySqrtPriceX96: params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
-                        })
-                    );
+                    if (params.shouldUpdateState) {
+                        // update the tick if it has been initialized
+                        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+                        // according to the above updating logic,
+                        // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
+                        tickMap.cross(
+                            step.nextTick,
+                            Tick.GrowthInfo({
+                                feeX128: params.state.feeGrowthGlobalX128,
+                                twPremiumX96: params.globalFundingGrowth.twPremiumX96,
+                                twPremiumDivBySqrtPriceX96: params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
+                            })
+                        );
+                    }
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
                     if (params.isBaseToQuote) liquidityNet = -liquidityNet;
@@ -1301,22 +1373,25 @@ contract ClearingHouse is
                 params.state.tick = TickMath.getTickAtSqrtRatio(params.state.sqrtPriceX96);
             }
         }
-        // update global states since swap state transitions are all done
-        _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
+        if (params.shouldUpdateState) {
+            // update global states since swap state transitions are all done
+            _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
+        }
+
+        return (fee, params.state.tick);
     }
 
-    // TODO refactor after merged (add tick to arg)
-    function _updateTickStatus(address baseToken) private {
-        // when it's the 1st swap in this block, update tickStatus
+    function _saveTickBeforeFirstSwapThisBlock(address baseToken) private {
+        // only do this when it's the first swap in this block
         uint256 blockNumber = _blockNumber();
         if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
             return;
         }
 
-        // if it's the 1st swap in this block, the current tick before swap = final tick last block
+        // the current tick before swap = final tick last block
         _tickStatusMap[baseToken] = TickStatus({
             lastUpdatedBlock: blockNumber,
-            lastUpdatedBlockTick: UniswapV3Broker.getTick(_poolMap[baseToken])
+            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
         });
     }
 
@@ -1324,43 +1399,24 @@ contract ClearingHouse is
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
-        // must before swap
-        _updateTickStatus(params.baseToken);
-
         FundingGrowth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
 
         UniswapV3Broker.SwapResponse memory response;
         address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = clearingHouseFeeRatioMap[pool];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
         uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
 
         uint256 fee;
         {
-            // input or output amount for swap
-            // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
-            // 2. Q2B && exact out --> output base(params.base)
-            // 3. B2Q && exact in  --> input base / (1 - x)
-            // 4. B2Q && exact out --> output base / (1 - y)
-            uint256 scaledAmount =
-                params.isBaseToQuote
-                    ? params.isExactInput
-                        ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
-                        : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
-                    : params.isExactInput
-                    ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
-                    : params.amount;
-
-            // if Q2B, we use params.amount directly
-            // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
-            // we simulate the swap step in `_updateClearingHouseFee`.
-            // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_updateClearingHouseFee` won't be 0.03.
-            int256 signedScaledAmount =
-                params.isBaseToQuote
-                    ? params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
-                    : params.isExactInput
-                    ? params.amount.toInt256()
-                    : -params.amount.toInt256();
+            (uint256 scaledAmount, int256 signedScaledAmount) =
+                _getScaledAmount(
+                    params.isBaseToQuote,
+                    params.isExactInput,
+                    params.amount,
+                    clearingHouseFeeRatio,
+                    uniswapFeeRatio
+                );
             SwapState memory state =
                 SwapState({
                     tick: UniswapV3Broker.getTick(pool),
@@ -1370,16 +1426,17 @@ contract ClearingHouse is
                     liquidity: UniswapV3Broker.getLiquidity(pool)
                 });
             // simulate the swap to calculate the fees charged in clearing house
-            fee = _updateClearingHouseFee(
-                InternalFeeUpdateParams(
-                    state,
-                    params.baseToken,
-                    params.isBaseToQuote,
-                    params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio,
-                    uniswapFeeRatio,
-                    updatedGlobalFundingGrowth
-                )
+            (fee, ) = _replaySwap(
+                InternalFeeUpdateParams({
+                    state: state,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    shouldUpdateState: true,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    clearingHouseFeeRatio: clearingHouseFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    globalFundingGrowth: updatedGlobalFundingGrowth
+                })
             );
             response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -1584,6 +1641,85 @@ contract ClearingHouse is
         }
     }
 
+    function _isOverPriceLimit(PriceLimitParams memory params) private returns (bool) {
+        uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+
+        int256 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
+        int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
+        int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
+
+        address pool = _poolMap[params.baseToken];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        (, int256 signedScaledAmount) =
+            _getScaledAmount(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                clearingHouseFeeRatio,
+                uniswapFeeRatio
+            );
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: signedScaledAmount,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        // globalFundingGrowth can be empty if shouldUpdateState is false. TODO refactor to 2 funcs
+        (, int24 tickAfterSwap) =
+            _replaySwap(
+                InternalFeeUpdateParams({
+                    state: state,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    clearingHouseFeeRatio: clearingHouseFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    shouldUpdateState: false,
+                    globalFundingGrowth: FundingGrowth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                })
+            );
+
+        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+    }
+
+    function _getScaledAmount(
+        bool isBaseToQuote,
+        bool isExactInput,
+        uint256 amount,
+        uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio
+    ) private view returns (uint256 scaledAmount, int256 signedScaledAmount) {
+        // input or output amount for swap
+        // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
+        // 2. Q2B && exact out --> output base(params.base)
+        // 3. B2Q && exact in  --> input base / (1 - x)
+        // 4. B2Q && exact out --> output base / (1 - y)
+        scaledAmount = isBaseToQuote
+            ? isExactInput
+                ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
+                : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
+            : isExactInput
+            ? FeeMath.magicFactor(amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
+            : amount;
+
+        // if Q2B, we use params.amount directly
+        // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
+        // we simulate the swap step in `_replaySwap`.
+        // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_replaySwap` won't be 0.03.
+        signedScaledAmount = isBaseToQuote
+            ? isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
+            : isExactInput
+            ? amount.toInt256()
+            : -amount.toInt256();
+    }
+
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
@@ -1600,6 +1736,7 @@ contract ClearingHouse is
 
         _burnMax(params.trader, params.baseToken);
         _burnMax(params.trader, quoteToken);
+        _deregisterBaseToken(params.trader, params.baseToken);
 
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)
@@ -1614,6 +1751,50 @@ contract ClearingHouse is
         }
 
         return swapResponse;
+    }
+
+    function _closePosition(
+        address trader,
+        address baseToken,
+        uint160 sqrtPriceLimitX96
+    ) private returns (SwapResponse memory) {
+        int256 positionSize = getPositionSize(trader, baseToken);
+
+        // CH_PSZ: position size is zero
+        require(positionSize != 0, "CH_PSZ");
+
+        // must before price impact check
+        _saveTickBeforeFirstSwapThisBlock(baseToken);
+
+        // if trader is on long side, baseToQuote: true, exactInput: true
+        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
+        bool isLong = positionSize > 0 ? true : false;
+
+        PriceLimitParams memory params =
+            PriceLimitParams({
+                baseToken: baseToken,
+                isBaseToQuote: isLong,
+                isExactInput: isLong,
+                amount: positionSize.abs(),
+                sqrtPriceLimitX96: sqrtPriceLimitX96
+            });
+
+        if (partialCloseRatio > 0 && _isOverPriceLimit(params)) {
+            params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
+        }
+
+        return
+            _openPosition(
+                InternalOpenPositionParams({
+                    trader: trader,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: sqrtPriceLimitX96,
+                    skipMarginRequirementCheck: true
+                })
+            );
     }
 
     function _addOpenNotionalFraction(
@@ -2038,6 +2219,17 @@ contract ClearingHouse is
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
         return _poolMap[baseToken] != address(0);
+    }
+
+    function _isIncreasePosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    ) private returns (bool) {
+        // increase position == old/new position are in the same direction
+        int256 positionSize = getPositionSize(trader, baseToken);
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
     function _getOrderId(

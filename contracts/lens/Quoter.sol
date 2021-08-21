@@ -57,7 +57,7 @@ contract Quoter is IUniswapV3SwapCallback {
 
         // TODO: maybe can merge this two fee ratios into one
         uint24 uniswapFeeRatio = ClearingHouse(clearingHouse).uniswapFeeRatioMap(pool);
-        uint24 clearingHouseFeeRatio = ClearingHouse(clearingHouse).clearingHouseFeeRatioMap(pool);
+        uint24 clearingHouseFeeRatio = ClearingHouse(clearingHouse).getFeeRatio(pool);
 
         // scale up before swap to cover uniswap fee
         uint256 scaledAmount =
