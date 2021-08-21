@@ -11,7 +11,9 @@ contract TestClearingHouse is ClearingHouse {
         address vaultArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) ClearingHouse(vaultArg, quoteTokenArg, uniV3FactoryArg) {}
+    ) ClearingHouse(vaultArg, quoteTokenArg, uniV3FactoryArg) {
+        _testBlockTimestamp = block.timestamp;
+    }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
         _testBlockTimestamp = blockTimestamp;
