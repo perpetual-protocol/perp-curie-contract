@@ -100,7 +100,7 @@ describe("ClearingHouse Spec", () => {
         })
     })
 
-    describe("owner only setter", () => {
+    describe("onlyOwner setters", () => {
         it("setLiquidationPenaltyRatio", async () => {
             await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
             await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5"))

@@ -15,12 +15,12 @@ export function encodePriceSqrt(reserve1: BigNumberish, reserve0: BigNumberish):
     )
 }
 
-function bigNumber2Big(val: BigNumber, decimals: number = 18) {
+function bigNumberToBig(val: BigNumber, decimals: number = 18): bn {
     return new bn(val.toString()).div(new bn(10).pow(decimals))
 }
 
-export function formatSqrtX96(value: BigNumber, decimals: number = 18): string {
-    return bigNumber2Big(value, 0).div(new bn(2).pow(96)).pow(2).dp(decimals).toString()
+export function formatSqrtPriceX96ToPrice(value: BigNumber, decimals: number = 18): string {
+    return bigNumberToBig(value, 0).div(new bn(2).pow(96)).pow(2).dp(decimals).toString()
 }
 
 export function sortedTokens(

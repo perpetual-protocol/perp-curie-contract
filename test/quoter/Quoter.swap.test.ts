@@ -1,15 +1,7 @@
 import { expect } from "chai"
 import { defaultAbiCoder, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    ClearingHouse,
-    Quoter,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-    VirtualToken,
-} from "../../typechain"
+import { Quoter, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"

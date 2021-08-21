@@ -3,9 +3,9 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, formatSqrtX96 } from "../shared/utilities"
+import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate", () => {
@@ -29,7 +29,7 @@ describe("ClearingHouse liquidate", () => {
     async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
         const slot0 = await pool.slot0()
         const sqrtPrice = slot0.sqrtPriceX96
-        const price = formatSqrtX96(sqrtPrice, oracleDecimals)
+        const price = formatSqrtPriceX96ToPrice(sqrtPrice, oracleDecimals)
         aggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
         })
