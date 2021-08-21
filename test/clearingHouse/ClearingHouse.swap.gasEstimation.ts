@@ -24,8 +24,10 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        const _clearingHouseFixture = await loadFixture(
+            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
+        )
+        clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -91,7 +93,6 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
                 sqrtPriceLimitX96: 0,
             })
             await forward(3600)
-            await clearingHouse.updateFunding(baseToken.address)
         }
 
         // maker remove liquidity position

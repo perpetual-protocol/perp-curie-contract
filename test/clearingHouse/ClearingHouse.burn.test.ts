@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,7 +11,7 @@ describe("ClearingHouse.burn", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -21,7 +21,7 @@ describe("ClearingHouse.burn", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -73,6 +73,9 @@ describe("ClearingHouse.burn", () => {
         it("# can not burn more than debt, even there's enough available", async () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -166,6 +169,9 @@ describe("ClearingHouse.burn", () => {
         it("# burn quote 10 when debt = 10, available < 10", async () => {
             // P(50400) = 1.0001^50400 ~= 151.4310961
             await pool.initialize(encodePriceSqrt("154.4310961", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -246,6 +252,9 @@ describe("ClearingHouse.burn", () => {
         beforeEach(async () => {
             // P(50000) = 1.0001^50000 ~= 148.3760629
             await pool.initialize(encodePriceSqrt("148.3760629", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             // add pool after it's initialized
             await clearingHouse.addPool(baseToken.address, 10000)
 

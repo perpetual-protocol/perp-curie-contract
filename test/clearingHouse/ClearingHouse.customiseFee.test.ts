@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { ClearingHouse, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,7 +11,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse customized fee", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -24,7 +24,7 @@ describe("ClearingHouse customized fee", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -38,6 +38,9 @@ describe("ClearingHouse customized fee", () => {
         })
 
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         // add pool after it's initialized
         await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -105,7 +108,6 @@ describe("ClearingHouse customized fee", () => {
                         "6473478014450606", // exchangedPositionSize
                         parseEther("-0.98"), // costBasis
                         parseEther("0.02"), // fee = 1 * 0.02
-                        parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
 
@@ -152,7 +154,6 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("1"), // exchangedPositionSize
                         "-153508143394151325059", // costBasis
                         "3132819252941863777", // fee
-                        parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
@@ -199,7 +200,6 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("-1"), // exchangedPositionSize
                         parseEther("149.297034185732877727"), // costBasis
                         parseEther("2.985940683714657555"), // fee: 149.297034185732877727 * 0.02 = 2.985940683714657555
-                        parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
@@ -239,7 +239,6 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("-0.006741636644634247"), // exchangedPositionSize
                         parseEther("1.020408163265306123"), // costBasis = 1 / 0.98
                         parseEther("0.020408163265306123"), // fee: 1 / 0.98 * 0.02
-                        parseEther("0"), // fundingPayment
                         parseEther("0"), // badDebt
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
@@ -393,7 +392,6 @@ describe("ClearingHouse customized fee", () => {
                     "6572552804907016", // exchangedPositionSize
                     parseEther("-0.995"), // costBasis
                     parseEther("0.005"), // fee = 1 * 0.005
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
 
@@ -440,7 +438,6 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("1"), // exchangedPositionSize
                     "-153508143394151325059", // costBasis
                     parseEther("0.771397705498247865"), // fee
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
@@ -487,7 +484,6 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("-1"), // exchangedPositionSize
                     parseEther("149.297034185732877727"), // costBasis
                     parseEther("0.746485170928664389"),
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
@@ -527,7 +523,6 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("-0.006639994546394814"), // exchangedPositionSize
                     parseEther("1.005025125628140704"), // costBasis = 1 / 0.995
                     parseEther("0.005025125628140704"), // fee: 1 / 0.995 * 0.005 = 0.00502513
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
@@ -588,7 +583,6 @@ describe("ClearingHouse customized fee", () => {
                     "6406274427766891", // exchangedPositionSize
                     parseEther("-0.97"), // costBasis
                     parseEther("0.03"), // fee = 1 * 0.03
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
 
@@ -632,7 +626,6 @@ describe("ClearingHouse customized fee", () => {
                     "6538350548602818", // exchangedPositionSize
                     parseEther("-0.99"), // costBasis
                     parseEther("0.01"), // fee = 1 * 0.01
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
 
@@ -687,7 +680,6 @@ describe("ClearingHouse customized fee", () => {
                     "6273079857818529", // exchangedPositionSize
                     parseEther("-0.95"), // costBasis
                     parseEther("0.05"), // fee = 1 * 0.05
-                    parseEther("0"), // fundingPayment
                     parseEther("0"), // badDebt
                 )
 

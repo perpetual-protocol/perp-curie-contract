@@ -2,7 +2,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -11,7 +11,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse.getPositionSize", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -21,7 +21,7 @@ describe("ClearingHouse.getPositionSize", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
