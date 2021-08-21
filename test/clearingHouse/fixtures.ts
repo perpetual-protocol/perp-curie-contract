@@ -1,11 +1,19 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, TestERC20, TestUniswapV3Broker, UniswapV3Factory, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    ClearingHouse,
+    TestClearingHouse,
+    TestERC20,
+    TestUniswapV3Broker,
+    UniswapV3Factory,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
-    clearingHouse: ClearingHouse
+    clearingHouse: TestClearingHouse
     vault: Vault
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
@@ -57,12 +65,12 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const vault = (await vaultFactory.deploy(USDC.address)) as Vault
 
         // deploy clearingHouse
-        const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+        const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
         const clearingHouse = (await clearingHouseFactory.deploy(
             vault.address,
             quoteToken.address,
             uniV3Factory.address,
-        )) as ClearingHouse
+        )) as TestClearingHouse
 
         await quoteToken.addWhitelist(clearingHouse.address)
 
