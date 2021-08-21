@@ -1,6 +1,6 @@
 import bn from "bignumber.js"
 import { BigNumber, BigNumberish } from "ethers"
-import { TestERC20, VirtualToken } from "../../typechain"
+import { VirtualToken } from "../../typechain"
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
@@ -13,6 +13,14 @@ export function encodePriceSqrt(reserve1: BigNumberish, reserve0: BigNumberish):
             .integerValue(3)
             .toString(),
     )
+}
+
+function bigNumber2Big(val: BigNumber, decimals: number = 18) {
+    return new bn(val.toString()).div(new bn(10).pow(decimals))
+}
+
+export function formatSqrtX96(value: BigNumber, decimals: number = 18): string {
+    return bigNumber2Big(value, 0).div(new bn(2).pow(96)).pow(2).dp(decimals).toString()
 }
 
 export function sortedTokens(
