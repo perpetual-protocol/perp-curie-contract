@@ -12,7 +12,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe.skip("ClearingHouse.swap gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: TestClearingHouse
+    let clearingHouse: ClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -24,8 +24,10 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        const _clearingHouseFixture = await loadFixture(
+            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
+        )
+        clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken

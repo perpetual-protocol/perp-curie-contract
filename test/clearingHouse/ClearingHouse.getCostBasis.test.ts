@@ -21,7 +21,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         collateral = _clearingHouseFixture.USDC
         vault = _clearingHouseFixture.vault
         baseToken = _clearingHouseFixture.baseToken

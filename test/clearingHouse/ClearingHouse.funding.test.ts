@@ -23,8 +23,10 @@ describe("ClearingHouse.funding", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        const _clearingHouseFixture = await loadFixture(
+            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
+        )
+        clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken

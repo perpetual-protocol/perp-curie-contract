@@ -1,7 +1,15 @@
 import { expect } from "chai"
 import { defaultAbiCoder, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, Quoter, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import {
+    ClearingHouse,
+    Quoter,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+    VirtualToken,
+} from "../../typechain"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -9,7 +17,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 describe("Quoter.swap", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -22,7 +30,7 @@ describe("Quoter.swap", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
