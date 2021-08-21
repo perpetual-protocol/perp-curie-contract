@@ -1022,28 +1022,6 @@ contract ClearingHouse is
         emit Burned(account, token, amount);
     }
 
-    // caller must ensure token is either base or quote and exists
-    // mint max base or quote until the free collateral is zero
-    function _mintMax(address trader, address token) private returns (uint256) {
-        uint256 buyingPower = _getBuyingPower(trader);
-        if (buyingPower == 0) {
-            TokenInfo memory tokenInfo = getTokenInfo(trader, token);
-            uint256 maximum = Math.max(tokenInfo.available, tokenInfo.debt);
-            // TODO workaround here, if we use uint256.max, it may cause overflow in total supply
-            // will remove this function and put the logic to uniswapV3SwapCallback
-            // max of uint128 = (3.4028*10^20)*10^18
-            return _mint(trader, token, type(uint128).max.toUint256().sub(maximum), false);
-        }
-
-        uint256 minted = buyingPower;
-        if (token != quoteToken) {
-            // TODO: change the valuation method && align with baseDebt()
-            minted = FullMath.mulDiv(minted, 1 ether, _getIndexPrice(token, 0));
-        }
-
-        return _mint(trader, token, minted, false);
-    }
-
     function _burnMax(address account, address token) private {
         TokenInfo memory tokenInfo = getTokenInfo(account, token);
         uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
@@ -2082,21 +2060,6 @@ contract ClearingHouse is
                 owedRealizedPnl.sub(_getAllPendingFundingPayment(trader)),
                 _settlementTokenDecimals
             );
-    }
-
-    // return in virtual token decimals
-    function _getBuyingPower(address account) private view returns (uint256) {
-        int256 accountValue = getAccountValue(account);
-        int256 totalCollateralValue = _getTotalCollateralValue(account);
-        int256 minOfAccountAndCollateralValue =
-            accountValue < totalCollateralValue ? accountValue : totalCollateralValue;
-        int256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(account).toInt256();
-        int256 buyingPower =
-            minOfAccountAndCollateralValue.subS(totalInitialMarginRequirement, _settlementTokenDecimals);
-        if (buyingPower < 0) {
-            return 0;
-        }
-        return buyingPower.toUint256().parseSettlementToken(_settlementTokenDecimals).mul(1 ether).div(imRatio);
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl

@@ -79,7 +79,7 @@ library UniswapV3Broker {
 
         {
             // get the equivalent amount of liquidity from amount0 & amount1 with current price
-            response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            response.liquidity = nts.getLiquidityForAmounts(
                 getSqrtMarkPriceX96(params.pool),
                 TickMath.getSqrtRatioAtTick(params.lowerTick),
                 TickMath.getSqrtRatioAtTick(params.upperTick),
@@ -270,30 +270,6 @@ library UniswapV3Broker {
         if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
-    }
-
-    // assuming token1 == quote token
-    function getFeeGrowthInsideQuote(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick,
-        int24 currentTick
-    ) internal view returns (uint256 feeGrowthInsideQuoteX128) {
-        (, , , uint256 lowerFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(lowerTick);
-        (, , , uint256 upperFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(upperTick);
-        uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
-
-        uint256 feeGrowthBelow =
-            currentTick >= lowerTick ? lowerFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
-        uint256 feeGrowthAbove =
-            currentTick < upperTick ? upperFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
-
-        // this value can underflow per feeGrowthOutside specs
-        return feeGrowthGlobal1X128 - feeGrowthBelow - feeGrowthAbove;
-    }
-
-    function calcFee(address pool, uint256 amount) internal view returns (uint256) {
-        return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
     }
 
     // note assuming base token == token0
