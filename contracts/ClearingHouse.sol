@@ -86,8 +86,7 @@ contract ClearingHouse is
         address indexed baseToken,
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
-        uint256 fee,
-        uint256 badDebt
+        uint256 fee
     );
 
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
@@ -1531,8 +1530,7 @@ contract ClearingHouse is
             params.baseToken,
             exchangedPositionSize,
             exchangedPositionNotional,
-            internalSwapState.fee,
-            0 // TODO: badDebt
+            internalSwapState.fee
         );
 
         return

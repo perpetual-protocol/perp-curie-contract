@@ -204,7 +204,6 @@ describe("ClearingHouse openPosition", () => {
                         "6539527905092835", // exchangedPositionSize
                         parseEther("-0.99"), // costBasis
                         parseEther("0.01"), // fee = 1 * 0.01
-                        parseEther("0"), // badDebt
                     )
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -240,7 +239,6 @@ describe("ClearingHouse openPosition", () => {
                             parseEther("1"), // exchangedPositionSize
                             "-153508143394151325059", // costBasis
                             "1550587307011629547", // fee
-                            parseEther("0"), // badDebt
                         )
 
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -384,7 +382,6 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("-1"), // exchangedPositionSize
                         parseEther("149.297034185732877727"), // costBasis
                         parseEther("1.492970341857328778"), // fee: 149.297034185732877727 * 0.01 = 1.492970341857328777
-                        parseEther("0"), // badDebt
                     )
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
