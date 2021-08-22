@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     ClearingHouse,
+    InsuranceFund,
     TestClearingHouse,
     TestERC20,
     TestUniswapV3Broker,
@@ -15,6 +16,7 @@ import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
     vault: Vault
+    insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
     feeTier: number
@@ -67,12 +69,16 @@ export function createClearingHouseFixture(
         const vaultFactory = await ethers.getContractFactory("Vault")
         const vault = (await vaultFactory.deploy(USDC.address)) as Vault
 
+        const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+        const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
+
         // deploy clearingHouse
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
             const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy(
                 vault.address,
+                insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
                 0,
@@ -82,6 +88,7 @@ export function createClearingHouseFixture(
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy(
                 vault.address,
+                insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
                 0,
@@ -128,6 +135,7 @@ export function createClearingHouseFixture(
         return {
             clearingHouse,
             vault,
+            insuranceFund,
             uniV3Factory,
             pool,
             feeTier,
@@ -205,6 +213,8 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
     const vaultFactory = await ethers.getContractFactory("Vault")
     const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+    const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+    const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
     const mockedUSDC = await smockit(USDC)
     const mockedQuoteToken = await smockit(token1)
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
@@ -212,6 +222,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     })
 
     const mockedVault = await smockit(vault)
+    const mockedInsuranceFund = await smockit(insuranceFund)
 
     // deploy UniV3 factory
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -222,6 +233,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy(
         mockedVault.address,
+        mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
         0,
