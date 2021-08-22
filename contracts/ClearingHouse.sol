@@ -113,7 +113,7 @@ contract ClearingHouse is
         // key: token address, e.g. vETH...
         mapping(address => TokenInfo) tokenInfoMap; // balance & debt info of each token
         // key: token address, e.g. vETH, vUSDC...
-        mapping(address => MakerPosition) makerPositionMap; // open orders for maker
+        mapping(address => bytes32[]) openOrderIdsMap; // open orders for maker
         // key: token address, value: the last twPremiumGrowthGlobalX96
         mapping(address => int256) lastTwPremiumGrowthGlobalX96Map;
     }
@@ -132,12 +132,6 @@ contract ClearingHouse is
         int256 lastTwPremiumGrowthInsideX96;
         int256 lastTwPremiumGrowthBelowX96;
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
-    }
-
-    struct MakerPosition {
-        bytes32[] orderIds;
-        // key: order id
-        mapping(bytes32 => OpenOrder) openOrderMap;
     }
 
     struct FundingGrowth {
@@ -327,6 +321,9 @@ contract ClearingHouse is
     // key: accountBaseTokenKey, which is a hash of account and baseToken
     // value: fraction of open notional that can unify the openNotional for both maker and taker
     mapping(bytes32 => int256) private _openNotionalFractionMap;
+
+    // key: orderId, which is a hash of account, baseToken, lowerTick and upperTick
+    mapping(bytes32 => OpenOrder) private _openOrderMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **Tick.GrowthInfo** outside each tick of each pool
@@ -699,7 +696,7 @@ contract ClearingHouse is
 
         address[] memory tokens = _accountMap[trader].tokens;
         for (uint256 i = 0; i < tokens.length; i++) {
-            bytes32[] memory orderIds = _accountMap[trader].makerPositionMap[tokens[i]].orderIds;
+            bytes32[] memory orderIds = _accountMap[trader].openOrderIdsMap[tokens[i]];
             // CH_NEO: not empty order
             require(orderIds.length == 0, "CH_NEO");
         }
@@ -799,7 +796,7 @@ contract ClearingHouse is
 
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            OpenOrder memory openOrder = _openOrderMap[orderId];
             _removeLiquidity(
                 InternalRemoveLiquidityParams(
                     maker,
@@ -827,7 +824,7 @@ contract ClearingHouse is
     }
 
     function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -927,14 +924,11 @@ contract ClearingHouse is
         int24 lowerTick,
         int24 upperTick
     ) external view returns (OpenOrder memory) {
-        return
-            _accountMap[trader].makerPositionMap[baseToken].openOrderMap[
-                _getOrderId(trader, baseToken, lowerTick, upperTick)
-            ];
+        return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _accountMap[trader].makerPositionMap[baseToken].orderIds;
+        return _accountMap[trader].openOrderIdsMap[baseToken];
     }
 
     function getTotalTokenAmountInPool(address trader, address baseToken)
@@ -1066,17 +1060,16 @@ contract ClearingHouse is
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         if (openOrder.liquidity == 0) {
             // it's a new order
-            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
+            bytes32[] storage orderIds = _accountMap[params.maker].openOrderIdsMap[params.baseToken];
             // CH_ONE: orders number exceeded
-            require(maxOrdersPerMarket == 0 || makerPosition.orderIds.length < maxOrdersPerMarket, "CH_ONE");
-            makerPosition.orderIds.push(orderId);
+            require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "CH_ONE");
+            orderIds.push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
@@ -1556,8 +1549,7 @@ contract ClearingHouse is
 
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
         // CH_ZL non-existent openOrder
         require(openOrder.liquidity > 0, "CH_NEO");
         // CH_NEL not enough liquidity
@@ -1618,8 +1610,7 @@ contract ClearingHouse is
         // update token info based on existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
         uint256 feeGrowthInsideClearingHouseX128 =
             tickMap.getFeeGrowthInside(
                 params.lowerTick,
@@ -1647,25 +1638,25 @@ contract ClearingHouse is
         address baseToken,
         bytes32 orderId
     ) private {
-        MakerPosition storage makerPosition = _accountMap[maker].makerPositionMap[baseToken];
+        bytes32[] storage orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
         uint256 idx;
-        for (idx = 0; idx < makerPosition.orderIds.length; idx++) {
-            if (makerPosition.orderIds[idx] == orderId) {
+        for (idx = 0; idx < orderIds.length; idx++) {
+            if (orderIds[idx] == orderId) {
                 // found the existing order ID
                 // remove it from the array efficiently by re-ordering and deleting the last element
-                makerPosition.orderIds[idx] = makerPosition.orderIds[makerPosition.orderIds.length - 1];
-                makerPosition.orderIds.pop();
+                orderIds[idx] = orderIds[orderIds.length - 1];
+                orderIds.pop();
                 break;
             }
         }
-        delete makerPosition.openOrderMap[orderId];
+        delete _openOrderMap[orderId];
     }
 
     function _removeAllLiquidity(address maker, address baseToken) private {
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
+            OpenOrder memory openOrder = _openOrderMap[orderId];
             _removeLiquidity(
                 InternalRemoveLiquidityParams(
                     maker,
@@ -1884,13 +1875,13 @@ contract ClearingHouse is
     ) private returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = account.openOrderIdsMap[baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
 
         int256 liquidityCoefficientInFundingPayment;
         // update funding of liquidity
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder storage order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            OpenOrder storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -1941,13 +1932,13 @@ contract ClearingHouse is
     ) private view returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = account.openOrderIdsMap[baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
 
         int256 liquidityCoefficientInFundingPayment;
         // funding of liquidity
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -2121,11 +2112,11 @@ contract ClearingHouse is
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
     function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
-        Account storage account = _accountMap[trader];
+        address[] memory tokens = _accountMap[trader].tokens;
         uint256 totalPositionValue;
-        uint256 tokenLen = account.tokens.length;
+        uint256 tokenLen = tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = account.tokens[i];
+            address baseToken = tokens[i];
             if (_isPoolExistent(baseToken)) {
                 // will not use negative value in this case
                 uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
@@ -2156,8 +2147,7 @@ contract ClearingHouse is
         uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) private view returns (uint256 tokenAmount) {
-        Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = account.makerPositionMap[baseToken].orderIds;
+        bytes32[] memory orderIds = _accountMap[trader].openOrderIdsMap[baseToken];
 
         //
         // tick:    lower             upper
@@ -2172,7 +2162,7 @@ contract ClearingHouse is
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = account.makerPositionMap[baseToken].openOrderMap[orderIds[i]];
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
 
             uint256 amount;
             {
@@ -2219,9 +2209,9 @@ contract ClearingHouse is
         address baseToken,
         uint160 sqrtMarkPriceX96
     ) private view returns (int256) {
-        Account storage account = _accountMap[trader];
+        TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
-            account.tokenInfoMap[baseToken].available.add(
+            baseTokenInfo.available.add(
                 _getTotalTokenAmountInPool(
                     trader,
                     baseToken,
@@ -2233,7 +2223,7 @@ contract ClearingHouse is
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize = vBaseAmount.toInt256().sub(account.tokenInfoMap[baseToken].debt.toInt256());
+        int256 positionSize = vBaseAmount.toInt256().sub(baseTokenInfo.debt.toInt256());
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
