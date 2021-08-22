@@ -678,7 +678,12 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        _removeAllLiquidity(trader, baseToken);
+        address[] memory tokens = _accountMap[trader].tokens;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            bytes32[] memory orderIds = _accountMap[trader].makerPositionMap[tokens[i]].orderIds;
+            // CH_NEO: not empty order
+            require(orderIds.length == 0, "CH_NEO");
+        }
 
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
@@ -759,8 +764,13 @@ contract ClearingHouse is
         TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
     }
 
-    function cancelExcessOrders(address maker, address baseToken) external nonReentrant() {
+    function _cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] memory orderIds
+    ) private {
         _requireHasBaseToken(baseToken);
+
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(
@@ -768,7 +778,6 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
             OpenOrder memory openOrder = _accountMap[maker].makerPositionMap[baseToken].openOrderMap[orderId];
@@ -788,6 +797,19 @@ contract ClearingHouse is
 
         // burn maker's quote to reduce maker's init margin requirement
         _burnMax(maker, quoteToken);
+    }
+
+    function cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external nonReentrant() {
+        _cancelExcessOrders(maker, baseToken, orderIds);
+    }
+
+    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
+        bytes32[] memory orderIds = _accountMap[maker].makerPositionMap[baseToken].orderIds;
+        _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     function settle(address account) external override returns (int256) {
