@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -10,7 +10,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse removeLiquidity with fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let collateral: TestERC20
     let vault: Vault
     let baseToken: VirtualToken
@@ -21,7 +21,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -55,6 +55,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         describe("one maker; current price is in maker's range", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
                 await pool.initialize(encodePriceSqrt(151.3733069, 1))
+                // the initial number of oracle can be recorded is 1; thus, have to expand it
+                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                 // add pool after it's initialized
                 await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -149,9 +152,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // 0.000615133417572502 * 2 ^ 128 = 2.093190553037369773206693664E+35
                 // =  209319055303736977320669366400000000
                 // ~= 209319055280824225842992700263677914
-                expect(
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
-                ).to.deep.eq([
+                const openOrder = await clearingHouse.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                expect(openOrder).to.deep.eq([
                     liquidity,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
@@ -159,6 +166,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // 209319055280823885560625816574200262
                     //                  1000000000000000000
                     parseEther("209319055280824225.842992700263677914"), // feeGrowthInsideClearingHouseLastX128
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes
@@ -175,6 +185,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             describe("initialized price = 148.3760629", () => {
                 beforeEach(async () => {
                     await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                    // the initial number of oracle can be recorded is 1; thus, have to expand it
+                    await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                     // add pool after it's initialized
                     await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -257,9 +270,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
 
                     // 0.001135501474999999 * 2 ^ 128 = 3.863911296E35
-                    expect(
-                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
-                    ).to.deep.eq([
+                    const openOrder = await clearingHouse.getOpenOrder(
+                        alice.address,
+                        baseToken.address,
+                        lowerTick,
+                        upperTick,
+                    )
+                    expect(openOrder).to.deep.eq([
                         liquidity,
                         Number(lowerTick), // lowerTick
                         Number(upperTick), // upperTick
@@ -267,6 +284,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         // 386391129557376066102652522378417873
                         //                  1000000000000000000
                         parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideClearingHouseLastX128
+                        openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                        openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                        openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                     ])
 
                     // verify CH balance changes
@@ -373,9 +393,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
 
                     // feeGrowthInsideClearingHouseLastX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
-                    expect(
-                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
-                    ).to.deep.eq([
+                    const openOrder = await clearingHouse.getOpenOrder(
+                        alice.address,
+                        baseToken.address,
+                        lowerTick,
+                        upperTick,
+                    )
+                    expect(openOrder).to.deep.eq([
                         liquidity,
                         Number(lowerTick), // lowerTick
                         Number(upperTick), // upperTick
@@ -383,6 +407,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         // 768918347710801159938289352460269026
                         //                  1000000000000000000
                         parseEther("768918347710801159.938289352460269026"), // feeGrowthInsideClearingHouseLastX128
+                        openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                        openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                        openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                     ])
 
                     // verify CH balance changes
@@ -406,6 +433,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         describe("multi makers", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt(148.3760629, 1))
+                // the initial number of oracle can be recorded is 1; thus, have to expand it
+                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
                 // add pool after it's initialized
                 await clearingHouse.addPool(baseToken.address, 10000)
 
@@ -560,21 +590,25 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //                  1000000000000000000
                 // add the decimal point to prevent overflow, according to the above 10^18 comparison
                 const feeGrowthInsideClearingHouseLastX128 = parseEther("191575220500261126.937834419214500538")
-                expect(
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
-                ).to.deep.eq([
+                let openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                expect(openOrder).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
                     feeGrowthInsideClearingHouseLastX128,
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-                expect(
-                    await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick),
-                ).to.deep.eq([
+                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                expect(openOrder).to.deep.eq([
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
                     feeGrowthInsideClearingHouseLastX128,
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes
@@ -787,26 +821,30 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   feeGrowthInsideClearingHouseLastX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
                 // when bob swap B2Q:
                 //   feeGrowthInsideClearingHouseLastX128 += (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 15.139051879E35
-                expect(
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick),
-                ).to.deep.eq([
+                let openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                expect(openOrder).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
                     parseEther("1513905187670593932.794783574578872579"),
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // when bob swap Q2B
                 //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:
                 //   feeGrowthInsideClearingHouseLastX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
-                expect(
-                    await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick),
-                ).to.deep.eq([
+                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
+                expect(openOrder).to.deep.eq([
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
                     Number(middleTick), // upperTick
                     parseEther("837318540278413532.396943670424856473"),
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes

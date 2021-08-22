@@ -3,6 +3,7 @@ import { ethers } from "hardhat"
 import {
     ClearingHouse,
     InsuranceFund,
+    TestClearingHouse,
     TestERC20,
     TestUniswapV3Broker,
     UniswapV3Factory,
@@ -13,7 +14,7 @@ import { VirtualToken } from "../../typechain/VirtualToken"
 import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
-    clearingHouse: ClearingHouse
+    clearingHouse: TestClearingHouse | ClearingHouse
     vault: Vault
     insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
@@ -38,7 +39,10 @@ export enum BaseQuoteOrdering {
     BASE_1_QUOTE_0,
 }
 
-export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering): () => Promise<ClearingHouseFixture> {
+export function createClearingHouseFixture(
+    baseQuoteOrdering: BaseQuoteOrdering,
+    canMockTime: boolean = true,
+): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -69,16 +73,28 @@ export function createClearingHouseFixture(baseQuoteOrdering: BaseQuoteOrdering)
         const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
 
         // deploy clearingHouse
-        const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-        const clearingHouse = (await clearingHouseFactory.deploy(
-            vault.address,
-            insuranceFund.address,
-            quoteToken.address,
-            uniV3Factory.address,
-            3600, // fundingPeriod = 1 hour
-            0,
-            0,
-        )) as ClearingHouse
+        let clearingHouse: ClearingHouse | TestClearingHouse
+        if (canMockTime) {
+            const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
+            clearingHouse = (await clearingHouseFactory.deploy(
+                vault.address,
+                insuranceFund.address,
+                quoteToken.address,
+                uniV3Factory.address,
+                0,
+                0,
+            )) as TestClearingHouse
+        } else {
+            const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+            clearingHouse = (await clearingHouseFactory.deploy(
+                vault.address,
+                insuranceFund.address,
+                quoteToken.address,
+                uniV3Factory.address,
+                0,
+                0,
+            )) as ClearingHouse
+        }
 
         await quoteToken.addWhitelist(clearingHouse.address)
 
@@ -220,7 +236,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
-        3600,
         0,
         0,
     )) as ClearingHouse

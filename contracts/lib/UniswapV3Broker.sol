@@ -11,7 +11,7 @@ import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddre
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 
@@ -23,10 +23,10 @@ import { PerpMath } from "../lib/PerpMath.sol";
  * Figure out: (base, quote) == (token0, token1) or (token1, token0)
  */
 library UniswapV3Broker {
-    using SafeCast for uint256;
+    using PerpSafeCast for uint256;
     using SafeMath for uint256;
-    using SafeCast for uint128;
-    using SafeCast for int256;
+    using PerpSafeCast for uint128;
+    using PerpSafeCast for int256;
     using PerpMath for int256;
 
     struct AddLiquidityParams {
@@ -220,7 +220,7 @@ library UniswapV3Broker {
     }
 
     // note assuming base token == token0
-    function getSqrtMarkTwapX96(address pool, uint256 twapInterval) internal view returns (uint160) {
+    function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
             return getSqrtMarkPriceX96(pool);
         }
@@ -228,11 +228,11 @@ library UniswapV3Broker {
         uint32[] memory secondsAgos = new uint32[](2);
 
         // solhint-disable-next-line not-rely-on-time
-        secondsAgos[0] = uint32(twapInterval);
-        secondsAgos[1] = uint32(0);
+        secondsAgos[0] = twapInterval;
+        secondsAgos[1] = 0;
         (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
 
-        return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / uint32(twapInterval)));
+        return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
     }
 
     /// copied from UniswapV3-periphery
@@ -270,30 +270,6 @@ library UniswapV3Broker {
         if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
-    }
-
-    // assuming token1 == quote token
-    function getFeeGrowthInsideQuote(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick,
-        int24 currentTick
-    ) internal view returns (uint256 feeGrowthInsideQuoteX128) {
-        (, , , uint256 lowerFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(lowerTick);
-        (, , , uint256 upperFeeGrowthOutside1X128, , , , ) = IUniswapV3Pool(pool).ticks(upperTick);
-        uint256 feeGrowthGlobal1X128 = IUniswapV3Pool(pool).feeGrowthGlobal1X128();
-
-        uint256 feeGrowthBelow =
-            currentTick >= lowerTick ? lowerFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - lowerFeeGrowthOutside1X128;
-        uint256 feeGrowthAbove =
-            currentTick < upperTick ? upperFeeGrowthOutside1X128 : feeGrowthGlobal1X128 - upperFeeGrowthOutside1X128;
-
-        // this value can underflow per feeGrowthOutside specs
-        return feeGrowthGlobal1X128 - feeGrowthBelow - feeGrowthAbove;
-    }
-
-    function calcFee(address pool, uint256 amount) internal view returns (uint256) {
-        return FullMath.mulDivRoundingUp(amount, IUniswapV3Pool(pool).fee(), 1e6);
     }
 
     // note assuming base token == token0
