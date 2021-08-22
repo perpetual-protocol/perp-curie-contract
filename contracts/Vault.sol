@@ -9,7 +9,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -17,8 +17,8 @@ import { IVault } from "./interface/IVault.sol";
 
 contract Vault is ReentrancyGuard, Ownable, IVault {
     using SafeMath for uint256;
-    using SafeCast for uint256;
-    using SafeCast for int256;
+    using PerpSafeCast for uint256;
+    using PerpSafeCast for int256;
     using SignedSafeMath for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
@@ -155,10 +155,12 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     function _getFreeCollateral(address account) private view returns (int256) {
         // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
         uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(account);
+        int256 pendingFundingPayment = ClearingHouse(clearingHouse).getAllPendingFundingPayment(account);
 
         // accountValue = totalCollateralValue + totalMarketPnl
         int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(account);
-        int256 collateralValue = balanceOf(account).toInt256().addS(owedRealizedPnl, decimals);
+        int256 collateralValue =
+            balanceOf(account).toInt256().addS(owedRealizedPnl.sub(pendingFundingPayment), decimals);
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(account);
         int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
 

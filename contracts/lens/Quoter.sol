@@ -8,7 +8,7 @@ import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
 // TODO: change this to IClearingHouse when clearing house's interface is ready
@@ -20,7 +20,7 @@ import { ClearingHouse } from "../ClearingHouse.sol";
 /// the swap and check the amounts in the callback.
 contract Quoter is IUniswapV3SwapCallback {
     using SafeMath for uint256;
-    using SafeCast for uint256;
+    using PerpSafeCast for uint256;
     using SignedSafeMath for int256;
     using PerpMath for int256;
 

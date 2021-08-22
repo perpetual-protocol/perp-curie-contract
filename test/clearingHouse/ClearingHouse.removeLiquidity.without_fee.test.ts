@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,7 +11,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse removeLiquidity without fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let collateral: TestERC20
     let vault: Vault
     let baseToken: VirtualToken
@@ -23,7 +23,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -120,11 +120,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 parseUnits("10000", await quoteToken.decimals()), // debt
             ])
             expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).to.deep.eq([
+            const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+            expect(openOrder).to.deep.eq([
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
                 0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
             ])
 
             // verify CH balance changes
@@ -216,11 +220,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)).to.deep.eq([
+                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes
@@ -282,11 +290,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes
@@ -346,11 +358,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
                 expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
                 // verify CH balance changes
@@ -471,11 +487,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
             keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
         ])
-        expect(await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).to.deep.eq([
+        const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+        expect(openOrder).to.deep.eq([
             liquidity,
             50000, // lowerTick
             50400, // upperTick
-            parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+            parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+            openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+            openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+            openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
         ])
 
         // verify CH balance changes

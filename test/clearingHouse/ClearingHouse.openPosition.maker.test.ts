@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -12,7 +12,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse maker close position", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let vault: Vault
     let collateral: TestERC20
     let quoteToken: VirtualToken
@@ -28,7 +28,7 @@ describe("ClearingHouse maker close position", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         quoteToken = _clearingHouseFixture.quoteToken
@@ -43,7 +43,11 @@ describe("ClearingHouse maker close position", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
+
         await pool.initialize(encodePriceSqrt("10", "1"))
+        // the initial number of oracle can be recorded is 1; thus, have to expand it
+        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
         await clearingHouse.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
@@ -226,6 +230,9 @@ describe("ClearingHouse maker close position", () => {
                 return [0, parseUnits("10", 6), 0, 0, 0]
             })
             await pool2.initialize(encodePriceSqrt("10", "1"))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
             await clearingHouse.addPool(baseToken2.address, "10000")
 
             // alice add liquidity to BTC
