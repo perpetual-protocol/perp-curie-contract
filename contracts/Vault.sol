@@ -50,6 +50,8 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
 
     constructor(address settlementTokenArg) {
         settlementToken = settlementTokenArg;
+        // invalid settlementToken decimals
+        require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
         decimals = IERC20Metadata(settlementTokenArg).decimals();
 
         _addCollateralToken(settlementTokenArg);
