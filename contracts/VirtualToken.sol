@@ -26,6 +26,8 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
         // invalid address
         require(priceFeedArg != address(0), "VT_IA");
 
+        // invalid price feed decimals
+        require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "VT_IPFD");
         priceFeed = priceFeedArg;
         _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
 
