@@ -58,6 +58,8 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     }
 
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
+        // invalid ClearingHouse address
+        require(clearingHouseArg != address(0), "V_ICHA");
         // TODO add event
         clearingHouse = clearingHouseArg;
     }
@@ -77,6 +79,9 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
+        // invalid ClearingHouse address
+        require(clearingHouse != address(0), "V_ICHA");
+
         address account = _msgSender();
 
         // settle ClearingHouse's owedRealizedPnl to collateral
