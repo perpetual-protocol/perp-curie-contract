@@ -500,7 +500,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore.add(parseEther("0.01")))
         })
 
-        it("reduce position", async () => {
+        it.only("reduce position", async () => {
             const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
 

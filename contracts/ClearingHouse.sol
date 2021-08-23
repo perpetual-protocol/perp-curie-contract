@@ -31,6 +31,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -586,10 +587,11 @@ contract ClearingHouse is
         uint256 amount1Owed,
         bytes calldata data // contains baseToken
     ) external override {
-        address baseToken = abi.decode(data, (address));
-        address pool = _poolMap[baseToken];
         // CH_FMV: failed mintCallback verification
         require(_msgSender() == exchange, "CH_FMV");
+
+        address baseToken = abi.decode(data, (address));
+        address pool = _poolMap[baseToken];
 
         if (amount0Owed > 0) {
             TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
@@ -619,11 +621,16 @@ contract ClearingHouse is
     }
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
+        // TODO remove after move callback to exchange
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
+        Exchange(exchange).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+        // TODO remove after move callback to exchange
+        address pool = _poolMap[baseToken];
+        _clearingHouseFeeRatioMap[pool] = feeRatio;
+        Exchange(exchange).setFeeRatio(pool, feeRatio);
     }
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
@@ -672,14 +679,15 @@ contract ClearingHouse is
         int256 amount1Delta,
         bytes calldata data
     ) external override {
+        // CH_FMV: failed mintCallback verification
+        require(_msgSender() == exchange, "CH_FMV");
+
         // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
         // CH_F0S: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
         SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
-        // CH_FSV: failed swapCallback verification
-        require(_msgSender() == address(pool), "CH_FSV");
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
@@ -715,13 +723,16 @@ contract ClearingHouse is
             // if quote to base, need to mint clearing house quote fee for trader
             uint256 amount =
                 token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
+
             if (availableBefore < amount) {
                 _mint(callbackData.trader, token, amount.sub(availableBefore), false);
             }
         }
 
         // swap
-        TransferHelper.safeTransfer(token, _msgSender(), amountToPay);
+        console.log("bal=%s", IMintableERC20(token).balanceOf(address(this)));
+        console.log("amountToPay=%s", amountToPay);
+        TransferHelper.safeTransfer(token, address(pool), amountToPay);
     }
 
     function _cancelExcessOrders(
@@ -1313,80 +1324,18 @@ contract ClearingHouse is
         FundingGrowth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
 
-        UniswapV3Broker.SwapResponse memory response;
-        // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
-        InternalSwapState memory internalSwapState =
-            InternalSwapState({
-                pool: _poolMap[params.baseToken],
-                clearingHouseFeeRatio: _clearingHouseFeeRatioMap[_poolMap[params.baseToken]],
-                uniswapFeeRatio: uniswapFeeRatioMap[_poolMap[params.baseToken]],
-                fee: 0,
-                insuranceFundFee: 0
-            });
-        {
-            (uint256 scaledAmount, int256 signedScaledAmount) =
-                _getScaledAmount(
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    params.amount,
-                    internalSwapState.clearingHouseFeeRatio,
-                    internalSwapState.uniswapFeeRatio
-                );
-            SwapState memory state =
-                SwapState({
-                    tick: UniswapV3Broker.getTick(internalSwapState.pool),
-                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(internalSwapState.pool),
-                    amountSpecifiedRemaining: signedScaledAmount,
-                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: UniswapV3Broker.getLiquidity(internalSwapState.pool)
-                });
-            // simulate the swap to calculate the fees charged in clearing house
-            (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
-                ReplaySwapParams({
-                    state: state,
+        Exchange.SwapResponse memory response =
+            Exchange(exchange).swap(
+                Exchange.SwapParams({
+                    trader: params.trader,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
-                    shouldUpdateState: true,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio: internalSwapState.clearingHouseFeeRatio,
-                    uniswapFeeRatio: internalSwapState.uniswapFeeRatio,
-                    globalFundingGrowth: updatedGlobalFundingGrowth
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
-            response = UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    internalSwapState.pool,
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    // mint extra base token before swap
-                    scaledAmount,
-                    params.sqrtPriceLimitX96,
-                    abi.encode(
-                        SwapCallbackData(params.trader, params.baseToken, params.mintForTrader, internalSwapState.fee)
-                    )
-                )
-            );
-        }
-
-        // because we charge fee in CH instead of uniswap pool,
-        // we need to scale up base or quote amount to get exact exchanged position size and notional
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        if (params.isBaseToQuote) {
-            // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(
-                FeeMath.calcScaledAmount(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
-            );
-            // due to base to quote fee, exchangedPositionNotional contains the fee
-            // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
-            exchangedPositionNotional = response.quote.toInt256();
-        } else {
-            // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-            exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = -(
-                FeeMath.calcScaledAmount(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
-            );
-        }
 
         {
             // update internal states
@@ -1394,16 +1343,21 @@ contract ClearingHouse is
             // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
             TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
             TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
-            baseTokenInfo.available = baseTokenInfo.available.toInt256().add(exchangedPositionSize).toUint256();
+
+            baseTokenInfo.available = baseTokenInfo
+                .available
+                .toInt256()
+                .add(response.exchangedPositionSize)
+                .toUint256();
             quoteTokenInfo.available = quoteTokenInfo
                 .available
                 .toInt256()
-                .add(exchangedPositionNotional)
+                .add(response.exchangedPositionNotional)
                 .toUint256()
-                .sub(internalSwapState.fee);
+                .sub(response.fee);
 
             _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
-                internalSwapState.insuranceFundFee.toInt256()
+                response.insuranceFundFee.toInt256()
             );
         }
 
@@ -1417,17 +1371,17 @@ contract ClearingHouse is
         emit Swapped(
             params.trader,
             params.baseToken,
-            exchangedPositionSize,
-            exchangedPositionNotional,
-            internalSwapState.fee
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional,
+            response.fee
         );
 
         return
             SwapResponse(
-                exchangedPositionSize.abs(), // deltaAvailableBase
-                exchangedPositionNotional.sub(internalSwapState.fee.toInt256()).abs(), // deltaAvailableQuote
-                exchangedPositionSize.abs(),
-                exchangedPositionNotional.abs()
+                response.exchangedPositionSize.abs(), // deltaAvailableBase
+                response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
+                response.exchangedPositionSize.abs(),
+                response.exchangedPositionNotional.abs()
             );
     }
 
