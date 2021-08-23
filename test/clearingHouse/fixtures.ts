@@ -105,15 +105,20 @@ export function createClearingHouseFixture(
         await baseToken.setMinter(clearingHouse.address)
         await quoteToken.setMinter(clearingHouse.address)
 
-        // deploy exchange
-        const exchangeFactory = await ethers.getContractFactory("Exchange")
-        const exchange = (await exchangeFactory.deploy(clearingHouse.address, 0)) as Exchange
-        await clearingHouse.setExchange(exchange.address)
-
         // prepare uniswap factory
         const feeTier = 10000
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+
+        // deploy exchange
+        const exchangeFactory = await ethers.getContractFactory("Exchange")
+        const exchange = (await exchangeFactory.deploy(
+            clearingHouse.address,
+            uniV3Factory.address,
+            quoteToken.address,
+            0,
+        )) as Exchange
+        await clearingHouse.setExchange(exchange.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)

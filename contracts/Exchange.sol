@@ -46,8 +46,14 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
+    address public immutable quoteToken;
+    address public immutable uniswapV3Factory;
     address public clearingHouse;
     uint8 public maxOrdersPerMarket;
+
+    // TODO refactoring
+    // key: base token, value: pool
+    mapping(address => address) private _poolMap;
 
     // key: accountMarketId => openOrderIds
     mapping(bytes32 => bytes32[]) private _openOrderIdsMap;
@@ -72,14 +78,26 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
         _;
     }
 
-    constructor(address clearingHouseArg, uint8 maxOrdersPerMarketArg) {
+    constructor(
+        address clearingHouseArg,
+        address uniswapV3FactoryArg,
+        address quoteTokenArg,
+        uint8 maxOrdersPerMarketArg
+    ) {
         clearingHouse = clearingHouseArg;
+        uniswapV3Factory = uniswapV3FactoryArg;
+        quoteToken = quoteTokenArg;
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     //
     // EXTERNAL FUNCTIONS
     //
+
+    // TODO refactoring
+    function addPool(address baseToken, uint24 feeRatio) external onlyClearingHouse {
+        _poolMap[baseToken] = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
+    }
 
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
         maxOrdersPerMarket = maxOrdersPerMarketArg;
@@ -90,8 +108,6 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
     struct AddLiquidityParams {
         address trader;
         address baseToken;
-        address quoteToken;
-        address pool;
         uint256 base;
         uint256 quote;
         int24 lowerTick;
@@ -113,20 +129,21 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
+        address pool = _poolMap[params.baseToken];
         uint256 feeGrowthGlobalClearingHouseX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
 
         {
-            bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick);
-            bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(params.pool, params.upperTick);
+            bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
+            bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
 
             // add liquidity to liquidity pool
             response = UniswapV3Broker.addLiquidity(
                 UniswapV3Broker.AddLiquidityParams(
-                    params.pool,
+                    pool,
                     params.baseToken,
-                    params.quoteToken,
+                    quoteToken,
                     params.lowerTick,
                     params.upperTick,
                     params.base,
@@ -135,9 +152,9 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
             );
             // mint callback
 
-            int24 currentTick = UniswapV3Broker.getTick(params.pool);
+            int24 currentTick = UniswapV3Broker.getTick(pool);
             // initialize tick info
-            if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick)) {
+            if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
                 tickMap.initialize(
                     params.lowerTick,
                     currentTick,
@@ -148,7 +165,7 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
                     )
                 );
             }
-            if (!initializedBeforeUpper && UniswapV3Broker.getIsTickInitialized(params.pool, params.upperTick)) {
+            if (!initializedBeforeUpper && UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
                 tickMap.initialize(
                     params.upperTick,
                     currentTick,
@@ -170,7 +187,7 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
                 AddLiquidityToOrderParams({
                     maker: params.trader,
                     baseToken: params.baseToken,
-                    pool: params.pool,
+                    pool: pool,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
                     feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
@@ -188,6 +205,8 @@ contract Exchange is IUniswapV3MintCallback, Ownable {
                 liquidity: response.liquidity
             });
     }
+
+    function removeLiquidity() external onlyClearingHouse {}
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
         // load existing open order

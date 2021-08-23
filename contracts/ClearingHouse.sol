@@ -403,6 +403,8 @@ contract ClearingHouse is
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
         _clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
+
+        Exchange(exchange).addPool(baseToken, feeRatio);
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
@@ -475,8 +477,6 @@ contract ClearingHouse is
                 Exchange.AddLiquidityParams({
                     trader: trader,
                     baseToken: params.baseToken,
-                    quoteToken: quoteToken,
-                    pool: _poolMap[params.baseToken],
                     base: params.base,
                     quote: params.quote,
                     lowerTick: params.lowerTick,
@@ -1454,6 +1454,7 @@ contract ClearingHouse is
         {
             uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
             uint256 quoteBalanceBefore = IERC20Metadata(quoteToken).balanceOf(address(this));
+
             response = UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
             );
