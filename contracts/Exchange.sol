@@ -249,6 +249,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         ClearingHouse.FundingGrowth updatedGlobalFundingGrowth;
+        bool mintForTrader; // TODO delet
     }
 
     struct SwapResponse {
@@ -319,7 +320,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     // mint extra base token before swap
                     scaledAmount,
                     params.sqrtPriceLimitX96,
-                    abi.encode(SwapCallbackData(params.trader, params.baseToken, true, internalSwapState.fee))
+                    abi.encode(
+                        SwapCallbackData(params.trader, params.baseToken, params.mintForTrader, internalSwapState.fee)
+                    )
                 )
             );
 

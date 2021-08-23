@@ -1160,7 +1160,8 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth,
+                    mintForTrader: params.mintForTrader
                 })
             );
 
