@@ -359,6 +359,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             });
     }
 
+    //
+    //    function getGrowthOutsideTickInfo(address baseToken) external returns (Tick.GrowthInfo) {
+    //        return _growthOutsideTickMap[baseToken];
+    //    }
+
     function addLiquidity(AddLiquidityParams calldata params)
         external
         onlyClearingHouse
@@ -620,6 +625,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
     }
 
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
+        return _openOrderMap[orderId];
+    }
+
     // FIXME add _poolMap and check msgSender is uniswapV3
     // or just deal with the vToken in Exchange
     // @inheritdoc IUniswapV3MintCallback
@@ -856,5 +865,92 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
 
         return (fee, insuranceFundFee, params.state.tick);
+    }
+
+    /// @dev funding payment belongs to realizedPnl, not token amount
+    function getTotalTokenAmountInPool(
+        address trader,
+        address baseToken,
+        uint160 sqrtMarkPriceX96,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
+    ) external view returns (uint256 tokenAmount) {
+        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+
+        //
+        // tick:    lower             upper
+        //       -|---+-----------------+---|--
+        //     case 1                    case 2
+        //
+        // if current price < upper tick, maker has base
+        // case 1 : current price < lower tick
+        //  --> maker only has base token
+        //
+        // if current price > lower tick, maker has quote
+        // case 2 : current price > upper tick
+        //  --> maker only has quote token
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
+
+            uint256 amount;
+            {
+                uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
+                uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
+                if (fetchBase && sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
+                    amount = UniswapV3Broker.getAmount0ForLiquidity(
+                        sqrtMarkPriceX96 > sqrtPriceAtLowerTick ? sqrtMarkPriceX96 : sqrtPriceAtLowerTick,
+                        sqrtPriceAtUpperTick,
+                        order.liquidity
+                    );
+                } else if (!fetchBase && sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
+                    amount = UniswapV3Broker.getAmount1ForLiquidity(
+                        sqrtPriceAtLowerTick,
+                        sqrtMarkPriceX96 < sqrtPriceAtUpperTick ? sqrtMarkPriceX96 : sqrtPriceAtUpperTick,
+                        order.liquidity
+                    );
+                }
+            }
+            tokenAmount = tokenAmount.add(amount);
+
+            if (!fetchBase) {
+                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
+
+                // uncollected quote fee in ClearingHouse
+                mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+                uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
+                uint256 feeGrowthInsideClearingHouseX128 =
+                    tickMap.getFeeGrowthInside(order.lowerTick, order.upperTick, tick, feeGrowthGlobalX128);
+
+                tokenAmount = tokenAmount.add(
+                    _calcOwedFee(
+                        order.liquidity,
+                        feeGrowthInsideClearingHouseX128,
+                        order.feeGrowthInsideClearingHouseLastX128
+                    )
+                );
+            }
+        }
+    }
+
+    // todo remove, or batch update order's funding data
+    function setOpenOrder(OpenOrder memory order, bytes32 orderId) external {
+        _openOrderMap[orderId] = order;
+    }
+
+    function getTickFundingGrowthRangeInfo(
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick,
+        int256 twPremiumX96,
+        int256 twPremiumDivBySqrtPriceX96
+    ) external view returns (Tick.FundingGrowthRangeInfo memory) {
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+            tickMap.getAllFundingGrowth(
+                lowerTick,
+                upperTick,
+                UniswapV3Broker.getTick(_poolMap[baseToken]),
+                twPremiumX96,
+                twPremiumDivBySqrtPriceX96
+            );
     }
 }
