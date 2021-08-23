@@ -18,7 +18,6 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
-
 // TODO move FundingGrowth to another file or library
 import { ClearingHouse } from "./ClearingHouse.sol";
 
@@ -350,7 +349,123 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
             });
     }
 
-    function removeLiquidity() external onlyClearingHouse {}
+    struct RemoveLiquidityParams {
+        address maker;
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+    }
+
+    struct RemoveLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+    }
+
+    struct RemoveLiquidityFromOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthInsideQuoteX128;
+        uint256 liquidity;
+    }
+
+    function removeLiquidity(RemoveLiquidityParams calldata params)
+        external
+        onlyClearingHouse
+        returns (RemoveLiquidityResponse memory)
+    {
+        // load existing open order
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _openOrderMap[orderId];
+        // CH_ZL non-existent openOrder
+        require(openOrder.liquidity > 0, "CH_NEO");
+        // CH_NEL not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "CH_NEL");
+
+        address pool = _poolMap[params.baseToken];
+        UniswapV3Broker.RemoveLiquidityResponse memory response =
+            UniswapV3Broker.removeLiquidity(
+                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
+            );
+
+        // update token info based on existing open order
+        uint256 fee =
+            _removeLiquidityFromOrder(
+                RemoveLiquidityFromOrderParams({
+                    maker: params.maker,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
+                    liquidity: params.liquidity
+                })
+            );
+
+        // if flipped from initialized to uninitialized, clear the tick info
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
+        }
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
+        }
+
+        // TODO avoid this
+        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
+        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
+
+        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+    }
+
+    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256 fee) {
+        // update token info based on existing open order
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+        OpenOrder storage openOrder = _openOrderMap[orderId];
+        uint256 feeGrowthInsideClearingHouseX128 =
+            tickMap.getFeeGrowthInside(
+                params.lowerTick,
+                params.upperTick,
+                UniswapV3Broker.getTick(params.pool),
+                _feeGrowthGlobalX128Map[params.baseToken]
+            );
+        fee = _calcOwedFee(
+            openOrder.liquidity,
+            feeGrowthInsideClearingHouseX128,
+            openOrder.feeGrowthInsideClearingHouseLastX128
+        );
+
+        // update open order with new liquidity
+        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity).toUint128();
+        if (openOrder.liquidity == 0) {
+            _removeOrder(params.maker, params.baseToken, orderId);
+        } else {
+            openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+        }
+    }
+
+    function _removeOrder(
+        address maker,
+        address baseToken,
+        bytes32 orderId
+    ) private {
+        bytes32[] storage orderIds = _openOrderIdsMap[_getAccountMarketId(maker, baseToken)];
+        uint256 idx;
+        for (idx = 0; idx < orderIds.length; idx++) {
+            if (orderIds[idx] == orderId) {
+                // found the existing order ID
+                // remove it from the array efficiently by re-ordering and deleting the last element
+                orderIds[idx] = orderIds[orderIds.length - 1];
+                orderIds.pop();
+                break;
+            }
+        }
+        delete _openOrderMap[orderId];
+    }
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
         // load existing open order

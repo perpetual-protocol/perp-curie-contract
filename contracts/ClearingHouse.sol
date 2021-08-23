@@ -517,18 +517,20 @@ contract ClearingHouse is
         )
     {
         _requireHasBaseToken(params.baseToken);
-        (base, quote, fee) = _removeLiquidity(
-            InternalRemoveLiquidityParams({
-                maker: _msgSender(),
-                baseToken: params.baseToken,
-                lowerTick: params.lowerTick,
-                upperTick: params.upperTick,
-                liquidity: params.liquidity
-            })
-        );
+        RemoveLiquidityResponse memory response =
+            _removeLiquidity(
+                InternalRemoveLiquidityParams({
+                    maker: _msgSender(),
+                    baseToken: params.baseToken,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: params.liquidity
+                })
+            );
 
         // price slippage check
-        require(base >= params.minBase && quote >= params.minQuote, "CH_PSC");
+        require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
+        return (response.base, response.quote, response.fee);
     }
 
     function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
@@ -875,12 +877,12 @@ contract ClearingHouse is
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (OpenOrder memory) {
-        return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
+    ) external view returns (Exchange.OpenOrder memory) {
+        return Exchange(exchange).getOpenOrder(trader, baseToken, lowerTick, upperTick);
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _accountMap[trader].openOrderIdsMap[baseToken];
+        return Exchange(exchange).getOpenOrderIds(trader, baseToken);
     }
 
     function getTotalTokenAmountInPool(address trader, address baseToken)
@@ -1382,74 +1384,64 @@ contract ClearingHouse is
             );
     }
 
+    struct RemoveLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+    }
+
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
         private
-        returns (
-            uint256 base,
-            uint256 quote,
-            uint256 fee
-        )
+        returns (RemoveLiquidityResponse memory)
     {
         _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
-
-        // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
-        // CH_ZL non-existent openOrder
-        require(openOrder.liquidity > 0, "CH_NEO");
-        // CH_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "CH_NEL");
-
-        address pool = _poolMap[params.baseToken];
-        UniswapV3Broker.RemoveLiquidityResponse memory response;
+        Exchange.RemoveLiquidityResponse memory response;
         {
             uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
             uint256 quoteBalanceBefore = IERC20Metadata(quoteToken).balanceOf(address(this));
 
-            response = UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
-            );
-            // burn base/quote fee
-            // base/quote fee of all makers in the range of lowerTick and upperTick should be
-            // balanceAfter - balanceBefore - response.base / response.quote
-            uint256 baseBalanceAfter = IERC20Metadata(params.baseToken).balanceOf(address(this));
-            uint256 quoteBalanceAfter = IERC20Metadata(quoteToken).balanceOf(address(this));
-            IMintableERC20(params.baseToken).burn(baseBalanceAfter.sub(baseBalanceBefore).sub(response.base));
-            IMintableERC20(quoteToken).burn(quoteBalanceAfter.sub(quoteBalanceBefore).sub(response.quote));
-
-            base = response.base;
-            quote = response.quote;
-
-            // update token info based on existing open order
-            fee = _removeLiquidityFromOrder(
-                RemoveLiquidityFromOrderParams({
+            response = Exchange(exchange).removeLiquidity(
+                Exchange.RemoveLiquidityParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
-                    pool: pool,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
                     liquidity: params.liquidity
                 })
             );
 
-            // if flipped from initialized to uninitialized, clear the tick info
-            if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-                _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
-            }
-            if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-                _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
-            }
+            // burn base/quote fee
+            // base/quote fee of all makers in the range of lowerTick and upperTick should be
+            // balanceAfter - balanceBefore - response.base / response.quote
+            IMintableERC20(params.baseToken).burn(
+                IERC20Metadata(params.baseToken).balanceOf(address(this)).sub(baseBalanceBefore).sub(response.base)
+            );
+            IMintableERC20(quoteToken).burn(
+                IERC20Metadata(quoteToken).balanceOf(address(this)).sub(quoteBalanceBefore).sub(response.quote)
+            );
+        }
+        {
+            uint256 removedQuoteAmount = response.quote.add(response.fee);
+            TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
+            baseTokenInfo.available = baseTokenInfo.available.add(response.base);
+            quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
+            _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
         }
 
-        uint256 removedQuoteAmount = quote.add(fee);
-        TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
-        baseTokenInfo.available = baseTokenInfo.available.add(base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
-        _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
-        // TODO move it back if we can fix stack too deep
-        _emitLiquidityChanged(params.maker, params, response, fee);
+        emit LiquidityChanged(
+            params.maker,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            response.fee
+        );
+
+        return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256 fee) {
