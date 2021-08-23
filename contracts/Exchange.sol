@@ -18,11 +18,15 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
+import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 // TODO move FundingGrowth to another file or library
 import { ClearingHouse } from "./ClearingHouse.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
+    using SignedSafeMath for int256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
@@ -74,6 +78,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
     // key: base token, value: pool
     mapping(address => uint256) private _feeGrowthGlobalX128Map;
 
+    // key: base token. a threshold to limit the price impact per block when reducing or closing the position
+    mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
+
+    struct TickStatus {
+        int24 finalTickFromLastBlock;
+        uint256 lastUpdatedBlock;
+    }
+    // key: base token. tracking the final tick from last block
+    // will be used for comparing if it exceeds maxTickCrossedWithinBlock
+    mapping(address => TickStatus) private _tickStatusMap;
+
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
     mapping(address => uint24) private _clearingHouseFeeRatioMap;
@@ -103,6 +118,79 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
     //
     // EXTERNAL FUNCTIONS
     //
+    function saveTickBeforeFirstSwapThisBlock(address baseToken) external {
+        // only do this when it's the first swap in this block
+        uint256 blockNumber = _blockNumber();
+        if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
+            return;
+        }
+
+        // the current tick before swap = final tick last block
+        _tickStatusMap[baseToken] = TickStatus({
+            lastUpdatedBlock: blockNumber,
+            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
+        });
+    }
+
+    struct PriceLimitParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
+        uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+
+        int256 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
+        int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
+        int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
+
+        address pool = _poolMap[params.baseToken];
+        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        (, int256 signedScaledAmount) =
+            _getScaledAmount(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                clearingHouseFeeRatio,
+                uniswapFeeRatio
+            );
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: signedScaledAmount,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        // globalFundingGrowth can be empty if shouldUpdateState is false
+        (, , int24 tickAfterSwap) =
+            _replaySwap(
+                ReplaySwapParams({
+                    state: state,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    clearingHouseFeeRatio: clearingHouseFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    shouldUpdateState: false,
+                    globalFundingGrowth: ClearingHouse.FundingGrowth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                })
+            );
+
+        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
+    }
 
     // TODO refactoring
     function addPool(address baseToken, uint24 feeRatio) external onlyClearingHouse {
@@ -118,6 +206,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external {
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
+    }
+
+    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     // TODO can remove pool once we move addPool to Exchange
