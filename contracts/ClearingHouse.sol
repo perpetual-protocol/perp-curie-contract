@@ -1444,52 +1444,6 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
-    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256 fee) {
-        // update token info based on existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-        OpenOrder storage openOrder = _openOrderMap[orderId];
-        uint256 feeGrowthInsideClearingHouseX128 =
-            tickMap.getFeeGrowthInside(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                _feeGrowthGlobalX128Map[params.baseToken]
-            );
-        fee = _calcOwedFee(
-            openOrder.liquidity,
-            feeGrowthInsideClearingHouseX128,
-            openOrder.feeGrowthInsideClearingHouseLastX128
-        );
-
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity).toUint128();
-        if (openOrder.liquidity == 0) {
-            _removeOrder(params.maker, params.baseToken, orderId);
-        } else {
-            openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
-        }
-    }
-
-    function _removeOrder(
-        address maker,
-        address baseToken,
-        bytes32 orderId
-    ) private {
-        bytes32[] storage orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
-        uint256 idx;
-        for (idx = 0; idx < orderIds.length; idx++) {
-            if (orderIds[idx] == orderId) {
-                // found the existing order ID
-                // remove it from the array efficiently by re-ordering and deleting the last element
-                orderIds[idx] = orderIds[orderIds.length - 1];
-                orderIds.pop();
-                break;
-            }
-        }
-        delete _openOrderMap[orderId];
-    }
-
     function _isOverPriceLimit(PriceLimitParams memory params) private returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
