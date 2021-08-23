@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2021-08-23
+
+### Added
+
+- add new global arguments to `ClearingHouse`:
+    - `ClearingHouse.setMaxOrdersPerMarket()`
+    - `ClearingHouse.setMaxMarketsPerAccount()`
+    - `ClearingHouse.setPartialCloseRatio()`
+    - `ClearingHouse.setLiquidationPenaltyRatio()`
+    - `ClearingHouse.setTwapInterval()`
+- add new market-specific arguments to `ClearingHouse`:
+    - `ClearingHouse.setFeeRatio()`
+    - `ClearingHouse.setInsuranceFundFeeRatio()`
+    - `ClearingHouse.setMaxTickCrossedWithinBlock()`
+
+### Changed
+
+- replace hourly-based funding with block-based funding
+- replace `cancelExcessOrders(maker, baseToken)` with `cancelAllExcessOrders(maker, baseToken)` and `cancelExcessOrders(maker, baseToken, orderIds)`
+    - now `cancelAllExcessOrders()` will not automatically remove all liquidity
+
+### Removed
+
+- remove `ClearingHouse.updateFunding()`
+- remove `fundingPayment` and `badDebt` from `Swapped` event
+
 ## [0.3.3] - 2021-08-13
 
 ### Fixed
