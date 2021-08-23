@@ -950,7 +950,6 @@ contract ClearingHouse is
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            // TODO: remove quoteToken from _accountMap[trader].tokens?
             quoteInPool = quoteInPool.add(
                 _getTotalTokenAmountInPool(
                     trader,
@@ -1648,23 +1647,6 @@ contract ClearingHouse is
             }
         }
         delete _openOrderMap[orderId];
-    }
-
-    function _removeAllLiquidity(address maker, address baseToken) private {
-        bytes32[] memory orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _openOrderMap[orderId];
-            _removeLiquidity(
-                InternalRemoveLiquidityParams(
-                    maker,
-                    baseToken,
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
-                    openOrder.liquidity
-                )
-            );
-        }
     }
 
     function _isOverPriceLimit(PriceLimitParams memory params) private returns (bool) {
