@@ -223,7 +223,7 @@ contract ClearingHouse is
         bool mintForTrader;
     }
 
-    struct InternalFeeUpdateParams {
+    struct ReplaySwapParams {
         SwapState state;
         address baseToken;
         bool isBaseToQuote;
@@ -1277,7 +1277,7 @@ contract ClearingHouse is
         quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
     }
 
-    function _replaySwap(InternalFeeUpdateParams memory params)
+    function _replaySwap(ReplaySwapParams memory params)
         private
         returns (
             uint256 fee, // clearingHouseFee
@@ -1453,7 +1453,7 @@ contract ClearingHouse is
                 });
             // simulate the swap to calculate the fees charged in clearing house
             (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
-                InternalFeeUpdateParams({
+                ReplaySwapParams({
                     state: state,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
@@ -1709,7 +1709,7 @@ contract ClearingHouse is
         // globalFundingGrowth can be empty if shouldUpdateState is false
         (, , int24 tickAfterSwap) =
             _replaySwap(
-                InternalFeeUpdateParams({
+                ReplaySwapParams({
                     state: state,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
