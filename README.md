@@ -22,7 +22,7 @@ npm run deploy:staging -- --tags Pool-vETHvUSD
 
 3. Update `version` of `package.json` and `package-lock.json`
 
-4. **Verify what's included in the packaged npm package**
+4. **Verify what's included in the packed npm package**
 
 ```bash
 npm pack
