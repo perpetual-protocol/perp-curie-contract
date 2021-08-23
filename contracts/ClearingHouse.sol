@@ -1650,23 +1650,6 @@ contract ClearingHouse is
         delete _openOrderMap[orderId];
     }
 
-    function _removeAllLiquidity(address maker, address baseToken) private {
-        bytes32[] memory orderIds = _accountMap[maker].openOrderIdsMap[baseToken];
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            OpenOrder memory openOrder = _openOrderMap[orderId];
-            _removeLiquidity(
-                InternalRemoveLiquidityParams(
-                    maker,
-                    baseToken,
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
-                    openOrder.liquidity
-                )
-            );
-        }
-    }
-
     function _isOverPriceLimit(PriceLimitParams memory params) private returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
