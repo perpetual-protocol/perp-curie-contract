@@ -31,7 +31,6 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -730,8 +729,6 @@ contract ClearingHouse is
         }
 
         // swap
-        console.log("bal=%s", IMintableERC20(token).balanceOf(address(this)));
-        console.log("amountToPay=%s", amountToPay);
         TransferHelper.safeTransfer(token, address(pool), amountToPay);
     }
 

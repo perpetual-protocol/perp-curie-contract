@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse openPosition", () => {
+describe.only("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -500,7 +500,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore.add(parseEther("0.01")))
         })
 
-        it.only("reduce position", async () => {
+        it("reduce position", async () => {
             const baseInfoBefore = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const quoteInfoBefore = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
 

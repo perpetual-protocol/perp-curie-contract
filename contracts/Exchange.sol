@@ -231,6 +231,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable {
                     abi.encode(SwapCallbackData(params.trader, params.baseToken, true, internalSwapState.fee))
                 )
             );
+
+            // TODO avoid this
+            // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
+            address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
+            uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
+            TransferHelper.safeTransfer(outputToken, clearingHouse, outputAmount);
         }
 
         // because we charge fee in CH instead of uniswap pool,
