@@ -30,6 +30,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import { Exchange } from "./Exchange.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -155,18 +156,6 @@ contract ClearingHouse is
         uint256 minBase;
         uint256 minQuote;
         uint256 deadline;
-    }
-
-    struct AddLiquidityToOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthGlobalClearingHouseX128;
-        uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
-        FundingGrowth globalFundingGrowth;
     }
 
     /// @param liquidity collect fee when 0
@@ -310,6 +299,7 @@ contract ClearingHouse is
     address public immutable uniswapV3Factory;
     address public vault;
     address public insuranceFund;
+    address public exchange;
 
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
@@ -356,7 +346,6 @@ contract ClearingHouse is
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
 
-    uint8 public maxOrdersPerMarket;
     uint8 public maxMarketsPerAccount;
 
     constructor(
@@ -364,7 +353,7 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint8 maxOrdersPerMarketArg,
+        uint8 maxOrdersPerMarketArg, // FIXME remove
         uint8 maxMarketsPerAccountArg
     ) {
         // vault is 0
@@ -384,7 +373,6 @@ contract ClearingHouse is
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
         maxMarketsPerAccount = maxMarketsPerAccountArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
@@ -420,6 +408,10 @@ contract ClearingHouse is
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
         _clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
         emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
+    function setExchange(address exchangeArg) external onlyOwner {
+        exchange = exchangeArg;
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
@@ -482,83 +474,40 @@ contract ClearingHouse is
         // CH_NEB: not enough available quote amount
         require(quoteTokenInfo.available >= params.quote, "CH_NEQ");
 
-        address pool = _poolMap[params.baseToken];
-        uint256 feeGrowthGlobalClearingHouseX128 = _feeGrowthGlobalX128Map[params.baseToken];
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-        UniswapV3Broker.AddLiquidityResponse memory response;
-
-        {
-            bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
-            bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
-
-            // add liquidity to liquidity pool
-            response = UniswapV3Broker.addLiquidity(
-                UniswapV3Broker.AddLiquidityParams(
-                    pool,
-                    params.baseToken,
-                    quoteToken,
-                    params.lowerTick,
-                    params.upperTick,
-                    params.base,
-                    params.quote
-                )
-            );
-
-            int24 currentTick = UniswapV3Broker.getTick(pool);
-            // initialize tick info
-            if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-                tickMap.initialize(
-                    params.lowerTick,
-                    currentTick,
-                    Tick.GrowthInfo(
-                        feeGrowthGlobalClearingHouseX128,
-                        updatedGlobalFundingGrowth.twPremiumX96,
-                        updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                    )
-                );
-            }
-            if (!initializedBeforeUpper && UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-                tickMap.initialize(
-                    params.upperTick,
-                    currentTick,
-                    Tick.GrowthInfo(
-                        feeGrowthGlobalClearingHouseX128,
-                        updatedGlobalFundingGrowth.twPremiumX96,
-                        updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                    )
-                );
-            }
-        }
-
-        // mint callback
-
-        // price slippage check
-        require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
-
-        // mutate states
-        uint256 fee =
-            _addLiquidityToOrder(
-                AddLiquidityToOrderParams({
-                    maker: trader,
+        Exchange.AddLiquidityResponse memory response =
+            Exchange(exchange).addLiquidity(
+                Exchange.AddLiquidityParams({
+                    trader: trader,
                     baseToken: params.baseToken,
-                    pool: pool,
+                    quoteToken: quoteToken,
+                    pool: _poolMap[params.baseToken],
+                    base: params.base,
+                    quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: response.liquidity.toUint256(),
-                    globalFundingGrowth: updatedGlobalFundingGrowth
+                    minBase: params.minBase,
+                    minQuote: params.minQuote,
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
 
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(fee).sub(response.quote);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
-        // TODO move it back if we can fix stack too deep
-        _emitLiquidityChanged(trader, params, response, fee);
+        emit LiquidityChanged(
+            trader,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.liquidity.toInt128(),
+            response.fee
+        );
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
@@ -644,7 +593,7 @@ contract ClearingHouse is
         address baseToken = abi.decode(data, (address));
         address pool = _poolMap[baseToken];
         // CH_FMV: failed mintCallback verification
-        require(_msgSender() == pool, "CH_FMV");
+        require(_msgSender() == exchange, "CH_FMV");
 
         if (amount0Owed > 0) {
             TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
@@ -679,10 +628,6 @@ contract ClearingHouse is
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
         _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
-    }
-
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
@@ -1061,55 +1006,6 @@ contract ClearingHouse is
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
         }
-    }
-
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
-        // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder =
-            _accountMap[params.maker].makerPositionMap[params.baseToken].openOrderMap[orderId];
-
-        uint256 feeGrowthInsideClearingHouseX128;
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-        if (openOrder.liquidity == 0) {
-            // it's a new order
-            MakerPosition storage makerPosition = _accountMap[params.maker].makerPositionMap[params.baseToken];
-            // CH_ONE: orders number exceeded
-            require(maxOrdersPerMarket == 0 || makerPosition.orderIds.length < maxOrdersPerMarket, "CH_ONE");
-            makerPosition.orderIds.push(orderId);
-
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
-
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                tickMap.getAllFundingGrowth(
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
-                    UniswapV3Broker.getTick(_poolMap[params.baseToken]),
-                    params.globalFundingGrowth.twPremiumX96,
-                    params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
-                );
-            openOrder.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
-            openOrder.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
-            openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
-                .twPremiumDivBySqrtPriceGrowthInsideX96;
-        } else {
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                params.feeGrowthGlobalClearingHouseX128
-            );
-            fee = _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
-            );
-        }
-
-        // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
-        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
     }
 
     // expensive

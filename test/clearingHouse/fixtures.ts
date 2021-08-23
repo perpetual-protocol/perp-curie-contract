@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     ClearingHouse,
+    Exchange,
     InsuranceFund,
     TestClearingHouse,
     TestERC20,
@@ -15,6 +16,7 @@ import { token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
+    exchange: Exchange
     vault: Vault
     insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
@@ -103,6 +105,11 @@ export function createClearingHouseFixture(
         await baseToken.setMinter(clearingHouse.address)
         await quoteToken.setMinter(clearingHouse.address)
 
+        // deploy exchange
+        const exchangeFactory = await ethers.getContractFactory("Exchange")
+        const exchange = (await exchangeFactory.deploy(clearingHouse.address, 0)) as Exchange
+        await clearingHouse.setExchange(exchange.address)
+
         // prepare uniswap factory
         const feeTier = 10000
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
@@ -134,6 +141,7 @@ export function createClearingHouseFixture(
         const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
+            exchange,
             vault,
             insuranceFund,
             uniV3Factory,

@@ -4,15 +4,16 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse", () => {
+describe.only("ClearingHouse", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -34,6 +35,7 @@ describe("ClearingHouse", () => {
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
         pool2 = _clearingHouseFixture.pool2
+        exchange = _clearingHouseFixture.exchange
         collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
@@ -103,13 +105,13 @@ describe("ClearingHouse", () => {
                     parseUnits("0", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50200],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
@@ -167,13 +169,13 @@ describe("ClearingHouse", () => {
                     parseUnits("0", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50200],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
@@ -231,13 +233,13 @@ describe("ClearingHouse", () => {
                     parseUnits("0", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("81689571696303801018159"), // liquidity
                     50000, // lowerTick
@@ -297,13 +299,13 @@ describe("ClearingHouse", () => {
                     parseUnits("2431.334657063838663853", await baseToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("61828103017711334685748"), // liquidity
                     50000, // lowerTick
@@ -360,13 +362,13 @@ describe("ClearingHouse", () => {
                     parseUnits("0", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("81689571696303801018158"), // liquidity
                     50000, // lowerTick
@@ -499,7 +501,7 @@ describe("ClearingHouse", () => {
             })
 
             it("force error, orders number exceeded", async () => {
-                await clearingHouse.setMaxOrdersPerMarket("1")
+                await exchange.setMaxOrdersPerMarket("1")
                 await clearingHouse.connect(alice).mint(baseToken2.address, baseAmount)
 
                 // alice's first order
@@ -617,13 +619,13 @@ describe("ClearingHouse", () => {
                     parseUnits("10000", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50200, 50400],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
@@ -681,13 +683,13 @@ describe("ClearingHouse", () => {
                     parseUnits("10000", await quoteToken.decimals()), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50200, 50400],
                     ),
                 ])
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
