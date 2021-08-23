@@ -950,7 +950,6 @@ contract ClearingHouse is
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            // TODO: remove quoteToken from _accountMap[trader].tokens?
             quoteInPool = quoteInPool.add(
                 _getTotalTokenAmountInPool(
                     trader,
