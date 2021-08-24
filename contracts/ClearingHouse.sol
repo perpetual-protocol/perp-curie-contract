@@ -2089,7 +2089,7 @@ contract ClearingHouse is
     function _getTotalCollateralValue(address trader) private view returns (int256) {
         int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
         return
-            IVault(vault).balanceOf(trader).toInt256().addS(
+            IVault(vault).balanceOf(trader).addS(
                 owedRealizedPnl.sub(_getAllPendingFundingPayment(trader)),
                 _settlementTokenDecimals
             );

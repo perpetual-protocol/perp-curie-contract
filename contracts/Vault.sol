@@ -39,9 +39,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     // address[] private _assetLiquidationOrder;
 
     // key: trader, token address
-    mapping(address => mapping(address => uint256)) private _balance;
-    // key: trader
-    mapping(address => uint256) private _debt;
+    mapping(address => mapping(address => int256)) private _balance;
 
     // key: token
     // TODO: change bool to collateral factor
@@ -93,7 +91,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         }
 
         // V_NEB: not enough balance
-        require(_getBalance(account, token) >= amount, "V_NEB");
+        require(_getBalance(account, token) >= amount.toInt256(), "V_NEB");
         _decreaseBalance(account, token, amount);
 
         // V_NEFC: not enough free collateral
@@ -103,8 +101,8 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     }
 
     // expensive call
-    function balanceOf(address account) public view override returns (uint256) {
-        uint256 settlementTokenValue;
+    function balanceOf(address account) public view override returns (int256) {
+        int256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
             if (settlementToken != token) {
@@ -134,7 +132,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         address token,
         uint256 amount
     ) private {
-        _balance[account][token] = _getBalance(account, token).add(amount);
+        _balance[account][token] = _getBalance(account, token).add(amount.toInt256());
     }
 
     function _decreaseBalance(
@@ -142,7 +140,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         address token,
         uint256 amount
     ) private {
-        _balance[account][token] = _getBalance(account, token).sub(amount);
+        _balance[account][token] = _getBalance(account, token).sub(amount.toInt256());
     }
 
     function _liquidate(
@@ -153,7 +151,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         revert("TBD");
     }
 
-    function _getBalance(address account, address token) private view returns (uint256) {
+    function _getBalance(address account, address token) private view returns (int256) {
         return _balance[account][token];
     }
 
@@ -166,8 +164,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
 
         // accountValue = totalCollateralValue + totalMarketPnl
         int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(account);
-        int256 collateralValue =
-            balanceOf(account).toInt256().addS(owedRealizedPnl.sub(pendingFundingPayment), decimals);
+        int256 collateralValue = balanceOf(account).addS(owedRealizedPnl.sub(pendingFundingPayment), decimals);
         int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(account);
         int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
 
