@@ -18,7 +18,6 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
-import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
@@ -335,12 +334,15 @@ contract ClearingHouse is
     // EXTERNAL FUNCTIONS
     //
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
+        address pool = Exchange(exchange).addPool(baseToken, feeRatio);
+        _poolMap[baseToken] = pool;
+
+        // TODO move to ex and fix tests
         // CH_BDN18: baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "CH_BDN18");
         // to ensure the base is always token0 and quote is always token1
         // CH_IB: invalid baseToken
         require(baseToken < quoteToken, "CH_IB");
-        address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
         // CH_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "CH_NEP");
         // CH_EP: existent pool in ClearingHouse
@@ -348,9 +350,6 @@ contract ClearingHouse is
         // CH_PNI: pool not (yet) initialized
         require(Exchange(exchange).getSqrtMarkPriceX96(baseToken) != 0, "CH_PNI");
 
-        _poolMap[baseToken] = pool;
-
-        Exchange(exchange).addPool(baseToken, feeRatio);
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
