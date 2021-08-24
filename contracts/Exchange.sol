@@ -892,6 +892,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
+    function getAmount0ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) internal pure returns (uint256 amount0) {
+        return UniswapV3Broker.getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+    }
+
     /// @dev funding payment belongs to realizedPnl, not token amount
     function getTotalTokenAmountInPool(
         address trader,

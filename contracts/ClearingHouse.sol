@@ -1502,7 +1502,7 @@ contract ClearingHouse is
 
         // base amount below the range
         uint256 baseAmountBelow =
-            UniswapV3Broker.getAmount0ForLiquidity(
+            Exchange(exchange).getAmount0ForLiquidity(
                 TickMath.getSqrtRatioAtTick(order.lowerTick),
                 sqrtPriceX96AtUpperTick,
                 order.liquidity
