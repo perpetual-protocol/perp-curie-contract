@@ -3,11 +3,11 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
@@ -18,6 +18,9 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
+import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
@@ -40,7 +43,8 @@ contract ClearingHouse is
     ISettlement,
     ReentrancyGuard,
     Validation,
-    Ownable
+    Ownable,
+    BaseRelayRecipient
 {
     using SafeMath for uint256;
     using SafeMath for uint160;
@@ -222,6 +226,8 @@ contract ClearingHouse is
         bool skipMarginRequirementCheck;
     }
 
+    // not used in CH, due to inherit from BaseRelayRecipient
+    string public override versionRecipient;
     // 10 wei
     uint256 private constant _DUST = 10;
 
@@ -266,7 +272,8 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint8 maxMarketsPerAccountArg
+        uint8 maxMarketsPerAccountArg,
+        address trustedForwarderArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -286,6 +293,7 @@ contract ClearingHouse is
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         maxMarketsPerAccount = maxMarketsPerAccountArg;
+        trustedForwarder = trustedForwarderArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -1659,6 +1667,14 @@ contract ClearingHouse is
 
     function _getAccountBaseTokenKey(address account, address baseToken) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(account, baseToken));
+    }
+
+    function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
+        return super._msgSender();
+    }
+
+    function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
+        return super._msgData();
     }
 
     function _requireHasBaseToken(address baseToken) private view {
