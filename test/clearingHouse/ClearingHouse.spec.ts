@@ -133,6 +133,7 @@ describe("ClearingHouse Spec", () => {
             expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
         })
 
+        // FIXME move to exchange spec
         // FIXME change all ratio to uint24?
         it.skip("setFeeRatio", async () => {
             await expect(clearingHouse.setFeeRatio(baseToken.address, parseEther("2"))).to.be.revertedWith("CH_RO")

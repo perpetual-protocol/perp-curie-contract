@@ -90,6 +90,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
+
+    // TODO rename to exchangeFeeRatio
     mapping(address => uint24) private _clearingHouseFeeRatioMap;
     mapping(address => uint24) private _insuranceFundFeeRatioMap;
 
@@ -547,6 +549,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         } else {
             openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
         }
+    }
+
+    function getFeeRatio(address baseToken) external view returns (uint24) {
+        return Exchange(exchange).getFeeRatio(_poolMap[baseToken]);
     }
 
     function _removeOrder(

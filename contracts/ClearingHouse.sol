@@ -302,7 +302,6 @@ contract ClearingHouse is
     // TODO remove
     // uniswapFeeRatioMap cache only
     mapping(address => uint24) public uniswapFeeRatioMap;
-    mapping(address => uint24) private _clearingHouseFeeRatioMap;
     mapping(address => uint24) private _insuranceFundFeeRatioMap;
 
     uint8 public maxMarketsPerAccount;
@@ -364,7 +363,6 @@ contract ClearingHouse is
 
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
-        _clearingHouseFeeRatioMap[pool] = uniswapFeeRatioMap[pool];
 
         Exchange(exchange).addPool(baseToken, feeRatio);
         emit PoolAdded(baseToken, feeRatio, pool);
@@ -593,7 +591,6 @@ contract ClearingHouse is
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
         // TODO remove after move callback to exchange
         address pool = _poolMap[baseToken];
-        _clearingHouseFeeRatioMap[pool] = feeRatio;
         Exchange(exchange).setFeeRatio(pool, feeRatio);
     }
 
@@ -785,7 +782,7 @@ contract ClearingHouse is
     }
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
-        return _clearingHouseFeeRatioMap[baseToken];
+        return Exchange(exchange).getFeeRatio(baseToken);
     }
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
