@@ -989,6 +989,11 @@ contract ClearingHouse is
         return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
+    // return decimals 18
+    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
+        _getTotalInitialMarginRequirement(trader);
+    }
+
     //
     // INTERNAL FUNCTIONS
     //
