@@ -123,17 +123,6 @@ contract ClearingHouse is
         uint256 debt;
     }
 
-    /// @param feeGrowthInsideClearingHouseLastX128 there is only quote fee in ClearingHouse
-    struct OpenOrder {
-        uint128 liquidity;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthInsideClearingHouseLastX128;
-        int256 lastTwPremiumGrowthInsideX96;
-        int256 lastTwPremiumGrowthBelowX96;
-        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
-    }
-
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -174,6 +163,12 @@ contract ClearingHouse is
         uint128 liquidity;
     }
 
+    struct RemoveLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+    }
+
     struct SwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -190,17 +185,6 @@ contract ClearingHouse is
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         bool mintForTrader;
-    }
-
-    struct ReplaySwapParams {
-        SwapState state;
-        address baseToken;
-        bool isBaseToQuote;
-        bool shouldUpdateState;
-        uint160 sqrtPriceLimitX96;
-        uint24 clearingHouseFeeRatio;
-        uint24 uniswapFeeRatio;
-        Funding.Growth globalFundingGrowth;
     }
 
     struct SwapResponse {
@@ -220,14 +204,6 @@ contract ClearingHouse is
         uint256 feeAmount;
     }
 
-    struct SwapState {
-        int24 tick;
-        uint160 sqrtPriceX96;
-        int256 amountSpecifiedRemaining;
-        uint256 feeGrowthGlobalX128;
-        uint128 liquidity;
-    }
-
     struct OpenPositionParams {
         address baseToken;
         bool isBaseToQuote;
@@ -244,14 +220,6 @@ contract ClearingHouse is
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         bool skipMarginRequirementCheck;
-    }
-
-    struct InternalSwapState {
-        address pool;
-        uint24 clearingHouseFeeRatio;
-        uint24 uniswapFeeRatio;
-        uint256 fee;
-        uint256 insuranceFundFee;
     }
 
     // 10 wei
@@ -273,6 +241,7 @@ contract ClearingHouse is
 
     uint32 public twapInterval = 15 minutes;
 
+    // TODO remove
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
 
@@ -333,6 +302,8 @@ contract ClearingHouse is
     //
     // EXTERNAL FUNCTIONS
     //
+
+    // TODO REMOVE
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
         address pool = Exchange(exchange).addPool(baseToken, feeRatio);
         _poolMap[baseToken] = pool;
@@ -353,15 +324,18 @@ contract ClearingHouse is
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 
+    // TODO event, check null
     function setExchange(address exchangeArg) external onlyOwner {
         exchange = exchangeArg;
     }
 
+    // TODO remove
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
         Exchange(exchange).setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock);
     }
 
+    // TODO internal
     function mint(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
@@ -374,6 +348,7 @@ contract ClearingHouse is
     /**
      * @param amount the amount of debt to burn
      */
+    // TODO internal
     function burn(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
@@ -381,6 +356,7 @@ contract ClearingHouse is
         _burn(_msgSender(), token, amount);
     }
 
+    // TODO internal
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
@@ -528,6 +504,7 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
+    // TODO can we move to exchange
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -568,12 +545,12 @@ contract ClearingHouse is
     }
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        // TODO remove after move callback to exchange
+        // TODO remove
         Exchange(exchange).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        // TODO remove after move callback to exchange
+        // TODO remove
         Exchange(exchange).setFeeRatio(baseToken, feeRatio);
     }
 
@@ -590,6 +567,8 @@ contract ClearingHouse is
         );
 
         address[] memory tokens = _accountMap[trader].tokens;
+
+        // TODO merge into 1 exchange function
         for (uint256 i = 0; i < tokens.length; i++) {
             bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, tokens[i]);
             // CH_NEO: not empty order
@@ -619,10 +598,11 @@ contract ClearingHouse is
     }
 
     // TODO remove after fixing quoter
-    function uniswapFeeRatioMap(address pool) external returns (uint24) {
+    function uniswapFeeRatioMap(address pool) external view returns (uint24) {
         return Exchange(exchange).uniswapFeeRatioMap(pool);
     }
 
+    // TODO can we move to exchange
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -694,6 +674,7 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
+        // TODO add exchange removeLiquidity(orderIds)
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
             Exchange.OpenOrder memory openOrder = Exchange(exchange).getOpenOrderById(orderId);
@@ -763,14 +744,18 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
+
+    // TODO move to exchange
     function getPool(address baseToken) external view returns (address) {
         return _poolMap[baseToken];
     }
 
+    // TODO move to exchange
     function getFeeRatio(address baseToken) external view returns (uint24) {
         return Exchange(exchange).getFeeRatio(baseToken);
     }
 
+    // TODO move to exchange
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
         return Exchange(exchange).getMaxTickCrossedWithinBlock(baseToken);
     }
@@ -819,6 +804,7 @@ contract ClearingHouse is
         return _accountMap[trader].owedRealizedPnl;
     }
 
+    // TODO move to exchange
     function getOpenOrder(
         address trader,
         address baseToken,
@@ -828,10 +814,12 @@ contract ClearingHouse is
         return Exchange(exchange).getOpenOrder(trader, baseToken, lowerTick, upperTick);
     }
 
+    // TODO move to exchange
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
         return Exchange(exchange).getOpenOrderIds(trader, baseToken);
     }
 
+    // TODO move to exchange
     function getTotalTokenAmountInPool(address trader, address baseToken)
         public
         view
@@ -850,6 +838,8 @@ contract ClearingHouse is
     function getNetQuoteBalance(address trader) public view returns (int256) {
         uint256 quoteInPool;
         uint256 tokenLen = _accountMap[trader].tokens.length;
+
+        // TODO merge into 1 exchange function
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             quoteInPool = quoteInPool.add(
@@ -1192,12 +1182,6 @@ contract ClearingHouse is
             );
     }
 
-    struct RemoveLiquidityResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 fee;
-    }
-
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
         private
         returns (RemoveLiquidityResponse memory)
@@ -1373,7 +1357,6 @@ contract ClearingHouse is
         }
     }
 
-    // TODO move to exchange
     function _getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
         address baseToken,
@@ -1422,6 +1405,8 @@ contract ClearingHouse is
 
         int256 liquidityCoefficientInFundingPayment;
         // funding of liquidity
+
+        // TODO merge into 1 exchange funciton
         for (uint256 i = 0; i < orderIds.length; i++) {
             Exchange.OpenOrder memory order = Exchange(exchange).getOpenOrderById(orderIds[i]);
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =

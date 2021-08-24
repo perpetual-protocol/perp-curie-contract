@@ -235,6 +235,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address quoteTokenArg,
         uint8 maxOrdersPerMarketArg
     ) {
+        // TODO check zero
         clearingHouse = clearingHouseArg;
         uniswapV3Factory = uniswapV3FactoryArg;
         quoteToken = quoteTokenArg;
@@ -541,7 +542,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
     }
 
-    // FIXME add _poolMap and check msgSender is uniswapV3
     // or just deal with the vToken in Exchange
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
