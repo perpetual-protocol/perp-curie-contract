@@ -19,11 +19,9 @@ import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-// TODO move FundingGrowth to another file or library
-import { ClearingHouse } from "./ClearingHouse.sol";
-
-import "hardhat/console.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { Funding } from "./lib/Funding.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
@@ -42,7 +40,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 feeGrowthGlobalClearingHouseX128;
         uint256 feeGrowthInsideQuoteX128;
         uint256 liquidity;
-        ClearingHouse.FundingGrowth globalFundingGrowth;
+        Funding.Growth globalFundingGrowth;
     }
 
     /// @param feeGrowthInsideClearingHouseLastX128 there is only quote fee in ClearingHouse
@@ -60,9 +58,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     address public immutable uniswapV3Factory;
     address public clearingHouse;
     uint8 public maxOrdersPerMarket;
-
-    // int 2^96
-    int256 private constant _IQ96 = 0x1000000000000000000000000;
 
     // TODO refactoring
     // key: base token, value: pool
@@ -187,7 +182,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     clearingHouseFeeRatio: clearingHouseFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
                     shouldUpdateState: false,
-                    globalFundingGrowth: ClearingHouse.FundingGrowth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
 
@@ -229,7 +224,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 upperTick;
         uint256 minBase;
         uint256 minQuote;
-        ClearingHouse.FundingGrowth updatedGlobalFundingGrowth;
+        Funding.Growth updatedGlobalFundingGrowth;
     }
 
     struct AddLiquidityResponse {
@@ -254,7 +249,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        ClearingHouse.FundingGrowth updatedGlobalFundingGrowth;
+        Funding.Growth updatedGlobalFundingGrowth;
         bool mintForTrader; // TODO delet
     }
 
@@ -737,7 +732,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint160 sqrtPriceLimitX96;
         uint24 clearingHouseFeeRatio;
         uint24 uniswapFeeRatio;
-        ClearingHouse.FundingGrowth globalFundingGrowth;
+        Funding.Growth globalFundingGrowth;
     }
 
     struct SwapStep {
@@ -965,7 +960,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     function getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
         address baseToken,
-        ClearingHouse.FundingGrowth memory updatedGlobalFundingGrowth
+        Funding.Growth memory updatedGlobalFundingGrowth
     ) external returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
@@ -1022,11 +1017,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
                     .sub(
                     // ΔtwPremiumGrowthInsideX96
-                    (fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(_IQ96))
+                    (
+                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(
+                            PerpFixedPoint96.IQ96
+                        )
+                    )
                         .div(sqrtPriceX96AtUpperTick)
                 )
             );
 
-        return fundingBelowX96.add(fundingInsideX96).div(_IQ96);
+        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
     }
 }

@@ -31,7 +31,9 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import "hardhat/console.sol";
+import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import { Funding } from "./lib/Funding.sol";
+import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -133,12 +135,6 @@ contract ClearingHouse is
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
-    struct FundingGrowth {
-        // tw: time-weighted
-        int256 twPremiumX96;
-        int256 twPremiumDivBySqrtPriceX96;
-    }
-
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -205,7 +201,7 @@ contract ClearingHouse is
         uint160 sqrtPriceLimitX96;
         uint24 clearingHouseFeeRatio;
         uint24 uniswapFeeRatio;
-        FundingGrowth globalFundingGrowth;
+        Funding.Growth globalFundingGrowth;
     }
 
     struct SwapResponse {
@@ -268,8 +264,6 @@ contract ClearingHouse is
 
     // 10 wei
     uint256 private constant _DUST = 10;
-    // int 2^96
-    int256 private constant _IQ96 = 0x1000000000000000000000000;
 
     //
     // state variables
@@ -300,7 +294,7 @@ contract ClearingHouse is
     // key: base token
     mapping(address => uint256) private _firstTradedTimestampMap;
     mapping(address => uint256) private _lastSettledTimestampMap;
-    mapping(address => FundingGrowth) private _globalFundingGrowthX96Map;
+    mapping(address => Funding.Growth) private _globalFundingGrowthX96Map;
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
     uint256 public partialCloseRatio = 0.25 ether; // partial close ratio, 25%
@@ -430,7 +424,7 @@ contract ClearingHouse is
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        FundingGrowth memory updatedGlobalFundingGrowth =
+        Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // update internal states
@@ -1150,7 +1144,7 @@ contract ClearingHouse is
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
-        FundingGrowth memory updatedGlobalFundingGrowth =
+        Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
 
         Exchange.SwapResponse memory response =
@@ -1394,7 +1388,7 @@ contract ClearingHouse is
 
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         private
-        returns (FundingGrowth memory updatedGlobalFundingGrowth)
+        returns (Funding.Growth memory updatedGlobalFundingGrowth)
     {
         updatedGlobalFundingGrowth = _getUpdatedGlobalFundingGrowth(baseToken);
         int256 fundingPayment =
@@ -1407,7 +1401,7 @@ contract ClearingHouse is
 
         // only update in the first tx of a block
         if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
-            FundingGrowth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
+            Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
             (
                 _lastSettledTimestampMap[baseToken],
                 outdatedGlobalFundingGrowth.twPremiumX96,
@@ -1430,7 +1424,7 @@ contract ClearingHouse is
     function _getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
         address baseToken,
-        FundingGrowth memory updatedGlobalFundingGrowth
+        Funding.Growth memory updatedGlobalFundingGrowth
     ) private returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
 
@@ -1467,7 +1461,7 @@ contract ClearingHouse is
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
-        FundingGrowth memory updatedGlobalFundingGrowth
+        Funding.Growth memory updatedGlobalFundingGrowth
     ) private view returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
@@ -1516,9 +1510,9 @@ contract ClearingHouse is
     function _getUpdatedGlobalFundingGrowth(address baseToken)
         private
         view
-        returns (FundingGrowth memory updatedGlobalFundingGrowth)
+        returns (Funding.Growth memory updatedGlobalFundingGrowth)
     {
-        FundingGrowth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
+        Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
@@ -1536,7 +1530,7 @@ contract ClearingHouse is
             updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96 = outdatedGlobalFundingGrowth
                 .twPremiumDivBySqrtPriceX96
                 .add(
-                (twPremiumDeltaX96.mul(_IQ96)).div(
+                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
                     uint256(UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken])).toInt256()
                 )
             );
@@ -1574,12 +1568,16 @@ contract ClearingHouse is
                     .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
                     .sub(
                     // ΔtwPremiumGrowthInsideX96
-                    (fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(_IQ96))
+                    (
+                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(
+                            PerpFixedPoint96.IQ96
+                        )
+                    )
                         .div(sqrtPriceX96AtUpperTick)
                 )
             );
 
-        return fundingBelowX96.add(fundingInsideX96).div(_IQ96);
+        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
     }
 
     function _getAvailableAndDebtCoefficientInFundingPayment(
@@ -1593,7 +1591,7 @@ contract ClearingHouse is
                 .toInt256()
                 .sub(tokenInfo.debt.toInt256())
                 .mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96))
-                .div(_IQ96);
+                .div(PerpFixedPoint96.IQ96);
     }
 
     function _getMarkTwapX96(address token) private view returns (uint256) {
