@@ -884,11 +884,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return (fee, insuranceFundFee, params.state.tick);
     }
 
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external returns (uint256) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
     }
 
-    function getSqrtMarkPriceX96(address baseToken) external returns (uint160) {
+    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
         return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
@@ -896,7 +896,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint160 sqrtRatioAX96,
         uint160 sqrtRatioBX96,
         uint128 liquidity
-    ) internal pure returns (uint256 amount0) {
+    ) external pure returns (uint256 amount0) {
         return UniswapV3Broker.getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
     }
 

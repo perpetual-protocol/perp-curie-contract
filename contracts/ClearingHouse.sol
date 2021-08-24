@@ -1497,7 +1497,7 @@ contract ClearingHouse is
     function _getLiquidityCoefficientInFundingPayment(
         Exchange.OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) private pure returns (int256 liquidityCoefficientInFundingPayment) {
+    ) private view returns (int256 liquidityCoefficientInFundingPayment) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
         // base amount below the range
