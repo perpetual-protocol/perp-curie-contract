@@ -53,8 +53,9 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     mapping(address => bool) private _collateralTokenMap;
     address[] private _collateralTokens;
 
-    constructor(address settlementTokenArg) {
+    constructor(address settlementTokenArg, address trustedForwarderArg) {
         settlementToken = settlementTokenArg;
+        trustedForwarder = trustedForwarderArg;
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
         decimals = IERC20Metadata(settlementTokenArg).decimals();

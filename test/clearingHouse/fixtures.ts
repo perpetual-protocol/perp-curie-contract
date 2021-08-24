@@ -4,6 +4,7 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
+    MetaTxGateway,
     TestClearingHouse,
     TestERC20,
     TestUniswapV3Broker,
@@ -68,8 +69,12 @@ export function createClearingHouseFixture(
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
+        // deploy meta tx gateway
+        const metaTxGatewayFactory = await ethers.getContractFactory("MetaTxGateway")
+        const metaTxGateway = (await metaTxGatewayFactory.deploy("Lushan", "1", 1)) as MetaTxGateway
+
         const vaultFactory = await ethers.getContractFactory("Vault")
-        const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+        const vault = (await vaultFactory.deploy(USDC.address, metaTxGateway.address)) as Vault
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
@@ -84,6 +89,7 @@ export function createClearingHouseFixture(
                 quoteToken.address,
                 uniV3Factory.address,
                 0,
+                metaTxGateway.address,
             )) as TestClearingHouse
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -93,6 +99,7 @@ export function createClearingHouseFixture(
                 quoteToken.address,
                 uniV3Factory.address,
                 0,
+                metaTxGateway.address,
             )) as ClearingHouse
         }
 
@@ -220,11 +227,16 @@ async function getMockedArbSys(): Promise<MockContract> {
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
     const { token1 } = await tokensFixture()
 
+    // deploy meta tx gateway
+    const metaTxGatewayFactory = await ethers.getContractFactory("MetaTxGateway")
+    const metaTxGateway = (await metaTxGatewayFactory.deploy("Lushan", "1", 1)) as MetaTxGateway
+    const mockedMetaTxGateway = await smockit(metaTxGateway)
+
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
     const vaultFactory = await ethers.getContractFactory("Vault")
-    const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+    const vault = (await vaultFactory.deploy(USDC.address, mockedMetaTxGateway.address)) as Vault
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
 
@@ -250,6 +262,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
         0,
+        mockedMetaTxGateway.address,
     )) as ClearingHouse
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
