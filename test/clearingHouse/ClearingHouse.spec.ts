@@ -6,7 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { ClearingHouse, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedClearingHouseFixture, mockedTokenTo } from "./fixtures"
 
-describe.only("ClearingHouse Spec", () => {
+describe("ClearingHouse Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
