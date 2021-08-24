@@ -513,6 +513,7 @@ contract ClearingHouse is
 
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
+            // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPI: over price impact
             require(
                 !Exchange(exchange).isOverPriceLimit(
@@ -1327,6 +1328,7 @@ contract ClearingHouse is
                 sqrtPriceLimitX96: sqrtPriceLimitX96
             });
 
+        // simulate the tx to see if it isOverPriceLimit; if true, partially close the position
         if (partialCloseRatio > 0 && Exchange(exchange).isOverPriceLimit(params)) {
             params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
         }
