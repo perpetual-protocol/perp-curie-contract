@@ -306,7 +306,6 @@ contract ClearingHouse is
     // TODO REMOVE
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
         address pool = Exchange(exchange).addPool(baseToken, feeRatio);
-        _poolMap[baseToken] = pool;
 
         // TODO move to ex and fix tests
         // CH_BDN18: baseToken decimals is not 18
@@ -321,6 +320,7 @@ contract ClearingHouse is
         // CH_PNI: pool not (yet) initialized
         require(Exchange(exchange).getSqrtMarkPriceX96(baseToken) != 0, "CH_PNI");
 
+        _poolMap[baseToken] = pool;
         emit PoolAdded(baseToken, feeRatio, pool);
     }
 

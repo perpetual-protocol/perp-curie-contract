@@ -6,7 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { ClearingHouse, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedClearingHouseFixture, mockedTokenTo } from "./fixtures"
 
-describe("ClearingHouse Spec", () => {
+describe.only("ClearingHouse Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -53,7 +53,8 @@ describe("ClearingHouse Spec", () => {
             })
 
             // @SAMPLE - addPool
-            it("add a UniswapV3 pool and send an event", async () => {
+            // FIXME move to exchange spec
+            it.skip("add a UniswapV3 pool and send an event", async () => {
                 // check event has been sent
                 await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
                     .to.emit(clearingHouse, "PoolAdded")
@@ -62,7 +63,8 @@ describe("ClearingHouse Spec", () => {
                 expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
             })
 
-            it("add multiple UniswapV3 pools", async () => {
+            // FIXME move to exchange spec
+            it.skip("add multiple UniswapV3 pools", async () => {
                 await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
                 expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
 
@@ -84,7 +86,8 @@ describe("ClearingHouse Spec", () => {
                 await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
             })
 
-            it("force error, pool is already existent in ClearingHouse", async () => {
+            // FIXME move to exchange spec
+            it.skip("force error, pool is already existent in ClearingHouse", async () => {
                 await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
                 await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
             })
@@ -97,7 +100,8 @@ describe("ClearingHouse Spec", () => {
             })
         })
 
-        it("force error, before the pool is initialized", async () => {
+        // FIXME move to exchange spec
+        it.skip("force error, before the pool is initialized", async () => {
             await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_PNI")
         })
     })
