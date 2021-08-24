@@ -945,15 +945,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 upperTick,
         int256 twPremiumX96,
         int256 twPremiumDivBySqrtPriceX96
-    ) external view returns (Tick.FundingGrowthRangeInfo memory) {
+    ) external view returns (Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-            tickMap.getAllFundingGrowth(
-                lowerTick,
-                upperTick,
-                UniswapV3Broker.getTick(_poolMap[baseToken]),
-                twPremiumX96,
-                twPremiumDivBySqrtPriceX96
-            );
+        fundingGrowthRangeInfo = tickMap.getAllFundingGrowth(
+            lowerTick,
+            upperTick,
+            UniswapV3Broker.getTick(_poolMap[baseToken]),
+            twPremiumX96,
+            twPremiumDivBySqrtPriceX96
+        );
     }
 }
