@@ -247,13 +247,6 @@ contract ClearingHouse is
         bool skipMarginRequirementCheck;
     }
 
-    struct SwapCallbackData {
-        address trader;
-        address baseToken;
-        bool mintForTrader;
-        uint256 fee;
-    }
-
     struct InternalSwapState {
         address pool;
         uint24 clearingHouseFeeRatio;
@@ -298,12 +291,6 @@ contract ClearingHouse is
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
     uint256 public partialCloseRatio = 0.25 ether; // partial close ratio, 25%
-
-    // TODO remove
-    // uniswapFeeRatioMap cache only
-    mapping(address => uint24) public uniswapFeeRatioMap;
-    mapping(address => uint24) private _insuranceFundFeeRatioMap;
-
     uint8 public maxMarketsPerAccount;
 
     constructor(
@@ -362,7 +349,6 @@ contract ClearingHouse is
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "CH_PNI");
 
         _poolMap[baseToken] = pool;
-        uniswapFeeRatioMap[pool] = UniswapV3Broker.getUniswapFeeRatio(pool);
 
         Exchange(exchange).addPool(baseToken, feeRatio);
         emit PoolAdded(baseToken, feeRatio, pool);
@@ -584,14 +570,12 @@ contract ClearingHouse is
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
         // TODO remove after move callback to exchange
-        _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
         Exchange(exchange).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
         // TODO remove after move callback to exchange
-        address pool = _poolMap[baseToken];
-        Exchange(exchange).setFeeRatio(pool, feeRatio);
+        Exchange(exchange).setFeeRatio(baseToken, feeRatio);
     }
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
@@ -635,6 +619,11 @@ contract ClearingHouse is
         );
     }
 
+    // TODO remove after fixing quoter
+    function uniswapFeeRatioMap(address pool) external returns (uint24) {
+        return Exchange(exchange).uniswapFeeRatioMap(pool);
+    }
+
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -647,14 +636,12 @@ contract ClearingHouse is
         // CH_F0S: forbidden 0 swap
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
-        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
+        Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-
-        uint24 uniswapFeeRatio = uniswapFeeRatioMap[address(pool)];
 
         // we know the exact amount of a token needed for swap in the swap callback
         // we separate into two part
@@ -674,7 +661,7 @@ contract ClearingHouse is
         //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
         //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
         //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
-        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, uniswapFeeRatio, false);
+        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, callbackData.uniswapFeeRatio, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 

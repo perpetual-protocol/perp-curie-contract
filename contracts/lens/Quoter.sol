@@ -14,6 +14,7 @@ import { FeeMath } from "../lib/FeeMath.sol";
 // TODO: change this to IClearingHouse when clearing house's interface is ready
 import { ClearingHouse } from "../ClearingHouse.sol";
 
+// TODO change CH to Exchange
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
 /// @dev These functions are not gas efficient and should _not_ be called on chain. Instead, optimistically execute

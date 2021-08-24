@@ -54,6 +54,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
+    struct TickStatus {
+        int24 finalTickFromLastBlock;
+        uint256 lastUpdatedBlock;
+    }
+
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
     address public clearingHouse;
@@ -80,10 +85,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
 
-    struct TickStatus {
-        int24 finalTickFromLastBlock;
-        uint256 lastUpdatedBlock;
-    }
     // key: base token. tracking the final tick from last block
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
@@ -262,14 +263,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 insuranceFundFee;
     }
 
-    function setFeeRatio(address pool, uint24 feeRatio) external {
-        _clearingHouseFeeRatioMap[pool] = feeRatio;
+    function setFeeRatio(address baseToken, uint24 feeRatio) external {
+        _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
     struct SwapCallbackData {
         address trader;
         address baseToken;
         bool mintForTrader;
+        uint24 uniswapFeeRatio;
         uint256 fee;
     }
 
@@ -324,7 +326,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     scaledAmount,
                     params.sqrtPriceLimitX96,
                     abi.encode(
-                        SwapCallbackData(params.trader, params.baseToken, params.mintForTrader, internalSwapState.fee)
+                        SwapCallbackData(
+                            params.trader,
+                            params.baseToken,
+                            params.mintForTrader,
+                            uniswapFeeRatioMap[pool],
+                            internalSwapState.fee
+                        )
                     )
                 )
             );
@@ -364,11 +372,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 insuranceFundFee: internalSwapState.insuranceFundFee
             });
     }
-
-    //
-    //    function getGrowthOutsideTickInfo(address baseToken) external returns (Tick.GrowthInfo) {
-    //        return _growthOutsideTickMap[baseToken];
-    //    }
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
@@ -552,7 +555,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
-        return Exchange(exchange).getFeeRatio(_poolMap[baseToken]);
+        return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
     }
 
     function _removeOrder(
