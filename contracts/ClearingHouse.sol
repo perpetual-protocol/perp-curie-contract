@@ -31,6 +31,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -381,6 +382,7 @@ contract ClearingHouse is
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+        _requireHasBaseToken(baseToken);
         Exchange(exchange).setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock);
     }
 
@@ -1431,34 +1433,15 @@ contract ClearingHouse is
         FundingGrowth memory updatedGlobalFundingGrowth
     ) private returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
-        Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, baseToken);
 
-        int256 liquidityCoefficientInFundingPayment;
-        // update funding of liquidity
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            Exchange.OpenOrder memory order = Exchange(exchange).getOpenOrderById(orderIds[i]);
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                Exchange(exchange).getTickFundingGrowthRangeInfo(
-                    baseToken,
-                    order.lowerTick,
-                    order.upperTick,
-                    updatedGlobalFundingGrowth.twPremiumX96,
-                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                );
-
-            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+        int256 liquidityCoefficientInFundingPayment =
+            Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
+                trader,
+                baseToken,
+                updatedGlobalFundingGrowth
             );
 
-            // TODO funding review whether this section should be here or go upward -> should be a yes
-            order.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
-            order.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
-            order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
-                .twPremiumDivBySqrtPriceGrowthInsideX96;
-            Exchange(exchange).setOpenOrder(order, orderIds[i]);
-        }
-
+        Account storage account = _accountMap[trader];
         int256 availableAndDebtCoefficientInFundingPayment =
             _getAvailableAndDebtCoefficientInFundingPayment(
                 account.tokenInfoMap[baseToken],
@@ -1466,10 +1449,9 @@ contract ClearingHouse is
                 account.lastTwPremiumGrowthGlobalX96Map[baseToken]
             );
 
-        fundingPayment = fundingPayment
-            .add(liquidityCoefficientInFundingPayment)
-            .add(availableAndDebtCoefficientInFundingPayment)
-            .div(1 days);
+        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
+            1 days
+        );
 
         // update fundingGrowth of funding payment coefficient from available and debt
         account.lastTwPremiumGrowthGlobalX96Map[baseToken] = updatedGlobalFundingGrowth.twPremiumX96;

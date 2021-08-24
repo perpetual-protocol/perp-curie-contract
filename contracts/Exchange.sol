@@ -22,6 +22,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 // TODO move FundingGrowth to another file or library
 import { ClearingHouse } from "./ClearingHouse.sol";
 
+import "hardhat/console.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
@@ -59,6 +60,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     address public immutable uniswapV3Factory;
     address public clearingHouse;
     uint8 public maxOrdersPerMarket;
+
+    // int 2^96
+    int256 private constant _IQ96 = 0x1000000000000000000000000;
 
     // TODO refactoring
     // key: base token, value: pool
@@ -118,6 +122,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     //
     // EXTERNAL FUNCTIONS
     //
+
+    // TODO move back to CH
     function saveTickBeforeFirstSwapThisBlock(address baseToken) external {
         // only do this when it's the first swap in this block
         uint256 blockNumber = _blockNumber();
@@ -208,7 +214,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external {
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
@@ -954,5 +960,73 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             twPremiumX96,
             twPremiumDivBySqrtPriceX96
         );
+    }
+
+    function getPendingFundingPaymentAndUpdateLastFundingGrowth(
+        address trader,
+        address baseToken,
+        ClearingHouse.FundingGrowth memory updatedGlobalFundingGrowth
+    ) external returns (int256 liquidityCoefficientInFundingPayment) {
+        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+
+        // update funding of liquidity
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder storage order = _openOrderMap[orderIds[i]];
+            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+                tickMap.getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    updatedGlobalFundingGrowth.twPremiumX96,
+                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+            );
+
+            // TODO funding review whether this section should be here or go upward -> should be a yes
+            order.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
+            order.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
+            order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
+                .twPremiumDivBySqrtPriceGrowthInsideX96;
+        }
+    }
+
+    function _getLiquidityCoefficientInFundingPayment(
+        Exchange.OpenOrder memory order,
+        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
+    ) private pure returns (int256 liquidityCoefficientInFundingPayment) {
+        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
+
+        // base amount below the range
+        uint256 baseAmountBelow =
+            UniswapV3Broker.getAmount0ForLiquidity(
+                TickMath.getSqrtRatioAtTick(order.lowerTick),
+                sqrtPriceX96AtUpperTick,
+                order.liquidity
+            );
+        int256 fundingBelowX96 =
+            baseAmountBelow.toInt256().mul(
+                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
+            );
+
+        // funding inside the range =
+        // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
+        int256 fundingInsideX96 =
+            uint256(order.liquidity).toInt256().mul(
+                // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
+                fundingGrowthRangeInfo
+                    .twPremiumDivBySqrtPriceGrowthInsideX96
+                    .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
+                    .sub(
+                    // ΔtwPremiumGrowthInsideX96
+                    (fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(_IQ96))
+                        .div(sqrtPriceX96AtUpperTick)
+                )
+            );
+
+        return fundingBelowX96.add(fundingInsideX96).div(_IQ96);
     }
 }

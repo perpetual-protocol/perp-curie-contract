@@ -178,6 +178,7 @@ interface MockedClearingHouseFixture {
     mockedQuoteToken: MockContract
     mockedUSDC: MockContract
     mockedBaseToken: MockContract
+    mockedExchange: MockContract
 }
 
 export const ADDR_GREATER_THAN = true
@@ -228,6 +229,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const vault = (await vaultFactory.deploy(USDC.address)) as Vault
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
+
     const mockedUSDC = await smockit(USDC)
     const mockedQuoteToken = await smockit(token1)
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
@@ -253,8 +255,26 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         0,
     )) as ClearingHouse
 
+    const exchangeFactory = await ethers.getContractFactory("Exchange")
+    const exchange = (await exchangeFactory.deploy(
+        clearingHouse.address,
+        mockedUniV3Factory.address,
+        token1.address,
+        0,
+    )) as Exchange
+    const mockedExchange = await smockit(exchange)
+    await clearingHouse.setExchange(mockedExchange.address)
+
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
 
-    return { clearingHouse, mockedUniV3Factory, mockedVault, mockedQuoteToken, mockedUSDC, mockedBaseToken }
+    return {
+        clearingHouse,
+        mockedExchange,
+        mockedUniV3Factory,
+        mockedVault,
+        mockedQuoteToken,
+        mockedUSDC,
+        mockedBaseToken,
+    }
 }
