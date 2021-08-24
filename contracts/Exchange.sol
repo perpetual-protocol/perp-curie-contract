@@ -278,8 +278,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         InternalSwapState memory internalSwapState =
             InternalSwapState({
                 pool: _poolMap[params.baseToken],
-                clearingHouseFeeRatio: _clearingHouseFeeRatioMap[_poolMap[params.baseToken]],
-                uniswapFeeRatio: uniswapFeeRatioMap[_poolMap[params.baseToken]],
+                clearingHouseFeeRatio: _clearingHouseFeeRatioMap[pool],
+                uniswapFeeRatio: uniswapFeeRatioMap[pool],
                 fee: 0,
                 insuranceFundFee: 0
             });
@@ -691,7 +691,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount,
         uint24 clearingHouseFeeRatio,
         uint24 uniswapFeeRatio
-    ) private view returns (uint256 scaledAmount, int256 signedScaledAmount) {
+    ) private pure returns (uint256 scaledAmount, int256 signedScaledAmount) {
         // input or output amount for swap
         // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
         // 2. Q2B && exact out --> output base(params.base)

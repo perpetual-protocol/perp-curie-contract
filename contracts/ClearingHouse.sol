@@ -312,7 +312,6 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint8 maxOrdersPerMarketArg, // FIXME remove
         uint8 maxMarketsPerAccountArg
     ) {
         // vault is 0
@@ -1269,37 +1268,6 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
-    function _getScaledAmount(
-        bool isBaseToQuote,
-        bool isExactInput,
-        uint256 amount,
-        uint24 clearingHouseFeeRatio,
-        uint24 uniswapFeeRatio
-    ) private view returns (uint256 scaledAmount, int256 signedScaledAmount) {
-        // input or output amount for swap
-        // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
-        // 2. Q2B && exact out --> output base(params.base)
-        // 3. B2Q && exact in  --> input base / (1 - x)
-        // 4. B2Q && exact out --> output base / (1 - y)
-        scaledAmount = isBaseToQuote
-            ? isExactInput
-                ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
-                : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
-            : isExactInput
-            ? FeeMath.magicFactor(amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
-            : amount;
-
-        // if Q2B, we use params.amount directly
-        // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
-        // we simulate the swap step in `_replaySwap`.
-        // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_replaySwap` won't be 0.03.
-        signedScaledAmount = isBaseToQuote
-            ? isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
-            : isExactInput
-            ? amount.toInt256()
-            : -amount.toInt256();
-    }
-
     function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
@@ -1707,72 +1675,15 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         bool isBaseToQuote
-    ) private returns (bool) {
+    ) private view returns (bool) {
         // increase position == old/new position are in the same direction
         int256 positionSize = getPositionSize(trader, baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
-    function _getOrderId(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
-    }
-
     function _getAccountBaseTokenKey(address account, address baseToken) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(account, baseToken));
-    }
-
-    function _calcOwedFee(
-        uint128 liquidity,
-        uint256 feeGrowthInsideNew,
-        uint256 feeGrowthInsideOld
-    ) private pure returns (uint256) {
-        // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
-        // which causes underflow but what we want is the difference only
-        return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
-    }
-
-    function _emitLiquidityChanged(
-        address maker,
-        AddLiquidityParams memory params,
-        UniswapV3Broker.AddLiquidityResponse memory response,
-        uint256 quoteFee
-    ) private {
-        emit LiquidityChanged(
-            maker,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.liquidity.toInt128(),
-            quoteFee
-        );
-    }
-
-    function _emitLiquidityChanged(
-        address maker,
-        InternalRemoveLiquidityParams memory params,
-        UniswapV3Broker.RemoveLiquidityResponse memory response,
-        uint256 quoteFee
-    ) private {
-        emit LiquidityChanged(
-            maker,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
-            quoteFee
-        );
     }
 
     function _requireHasBaseToken(address baseToken) private view {
