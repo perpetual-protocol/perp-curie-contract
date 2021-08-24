@@ -22,10 +22,14 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
     using SignedSafeMath for int256;
+    using PerpMath for uint256;
+    using PerpMath for int256;
+    using PerpMath for uint160;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
@@ -878,6 +882,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
 
         return (fee, insuranceFundFee, params.state.tick);
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external returns (uint256) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+    }
+
+    function getSqrtMarkPriceX96(address baseToken) external returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
     /// @dev funding payment belongs to realizedPnl, not token amount

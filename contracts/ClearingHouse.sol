@@ -346,7 +346,7 @@ contract ClearingHouse is
         // CH_EP: existent pool in ClearingHouse
         require(pool != _poolMap[baseToken], "CH_EP");
         // CH_PNI: pool not (yet) initialized
-        require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "CH_PNI");
+        require(Exchange(exchange).getSqrtMarkPriceX96(baseToken) != 0, "CH_PNI");
 
         _poolMap[baseToken] = pool;
 
@@ -794,7 +794,7 @@ contract ClearingHouse is
         address token,
         uint256 twapIntervalArg
     ) public view returns (int256 positionValue) {
-        int256 positionSize = _getPositionSize(trader, token, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[token]));
+        int256 positionSize = _getPositionSize(trader, token, Exchange(exchange).getSqrtMarkPriceX96(token));
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
@@ -809,7 +809,7 @@ contract ClearingHouse is
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        uint160 sqrtMarkPrice = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+        uint160 sqrtMarkPrice = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
         int256 quoteInPool =
             Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPrice, false).toInt256();
         int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
@@ -838,13 +838,13 @@ contract ClearingHouse is
         view
         returns (uint256 base, uint256 quote)
     {
-        uint160 sqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
         base = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, true);
         quote = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        return _getPositionSize(trader, baseToken, UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]));
+        return _getPositionSize(trader, baseToken, Exchange(exchange).getSqrtMarkPriceX96(baseToken));
     }
 
     // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
@@ -857,7 +857,7 @@ contract ClearingHouse is
                 Exchange(exchange).getTotalTokenAmountInPool(
                     trader,
                     baseToken,
-                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
+                    Exchange(exchange).getSqrtMarkPriceX96(baseToken),
                     false // fetch quote token amount
                 )
             );
@@ -1485,7 +1485,7 @@ contract ClearingHouse is
                 .twPremiumDivBySqrtPriceX96
                 .add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-                    uint256(UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken])).toInt256()
+                    uint256(Exchange(exchange).getSqrtMarkPriceX96(baseToken)).toInt256()
                 )
             );
         } else {
@@ -1560,7 +1560,7 @@ contract ClearingHouse is
             twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[token]));
         }
 
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[token], twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg);
     }
 
     // --- funding related getters ---
