@@ -191,10 +191,6 @@ library UniswapV3Broker {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
-    function getUniswapFeeRatio(address pool) internal view returns (uint24 feeRatio) {
-        feeRatio = IUniswapV3Pool(pool).fee();
-    }
-
     function getLiquidity(address pool) internal view returns (uint128 liquidity) {
         liquidity = IUniswapV3Pool(pool).liquidity();
     }

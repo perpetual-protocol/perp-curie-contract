@@ -6,5 +6,5 @@ export async function deposit(sender: Wallet, vault: Vault, amount: number, toke
     const decimals = await token.decimals()
     const parsedAmount = parseUnits(amount.toString(), decimals)
     await token.connect(sender).approve(vault.address, parsedAmount)
-    await vault.connect(sender).deposit(sender.address, token.address, parsedAmount)
+    await vault.connect(sender).deposit(token.address, parsedAmount)
 }
