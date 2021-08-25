@@ -252,7 +252,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const exchange = (await exchangeFactory.deploy(
         clearingHouse.address,
         mockedUniV3Factory.address,
-        token1.address,
+        mockedQuoteToken.address,
     )) as Exchange
     const mockedExchange = await smockit(exchange)
     await clearingHouse.setExchange(mockedExchange.address)

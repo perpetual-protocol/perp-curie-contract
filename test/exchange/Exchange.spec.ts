@@ -11,8 +11,8 @@ describe("Exchange Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
-    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000a"
-    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
+    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
+    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
     const DEFAULT_FEE = 3000
 
     let exchange: Exchange

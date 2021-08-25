@@ -48,7 +48,7 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     const exchange = (await exchangeFactory.deploy(
         clearingHouse.address,
         mockedUniV3Factory.address,
-        token1.address,
+        mockedQuoteToken.address,
     )) as Exchange
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
