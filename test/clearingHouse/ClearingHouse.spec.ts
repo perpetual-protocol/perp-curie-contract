@@ -119,6 +119,14 @@ describe("ClearingHouse Spec", () => {
             expect(await clearingHouse.partialCloseRatio()).eq(parseEther("0.5"))
         })
 
+        it("setTwapInterval", async () => {
+            await expect(clearingHouse.setTwapInterval(0)).to.be.revertedWith("CH_ITI")
+            await expect(clearingHouse.setTwapInterval(3600))
+                .to.emit(clearingHouse, "TwapIntervalChanged")
+                .withArgs(3600)
+            expect(await clearingHouse.twapInterval()).eq(3600)
+        })
+
         // FIXME move to exchange spec
         it.skip("setMaxTickCrossedWithinBlock", async () => {
             await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
