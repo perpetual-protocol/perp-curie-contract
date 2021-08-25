@@ -510,6 +510,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
     }
 
+    // TODO rename to updateLastFundingGrowth
     function getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
         address baseToken,
