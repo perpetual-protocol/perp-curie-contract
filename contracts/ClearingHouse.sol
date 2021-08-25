@@ -58,6 +58,7 @@ contract ClearingHouse is
     //
     // events
     //
+    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
     event LiquidityChanged(
@@ -240,6 +241,10 @@ contract ClearingHouse is
 
     uint32 public twapInterval = 15 minutes;
 
+    // TODO remove
+    // key: base token, value: pool
+    mapping(address => address) private _poolMap;
+
     // key: trader
     mapping(address => Account) private _accountMap;
 
@@ -296,6 +301,27 @@ contract ClearingHouse is
     // EXTERNAL FUNCTIONS
     //
 
+    // TODO REMOVE
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
+        address pool = Exchange(exchange).addPool(baseToken, feeRatio);
+
+        // TODO move to ex and fix tests
+        // CH_BDN18: baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "CH_BDN18");
+        // to ensure the base is always token0 and quote is always token1
+        // CH_IB: invalid baseToken
+        require(baseToken < quoteToken, "CH_IB");
+        // CH_NEP: non-existent pool in uniswapV3 factory
+        require(pool != address(0), "CH_NEP");
+        // CH_EP: existent pool in ClearingHouse
+        require(pool != _poolMap[baseToken], "CH_EP");
+        // CH_PNI: pool not (yet) initialized
+        require(Exchange(exchange).getSqrtMarkPriceX96(baseToken) != 0, "CH_PNI");
+
+        _poolMap[baseToken] = pool;
+        emit PoolAdded(baseToken, feeRatio, pool);
+    }
+
     // TODO event, check null
     function setExchange(address exchangeArg) external onlyOwner {
         exchange = exchangeArg;
@@ -303,12 +329,14 @@ contract ClearingHouse is
 
     // TODO remove
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+        _requireHasBaseToken(baseToken);
         Exchange(exchange).setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock);
     }
 
     // TODO internal
     function mint(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
+            _requireHasBaseToken(token);
             _registerBaseToken(_msgSender(), token);
         }
         // always check margin ratio
@@ -320,11 +348,15 @@ contract ClearingHouse is
      */
     // TODO internal
     function burn(address token, uint256 amount) external nonReentrant() {
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
         _burn(_msgSender(), token, amount);
     }
 
     // TODO internal
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
+        _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
         return
@@ -342,6 +374,8 @@ contract ClearingHouse is
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
+        _requireHasBaseToken(params.baseToken);
+
         address trader = _msgSender();
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
@@ -401,6 +435,7 @@ contract ClearingHouse is
             uint256 fee
         )
     {
+        _requireHasBaseToken(params.baseToken);
         RemoveLiquidityResponse memory response =
             _removeLiquidity(
                 InternalRemoveLiquidityParams({
@@ -421,11 +456,13 @@ contract ClearingHouse is
         external
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
+        _requireHasBaseToken(baseToken);
         SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
+        _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
         // must before price impact check
@@ -476,9 +513,7 @@ contract ClearingHouse is
         require(_msgSender() == exchange, "CH_FMV");
 
         address baseToken = abi.decode(data, (address));
-
-        // TODO passed from calldata
-        address pool = Exchange(exchange).getPool(baseToken);
+        address pool = _poolMap[baseToken];
 
         if (amount0Owed > 0) {
             TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
@@ -522,6 +557,7 @@ contract ClearingHouse is
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {
+        _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
@@ -578,9 +614,7 @@ contract ClearingHouse is
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
         Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
-
-        // TODO passed from callback data
-        IUniswapV3Pool pool = IUniswapV3Pool(Exchange(exchange).getPool(callbackData.baseToken));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
@@ -629,6 +663,8 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) private {
+        _requireHasBaseToken(baseToken);
+
         // CH_EAV: enough account value
         // shouldn't cancel open orders
         require(
@@ -709,7 +745,7 @@ contract ClearingHouse is
 
     // TODO move to exchange
     function getPool(address baseToken) external view returns (address) {
-        return Exchange(exchange).getPool(baseToken);
+        return _poolMap[baseToken];
     }
 
     // TODO move to exchange
@@ -835,7 +871,9 @@ contract ClearingHouse is
         uint256 tokenLen = _accountMap[trader].tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+            if (_isPoolExistent(baseToken)) {
+                totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+            }
         }
 
         return getNetQuoteBalance(trader).add(totalPositionValue);
@@ -1327,6 +1365,8 @@ contract ClearingHouse is
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) private returns (int256 fundingPayment) {
+        _requireHasBaseToken(baseToken);
+
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
                 trader,
@@ -1362,6 +1402,7 @@ contract ClearingHouse is
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) private view returns (int256 fundingPayment) {
+        _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, baseToken);
 
@@ -1401,7 +1442,9 @@ contract ClearingHouse is
     function _getAllPendingFundingPayment(address trader) private view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
+            if (_isPoolExistent(baseToken)) {
+                fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
+            }
         }
     }
 
@@ -1551,9 +1594,11 @@ contract ClearingHouse is
         uint256 tokenLen = tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = tokens[i];
-            // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
-            totalPositionValue = totalPositionValue.add(positionValue);
+            if (_isPoolExistent(baseToken)) {
+                // will not use negative value in this case
+                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                totalPositionValue = totalPositionValue.add(positionValue);
+            }
         }
         return totalPositionValue;
     }
@@ -1564,8 +1609,10 @@ contract ClearingHouse is
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
-            uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
-            totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            if (_isPoolExistent(baseToken)) {
+                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+            }
         }
         return totalBaseDebtValue;
     }
@@ -1593,6 +1640,10 @@ contract ClearingHouse is
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
+    function _isPoolExistent(address baseToken) internal view returns (bool) {
+        return _poolMap[baseToken] != address(0);
+    }
+
     function _isIncreasePosition(
         address trader,
         address baseToken,
@@ -1606,6 +1657,11 @@ contract ClearingHouse is
 
     function _getAccountBaseTokenKey(address account, address baseToken) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(account, baseToken));
+    }
+
+    function _requireHasBaseToken(address baseToken) private view {
+        // CH_BTNE: base token not exists
+        require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
     function _requireLargerThanInitialMarginRequirement(address trader) private view {

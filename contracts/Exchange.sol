@@ -240,12 +240,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _;
     }
 
-    modifier checkBaseToken(address baseToken) {
-        // EX_BTNE: base token not exists
-        require(_isPoolExistent(baseToken), "EX_BTNE");
-        _;
-    }
-
     constructor(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
@@ -269,10 +263,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock)
-        external
-        checkBaseToken(baseToken)
-    {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external {
+        _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
@@ -317,14 +309,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return pool;
     }
 
-    function swap(SwapParams memory params)
-        external
-        onlyClearingHouse
-        checkBaseToken(params.baseToken)
-        returns (SwapResponse memory)
-    {
-        _requireHasBaseToken(params.baseToken);
-
+    function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         address pool = _poolMap[params.baseToken];
         UniswapV3Broker.SwapResponse memory response;
         // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
@@ -424,7 +409,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
-        checkBaseToken(params.baseToken)
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
@@ -507,7 +491,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        checkBaseToken(params.baseToken)
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
