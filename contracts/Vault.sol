@@ -114,8 +114,7 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     }
 
     function getFreeCollateral(address trader) external view returns (uint256) {
-        int256 freeCollateral = _getFreeCollateral(trader);
-        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
+        return _getFreeCollateral(trader);
     }
 
     function _addCollateralToken(address token) private {
@@ -154,21 +153,25 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
     }
 
     // TODO reduce external calls
-    // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-    function _getFreeCollateral(address trader) private view returns (int256) {
-        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
+    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    // we will start with the conservative one, then gradually change it to more aggressive ones
+    // to increase capital efficiency.
+    function _getFreeCollateral(address trader) private view returns (uint256) {
+        // accountValue = collateralValue + owedRealizedPnl - pendingFundingPayment + totalUnrealizedPnl
         int256 pendingFundingPayment = ClearingHouse(clearingHouse).getAllPendingFundingPayment(trader);
-
-        // accountValue = totalCollateralValue + totalMarketPnl
         int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(trader);
         int256 collateralValue = balanceOf(trader).addS(owedRealizedPnl.sub(pendingFundingPayment), decimals);
-        int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(trader);
-        int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
+        int256 totalUnrealizedPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(trader);
+        int256 accountValue = collateralValue.addS(totalUnrealizedPnl, decimals);
+        int256 totalImReq = ClearingHouse(clearingHouse).getTotalInitialMarginRequirement(trader).toInt256();
 
-        // collateral
-        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
+        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        return PerpMath.max(PerpMath.min(collateralValue, accountValue).subS(totalImReq, decimals), 0).toUint256();
 
-        return min.subS(openOrderMarginRequirement.toInt256(), decimals);
+        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
+        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+
+        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256();
     }
 }
