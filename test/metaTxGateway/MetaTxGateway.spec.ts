@@ -6,7 +6,7 @@ import { MetaTxGateway, TestMetaTxRecipient } from "../../typechain"
 import { EIP712Domain, signEIP712MetaTx } from "../helper/eip712"
 import { createMetaTxGatewayFixture } from "./fixtures"
 
-describe.skip("MetaTxGateway Spec", () => {
+describe.only("MetaTxGateway Spec", () => {
     const [admin, alice, relayer] = waffle.provider.getWallets()
     const l1ChainId = 1234
 
@@ -29,7 +29,7 @@ describe.skip("MetaTxGateway Spec", () => {
         }
     })
 
-    it("processMetaTxSignedL1", async () => {
+    it("Meta tx signed on L1", async () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq("0x0000000000000000000000000000000000000000")
 
         const metaTx = {
@@ -54,7 +54,7 @@ describe.skip("MetaTxGateway Spec", () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq(alice.address)
     })
 
-    it("processMetaTxSignedL2", async () => {
+    it("Meta tx signed on L2", async () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq("0x0000000000000000000000000000000000000000")
 
         const metaTx = {
@@ -86,7 +86,7 @@ describe.skip("MetaTxGateway Spec", () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq(alice.address)
     })
 
-    it("rejectMetaTxNotWhitelisted", async () => {
+    it("force error, the target contract is not whitelisted", async () => {
         const metaTx = {
             from: alice.address,
             to: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", // arbitrary address not in whitelist
@@ -109,13 +109,13 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("!whitelisted")
     })
 
-    it("rejectNonOwnerWhitelisting", async () => {
+    it("force error, only owner can add whitelisting", async () => {
         await expect(
             metaTxGateway.connect(alice).addToWhitelists("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-        ).to.be.revertedWith("PerpFiOwnableUpgrade: caller is not the owner")
+        ).to.be.revertedWith("Ownable: caller is not the owner")
     })
 
-    it("rejectMetaTxWrongDomain", async () => {
+    it("force error, incorrect domain info", async () => {
         const metaTx = {
             from: alice.address,
             to: metaTxGatewayRecipient.address,
@@ -145,7 +145,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("Signer and signature do not match")
     })
 
-    it("rejectMetaTxNonceTooHigh", async () => {
+    it("force error, the nonce is too high", async () => {
         const metaTx = {
             from: alice.address,
             to: metaTxGatewayRecipient.address,
@@ -168,7 +168,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("Signer and signature do not match")
     })
 
-    it("rejectMetaTxNonceTooLow", async () => {
+    it("force error, the nonce is too low", async () => {
         // make a successful meta tx first
         const metaTx1 = {
             from: alice.address,
@@ -211,7 +211,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("Signer and signature do not match")
     })
 
-    it("rejectMetaTxSignedByOthers", async () => {
+    it("force error, `from` in the meta tx is different from the signer", async () => {
         const metaTx = {
             from: alice.address,
             to: metaTxGatewayRecipient.address,
@@ -243,7 +243,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("Signer and signature do not match")
     })
 
-    it("rejectMetaTxZeroAddressAttack", async () => {
+    it("force error, `from` in meta tx in zero address", async () => {
         const metaTx = {
             from: "0x0000000000000000000000000000000000000000",
             to: metaTxGatewayRecipient.address,
@@ -273,7 +273,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("invalid signature")
     })
 
-    it("rejectMetaTxWithSpecificErrorMessage", async () => {
+    it("verify the reverted message", async () => {
         await expect(metaTxGatewayRecipient.error(), "MetaTxRecipientMock: Error")
 
         const metaTx = {
@@ -305,7 +305,7 @@ describe.skip("MetaTxGateway Spec", () => {
         ).to.be.revertedWith("MetaTxRecipientMock: Error")
     })
 
-    it("fallbackMsgSenderIfNonTrustedForwarder", async () => {
+    it("the target contract is called by a non trusted forwarder", async () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq("0x0000000000000000000000000000000000000000")
 
         // create another forwarder which is not trusted by metaTxRecipient
