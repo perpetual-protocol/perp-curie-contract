@@ -9,7 +9,7 @@ import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe.skip("ClearingHouse.swap gasEstimation", () => {
+describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -87,7 +87,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
         await deposit(carol, vault, 1000, collateral)
         await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
         for (let i = 0; i < 720; i++) {
-            await clearingHouse.connect(carol).swap({
+            await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,

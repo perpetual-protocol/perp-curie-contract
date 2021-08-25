@@ -95,7 +95,7 @@ describe("ClearingHouse maker close position", () => {
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
         await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
-        await clearingHouse.connect(bob).swap({
+        await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
             isExactInput: true, // exact input (quote)
@@ -135,7 +135,7 @@ describe("ClearingHouse maker close position", () => {
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
         await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
-        await clearingHouse.connect(bob).swap({
+        await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
             isExactInput: true, // exact input (quote)
@@ -190,7 +190,7 @@ describe("ClearingHouse maker close position", () => {
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
         await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
-        await clearingHouse.connect(bob).swap({
+        await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
@@ -275,7 +275,7 @@ describe("ClearingHouse maker close position", () => {
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
             await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
                 isExactInput: true, // exact input (quote)
@@ -318,7 +318,7 @@ describe("ClearingHouse maker close position", () => {
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,

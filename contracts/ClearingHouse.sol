@@ -327,25 +327,6 @@ contract ClearingHouse is
         _burn(_msgSender(), token, amount);
     }
 
-    // TODO internal
-    function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
-        _requireHasBaseToken(params.baseToken);
-        _registerBaseToken(_msgSender(), params.baseToken);
-
-        return
-            _swapAndCalculateOpenNotional(
-                InternalSwapParams({
-                    trader: _msgSender(),
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    isExactInput: params.isExactInput,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mintForTrader: false
-                })
-            );
-    }
-
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
         _requireHasBaseToken(params.baseToken);
 
