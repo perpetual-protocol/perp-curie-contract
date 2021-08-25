@@ -23,6 +23,7 @@ import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
@@ -272,8 +273,22 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     // TODO refactoring
-    function addPool(address baseToken, uint24 feeRatio) external onlyClearingHouse returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
+        // EX_BDN18: baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
+        // to ensure the base is always token0 and quote is always token1
+        // EX_IB: invalid baseToken
+        require(baseToken < quoteToken, "EX_IB");
+
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
+
+        // EX_NEP: non-existent pool in uniswapV3 factory
+        require(pool != address(0), "EX_NEP");
+        // EX_EP: existent pool in ClearingHouse
+        require(pool != _poolMap[baseToken], "EX_EP");
+        // EX_PNI: pool not (yet) initialized
+        require(UniswapV3Broker.getSqrtMarkPriceX96(baseToken) != 0, "EX_PNI");
+
         _poolMap[baseToken] = pool;
         uniswapFeeRatioMap[pool] = feeRatio;
         _clearingHouseFeeRatioMap[pool] = feeRatio;
@@ -845,6 +860,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     //
     // EXTERNAL VIEW
     //
+
+    function getPool(address baseToken) external view returns (address) {
+        return _poolMap[baseToken];
+    }
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
         return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
