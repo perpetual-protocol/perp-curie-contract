@@ -13,7 +13,7 @@ uint fakeAmm = 1;
 - [ ] Use `_` prefix for every `private` or `internal` state and function.
 - [ ] Acceptable suffix: [`Addr`, `Token`, `Pool`, `Local`, `Arg`].
 - [ ] Prevent from using suffix: [`Param`, `Amount`, `Map`, `List`]
-  
+- [ ] Use `trader` as variable name if the role implies `taker` and `maker` 
 
 ### Policies
 - [ ] Always `throw exceptions` when something unexpected happened during the execution. DO NOT return a error code like 0 or -1.
