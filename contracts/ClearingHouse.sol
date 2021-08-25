@@ -221,7 +221,7 @@ contract ClearingHouse is
     }
 
     // 10 wei
-    uint256 private constant _DUST = 10;
+    uint256 internal constant _DUST = 10;
 
     //
     // state variables
@@ -235,21 +235,21 @@ contract ClearingHouse is
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
-    uint8 private immutable _settlementTokenDecimals;
+    uint8 internal immutable _settlementTokenDecimals;
 
     uint32 public twapInterval = 15 minutes;
 
     // key: trader
-    mapping(address => Account) private _accountMap;
+    mapping(address => Account) internal _accountMap;
 
     // key: accountBaseTokenKey, which is a hash of account and baseToken
     // value: fraction of open notional that can unify the openNotional for both maker and taker
-    mapping(bytes32 => int256) private _openNotionalFractionMap;
+    mapping(bytes32 => int256) internal _openNotionalFractionMap;
 
     // key: base token
-    mapping(address => uint256) private _firstTradedTimestampMap;
-    mapping(address => uint256) private _lastSettledTimestampMap;
-    mapping(address => Funding.Growth) private _globalFundingGrowthX96Map;
+    mapping(address => uint256) internal _firstTradedTimestampMap;
+    mapping(address => uint256) internal _lastSettledTimestampMap;
+    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
 
     uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
     uint256 public partialCloseRatio = 0.25 ether; // partial close ratio, 25%
@@ -638,7 +638,7 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] memory orderIds
-    ) private {
+    ) internal {
         _requireHasBaseToken(baseToken);
 
         // CH_EAV: enough account value
@@ -869,7 +869,7 @@ contract ClearingHouse is
         address token,
         uint256 amount,
         bool checkMarginRatio
-    ) private returns (uint256) {
+    ) internal returns (uint256) {
         if (amount == 0) {
             return 0;
         }
@@ -895,7 +895,7 @@ contract ClearingHouse is
         address account,
         address token,
         uint256 amount
-    ) private {
+    ) internal {
         if (amount == 0) {
             return;
         }
@@ -918,7 +918,7 @@ contract ClearingHouse is
         emit Burned(account, token, amount);
     }
 
-    function _burnMax(address account, address token) private {
+    function _burnMax(address account, address token) internal {
         TokenInfo memory tokenInfo = getTokenInfo(account, token);
         uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
         if (burnedAmount > 0) {
@@ -927,7 +927,7 @@ contract ClearingHouse is
     }
 
     // expensive
-    function _deregisterBaseToken(address account, address baseToken) private {
+    function _deregisterBaseToken(address account, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
         TokenInfo memory tokenInfo = _accountMap[account].tokenInfoMap[baseToken];
         if (tokenInfo.available > 0 || tokenInfo.debt > 0) {
@@ -954,7 +954,7 @@ contract ClearingHouse is
         }
     }
 
-    function _registerBaseToken(address trader, address token) private {
+    function _registerBaseToken(address trader, address token) internal {
         address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
             _accountMap[trader].tokens.push(token);
@@ -980,7 +980,7 @@ contract ClearingHouse is
     }
 
     // TODO refactor
-    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) private returns (SwapResponse memory) {
+    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         SwapResponse memory response;
@@ -1067,7 +1067,7 @@ contract ClearingHouse is
     }
 
     // caller must ensure there's enough quote available and debt
-    function _realizePnl(address account, int256 deltaPnl) private {
+    function _realizePnl(address account, int256 deltaPnl) internal {
         if (deltaPnl == 0) {
             return;
         }
@@ -1095,7 +1095,7 @@ contract ClearingHouse is
     // check here for custom fee design,
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     // y = clearingHouseFeeRatio, x = uniswapFeeRatio
-    function _swap(InternalSwapParams memory params) private returns (SwapResponse memory) {
+    function _swap(InternalSwapParams memory params) internal returns (SwapResponse memory) {
         Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
 
@@ -1215,7 +1215,7 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
-    function _openPosition(InternalOpenPositionParams memory params) private returns (SwapResponse memory) {
+    function _openPosition(InternalOpenPositionParams memory params) internal returns (SwapResponse memory) {
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
                 InternalSwapParams({
@@ -1252,7 +1252,7 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         uint160 sqrtPriceLimitX96
-    ) private returns (SwapResponse memory) {
+    ) internal returns (SwapResponse memory) {
         int256 positionSize = getPositionSize(trader, baseToken);
 
         // CH_PSZ: position size is zero
@@ -1297,7 +1297,7 @@ contract ClearingHouse is
         address account,
         address baseToken,
         int256 delta
-    ) private {
+    ) internal {
         bytes32 accountBaseTokenId = _getAccountBaseTokenKey(account, baseToken);
         _openNotionalFractionMap[accountBaseTokenId] = _openNotionalFractionMap[accountBaseTokenId].add(delta);
     }
@@ -1340,7 +1340,7 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) private returns (int256 fundingPayment) {
+    ) internal returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
@@ -1377,7 +1377,7 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) private view returns (int256 fundingPayment) {
+    ) internal view returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, baseToken);
@@ -1415,7 +1415,7 @@ contract ClearingHouse is
             .div(1 days);
     }
 
-    function _getAllPendingFundingPayment(address trader) private view returns (int256 fundingPayment) {
+    function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_isPoolExistent(baseToken)) {
@@ -1459,7 +1459,7 @@ contract ClearingHouse is
     function _getLiquidityCoefficientInFundingPayment(
         Exchange.OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) private view returns (int256 liquidityCoefficientInFundingPayment) {
+    ) internal view returns (int256 liquidityCoefficientInFundingPayment) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
         // base amount below the range
@@ -1500,7 +1500,7 @@ contract ClearingHouse is
         TokenInfo memory tokenInfo,
         int256 twPremiumGrowthGlobalX96,
         int256 lastTwPremiumGrowthGlobalX96
-    ) private pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
+    ) internal pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
         return
             tokenInfo
                 .available
@@ -1510,7 +1510,7 @@ contract ClearingHouse is
                 .div(PerpFixedPoint96.IQ96);
     }
 
-    function _getMarkTwapX96(address token) private view returns (uint256) {
+    function _getMarkTwapX96(address token) internal view returns (uint256) {
         uint32 twapIntervalArg = twapInterval;
 
         // shorten twapInterval if there is no prior observation
@@ -1528,7 +1528,7 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
-    function _getIndexPrice(address token) private view returns (uint256) {
+    function _getIndexPrice(address token) internal view returns (uint256) {
         return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
@@ -1545,12 +1545,12 @@ contract ClearingHouse is
         return _getTotalAbsPositionValue(trader).mul(mmRatio).divideBy10_18();
     }
 
-    function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
+    function _getDebtValue(address token, uint256 amount) internal view returns (uint256) {
         return amount.mul(_getIndexPrice(token)).divideBy10_18();
     }
 
     // return in settlement token decimals
-    function _getTotalCollateralValue(address trader) private view returns (int256) {
+    function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
         return
             IVault(vault).balanceOf(trader).toInt256().addS(
@@ -1560,7 +1560,7 @@ contract ClearingHouse is
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
-    function _getTotalAbsPositionValue(address trader) private view returns (uint256) {
+    function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
         address[] memory tokens = _accountMap[trader].tokens;
         uint256 totalPositionValue;
         uint256 tokenLen = tokens.length;
@@ -1575,7 +1575,7 @@ contract ClearingHouse is
         return totalPositionValue;
     }
 
-    function _getTotalBaseDebtValue(address trader) private view returns (uint256) {
+    function _getTotalBaseDebtValue(address trader) internal view returns (uint256) {
         Account storage account = _accountMap[trader];
         uint256 totalBaseDebtValue;
         uint256 tokenLen = account.tokens.length;
@@ -1593,7 +1593,7 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96
-    ) private view returns (int256) {
+    ) internal view returns (int256) {
         TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
             baseTokenInfo.available.add(
@@ -1620,23 +1620,23 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         bool isBaseToQuote
-    ) private view returns (bool) {
+    ) internal view returns (bool) {
         // increase position == old/new position are in the same direction
         int256 positionSize = getPositionSize(trader, baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
-    function _getAccountBaseTokenKey(address account, address baseToken) private pure returns (bytes32) {
+    function _getAccountBaseTokenKey(address account, address baseToken) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
-    function _requireHasBaseToken(address baseToken) private view {
+    function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
         require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
-    function _requireLargerThanInitialMarginRequirement(address trader) private view {
+    function _requireLargerThanInitialMarginRequirement(address trader) internal view {
         // CH_NEAV: not enough account value
         require(
             getAccountValue(trader).gte(_getTotalInitialMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
