@@ -1,21 +1,26 @@
-import { default as BigNumber } from "bn.js"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signers"
 import { expect } from "chai"
 import { loadFixture } from "ethereum-waffle"
-import { waffle } from "hardhat"
+import { ethers } from "hardhat"
 import { MetaTxGateway, TestMetaTxRecipient } from "../../typechain"
 import { EIP712Domain, signEIP712MetaTx } from "../helper/eip712"
 import { createMetaTxGatewayFixture } from "./fixtures"
 
-describe.only("MetaTxGateway Spec", () => {
-    const [admin, alice, relayer] = waffle.provider.getWallets()
-    const l1ChainId = 1234
+describe("MetaTxGateway Spec", () => {
+    let alice: SignerWithAddress
+    let relayer: SignerWithAddress
+    const l1ChainId = 1
 
     let metaTxGateway: MetaTxGateway
     let domain: EIP712Domain
     let metaTxGatewayRecipient: TestMetaTxRecipient
 
-    before(async () => {
-        const _metaTxGatewayFixture = await loadFixture(createMetaTxGatewayFixture)
+    beforeEach(async () => {
+        const signers = await ethers.getSigners()
+        alice = signers[1]
+        relayer = signers[2]
+
+        const _metaTxGatewayFixture = await loadFixture(createMetaTxGatewayFixture())
         metaTxGateway = _metaTxGatewayFixture.metaTxGateway
         metaTxGatewayRecipient = _metaTxGatewayFixture.metaTxRecipient
 
@@ -38,8 +43,8 @@ describe.only("MetaTxGateway Spec", () => {
             functionSignature: metaTxGatewayRecipient.interface.getSighash("poke()"),
             nonce: +(await metaTxGateway.getNonce(alice.address)),
         }
-        const signedResponse = await signEIP712MetaTx(alice, domain, metaTx)
 
+        const signedResponse = await signEIP712MetaTx(alice, domain, metaTx)
         await metaTxGateway
             .connect(relayer)
             .executeMetaTransaction(
@@ -187,7 +192,7 @@ describe.only("MetaTxGateway Spec", () => {
                 signedResponse1.s,
                 signedResponse1.v,
             )
-        expect(await metaTxGateway.getNonce(alice.address)).to.eq(new BigNumber(1))
+        expect(await metaTxGateway.getNonce(alice.address)).to.eq("1")
 
         // make the second meta tx
         const metaTx2 = {
@@ -274,7 +279,7 @@ describe.only("MetaTxGateway Spec", () => {
     })
 
     it("verify the reverted message", async () => {
-        await expect(metaTxGatewayRecipient.error(), "MetaTxRecipientMock: Error")
+        await expect(metaTxGatewayRecipient.error()).to.be.revertedWith("MetaTxRecipientMock: Error")
 
         const metaTx = {
             from: alice.address,
@@ -309,8 +314,8 @@ describe.only("MetaTxGateway Spec", () => {
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq("0x0000000000000000000000000000000000000000")
 
         // create another forwarder which is not trusted by metaTxRecipient
-        const fixture = await createMetaTxGatewayFixture()
-        const nonTrustedForwarder = fixture.metaTxGateway
+        const fixture = createMetaTxGatewayFixture()
+        const nonTrustedForwarder = (await fixture()).metaTxGateway
         expect(await metaTxGatewayRecipient.isTrustedForwarder(nonTrustedForwarder.address)).to.be.false
         await nonTrustedForwarder.addToWhitelists(metaTxGatewayRecipient.address)
 

@@ -1,5 +1,4 @@
-import { ethers } from "ethers"
-import { TypedDataUtils } from "ethers-eip712"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signers"
 
 export interface EIP712Domain {
     name: string
@@ -37,13 +36,12 @@ const MetaTxTypes = [
 ]
 
 export async function signEIP712MetaTx(
-    signer: ethers.Signer,
+    signer: SignerWithAddress,
     domain: EIP712Domain,
     metaTx: MetaTx,
 ): Promise<SignedResponse> {
     const dataToSign = {
         types: {
-            EIP712Domain: EIP712DomainTypes,
             MetaTransaction: MetaTxTypes,
         },
         domain,
@@ -51,39 +49,12 @@ export async function signEIP712MetaTx(
         message: metaTx,
     }
 
-    const digest = TypedDataUtils.encodeDigest(dataToSign)
-    const signedMsg = await signer.signMessage(digest)
-    const signature = signedMsg.substring(2)
-
+    const sign = await signer._signTypedData(domain, dataToSign.types, metaTx)
+    const signature = sign.substring(2)
     return {
         signature,
         r: "0x" + signature.substring(0, 64),
         s: "0x" + signature.substring(64, 128),
         v: parseInt(signature.substring(128, 130), 16),
     }
-
-    // return new Promise((resolve, reject) => {
-    //     const send = web3.currentProvider
-    //     send(
-    //         {
-    //             jsonrpc: "2.0",
-    //             id: 999999999999,
-    //             method: "eth_signTypedData_v4",
-    //             params: [signer, dataToSign],
-    //         },
-    //         async function (err: any, result: any) {
-    //             if (err) {
-    //                 reject(err)
-    //             }
-
-    //             const signature = result.result.substring(2)
-    //             resolve({
-    //                 signature,
-    //                 r: "0x" + signature.substring(0, 64),
-    //                 s: "0x" + signature.substring(64, 128),
-    //                 v: parseInt(signature.substring(128, 130), 16),
-    //             })
-    //         },
-    //     )
-    // })
 }
