@@ -42,7 +42,7 @@ export enum BaseQuoteOrdering {
 }
 
 export function createClearingHouseFixture(
-    baseQuoteOrdering: BaseQuoteOrdering,
+    baseQuoteOrdering: BaseQuoteOrdering = BaseQuoteOrdering.BASE_0_QUOTE_1,
     canMockTime: boolean = true,
 ): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
