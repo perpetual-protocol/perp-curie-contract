@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, InsuranceFund, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -12,6 +12,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     const [admin, maker1, maker2, taker1] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
@@ -24,6 +25,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund
         collateral = _clearingHouseFixture.USDC
@@ -38,7 +40,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         })
         await pool.initialize(encodePriceSqrt(100, 1))
 
-        await clearingHouse.addPool(baseToken.address, "10000")
+        await exchange.addPool(baseToken.address, "10000")
         await clearingHouse.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         // prepare collateral for maker1

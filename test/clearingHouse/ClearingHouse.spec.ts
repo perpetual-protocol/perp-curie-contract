@@ -61,18 +61,10 @@ describe("ClearingHouse Spec", () => {
             const mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
 
             await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
             expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
-        })
-
-        // FIXME move to exchange spec
-        // FIXME change all ratio to uint24?
-        it.skip("setFeeRatio", async () => {
-            await expect(clearingHouse.setFeeRatio(baseToken.address, parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setFeeRatio(baseToken.address, parseEther("0.5"))
-            expect(await clearingHouse.getFeeRatio(baseToken.address)).eq(parseEther("0.5"))
         })
     })
 

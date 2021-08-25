@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -12,6 +12,7 @@ describe("ClearingHouse.burn", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -22,6 +23,7 @@ describe("ClearingHouse.burn", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -77,7 +79,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             const lowerTick = 50000 // 148.3760629
             const upperTick = 50200 // 151.3733069
@@ -173,7 +175,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             const lowerTick = 50200 // 151.3733069
             const upperTick = 50400 // 154.4310961
@@ -256,7 +258,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             // prepare collateral for alice
             await collateral.mint(alice.address, parseUnits("1000", await collateral.decimals()))

@@ -7,7 +7,7 @@ import { Exchange, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedTokenTo } from "../clearingHouse/fixtures"
 import { mockedExchangeFixture } from "./fixtures"
 
-describe.only("Exchange Spec", () => {
+describe("Exchange Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
