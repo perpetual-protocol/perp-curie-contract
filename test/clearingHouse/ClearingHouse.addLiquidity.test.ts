@@ -528,7 +528,7 @@ describe("ClearingHouse", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_ONE")
+                ).to.be.revertedWith("EX_ONE")
 
                 // should be fine to add a order in market2,
                 await expect(
