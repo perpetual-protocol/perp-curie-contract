@@ -883,6 +883,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
     }
 
+    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
+        return _uniswapFeeRatioMap[_poolMap[baseToken]];
+    }
+
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
         return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
     }

@@ -11,8 +11,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
-// TODO: change this to IClearingHouse when clearing house's interface is ready
-import { ClearingHouse } from "../ClearingHouse.sol";
+import { Exchange } from "../Exchange.sol";
 
 // TODO change CH to Exchange
 /// @title Provides quotes for swaps
@@ -25,7 +24,7 @@ contract Quoter is IUniswapV3SwapCallback {
     using SignedSafeMath for int256;
     using PerpMath for int256;
 
-    address public clearingHouse;
+    address public exchange;
 
     struct SwapParams {
         address baseToken;
@@ -42,32 +41,32 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 exchangedPositionNotional;
     }
 
-    constructor(address clearingHouseArg) {
-        // Q_CI0: clearingHouse is 0
-        require(clearingHouseArg != address(0), "Q_CI0");
-        clearingHouse = clearingHouseArg;
+    constructor(address exchangeArg) {
+        // Q_EX0: exchange is 0
+        require(exchangeArg != address(0), "Q_EX0");
+        exchange = exchangeArg;
     }
 
     function swap(SwapParams memory params) external returns (SwapResponse memory response) {
         // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
-        address pool = ClearingHouse(clearingHouse).getPool(params.baseToken);
+        address pool = Exchange(exchange).getPool(params.baseToken);
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");
 
         // TODO: maybe can merge this two fee ratios into one
-        uint24 uniswapFeeRatio = ClearingHouse(clearingHouse).uniswapFeeRatioMap(pool);
-        uint24 clearingHouseFeeRatio = ClearingHouse(clearingHouse).getFeeRatio(pool);
+        uint24 uniswapFeeRatio = Exchange(exchange).getUniswapFeeRatio(params.baseToken);
+        uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
 
         // scale up before swap to cover uniswap fee
         uint256 scaledAmount =
             params.isBaseToQuote
                 ? params.isExactInput
                     ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
-                    : FeeMath.calcScaledAmount(params.amount, clearingHouseFeeRatio, true)
+                    : FeeMath.calcScaledAmount(params.amount, exchangeFeeRatio, true)
                 : params.isExactInput
-                ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
+                ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, exchangeFeeRatio, false)
                 : params.amount;
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
@@ -88,12 +87,12 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint256 fee = FullMath.mulDivRoundingUp(quote, clearingHouseFeeRatio, 1e6);
+            uint256 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
             if (params.isBaseToQuote) {
-                fee = FullMath.mulDivRoundingUp(quote, clearingHouseFeeRatio, 1e6);
+                fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
                 exchangedPositionSize = -(FeeMath.calcScaledAmount(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
@@ -102,9 +101,7 @@ contract Quoter is IUniswapV3SwapCallback {
             } else {
                 // check the doc of custom fee for more details,
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-                fee = FeeMath
-                    .magicFactor(quote * clearingHouseFeeRatio, uniswapFeeRatio, clearingHouseFeeRatio, true)
-                    .div(1e6);
+                fee = FeeMath.magicFactor(quote * exchangeFeeRatio, uniswapFeeRatio, exchangeFeeRatio, true).div(1e6);
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
@@ -138,7 +135,7 @@ contract Quoter is IUniswapV3SwapCallback {
         require(amount0Delta > 0 || amount1Delta > 0, "Q_F0S");
 
         address baseToken = abi.decode(data, (address));
-        address pool = ClearingHouse(clearingHouse).getPool(baseToken);
+        address pool = Exchange(exchange).getPool(baseToken);
         // CH_FSV: failed swapCallback verification
         require(msg.sender == pool, "Q_FSV");
 
