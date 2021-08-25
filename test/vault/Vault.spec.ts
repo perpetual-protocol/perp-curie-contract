@@ -56,7 +56,7 @@ describe("Vault spec", () => {
             const amount = parseUnits("100", await usdc.decimals())
 
             // check event has been sent
-            await expect(vault.connect(alice).deposit(alice.address, usdc.address, amount))
+            await expect(vault.connect(alice).deposit(usdc.address, amount))
                 .to.emit(vault, "Deposited")
                 .withArgs(usdc.address, alice.address, amount)
 
