@@ -87,8 +87,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
-        uint256 minBase;
-        uint256 minQuote;
         Funding.Growth updatedGlobalFundingGrowth;
     }
 
@@ -454,9 +452,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             }
         }
 
-        // price slippage check
-        require(response.base >= params.minBase && response.quote >= params.minQuote, "EX_PSC");
-
         // mutate states
         uint256 fee =
             _addLiquidityToOrder(
@@ -490,7 +485,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
-        // EX_ZL non-existent openOrder
+        // EX_NEO non-existent openOrder
         require(openOrder.liquidity > 0, "EX_NEO");
         // EX_NEL not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "EX_NEL");
@@ -572,7 +567,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     ) external override {
         address baseToken = abi.decode(data, (address));
         address pool = _poolMap[baseToken];
-        // EX_FSV: failed mintCallback verification
+        // E_FMV: failed mintCallback verification
         require(_msgSender() == address(pool), "E_FMV");
 
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
@@ -588,7 +583,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
         // EX_FSV: failed swapCallback verification
-        require(_msgSender() == address(pool), "E_FSV");
+        require(_msgSender() == address(pool), "EX_FSV");
 
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }

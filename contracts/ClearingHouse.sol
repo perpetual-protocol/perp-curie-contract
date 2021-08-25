@@ -374,11 +374,12 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    minBase: params.minBase,
-                    minQuote: params.minQuote,
                     updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
+
+        // price slippage check
+        require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
