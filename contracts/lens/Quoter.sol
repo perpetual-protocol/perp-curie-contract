@@ -13,7 +13,6 @@ import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
 import { Exchange } from "../Exchange.sol";
 
-// TODO change CH to Exchange
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
 /// @dev These functions are not gas efficient and should _not_ be called on chain. Instead, optimistically execute

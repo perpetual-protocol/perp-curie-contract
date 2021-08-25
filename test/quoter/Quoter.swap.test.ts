@@ -35,7 +35,7 @@ describe("Quoter.swap", () => {
         await exchange.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
-        quoter = (await quoterFactory.deploy(clearingHouse.address)) as Quoter
+        quoter = (await quoterFactory.deploy(exchange.address)) as Quoter
 
         lowerTick = 49000
         upperTick = 51400
