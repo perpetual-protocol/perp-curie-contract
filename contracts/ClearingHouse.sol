@@ -58,7 +58,6 @@ contract ClearingHouse is
     //
     // events
     //
-    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
     event LiquidityChanged(
@@ -241,10 +240,6 @@ contract ClearingHouse is
 
     uint32 public twapInterval = 15 minutes;
 
-    // TODO remove
-    // key: base token, value: pool
-    mapping(address => address) private _poolMap;
-
     // key: trader
     mapping(address => Account) private _accountMap;
 
@@ -300,27 +295,6 @@ contract ClearingHouse is
     //
     // EXTERNAL FUNCTIONS
     //
-
-    // TODO REMOVE
-    function addPool(address baseToken, uint24 feeRatio) external onlyOwner {
-        address pool = Exchange(exchange).addPool(baseToken, feeRatio);
-
-        // TODO move to ex and fix tests
-        // CH_BDN18: baseToken decimals is not 18
-        require(IERC20Metadata(baseToken).decimals() == 18, "CH_BDN18");
-        // to ensure the base is always token0 and quote is always token1
-        // CH_IB: invalid baseToken
-        require(baseToken < quoteToken, "CH_IB");
-        // CH_NEP: non-existent pool in uniswapV3 factory
-        require(pool != address(0), "CH_NEP");
-        // CH_EP: existent pool in ClearingHouse
-        require(pool != _poolMap[baseToken], "CH_EP");
-        // CH_PNI: pool not (yet) initialized
-        require(Exchange(exchange).getSqrtMarkPriceX96(baseToken) != 0, "CH_PNI");
-
-        _poolMap[baseToken] = pool;
-        emit PoolAdded(baseToken, feeRatio, pool);
-    }
 
     // TODO event, check null
     function setExchange(address exchangeArg) external onlyOwner {
@@ -513,7 +487,9 @@ contract ClearingHouse is
         require(_msgSender() == exchange, "CH_FMV");
 
         address baseToken = abi.decode(data, (address));
-        address pool = _poolMap[baseToken];
+
+        // TODO move to calldata
+        address pool = Exchange(exchange).getPool(baseToken);
 
         if (amount0Owed > 0) {
             TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
@@ -614,7 +590,9 @@ contract ClearingHouse is
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
         Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
+
+        // TODO move to calldata
+        IUniswapV3Pool pool = IUniswapV3Pool(Exchange(exchange).getPool(callbackData.baseToken));
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
@@ -745,7 +723,7 @@ contract ClearingHouse is
 
     // TODO move to exchange
     function getPool(address baseToken) external view returns (address) {
-        return _poolMap[baseToken];
+        return Exchange(exchange).getPool(baseToken);
     }
 
     // TODO move to exchange
@@ -1641,7 +1619,7 @@ contract ClearingHouse is
     }
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
-        return _poolMap[baseToken] != address(0);
+        return Exchange(exchange).getPool(baseToken) != address(0);
     }
 
     function _isIncreasePosition(
