@@ -74,6 +74,21 @@ contract ClearingHouse is
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
+    event Swapped(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee
+    );
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
     event FundingSettled(
         address indexed trader,
         address indexed baseToken,
@@ -84,26 +99,9 @@ contract ClearingHouse is
         int256 twPremiumGrowthX192,
         int256 twPremiumDivBySqrtPriceX96
     );
-    event Swapped(
-        address indexed trader,
-        address indexed baseToken,
-        int256 exchangedPositionSize,
-        int256 exchangedPositionNotional,
-        uint256 fee
-    );
-
+    event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
-    event TwapIntervalChanged(uint256 twapInterval);
-
-    event PositionLiquidated(
-        address indexed trader,
-        address indexed baseToken,
-        uint256 positionNotional,
-        uint256 positionSize,
-        uint256 liquidationFee,
-        address liquidator
-    );
 
     //
     // Struct
@@ -526,6 +524,14 @@ contract ClearingHouse is
         }
     }
 
+    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+        // CH_ITI: invalid twapInterval
+        require(twapIntervalArg != 0, "CH_ITI");
+
+        twapInterval = twapIntervalArg;
+        emit TwapIntervalChanged(twapIntervalArg);
+    }
+
     function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg)
         external
         checkRatio(liquidationPenaltyRatioArg)
@@ -533,14 +539,6 @@ contract ClearingHouse is
     {
         liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
-    }
-
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
-        // CH_ITI: invalid twapInterval
-        require(twapIntervalArg != 0, "CH_ITI");
-
-        twapInterval = twapIntervalArg;
-        emit TwapIntervalChanged(twapIntervalArg);
     }
 
     function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
