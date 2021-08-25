@@ -24,7 +24,6 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import "hardhat/console.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
@@ -37,6 +36,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     using PerpSafeCast for int256;
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
+    //
+    // EVENT
+    //
+    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+
+    //
+    // STRUCT
+    //
     struct AddLiquidityToOrderParams {
         address maker;
         address baseToken;
@@ -275,23 +282,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     // TODO refactoring
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
-        console.log("a1");
         // EX_BDN18: baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
-        console.log("a2");
         // to ensure the base is always token0 and quote is always token1
         // EX_IB: invalid baseToken
         require(baseToken < quoteToken, "EX_IB");
 
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
-        console.log("pool: %s", pool);
 
         // EX_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "EX_NEP");
-        console.log("a3");
         // EX_EP: existent pool in ClearingHouse
         require(pool != _poolMap[baseToken], "EX_EP");
-        console.log("a4");
         // EX_PNI: pool not (yet) initialized
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
 
@@ -299,6 +301,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         uniswapFeeRatioMap[pool] = feeRatio;
         _clearingHouseFeeRatioMap[pool] = feeRatio;
+
+        emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
     }
 
