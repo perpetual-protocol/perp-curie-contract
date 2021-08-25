@@ -43,7 +43,6 @@ describe.only("Exchange Spec", () => {
             poolFactory = await ethers.getContractFactory("UniswapV3Pool")
             pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
             mockedPool = await smockit(pool)
-            console.log(`mockedPool: ${mockedPool.address}`)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
         })
 
@@ -54,7 +53,6 @@ describe.only("Exchange Spec", () => {
 
             // @SAMPLE - addPool
             it("add a UniswapV3 pool and send an event", async () => {
-                console.log(`baseToken: ${baseToken.address}`)
                 // check event has been sent
                 await expect(exchange.addPool(baseToken.address, DEFAULT_FEE))
                     .to.emit(exchange, "PoolAdded")
@@ -117,11 +115,11 @@ describe.only("Exchange Spec", () => {
             expect(await exchange.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
         })
 
-        // FIXME change all ratio to uint24?
         it("setFeeRatio", async () => {
-            await expect(exchange.setFeeRatio(baseToken.address, parseEther("2"))).to.be.revertedWith("EX_RO")
-            await exchange.setFeeRatio(baseToken.address, parseEther("0.5"))
-            expect(await exchange.getFeeRatio(baseToken.address)).eq(parseEther("0.5"))
+            const twoHundredPercent = 2000000 // 200% in uint24
+            await expect(exchange.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
+            await exchange.setFeeRatio(baseToken.address, 10000) // 1%
+            expect(await exchange.getFeeRatio(baseToken.address)).eq(10000)
         })
     })
 })

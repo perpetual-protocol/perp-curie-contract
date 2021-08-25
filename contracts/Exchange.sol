@@ -128,6 +128,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external {
+        // EX_RL1: ratio overflow
+        require(feeRatio <= 1000000, "EX_RO");
         _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
@@ -262,6 +264,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external {
+        _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
@@ -1094,5 +1097,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             : isExactInput
             ? amount.toInt256()
             : -amount.toInt256();
+    }
+
+    function _requireHasBaseToken(address baseToken) private view {
+        // CH_BTNE: base token not exists
+        require(_isPoolExistent(baseToken), "EX_BTNE");
+    }
+
+    function _isPoolExistent(address baseToken) internal view returns (bool) {
+        return _poolMap[baseToken] != address(0);
     }
 }
