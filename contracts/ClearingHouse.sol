@@ -571,11 +571,6 @@ contract ClearingHouse is
         );
     }
 
-    // TODO remove after fixing quoter
-    function uniswapFeeRatioMap(address pool) external view returns (uint24) {
-        return Exchange(exchange).uniswapFeeRatioMap(pool);
-    }
-
     // TODO can we move to exchange
     function uniswapV3SwapCallback(
         int256 amount0Delta,

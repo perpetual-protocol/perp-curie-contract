@@ -224,8 +224,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
 
-    // uniswapFeeRatioMap cache only
-    mapping(address => uint24) public uniswapFeeRatioMap;
+    // _uniswapFeeRatioMap cache only
+    mapping(address => uint24) private _uniswapFeeRatioMap;
 
     // TODO rename to exchangeFeeRatio
     mapping(address => uint24) private _clearingHouseFeeRatioMap;
@@ -302,7 +302,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         _poolMap[baseToken] = pool;
 
-        uniswapFeeRatioMap[pool] = feeRatio;
+        _uniswapFeeRatioMap[pool] = feeRatio;
         _clearingHouseFeeRatioMap[pool] = feeRatio;
 
         emit PoolAdded(baseToken, feeRatio, pool);
@@ -317,7 +317,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             InternalSwapState({
                 pool: _poolMap[params.baseToken],
                 clearingHouseFeeRatio: _clearingHouseFeeRatioMap[pool],
-                uniswapFeeRatio: uniswapFeeRatioMap[pool],
+                uniswapFeeRatio: _uniswapFeeRatioMap[pool],
                 fee: 0,
                 insuranceFundFee: 0
             });
@@ -364,7 +364,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                             params.trader,
                             params.baseToken,
                             params.mintForTrader,
-                            uniswapFeeRatioMap[pool],
+                            _uniswapFeeRatioMap[pool],
                             internalSwapState.fee
                         )
                     )
@@ -611,7 +611,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
-        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
         (, int256 signedScaledAmount) =
             _getScaledAmount(
                 params.isBaseToQuote,
@@ -881,6 +881,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
         return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
+    }
+
+    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
+        return _uniswapFeeRatioMap[_poolMap[baseToken]];
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
