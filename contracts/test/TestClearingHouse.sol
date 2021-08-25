@@ -12,18 +12,8 @@ contract TestClearingHouse is ClearingHouse {
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint8 maxOrdersPerMarketArg,
         uint8 maxMarketsPerAccountArg
-    )
-        ClearingHouse(
-            vaultArg,
-            insuranceFundArg,
-            quoteTokenArg,
-            uniV3FactoryArg,
-            maxOrdersPerMarketArg,
-            maxMarketsPerAccountArg
-        )
-    {
+    ) ClearingHouse(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg, maxMarketsPerAccountArg) {
         _testBlockTimestamp = block.timestamp;
     }
 
