@@ -42,7 +42,7 @@ export enum BaseQuoteOrdering {
 }
 
 export function createClearingHouseFixture(
-    baseQuoteOrdering: BaseQuoteOrdering = BaseQuoteOrdering.BASE_0_QUOTE_1,
+    baseQuoteOrdering: BaseQuoteOrdering,
     canMockTime: boolean = true,
 ): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
@@ -246,7 +246,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
-        0,
     )) as ClearingHouse
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
@@ -254,7 +253,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         clearingHouse.address,
         mockedUniV3Factory.address,
         token1.address,
-        0,
     )) as Exchange
     const mockedExchange = await smockit(exchange)
     await clearingHouse.setExchange(mockedExchange.address)
