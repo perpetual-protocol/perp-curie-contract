@@ -1,17 +1,17 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
-import { BigNumber } from "@ethersproject/bignumber"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
+import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
 import { Exchange, UniswapV3Pool } from "../../typechain"
-import { mockedExchangeFixture } from "./fixtures"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedTokenTo } from "../clearingHouse/fixtures"
+import { mockedExchangeFixture } from "./fixtures"
 
 describe.only("Exchange Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
-    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
+    const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000a"
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
     const DEFAULT_FEE = 3000
 
@@ -43,6 +43,7 @@ describe.only("Exchange Spec", () => {
             poolFactory = await ethers.getContractFactory("UniswapV3Pool")
             pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
             mockedPool = await smockit(pool)
+            console.log(`mockedPool: ${mockedPool.address}`)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
         })
 
@@ -53,6 +54,7 @@ describe.only("Exchange Spec", () => {
 
             // @SAMPLE - addPool
             it("add a UniswapV3 pool and send an event", async () => {
+                console.log(`baseToken: ${baseToken.address}`)
                 // check event has been sent
                 await expect(exchange.addPool(baseToken.address, DEFAULT_FEE))
                     .to.emit(exchange, "PoolAdded")

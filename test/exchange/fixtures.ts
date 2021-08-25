@@ -1,8 +1,8 @@
-import { tokensFixture } from "../shared/fixtures"
-import { ethers } from "hardhat"
 import { MockContract, smockit } from "@eth-optimism/smock"
-import { ADDR_LESS_THAN, mockedTokenTo } from "../clearingHouse/fixtures"
+import { ethers } from "hardhat"
 import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Factory, Vault } from "../../typechain"
+import { ADDR_LESS_THAN, mockedTokenTo } from "../clearingHouse/fixtures"
+import { tokensFixture } from "../shared/fixtures"
 
 interface MockedClearingHouseFixture {
     exchange: Exchange
@@ -53,6 +53,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
+    mockedBaseToken.smocked.decimals.will.return.with(async () => {
+        return 18
+    })
 
     return {
         exchange,
