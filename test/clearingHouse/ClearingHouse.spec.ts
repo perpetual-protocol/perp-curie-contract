@@ -39,14 +39,26 @@ describe("ClearingHouse Spec", () => {
     describe("onlyOwner setters", () => {
         it("setLiquidationPenaltyRatio", async () => {
             await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5"))
+            await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5")))
+                .to.emit(clearingHouse, "LiquidationPenaltyRatioChanged")
+                .withArgs(parseEther("0.5"))
             expect(await clearingHouse.liquidationPenaltyRatio()).eq(parseEther("0.5"))
         })
 
         it("setPartialCloseRatio", async () => {
             await expect(clearingHouse.setPartialCloseRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setPartialCloseRatio(parseEther("0.5"))
+            await expect(clearingHouse.setPartialCloseRatio(parseEther("0.5")))
+                .to.emit(clearingHouse, "PartialCloseRatioChanged")
+                .withArgs(parseEther("0.5"))
             expect(await clearingHouse.partialCloseRatio()).eq(parseEther("0.5"))
+        })
+
+        it("setTwapInterval", async () => {
+            await expect(clearingHouse.setTwapInterval(0)).to.be.revertedWith("CH_ITI")
+            await expect(clearingHouse.setTwapInterval(3600))
+                .to.emit(clearingHouse, "TwapIntervalChanged")
+                .withArgs(3600)
+            expect(await clearingHouse.twapInterval()).eq(3600)
         })
 
         // FIXME move to exchange spec

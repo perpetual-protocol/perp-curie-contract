@@ -64,8 +64,8 @@ library Tick {
                 ? upperTwPremiumDivBySqrtPriceGrowthOutsideX96
                 : twPremiumDivBySqrtPriceGrowthGlobalX96 - upperTwPremiumDivBySqrtPriceGrowthOutsideX96;
 
-        // TODO funding verify what if these values overflow; will they have the same effect as using uint256 or not
         // these values can underflow per feeGrowthOutside specs
+        // can see "Uniswap v3 Growth Accumulator Properties with Signed-integer" in Notion
         fundingGrowthRangeInfo.twPremiumGrowthInsideX96 =
             twPremiumGrowthGlobalX96 -
             fundingGrowthRangeInfo.twPremiumGrowthBelowX96 -

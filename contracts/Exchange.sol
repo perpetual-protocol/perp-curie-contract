@@ -546,11 +546,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
 
+            // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
                 _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
             );
 
-            // TODO funding review whether this section should be here or go upward -> should be a yes
+            // thus, state updates have to come after
             order.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
             order.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo

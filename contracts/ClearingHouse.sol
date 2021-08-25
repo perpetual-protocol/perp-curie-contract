@@ -73,6 +73,21 @@ contract ClearingHouse is
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
+    event Swapped(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee
+    );
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
     event FundingSettled(
         address indexed trader,
         address indexed baseToken,
@@ -83,25 +98,9 @@ contract ClearingHouse is
         int256 twPremiumGrowthX192,
         int256 twPremiumDivBySqrtPriceX96
     );
-    event Swapped(
-        address indexed trader,
-        address indexed baseToken,
-        int256 exchangedPositionSize,
-        int256 exchangedPositionNotional,
-        uint256 fee
-    );
-
+    event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
-
-    event PositionLiquidated(
-        address indexed trader,
-        address indexed baseToken,
-        uint256 positionNotional,
-        uint256 positionSize,
-        uint256 liquidationFee,
-        address liquidator
-    );
 
     //
     // Struct
@@ -500,6 +499,14 @@ contract ClearingHouse is
         }
     }
 
+    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+        // CH_ITI: invalid twapInterval
+        require(twapIntervalArg != 0, "CH_ITI");
+
+        twapInterval = twapIntervalArg;
+        emit TwapIntervalChanged(twapIntervalArg);
+    }
+
     function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg)
         external
         checkRatio(liquidationPenaltyRatioArg)
@@ -507,11 +514,6 @@ contract ClearingHouse is
     {
         liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
-    }
-
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
-        twapInterval = twapIntervalArg;
-        // TODO event declaration and emit here
     }
 
     function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
@@ -1432,10 +1434,9 @@ contract ClearingHouse is
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
             int256 twPremiumDeltaX96 =
-                _getMarkTwapX96(baseToken)
-                    .toInt256()
-                    .sub(_getIndexPrice(baseToken, twapInterval).formatX10_18ToX96().toInt256())
-                    .mul(_blockTimestamp().sub(lastSettledTimestamp).toInt256());
+                _getMarkTwapX96(baseToken).toInt256().sub(_getIndexPrice(baseToken).formatX10_18ToX96().toInt256()).mul(
+                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
+                );
 
             updatedGlobalFundingGrowth.twPremiumX96 = outdatedGlobalFundingGrowth.twPremiumX96.add(twPremiumDeltaX96);
 
@@ -1527,11 +1528,8 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
-    function _getIndexPrice(address token, uint256 twapIntervalArg) private view returns (uint256) {
-        // TODO funding
-        // decide on whether we should use twapInterval the state or the input twapIntervalArg
-        // if we use twapInterval, we might need a require() or might not, as the lower level will might deal with it
-        return IIndexPrice(token).getIndexPrice(twapIntervalArg);
+    function _getIndexPrice(address token) private view returns (uint256) {
+        return IIndexPrice(token).getIndexPrice(twapInterval);
     }
 
     // return decimals 18
@@ -1548,7 +1546,7 @@ contract ClearingHouse is
     }
 
     function _getDebtValue(address token, uint256 amount) private view returns (uint256) {
-        return amount.mul(_getIndexPrice(token, 0)).divideBy10_18();
+        return amount.mul(_getIndexPrice(token)).divideBy10_18();
     }
 
     // return in settlement token decimals
