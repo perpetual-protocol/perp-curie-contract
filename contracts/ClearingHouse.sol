@@ -265,8 +265,7 @@ contract ClearingHouse is
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
-        address uniV3FactoryArg,
-        uint8 maxMarketsPerAccountArg
+        address uniV3FactoryArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -285,7 +284,6 @@ contract ClearingHouse is
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
-        maxMarketsPerAccount = maxMarketsPerAccountArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }

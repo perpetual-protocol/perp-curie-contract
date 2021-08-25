@@ -83,7 +83,6 @@ export function createClearingHouseFixture(
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-                0,
             )) as TestClearingHouse
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -92,7 +91,6 @@ export function createClearingHouseFixture(
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-                0,
             )) as ClearingHouse
         }
 
@@ -114,7 +112,6 @@ export function createClearingHouseFixture(
             clearingHouse.address,
             uniV3Factory.address,
             quoteToken.address,
-            0,
         )) as Exchange
         await clearingHouse.setExchange(exchange.address)
 

@@ -232,14 +232,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     constructor(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
-        address quoteTokenArg,
-        uint8 maxOrdersPerMarketArg
+        address quoteTokenArg
     ) {
         // TODO check zero
         clearingHouse = clearingHouseArg;
         uniswapV3Factory = uniswapV3FactoryArg;
         quoteToken = quoteTokenArg;
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     //
