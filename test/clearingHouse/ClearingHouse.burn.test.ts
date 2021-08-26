@@ -105,7 +105,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps base to quote (sell base), so alice receives base as fee
             // 0.1 quote leaves the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -118,7 +118,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.2 quote enters the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -201,7 +201,7 @@ describe("ClearingHouse.burn", () => {
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
 
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 // sell base
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -321,7 +321,7 @@ describe("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("100"))
 
             // bob swaps quote for base (buy base), so alice receives quote as fee and has less base
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -389,7 +389,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.1 base leaves the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -402,7 +402,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps base to quote (sell base), while there is no base fee, so alice won't receive extra base
             // 0.2 base enters the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,

@@ -79,7 +79,7 @@ describe("ClearingHouse.funding", () => {
     describe("# getPendingFundingPayment", () => {
         beforeEach(async () => {
             // bob short
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -128,7 +128,7 @@ describe("ClearingHouse.funding", () => {
                     })
 
                     // bob's position 0 -> -0.099
-                    await clearingHouse.connect(bob).swap({
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -163,7 +163,7 @@ describe("ClearingHouse.funding", () => {
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * (153.9531248192 - 150.953124) * 7201 / 86400 = -0.02475344426
                     await expect(
-                        clearingHouse.connect(bob).swap({
+                        clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
@@ -187,7 +187,7 @@ describe("ClearingHouse.funding", () => {
                     })
 
                     // bob's position 0 -> -0.099
-                    await clearingHouse.connect(bob).swap({
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -227,7 +227,7 @@ describe("ClearingHouse.funding", () => {
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * (153.9531248192 - 156.953124) * 3602 / 86400 = 0.01238187162
                     await expect(
-                        clearingHouse.connect(bob).swap({
+                        clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
@@ -259,7 +259,7 @@ describe("ClearingHouse.funding", () => {
                     })
 
                     // bob's position 0 -> -0.099
-                    await clearingHouse.connect(bob).swap({
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -269,7 +269,7 @@ describe("ClearingHouse.funding", () => {
                     await forward(3600)
 
                     // carol's position 0 -> 0.09
-                    await clearingHouse.connect(carol).swap({
+                    await clearingHouse.connect(carol).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
@@ -311,7 +311,7 @@ describe("ClearingHouse.funding", () => {
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * ((153.9531248192 - 150.953124) * 3601 + (154.3847760162 - 156.953124) * 3601) / 86400 = -0.001781062548
                     await expect(
-                        clearingHouse.connect(bob).swap({
+                        clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
@@ -335,7 +335,7 @@ describe("ClearingHouse.funding", () => {
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // 0.09 * (154.3847760162 - 156.953124) * 3602 / 86400 = -0.009636655664
                     await expect(
-                        clearingHouse.connect(carol).swap({
+                        clearingHouse.connect(carol).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: false,
                             isExactInput: false,
@@ -362,7 +362,7 @@ describe("ClearingHouse.funding", () => {
                 })
 
                 // bob's position 0 -> -0.099
-                await clearingHouse.connect(bob).swap({
+                await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
@@ -377,7 +377,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
                 // carol's position 0 -> 0.09
-                await clearingHouse.connect(carol).swap({
+                await clearingHouse.connect(carol).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
@@ -416,7 +416,7 @@ describe("ClearingHouse.funding", () => {
                 // bob swaps to trigger funding update
                 // -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 451) / 86400 = 0.000388235204
                 await expect(
-                    clearingHouse.connect(bob).swap({
+                    clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -482,7 +482,7 @@ describe("ClearingHouse.funding", () => {
                 })
 
                 // bob's position 0 -> -1.2
-                await clearingHouse.connect(bob).swap({
+                await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
@@ -621,7 +621,7 @@ describe("ClearingHouse.funding", () => {
                     })
 
                     // bob's position 0 -> -1.2
-                    await clearingHouse.connect(bob).swap({
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -678,7 +678,7 @@ describe("ClearingHouse.funding", () => {
                     )
 
                     // bob's position -1.2 -> -0.8
-                    await clearingHouse.connect(bob).swap({
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
@@ -731,7 +731,7 @@ describe("ClearingHouse.funding", () => {
                     })
 
                     // carol's position 0 -> -0.2
-                    await clearingHouse.connect(carol).swap({
+                    await clearingHouse.connect(carol).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -750,7 +750,7 @@ describe("ClearingHouse.funding", () => {
                     )
 
                     // carol's position -0.2 -> -1.2
-                    await clearingHouse.connect(carol).swap({
+                    await clearingHouse.connect(carol).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,

@@ -99,7 +99,7 @@ describe("ClearingHouse.getPositionValue", () => {
             })
 
             // bob short 0.4084104205
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -165,7 +165,7 @@ describe("ClearingHouse.getPositionValue", () => {
             })
 
             // bob shorts 0.2042052103
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -177,7 +177,7 @@ describe("ClearingHouse.getPositionValue", () => {
             await forward(300)
 
             // bob shorts 0.2042052103
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -280,7 +280,7 @@ describe("ClearingHouse.getPositionValue", () => {
             amount: parseEther("247.3023151515"),
             sqrtPriceLimitX96: "0",
         }
-        await clearingHouse.connect(bob).swap(swapParams1)
+        await clearingHouse.connect(bob).openPosition(swapParams1)
         // mark price should be 151.3733069 (tick = 50200)
 
         await forward(400)
@@ -293,7 +293,7 @@ describe("ClearingHouse.getPositionValue", () => {
             amount: parseEther("99.9150479293"),
             sqrtPriceLimitX96: "0",
         }
-        await clearingHouse.connect(bob).swap(swapParams2)
+        await clearingHouse.connect(bob).openPosition(swapParams2)
         // mark price should be 153.8170921 (tick = 50360.15967)
 
         await forward(500)

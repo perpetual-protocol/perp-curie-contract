@@ -23,4 +23,22 @@ contract TestClearingHouse is ClearingHouse {
     function _blockTimestamp() internal view override returns (uint256) {
         return _testBlockTimestamp;
     }
+
+    function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
+        _requireHasBaseToken(params.baseToken);
+        _registerBaseToken(_msgSender(), params.baseToken);
+
+        return
+            _swapAndCalculateOpenNotional(
+                InternalSwapParams({
+                    trader: _msgSender(),
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    isExactInput: params.isExactInput,
+                    amount: params.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    mintForTrader: false
+                })
+            );
+    }
 }
