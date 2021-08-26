@@ -58,16 +58,16 @@ contract Quoter is IUniswapV3SwapCallback {
         uint24 uniswapFeeRatio = Exchange(exchange).getUniswapFeeRatio(params.baseToken);
         uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
 
-        // scale up before swap to cover uniswap fee
+        // scale up before swap to achieve customized fee/ignore Uniswap fee
         uint256 scaledAmount =
-            params.isBaseToQuote
-                ? params.isExactInput
-                    ? FeeMath.calcAmountScaledByFeeRatio(params.amount, uniswapFeeRatio, true)
-                    : FeeMath.calcAmountScaledByFeeRatio(params.amount, exchangeFeeRatio, true)
-                : params.isExactInput
-                ? FeeMath.calcAmountWithFeeRatioReplaced(params.amount, uniswapFeeRatio, exchangeFeeRatio, true)
-                : params.amount;
-        // UniswapV3Pool will use a signed value to determine isExactInput or not.
+            FeeMath.calcScaledAmountForUniswapV3PoolSwap(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                exchangeFeeRatio,
+                uniswapFeeRatio
+            );
+        // UniswapV3Pool uses the sign to determine isExactInput or not
         int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
 
         try
@@ -99,9 +99,14 @@ contract Quoter is IUniswapV3SwapCallback {
                 exchangedPositionNotional = quote.toInt256();
             } else {
                 // check the doc of custom fee for more details,
-                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
+                // qr * y * (1 - x) / (1 - y)
                 fee = FeeMath
-                    .calcAmountWithFeeRatioReplaced(quote * exchangeFeeRatio, uniswapFeeRatio, exchangeFeeRatio, false)
+                    .calcAmountWithFeeRatioReplaced(
+                    quote.mul(exchangeFeeRatio),
+                    uniswapFeeRatio,
+                    exchangeFeeRatio,
+                    false
+                )
                     .div(1e6);
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
