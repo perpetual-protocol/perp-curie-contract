@@ -232,7 +232,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     //
     modifier onlyClearingHouse() {
         // only ClearingHouse
-        require(_msgSender() == clearingHouse, "E_OCH");
+        require(_msgSender() == clearingHouse, "EX_OCH");
         _;
     }
 
@@ -241,7 +241,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address uniswapV3FactoryArg,
         address quoteTokenArg
     ) {
-        // TODO check zero
+        // ClearingHouse is 0
+        require(clearingHouseArg != address(0), "EX_CH0");
+        // UnsiwapV3Factory is 0
+        require(uniswapV3FactoryArg != address(0), "EX_UF0");
+        // QuoteToken is 0
+        require(quoteTokenArg != address(0), "EX_QT0");
+
+        // update states
         clearingHouse = clearingHouseArg;
         uniswapV3Factory = uniswapV3FactoryArg;
         quoteToken = quoteTokenArg;
