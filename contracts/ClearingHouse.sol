@@ -35,6 +35,7 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -1229,6 +1230,14 @@ contract ClearingHouse is
             TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
             _realizePnl(params.trader, quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256()));
         }
+        int256 cv = _getTotalCollateralValue(params.trader);
+        int256 pnl = getTotalUnrealizedPnl(params.trader);
+        int256 acc = getAccountValue(params.trader);
+        uint256 imr = _getTotalInitialMarginRequirement(params.trader);
+        console.log("init margin req ", imr);
+        console.logInt(acc);
+        console.logInt(cv);
+        console.logInt(pnl);
 
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
