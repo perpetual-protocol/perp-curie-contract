@@ -20,7 +20,6 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
@@ -272,8 +271,7 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        uint8 maxMarketsPerAccountArg,
-        address trustedForwarderArg
+        uint8 maxMarketsPerAccountArg
     ) {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
@@ -293,7 +291,6 @@ contract ClearingHouse is
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         maxMarketsPerAccount = maxMarketsPerAccountArg;
-        trustedForwarder = trustedForwarderArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
     }
@@ -564,6 +561,10 @@ contract ClearingHouse is
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
+    }
+
+    function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        trustedForwarder = trustedForwarderArg;
     }
 
     function liquidate(address trader, address baseToken) external nonReentrant() {

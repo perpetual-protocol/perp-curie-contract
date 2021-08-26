@@ -41,46 +41,48 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
     //
     // Constant
     //
-    bytes32 internal constant EIP712_DOMAIN_TYPEHASH =
+    //
+    bytes32 internal constant _EIP712_DOMAIN_TYPEHASH =
         keccak256(bytes("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"));
 
-    bytes32 private constant META_TRANSACTION_TYPEHASH =
+    // solhint-disable-next-line
+    bytes32 private constant _META_TRANSACTION_TYPEHASH =
         keccak256(bytes("MetaTransaction(uint256 nonce,address from,address to,bytes functionSignature)"));
 
     //**********************************************************//
     //    Can not change the order of below state variables     //
     //**********************************************************//
 
-    bytes32 internal domainSeperatorL1;
-    bytes32 internal domainSeperatorL2;
-    mapping(address => uint256) private nonces;
+    bytes32 internal _domainSeparatorL1;
+    bytes32 internal _domainSeparatorL2;
+    mapping(address => uint256) private _nonces;
 
     // whitelist of contracts this gateway can execute
-    mapping(address => bool) private whitelistMap;
+    mapping(address => bool) private _whitelistMap;
 
     //
     // FUNCTIONS
     //
     constructor(
-        string memory _name,
-        string memory _version,
-        uint256 _chainIdL1
+        string memory name,
+        string memory version,
+        uint256 chainIdL1
     ) {
-        domainSeperatorL1 = keccak256(
+        _domainSeparatorL1 = keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes(_name)),
-                keccak256(bytes(_version)),
-                _chainIdL1,
+                _EIP712_DOMAIN_TYPEHASH,
+                keccak256(bytes(name)),
+                keccak256(bytes(version)),
+                chainIdL1,
                 address(this)
             )
         );
 
-        domainSeperatorL2 = keccak256(
+        _domainSeparatorL2 = keccak256(
             abi.encode(
-                EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes(_name)),
-                keccak256(bytes(_version)),
+                _EIP712_DOMAIN_TYPEHASH,
+                keccak256(bytes(name)),
+                keccak256(bytes(version)),
                 getChainID(),
                 address(this)
             )
@@ -91,14 +93,14 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
      * @notice add an address to the whitelist. Only contracts in the whitelist can be executed by this gateway.
      *         This prevents the gateway from being abused to execute arbitrary meta txs
      * @dev only owner can call
-     * @param _addr an address
+     * @param addr an address
      */
-    function addToWhitelists(address _addr) external onlyOwner {
-        whitelistMap[_addr] = true;
+    function addToWhitelists(address addr) external onlyOwner {
+        _whitelistMap[addr] = true;
     }
 
-    function removeFromWhitelists(address _addr) external onlyOwner {
-        delete whitelistMap[_addr];
+    function removeFromWhitelists(address addr) external onlyOwner {
+        delete _whitelistMap[addr];
     }
 
     function executeMetaTransaction(
@@ -112,15 +114,15 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
         require(isInWhitelists(to), "!whitelisted");
 
         MetaTransaction memory metaTx =
-            MetaTransaction({ nonce: nonces[from], from: from, to: to, functionSignature: functionSignature });
+            MetaTransaction({ nonce: _nonces[from], from: from, to: to, functionSignature: functionSignature });
 
         require(
-            verify(from, domainSeperatorL1, metaTx, sigR, sigS, sigV) ||
-                verify(from, domainSeperatorL2, metaTx, sigR, sigS, sigV),
+            verify(from, _domainSeparatorL1, metaTx, sigR, sigS, sigV) ||
+                verify(from, _domainSeparatorL2, metaTx, sigR, sigS, sigV),
             "Meta tx Signer and signature do not match"
         );
 
-        nonces[from] = nonces[from].add(1);
+        _nonces[from] = _nonces[from].add(1);
         // Append userAddress at the end to extract it from calling context
         // solhint-disable avoid-low-level-calls
         (bool success, bytes memory returnData) = address(to).call(abi.encodePacked(functionSignature, from));
@@ -134,15 +136,15 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
     //
 
     function getNonce(address user) external view returns (uint256 nonce) {
-        nonce = nonces[user];
+        nonce = _nonces[user];
     }
 
     //
     // INTERNAL VIEW FUNCTIONS
     //
 
-    function isInWhitelists(address _addr) public view returns (bool) {
-        return whitelistMap[_addr];
+    function isInWhitelists(address addr) public view returns (bool) {
+        return _whitelistMap[addr];
     }
 
     function getChainID() internal pure returns (uint256 id) {
@@ -158,15 +160,15 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
      * "\\x19" makes the encoding deterministic
      * "\\x01" is the version byte to make it compatible to EIP-191
      */
-    function toTypedMessageHash(bytes32 domainSeperator, bytes32 messageHash) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", domainSeperator, messageHash));
+    function toTypedMessageHash(bytes32 domainSeparator, bytes32 messageHash) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, messageHash));
     }
 
     function hashMetaTransaction(MetaTransaction memory metaTx) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
-                    META_TRANSACTION_TYPEHASH,
+                    _META_TRANSACTION_TYPEHASH,
                     metaTx.nonce,
                     metaTx.from,
                     metaTx.to,
@@ -177,13 +179,13 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
 
     function verify(
         address user,
-        bytes32 domainSeperator,
+        bytes32 domainSeparator,
         MetaTransaction memory metaTx,
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV
     ) internal pure returns (bool) {
-        address signer = ecrecover(toTypedMessageHash(domainSeperator, hashMetaTransaction(metaTx)), sigV, sigR, sigS);
+        address signer = ecrecover(toTypedMessageHash(domainSeparator, hashMetaTransaction(metaTx)), sigV, sigR, sigS);
         require(signer != address(0), "invalid signature");
         return signer == user;
     }
