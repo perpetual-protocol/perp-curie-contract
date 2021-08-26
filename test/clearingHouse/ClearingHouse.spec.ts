@@ -60,24 +60,6 @@ describe("ClearingHouse Spec", () => {
                 .withArgs(3600)
             expect(await clearingHouse.twapInterval()).eq(3600)
         })
-
-        // FIXME move to exchange spec
-        it.skip("setMaxTickCrossedWithinBlock", async () => {
-            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
-                "CH_BTNE",
-            )
-
-            // add pool
-            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
-            const mockedPool = await smockit(pool)
-            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
-            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            await exchange.addPool(baseToken.address, DEFAULT_FEE)
-
-            await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
-            expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
-        })
     })
 
     describe("# getRequiredCollateral", () => {})

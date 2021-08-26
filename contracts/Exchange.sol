@@ -251,7 +251,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
-        require(feeRatio <= 1000000, "EX_RO");
+        require(ratio <= 1000000, "EX_RO");
         _;
     }
 
@@ -269,9 +269,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external {
-        // EX_RO: ratio overflow
-        require(feeRatio <= 1000000, "EX_RO");
+    function setFeeRatio(address baseToken, uint24 feeRatio) external checkRatio(feeRatio) {
         _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 

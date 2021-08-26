@@ -305,12 +305,6 @@ contract ClearingHouse is
         exchange = exchangeArg;
     }
 
-    // TODO remove
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
-        _requireHasBaseToken(baseToken);
-        Exchange(exchange).setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock);
-    }
-
     // TODO internal
     function mint(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
@@ -505,11 +499,6 @@ contract ClearingHouse is
     function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
         partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
-    }
-
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        // TODO remove
-        Exchange(exchange).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {

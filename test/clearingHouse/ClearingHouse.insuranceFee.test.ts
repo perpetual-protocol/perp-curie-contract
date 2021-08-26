@@ -41,7 +41,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         await pool.initialize(encodePriceSqrt(100, 1))
 
         await exchange.addPool(baseToken.address, "10000")
-        await clearingHouse.setInsuranceFundFeeRatio(baseToken.address, "400000")
+        await exchange.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         // prepare collateral for maker1
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
