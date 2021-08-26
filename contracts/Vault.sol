@@ -2,11 +2,13 @@
 pragma solidity 0.7.6;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
@@ -15,7 +17,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 
-contract Vault is ReentrancyGuard, Ownable, IVault {
+contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     using SafeMath for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
@@ -26,6 +28,9 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
 
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+
+    // not used here, due to inherit from BaseRelayRecipient
+    string public override versionRecipient;
 
     address public immutable settlementToken;
     address public clearingHouse;
@@ -62,6 +67,10 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         require(clearingHouseArg != address(0), "V_ICHA");
         // TODO add event
         clearingHouse = clearingHouseArg;
+    }
+
+    function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        trustedForwarder = trustedForwarderArg;
     }
 
     function deposit(address token, uint256 amount) external nonReentrant() {
@@ -173,5 +182,13 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         int256 min = collateralValue < accountValue ? collateralValue : accountValue;
 
         return min.subS(openOrderMarginRequirement.toInt256(), decimals);
+    }
+
+    function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
+        return super._msgSender();
+    }
+
+    function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
+        return super._msgData();
     }
 }
