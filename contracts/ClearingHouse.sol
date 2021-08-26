@@ -847,7 +847,7 @@ contract ClearingHouse is
 
     // return decimals 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        _getTotalInitialMarginRequirement(trader);
+        return _getTotalInitialMarginRequirement(trader);
     }
 
     //
@@ -1543,7 +1543,7 @@ contract ClearingHouse is
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
         return
-            IVault(vault).balanceOf(trader).toInt256().addS(
+            IVault(vault).balanceOf(trader).addS(
                 owedRealizedPnl.sub(_getAllPendingFundingPayment(trader)),
                 _settlementTokenDecimals
             );

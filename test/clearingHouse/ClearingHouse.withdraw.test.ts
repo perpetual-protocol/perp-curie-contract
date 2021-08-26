@@ -88,10 +88,11 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: "0",
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // accountValue = netQuoteBalance + totalMarketPnl = 100 + 0.06 + 0
-            // pnl is 0 because it's calculated based on index price
-            // min(100, 100+) - (0 + 1 * 100) * 10% = 99.8993848666
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(100, 100+) - max(1 * 100, 1 * 100 + 0) * 0.1, 0)
+            //                  = 90
             expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("90", collateralDecimals))
             await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("90", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
@@ -115,9 +116,15 @@ describe("ClearingHouse withdraw", () => {
             // collateral = 100, base debt = 0, quote debt = 0.122414646
             // maker.quoteInPool -= 0.06151334176
             // maker.baseInPool += 0.0004084104205
-            // free collateral =
-            // min(100, 100 - 0.06151334176 (+Q) + 0.0006151334176 (B2QFee) + 0.0004084104205 (-B) * 100 (indexPrice)) - (0 + 0.122414646) * 0.1 = 10,000
-            // 100 - 0.06151334176 + 0.0006151334176 + 0.0004084104205 * 100 - (0 + 0.122414646) * 0.1 = 99.9677013691
+            // maker.unrealizedPnl = positionValue + openNotional
+            //                     = 0.0004084104205 * 100 + (0.0006151334176 - 0.06151334176)
+            //                     = -0.02005716629
+            //
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(100, 100 - 0.02005716629) - max(0.0004084104205 * 100, 0 * 100 + 0.122414646) * 0.1, 0)
+            //                  = 99.9677013691
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
         })
     })
@@ -172,7 +179,7 @@ describe("ClearingHouse withdraw", () => {
         it("force error, withdraw without deposit", async () => {
             await expect(
                 vault.connect(carol).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
-            ).to.be.revertedWith("V_NEB")
+            ).to.be.revertedWith("V_NEFC")
         })
 
         it("force error, margin requirement is larger than accountValue", async () => {
@@ -186,9 +193,11 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1000, accountValue) < (0 + 10,000) * 10% = 1000
-            // accountValue = 1000 + PnL, PnL is negative due to fee
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(1000, 1000 - loss) - max(10000 - loss, 10000 + 0) * 0.1, 0)
+            //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
@@ -225,8 +234,11 @@ describe("ClearingHouse withdraw", () => {
                 return [0, parseUnits("110", 6), 0, 0, 0]
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1000, 1000 + profit) < (0 + 100 * 110) * 10% = 1100
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(1000, 1000 + profit) - max(100 * 110, 100 * 110 + 0) * 0.1, 0)
+            //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
@@ -236,7 +248,34 @@ describe("ClearingHouse withdraw", () => {
         it("force error, withdrawal amount is more than collateral", async () => {
             await expect(
                 vault.connect(carol).withdraw(collateral.address, parseUnits("5000", await collateral.decimals())),
-            ).to.be.revertedWith("V_NEB")
+            ).to.be.revertedWith("V_NEFC")
+        })
+
+        // conservative and moderate config's freeCollateral are both bounded by user collateral,
+        // so they are not susceptible to broken index prices;
+        // however, as of 2021.08.25, aggressive config's freeCollateral depends entirely on the index price.
+        // Therefore, we should implement an anomaly check before using the config.
+        // The following test would fail without the said anomaly check.
+        it("force error, free collateral should not depend solely on index price", async () => {
+            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("10000"))
+            await clearingHouse.connect(bob).swap({
+                // buy base
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseUnits("10000"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            // simulate broken price oracle
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("999999999", 6), 0, 0, 0]
+            })
+            console.log(`positionValue: ${await clearingHouse.getPositionValue(bob.address, baseToken.address, 0)}`)
+            console.log(`unrealizedPnl: ${await clearingHouse.getTotalUnrealizedPnl(bob.address)}`)
+
+            // 65.2726375819(positionSize) * 999999999 = 65,272,637,516.627365 > 50,000,000,000
+            expect(await vault.getFreeCollateral(bob.address)).to.lt(parseUnits("50000000000", collateralDecimals))
         })
     })
 })
