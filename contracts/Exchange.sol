@@ -379,7 +379,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 FeeMath.calcAmountScaledByFeeRatio(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
             );
             // due to base to quote fee, exchangedPositionNotional contains the fee
-            // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+            // s.t. we can take the fee away from exchangedPositionNotional
             exchangedPositionNotional = response.quote.toInt256();
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
@@ -796,10 +796,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     : step.nextSqrtPriceX96,
                 params.state.liquidity,
                 params.state.amountSpecifiedRemaining,
-                // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
-                //                   replay the swap in uniswap pool
-                // if quote to base: use clearing house fee for calculation because the fee is charged
-                //                   on quote token in clearing house
+                // isBaseToQuote: fee is charged in base token in uniswap pool; thus, use uniswapFeeRatio to replay
+                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use clearingHouseFeeRatio
                 params.isBaseToQuote ? params.uniswapFeeRatio : params.clearingHouseFeeRatio
             );
 

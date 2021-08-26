@@ -95,7 +95,7 @@ contract Quoter is IUniswapV3SwapCallback {
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
                 exchangedPositionSize = -(FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+                // s.t. we can take the fee away from exchangedPositionNotional
                 exchangedPositionNotional = quote.toInt256();
             } else {
                 // check the doc of custom fee for more details,
