@@ -9,7 +9,6 @@ import { UniswapV3Broker } from "./UniswapV3Broker.sol";
 library FeeMath {
     using SafeMath for uint256;
 
-    // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
     function calcScaledAmount(
         uint256 amount,
         uint24 feeRatio,
@@ -22,17 +21,19 @@ library FeeMath {
                 : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
     }
 
-    // FIXME: have a better name
-    // calculate amount * (1-uniswapFeeRatio) / (1-clearingHouseFeeRatio)
-    function magicFactor(
+    // calculate the amount when feeRatio is switched between uniswapFeeRatio and clearingHouseFeeRatio
+    function calcAmountWithFeeRatioReplaced(
         uint256 amount,
         uint24 uniswapFeeRatio,
         uint24 clearingHouseFeeRatio,
-        bool isScaledUp
+        bool isToUseClearingHouseFeeRatio
     ) internal pure returns (uint256) {
-        return
-            isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, uint256(1e6 - uniswapFeeRatio), 1e6 - clearingHouseFeeRatio)
-                : FullMath.mulDivRoundingUp(amount, uint256(1e6 - clearingHouseFeeRatio), 1e6 - uniswapFeeRatio);
+        (uint24 newFee, uint24 replacedFee) =
+            isToUseClearingHouseFeeRatio
+                ? (clearingHouseFeeRatio, uniswapFeeRatio)
+                : (uniswapFeeRatio, clearingHouseFeeRatio);
+
+        // multiplying a fee is applying it as the new standard and dividing a fee is removing its effect
+        return FullMath.mulDivRoundingUp(amount, uint256(1e6).sub(newFee), uint256(1e6).sub(replacedFee));
     }
 }

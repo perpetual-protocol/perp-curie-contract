@@ -1076,6 +1076,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint24 uniswapFeeRatio
     ) internal pure returns (uint256 scaledAmount, int256 signedScaledAmount) {
         // input or output amount for swap
+        // x : uniswapFeeRatio, y : clearingHouseFeeRatio
         // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
         // 2. Q2B && exact out --> output base(params.base)
         // 3. B2Q && exact in  --> input base / (1 - x)
@@ -1085,7 +1086,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
                 : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
             : isExactInput
-            ? FeeMath.magicFactor(amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
+            ? FeeMath.calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, clearingHouseFeeRatio, true)
             : amount;
 
         // if Q2B, we use params.amount directly

@@ -65,7 +65,7 @@ contract Quoter is IUniswapV3SwapCallback {
                     ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
                     : FeeMath.calcScaledAmount(params.amount, exchangeFeeRatio, true)
                 : params.isExactInput
-                ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, exchangeFeeRatio, false)
+                ? FeeMath.calcAmountWithFeeRatioReplaced(params.amount, uniswapFeeRatio, exchangeFeeRatio, true)
                 : params.amount;
         // UniswapV3Pool will use a signed value to determine isExactInput or not.
         int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
@@ -100,7 +100,9 @@ contract Quoter is IUniswapV3SwapCallback {
             } else {
                 // check the doc of custom fee for more details,
                 // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-                fee = FeeMath.magicFactor(quote * exchangeFeeRatio, uniswapFeeRatio, exchangeFeeRatio, true).div(1e6);
+                fee = FeeMath
+                    .calcAmountWithFeeRatioReplaced(quote * exchangeFeeRatio, uniswapFeeRatio, exchangeFeeRatio, false)
+                    .div(1e6);
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
