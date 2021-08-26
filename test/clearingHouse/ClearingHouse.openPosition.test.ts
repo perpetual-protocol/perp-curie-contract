@@ -209,6 +209,55 @@ describe("ClearingHouse openPosition", () => {
                         }),
                     ).to.be.revertedWith("CH_NEAV")
                 })
+
+                it.only("test available quote token amount in long", async () => {
+                    // set fee ratio to 0
+                    await clearingHouse.setFeeRatio(baseToken.address, 0)
+
+                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                        return [0, parseUnits("169", 6), 0, 0, 0]
+                    })
+
+                    const result = await clearingHouse
+                        .connect(maker)
+                        .getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
+                    console.log("liquidity: ", result.liquidity.toString()) // liquidity is 884690658835870366575
+
+                    // using formula in https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f#d3d12da52d4c455999dcca491a1ba34d
+                    const calcQuoteAmount = (marketPrice: number, indexPrice: number, liquidity: number): number => {
+                        return (
+                            (indexPrice * liquidity * 0.9 - marketPrice * liquidity) / Math.sqrt(marketPrice) / 10 ** 18
+                        )
+                    }
+
+                    // market price = 151.373306858723226652
+                    // index price = 169
+                    // liquidity = 884690658835870366575
+                    console.log(
+                        "quote amount(open long position without collateral): ",
+                        calcQuoteAmount(151.373306858723226652, 169, 884690658835870366575),
+                    )
+
+                    // can open a long position without collateral with quote token amount 52.25
+                    await clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: true,
+                        amount: parseEther("52.25"),
+                        sqrtPriceLimitX96: 0,
+                    })
+
+                    // if quote token amount increased, open position failed
+                    await expect(
+                        clearingHouse.connect(taker).openPosition({
+                            baseToken: baseToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: true,
+                            amount: parseEther("52.35"),
+                            sqrtPriceLimitX96: 0,
+                        }),
+                    ).to.be.revertedWith("CH_NEAV")
+                })
             })
 
             describe("market price greater than index price", () => {
