@@ -3,15 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    ClearingHouse,
-    Exchange,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-    VirtualToken,
-} from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -116,8 +108,10 @@ describe("ClearingHouse customized fee", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         "6473478014450606", // exchangedPositionSize
-                        parseEther("-0.98"), // costBasis
+                        parseEther("-0.98"), // exchangedPositionNotional
                         parseEther("0.02"), // fee = 1 * 0.02
+                        parseEther("-1"), // openNotional
+                        parseEther("0"), // realizedPnl
                     )
 
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6473478014450606")
@@ -161,8 +155,10 @@ describe("ClearingHouse customized fee", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         parseEther("1"), // exchangedPositionSize
-                        "-153508143394151325059", // costBasis
+                        "-153508143394151325059", // exchangedPositionNotional
                         "3132819252941863777", // fee
+                        "-156640962647093188836", // openNotional
+                        parseEther("0"), // realizedPnl
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
@@ -206,8 +202,10 @@ describe("ClearingHouse customized fee", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         parseEther("-1"), // exchangedPositionSize
-                        parseEther("149.297034185732877727"), // costBasis
+                        parseEther("149.297034185732877727"), // exchangedPositionNotional
                         parseEther("2.985940683714657555"), // fee: 149.297034185732877727 * 0.02 = 2.985940683714657555
+                        parseEther("146.311093502018220172"), // openNotional
+                        parseEther("0"), // realizedPnl
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
@@ -244,8 +242,10 @@ describe("ClearingHouse customized fee", () => {
                         taker.address, // trader
                         baseToken.address, // baseToken
                         parseEther("-0.006741636644634247"), // exchangedPositionSize
-                        parseEther("1.020408163265306123"), // costBasis = 1 / 0.98
+                        parseEther("1.020408163265306123"), // exchangedPositionNotional = 1 / 0.98
                         parseEther("0.020408163265306123"), // fee: 1 / 0.98 * 0.02
+                        parseEther("1"), // openNotional
+                        parseEther("0"), // realizedPnl
                     )
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("-0.006741636644634247"),
@@ -396,8 +396,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     "6572552804907016", // exchangedPositionSize
-                    parseEther("-0.995"), // costBasis
+                    parseEther("-0.995"), // exchangedPositionNotional
                     parseEther("0.005"), // fee = 1 * 0.005
+                    parseEther("-1"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6572552804907016")
@@ -441,8 +443,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     parseEther("1"), // exchangedPositionSize
-                    "-153508143394151325059", // costBasis
+                    "-153508143394151325059", // exchangedPositionNotional
                     parseEther("0.771397705498247865"), // fee
+                    "-154279541099649572924", // openNotional
+                    parseEther("0"), // realizedPnl
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
@@ -486,8 +490,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     parseEther("-1"), // exchangedPositionSize
-                    parseEther("149.297034185732877727"), // costBasis
-                    parseEther("0.746485170928664389"),
+                    parseEther("149.297034185732877727"), // exchangedPositionNotional
+                    parseEther("0.746485170928664389"), // fee
+                    parseEther("148.550549014804213338"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
@@ -524,8 +530,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     parseEther("-0.006639994546394814"), // exchangedPositionSize
-                    parseEther("1.005025125628140704"), // costBasis = 1 / 0.995
+                    parseEther("1.005025125628140704"), // exchangedPositionNotional = 1 / 0.995
                     parseEther("0.005025125628140704"), // fee: 1 / 0.995 * 0.005 = 0.00502513
+                    parseEther("1"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
                 parseEther("-0.006639994546394814"),
@@ -583,8 +591,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     "6406274427766891", // exchangedPositionSize
-                    parseEther("-0.97"), // costBasis
+                    parseEther("-0.97"), // exchangedPositionNotional
                     parseEther("0.03"), // fee = 1 * 0.03
+                    parseEther("-2"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("12879752442217497")
@@ -625,8 +635,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     "6538350548602818", // exchangedPositionSize
-                    parseEther("-0.99"), // costBasis
+                    parseEther("-0.99"), // exchangedPositionNotional
                     parseEther("0.01"), // fee = 1 * 0.01
+                    parseEther("-2"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("13011828563053424")
@@ -678,8 +690,10 @@ describe("ClearingHouse customized fee", () => {
                     taker.address, // trader
                     baseToken.address, // baseToken
                     "6273079857818529", // exchangedPositionSize
-                    parseEther("-0.95"), // costBasis
+                    parseEther("-0.95"), // exchangedPositionNotional
                     parseEther("0.05"), // fee = 1 * 0.05
+                    parseEther("-3"), // openNotional
+                    parseEther("0"), // realizedPnl
                 )
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19152832300036026")
