@@ -122,12 +122,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 insuranceFundFee;
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external {
-        // EX_RO: ratio overflow
-        require(feeRatio <= 1000000, "EX_RO");
-        _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
-    }
-
     struct SwapCallbackData {
         address trader;
         address baseToken;
@@ -222,9 +216,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // _uniswapFeeRatioMap cache only
     mapping(address => uint24) internal _uniswapFeeRatioMap;
 
-    // TODO rename to exchangeFeeRatio
-    mapping(address => uint24) internal _clearingHouseFeeRatioMap;
+    // uniswap fee will be ignored and use the exchangeFeeRatio instead
+    mapping(address => uint24) internal _exchangeFeeRatioMap;
 
+    // what insurance fund get = exchangeFee * insuranceFundFeeRatio
     mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
     constructor(
@@ -254,6 +249,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _;
     }
 
+    modifier checkRatio(uint24 ratio) {
+        // EX_RO: ratio overflow
+        require(feeRatio <= 1000000, "EX_RO");
+        _;
+    }
+
     //
     // EXTERNAL FUNCTIONS
     //
@@ -262,14 +263,24 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
-    }
-
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BTNE: base token not exists
         require(_poolMap[baseToken] != address(0), "EX_BTNE");
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
+    }
+
+    function setFeeRatio(address baseToken, uint24 feeRatio) external {
+        // EX_RO: ratio overflow
+        require(feeRatio <= 1000000, "EX_RO");
+        _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+    }
+
+    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
+        external
+        checkRatio(insuranceFundFeeRatioArg)
+        onlyOwner
+    {
+        _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
     }
 
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
@@ -289,7 +300,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[pool] = feeRatio;
-        _clearingHouseFeeRatioMap[pool] = feeRatio;
+        _exchangeFeeRatioMap[pool] = feeRatio;
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
@@ -315,7 +326,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
         InternalSwapState memory internalSwapState =
             InternalSwapState({
-                clearingHouseFeeRatio: _clearingHouseFeeRatioMap[pool],
+                clearingHouseFeeRatio: _exchangeFeeRatioMap[pool],
                 uniswapFeeRatio: _uniswapFeeRatioMap[pool],
                 fee: 0,
                 insuranceFundFee: 0
@@ -578,7 +589,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
 
         address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
+        uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
         (, int256 signedScaledAmount) =
             _getScaledAmount(
@@ -884,7 +895,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
-        return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
+        return _exchangeFeeRatioMap[_poolMap[baseToken]];
     }
 
     function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
