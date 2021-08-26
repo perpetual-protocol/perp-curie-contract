@@ -857,7 +857,7 @@ contract ClearingHouse is
 
     // return decimals 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        _getTotalInitialMarginRequirement(trader);
+        return _getTotalInitialMarginRequirement(trader);
     }
 
     //
