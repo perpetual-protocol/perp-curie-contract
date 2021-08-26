@@ -104,6 +104,7 @@ contract ClearingHouse is
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
+    event ExchangeUpdated(address exchange);
 
     //
     // Struct
@@ -299,10 +300,11 @@ contract ClearingHouse is
     //
     // EXTERNAL FUNCTIONS
     //
-
-    // TODO event, check null
     function setExchange(address exchangeArg) external onlyOwner {
+        // exchange is 0
+        require(exchangeArg != address(0), "CH_EI0");
         exchange = exchangeArg;
+        emit ExchangeUpdated(exchange);
     }
 
     // TODO internal
@@ -501,11 +503,6 @@ contract ClearingHouse is
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        // TODO remove
-        Exchange(exchange).setFeeRatio(baseToken, feeRatio);
-    }
-
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
     }
@@ -697,21 +694,6 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-
-    // TODO move to exchange
-    function getPool(address baseToken) external view returns (address) {
-        return Exchange(exchange).getPool(baseToken);
-    }
-
-    // TODO move to exchange
-    function getFeeRatio(address baseToken) external view returns (uint24) {
-        return Exchange(exchange).getFeeRatio(baseToken);
-    }
-
-    // TODO move to exchange
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
-        return Exchange(exchange).getMaxTickCrossedWithinBlock(baseToken);
-    }
 
     // return in settlement token decimals
     function getAccountValue(address account) public view returns (int256) {
