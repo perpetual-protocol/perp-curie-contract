@@ -103,7 +103,7 @@ describe("ClearingHouse customized fee", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -150,7 +150,7 @@ describe("ClearingHouse customized fee", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -197,7 +197,7 @@ describe("ClearingHouse customized fee", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -237,7 +237,7 @@ describe("ClearingHouse customized fee", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -391,7 +391,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -438,7 +438,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -485,7 +485,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -525,7 +525,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -586,7 +586,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -630,7 +630,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -685,7 +685,7 @@ describe("ClearingHouse customized fee", () => {
                     sqrtPriceLimitX96: 0,
                 }),
             )
-                .to.emit(clearingHouse, "Swapped")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken

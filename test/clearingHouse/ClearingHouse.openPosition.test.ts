@@ -199,7 +199,7 @@ describe("ClearingHouse openPosition", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -236,7 +236,7 @@ describe("ClearingHouse openPosition", () => {
                             sqrtPriceLimitX96: 0,
                         }),
                     )
-                        .to.emit(clearingHouse, "Swapped")
+                        .to.emit(clearingHouse, "PositionChanged")
                         .withArgs(
                             taker.address, // trader
                             baseToken.address, // baseToken
@@ -381,7 +381,7 @@ describe("ClearingHouse openPosition", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -853,7 +853,7 @@ describe("ClearingHouse openPosition", () => {
                     amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
                 }),
-            ).to.emit(clearingHouse, "Swapped")
+            ).to.emit(clearingHouse, "PositionChanged")
         })
 
         it("force error, markets number exceeded", async () => {
@@ -865,7 +865,7 @@ describe("ClearingHouse openPosition", () => {
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
                 }),
-            ).to.emit(clearingHouse, "Swapped")
+            ).to.emit(clearingHouse, "PositionChanged")
 
             await expect(
                 clearingHouse.connect(taker).openPosition({

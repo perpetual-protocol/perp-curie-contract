@@ -76,7 +76,7 @@ contract ClearingHouse is
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
-    event Swapped(
+    event PositionChanged(
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
@@ -1240,7 +1240,7 @@ contract ClearingHouse is
             _requireLargerThanInitialMarginRequirement(params.trader);
         }
 
-        emit Swapped(
+        emit PositionChanged(
             params.trader,
             params.baseToken,
             swapResponse.exchangedPositionSize,
