@@ -550,7 +550,7 @@ contract ClearingHouse is
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
+        uint256 liquidationFee = response.exchangedPositionNotional.abs().mul(liquidationPenaltyRatio).divideBy10_18();
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
@@ -562,7 +562,7 @@ contract ClearingHouse is
         emit PositionLiquidated(
             trader,
             baseToken,
-            response.exchangedPositionNotional,
+            response.exchangedPositionNotional.abs(),
             response.deltaAvailableBase,
             liquidationFee,
             liquidator
