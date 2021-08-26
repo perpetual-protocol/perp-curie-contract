@@ -258,31 +258,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // EXTERNAL FUNCTIONS
     //
 
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external {
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external {
+    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-    }
-
-    function saveTickBeforeFirstSwapThisBlock(address baseToken) external onlyClearingHouse {
-        // only do this when it's the first swap in this block
-        uint256 blockNumber = _blockNumber();
-        if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
-            return;
-        }
-
-        // the current tick before swap = final tick last block
-        _tickStatusMap[baseToken] = TickStatus({
-            lastUpdatedBlock: blockNumber,
-            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
-        });
     }
 
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
@@ -306,6 +292,20 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
+    }
+
+    function saveTickBeforeFirstSwapThisBlock(address baseToken) external onlyClearingHouse {
+        // only do this when it's the first swap in this block
+        uint256 blockNumber = _blockNumber();
+        if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
+            return;
+        }
+
+        // the current tick before swap = final tick last block
+        _tickStatusMap[baseToken] = TickStatus({
+            lastUpdatedBlock: blockNumber,
+            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
+        });
     }
 
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
@@ -566,36 +566,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
     }
 
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
-    // @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        address baseToken = abi.decode(data, (address));
-        address pool = _poolMap[baseToken];
-        // E_FMV: failed mintCallback verification
-        require(_msgSender() == address(pool), "E_FMV");
-
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
-    // @inheritdoc IUniswapV3SwapCallback
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override {
-        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
-        // EX_FSV: failed swapCallback verification
-        require(_msgSender() == address(pool), "EX_FSV");
-
-        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
-    }
-
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
         uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
@@ -642,6 +612,36 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             );
 
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+    }
+
+    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
+    // @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data
+    ) external override {
+        address baseToken = abi.decode(data, (address));
+        address pool = _poolMap[baseToken];
+        // E_FMV: failed mintCallback verification
+        require(_msgSender() == address(pool), "E_FMV");
+
+        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
+    // @inheritdoc IUniswapV3SwapCallback
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external override {
+        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
+        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
+        // EX_FSV: failed swapCallback verification
+        require(_msgSender() == address(pool), "EX_FSV");
+
+        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
     //
