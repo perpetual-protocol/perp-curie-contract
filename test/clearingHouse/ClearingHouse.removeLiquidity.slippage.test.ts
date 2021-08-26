@@ -62,7 +62,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            const order = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+            const order = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
             liquidity = order.liquidity
         })
 
@@ -121,7 +121,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            const order = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+            const order = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
             liquidity = order.liquidity
         })
 

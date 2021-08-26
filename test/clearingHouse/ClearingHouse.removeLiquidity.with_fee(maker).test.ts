@@ -89,9 +89,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                 // liquidity ~= 1
-                const liquidity = (
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
-                ).liquidity
+                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
 
                 // bob swap
                 // base: 0.0004084104205
@@ -154,12 +153,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // 0.000615133417572502 * 2 ^ 128 = 2.093190553037369773206693664E+35
                 // =  209319055303736977320669366400000000
                 // ~= 209319055280824225842992700263677914
-                const openOrder = await clearingHouse.getOpenOrder(
-                    alice.address,
-                    baseToken.address,
-                    lowerTick,
-                    upperTick,
-                )
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidity,
                     Number(lowerTick), // lowerTick
@@ -222,7 +216,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // liquidity ~= 1
                     const liquidity = (
-                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                        await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                     ).liquidity
 
                     // bob swap
@@ -272,7 +266,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
 
                     // 0.001135501474999999 * 2 ^ 128 = 3.863911296E35
-                    const openOrder = await clearingHouse.getOpenOrder(
+                    const openOrder = await exchange.getOpenOrder(
                         alice.address,
                         baseToken.address,
                         lowerTick,
@@ -324,7 +318,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // liquidity ~= 1
                     const liquidity = (
-                        await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                        await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                     ).liquidity
 
                     // bob swap
@@ -395,7 +389,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
 
                     // feeGrowthInsideClearingHouseLastX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
-                    const openOrder = await clearingHouse.getOpenOrder(
+                    const openOrder = await exchange.getOpenOrder(
                         alice.address,
                         baseToken.address,
                         lowerTick,
@@ -487,12 +481,12 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // liquidity ~= 3
                 const liquidityAlice = (
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                    await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 ).liquidity
 
                 // liquidity ~= 1
                 const liquidityCarol = (
-                    await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                    await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
                 ).liquidity
 
                 // bob swap
@@ -592,7 +586,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //                  1000000000000000000
                 // add the decimal point to prevent overflow, according to the above 10^18 comparison
                 const feeGrowthInsideClearingHouseLastX128 = parseEther("191575220500261126.937834419214500538")
-                let openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                let openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
@@ -602,7 +596,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                openOrder = await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
@@ -673,12 +667,12 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // liquidity ~= 1
                 const liquidityAlice = (
-                    await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                    await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 ).liquidity
 
                 // liquidity ~= 1
                 const liquidityCarol = (
-                    await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
+                    await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
                 ).liquidity
 
                 // bob swap
@@ -823,7 +817,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   feeGrowthInsideClearingHouseLastX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
                 // when bob swap B2Q:
                 //   feeGrowthInsideClearingHouseLastX128 += (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 15.139051879E35
-                let openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                let openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
@@ -838,7 +832,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:
                 //   feeGrowthInsideClearingHouseLastX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
-                openOrder = await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
+                openOrder = await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
                 expect(openOrder).to.deep.eq([
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
@@ -898,13 +892,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
 // console.log("----------------------")
 // console.log("feeGrowthInsideClearingHouseLastX128 carol 50000 - 50200")
-// console.log((await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[3].toString())
+// console.log((await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[3].toString())
 // console.log("feeGrowthInsideUniswapLastX128 carol 50000 - 50200")
-// console.log((await clearingHouse.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[4].toString())
+// console.log((await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[4].toString())
 // console.log("feeGrowthInsideClearingHouseLastX128 alice 50000 - 50400")
-// console.log((await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[3].toString())
+// console.log((await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[3].toString())
 // console.log("feeGrowthInsideUniswapLastX128 alice 50000 - 50400")
-// console.log((await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[4].toString())
+// console.log((await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[4].toString())
 
 // console.log("----------------------")
 // console.log("base diff")

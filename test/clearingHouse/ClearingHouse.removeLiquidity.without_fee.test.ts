@@ -85,8 +85,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400))
-                .liquidity
+            const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
@@ -121,8 +120,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 parseUnits("10000", await quoteToken.decimals()), // available
                 parseUnits("10000", await quoteToken.decimals()), // debt
             ])
-            expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+            expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+            const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
             expect(openOrder).to.deep.eq([
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
@@ -185,7 +184,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
+                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
                     .liquidity
 
                 await expect(
@@ -221,8 +220,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from("9999999999999999999999"), // available, ~= -10,000
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -255,7 +254,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 await expect(
@@ -291,8 +290,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from("9999999999999999999999"), // available
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -325,7 +324,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 const firstRemoveLiquidity = liquidity.div(2)
@@ -359,8 +358,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from("9999999999999999999999"), // available ~= 10,000
                     parseUnits("10000", await quoteToken.decimals()), // debt
                 ])
-                expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -392,7 +391,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 })
-                const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 await expect(
@@ -461,7 +460,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        const liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+        const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
         await expect(
             clearingHouse.connect(alice).removeLiquidity({
@@ -486,10 +485,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             BigNumber.from(0), // available
             parseUnits("10000", await quoteToken.decimals()), // debt
         ])
-        expect(await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+        expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
             keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
         ])
-        const openOrder = await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+        const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
         expect(openOrder).to.deep.eq([
             liquidity,
             50000, // lowerTick
