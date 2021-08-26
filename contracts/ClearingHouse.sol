@@ -81,7 +81,9 @@ contract ClearingHouse is
         address indexed baseToken,
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
-        uint256 fee
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl
     );
     event PositionLiquidated(
         address indexed trader,
@@ -191,8 +193,11 @@ contract ClearingHouse is
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
-        uint256 exchangedPositionSize;
-        uint256 exchangedPositionNotional;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        int256 openNotional;
+        int256 realizedPnl;
     }
 
     struct SwapStep {
@@ -994,6 +999,8 @@ contract ClearingHouse is
             //                      = 0 - (-252.53) + 0 = 252.53
             // openNotional = -openNotionalFraction = -252.53
             _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
+            response.openNotional = getOpenNotional(params.trader, params.baseToken);
+            response.realizedPnl = 0;
 
             // there is no realizedPnl when increasing position
             return response;
@@ -1053,6 +1060,9 @@ contract ClearingHouse is
 
         _addOpenNotionalFraction(params.trader, params.baseToken, realizedPnl.sub(deltaAvailableQuote));
         _realizePnl(params.trader, realizedPnl);
+        response.openNotional = getOpenNotional(params.trader, params.baseToken);
+        response.realizedPnl = realizedPnl;
+
         return response;
     }
 
@@ -1134,20 +1144,15 @@ contract ClearingHouse is
             }
         }
 
-        emit Swapped(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee
-        );
-
         return
             SwapResponse(
                 response.exchangedPositionSize.abs(), // deltaAvailableBase
                 response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
-                response.exchangedPositionSize.abs(),
-                response.exchangedPositionNotional.abs()
+                response.exchangedPositionSize, // exchangedPositionSize
+                response.exchangedPositionNotional, // exchangedPositionNotional (fee excluded)
+                response.fee, // fee
+                0, // openNotional
+                0 // realizedPnl
             );
     }
 
@@ -1234,6 +1239,16 @@ contract ClearingHouse is
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(params.trader);
         }
+
+        emit Swapped(
+            params.trader,
+            params.baseToken,
+            swapResponse.exchangedPositionSize,
+            swapResponse.exchangedPositionNotional,
+            swapResponse.fee,
+            swapResponse.openNotional,
+            swapResponse.realizedPnl
+        );
 
         return swapResponse;
     }
