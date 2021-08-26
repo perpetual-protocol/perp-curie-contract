@@ -227,15 +227,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
-    //
-    // MODIFIERS
-    //
-    modifier onlyClearingHouse() {
-        // only ClearingHouse
-        require(_msgSender() == clearingHouse, "EX_OCH");
-        _;
-    }
-
     constructor(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
@@ -255,6 +246,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     //
+    // MODIFIERS
+    //
+    modifier onlyClearingHouse() {
+        // only ClearingHouse
+        require(_msgSender() == clearingHouse, "EX_OCH");
+        _;
+    }
+
+    //
     // EXTERNAL FUNCTIONS
     //
 
@@ -267,7 +267,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
-        _requireHasBaseToken(baseToken);
+        // EX_BTNE: base token not exists
+        require(_poolMap[baseToken] != address(0), "EX_BTNE");
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
@@ -645,7 +646,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     //
-    // PRIVATE
+    // INTERNAL
     //
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
@@ -749,7 +750,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function _replaySwap(ReplaySwapParams memory params)
-        private
+        internal
         returns (
             uint256 fee, // clearingHouseFee
             uint256 insuranceFundFee, // insuranceFundFee = clearingHouseFee * insuranceFundFeeRatio
@@ -1104,10 +1105,5 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             : isExactInput
             ? amount.toInt256()
             : -amount.toInt256();
-    }
-
-    function _requireHasBaseToken(address baseToken) internal view {
-        // EX_BTNE: base token not exists
-        require(_poolMap[baseToken] != address(0), "EX_BTNE");
     }
 }
