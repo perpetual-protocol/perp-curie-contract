@@ -393,7 +393,7 @@ describe("Quoter.swap", () => {
 
         it("force error, 0 liquidity swap", async () => {
             // remove alice's all liquidity
-            const aliceOrder = await clearingHouse
+            const aliceOrder = await exchange
                 .connect(alice)
                 .getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({

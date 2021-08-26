@@ -740,11 +740,6 @@ contract ClearingHouse is
     }
 
     // TODO move to exchange
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return Exchange(exchange).getOpenOrderIds(trader, baseToken);
-    }
-
-    // TODO move to exchange
     function getTotalTokenAmountInPool(address trader, address baseToken)
         public
         view
