@@ -83,7 +83,7 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
                 _EIP712_DOMAIN_TYPEHASH,
                 keccak256(bytes(name)),
                 keccak256(bytes(version)),
-                getChainID(),
+                _getChainID(),
                 address(this)
             )
         );
@@ -117,8 +117,8 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
             MetaTransaction({ nonce: _nonces[from], from: from, to: to, functionSignature: functionSignature });
 
         require(
-            verify(from, _domainSeparatorL1, metaTx, sigR, sigS, sigV) ||
-                verify(from, _domainSeparatorL2, metaTx, sigR, sigS, sigV),
+            _verify(from, _domainSeparatorL1, metaTx, sigR, sigS, sigV) ||
+                _verify(from, _domainSeparatorL2, metaTx, sigR, sigS, sigV),
             "Meta tx Signer and signature do not match"
         );
 
@@ -147,7 +147,8 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
         return _whitelistMap[addr];
     }
 
-    function getChainID() internal pure returns (uint256 id) {
+    function _getChainID() internal pure returns (uint256 id) {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             id := chainid()
         }
@@ -160,11 +161,11 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
      * "\\x19" makes the encoding deterministic
      * "\\x01" is the version byte to make it compatible to EIP-191
      */
-    function toTypedMessageHash(bytes32 domainSeparator, bytes32 messageHash) internal pure returns (bytes32) {
+    function _toTypedMessageHash(bytes32 domainSeparator, bytes32 messageHash) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, messageHash));
     }
 
-    function hashMetaTransaction(MetaTransaction memory metaTx) internal pure returns (bytes32) {
+    function _hashMetaTransaction(MetaTransaction memory metaTx) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
@@ -177,7 +178,7 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
             );
     }
 
-    function verify(
+    function _verify(
         address user,
         bytes32 domainSeparator,
         MetaTransaction memory metaTx,
@@ -185,7 +186,8 @@ contract MetaTxGateway is Ownable, LowLevelErrorMessage {
         bytes32 sigS,
         uint8 sigV
     ) internal pure returns (bool) {
-        address signer = ecrecover(toTypedMessageHash(domainSeparator, hashMetaTransaction(metaTx)), sigV, sigR, sigS);
+        address signer =
+            ecrecover(_toTypedMessageHash(domainSeparator, _hashMetaTransaction(metaTx)), sigV, sigR, sigS);
         require(signer != address(0), "invalid signature");
         return signer == user;
     }
