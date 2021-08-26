@@ -2,7 +2,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -12,6 +12,7 @@ describe("ClearingHouse.getPositionSize", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -22,6 +23,7 @@ describe("ClearingHouse.getPositionSize", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -48,7 +50,7 @@ describe("ClearingHouse.getPositionSize", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.3733069", "1"))
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             // mint
             await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
@@ -88,7 +90,7 @@ describe("ClearingHouse.getPositionSize", () => {
             })
 
             // bob short 0.4084104205
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -125,7 +127,7 @@ describe("ClearingHouse.getPositionSize", () => {
             })
 
             // bob shorts 0.2042052103
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -134,7 +136,7 @@ describe("ClearingHouse.getPositionSize", () => {
             })
             // mark price should be 150.6155385 (tick = 50149.8122)
 
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
@@ -163,7 +165,7 @@ describe("ClearingHouse.getPositionSize", () => {
         // initial price at 50200 == 151.3733069
         await pool.initialize(encodePriceSqrt("148.3760629", "1"))
         // add pool after it's initialized
-        await clearingHouse.addPool(baseToken.address, 10000)
+        await exchange.addPool(baseToken.address, 10000)
 
         // mint
         await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
@@ -217,7 +219,7 @@ describe("ClearingHouse.getPositionSize", () => {
             amount: parseEther("247.3023151515"),
             sqrtPriceLimitX96: "0",
         }
-        await clearingHouse.connect(bob).swap(swapParams1)
+        await clearingHouse.connect(bob).openPosition(swapParams1)
         // mark price should be 151.3733069 (tick = 50200)
 
         // second swap: 99.9150479293 quote to 0.6482449586 base
@@ -228,7 +230,7 @@ describe("ClearingHouse.getPositionSize", () => {
             amount: parseEther("99.9150479293"),
             sqrtPriceLimitX96: "0",
         }
-        await clearingHouse.connect(bob).swap(swapParams2)
+        await clearingHouse.connect(bob).openPosition(swapParams2)
         // mark price should be 153.8170921 (tick = 50360.15967)
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996

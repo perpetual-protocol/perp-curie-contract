@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,6 +11,7 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -27,6 +28,7 @@ describe("ClearingHouse openPosition", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         vault = _clearingHouseFixture.vault
+        exchange = _clearingHouseFixture.exchange
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         baseToken2 = _clearingHouseFixture.baseToken2
@@ -46,8 +48,8 @@ describe("ClearingHouse openPosition", () => {
 
         await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
-        await clearingHouse.addPool(baseToken.address, 10000)
-        await clearingHouse.addPool(baseToken2.address, 10000)
+        await exchange.addPool(baseToken.address, 10000)
+        await exchange.addPool(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

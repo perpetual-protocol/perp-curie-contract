@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -12,6 +12,7 @@ describe("ClearingHouse.burn", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -22,6 +23,7 @@ describe("ClearingHouse.burn", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -77,7 +79,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             const lowerTick = 50000 // 148.3760629
             const upperTick = 50200 // 151.3733069
@@ -103,7 +105,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps base to quote (sell base), so alice receives base as fee
             // 0.1 quote leaves the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
@@ -116,7 +118,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.2 quote enters the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
@@ -173,7 +175,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             const lowerTick = 50200 // 151.3733069
             const upperTick = 50400 // 154.4310961
@@ -199,7 +201,7 @@ describe("ClearingHouse.burn", () => {
             // bob mints 1 base for swap
             await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
 
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 // sell base
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -256,7 +258,7 @@ describe("ClearingHouse.burn", () => {
             await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
             // add pool after it's initialized
-            await clearingHouse.addPool(baseToken.address, 10000)
+            await exchange.addPool(baseToken.address, 10000)
 
             // prepare collateral for alice
             await collateral.mint(alice.address, parseUnits("1000", await collateral.decimals()))
@@ -319,7 +321,7 @@ describe("ClearingHouse.burn", () => {
             await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("100"))
 
             // bob swaps quote for base (buy base), so alice receives quote as fee and has less base
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -387,7 +389,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps quote to base (buy base), so alice receives quote as fee
             // 0.1 base leaves the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
@@ -400,7 +402,7 @@ describe("ClearingHouse.burn", () => {
 
             // bob swaps base to quote (sell base), while there is no base fee, so alice won't receive extra base
             // 0.2 base enters the pool
-            await clearingHouse.connect(bob).swap({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,

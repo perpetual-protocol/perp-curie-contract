@@ -36,87 +36,29 @@ describe("ClearingHouse Spec", () => {
         baseToken.smocked.getIndexPrice.will.return.with(parseEther("100"))
     })
 
-    describe("# addPool", () => {
-        let poolFactory
-        let pool
-        let mockedPool
-        beforeEach(async () => {
-            poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-            pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
-            mockedPool = await smockit(pool)
-            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
-        })
-
-        describe("after the pool is initialized", () => {
-            beforeEach(async () => {
-                mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            })
-
-            // @SAMPLE - addPool
-            // FIXME move to exchange spec
-            it.skip("add a UniswapV3 pool and send an event", async () => {
-                // check event has been sent
-                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE))
-                    .to.emit(clearingHouse, "PoolAdded")
-                    .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
-
-                expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
-            })
-
-            // FIXME move to exchange spec
-            it.skip("add multiple UniswapV3 pools", async () => {
-                await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
-                expect(await clearingHouse.getPool(baseToken.address)).to.eq(mockedPool.address)
-
-                const baseToken2 = await mockedTokenTo(ADDR_LESS_THAN, quoteToken.address)
-                const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
-                const mockedPool2 = await smockit(pool2)
-                uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
-                mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-
-                await clearingHouse.addPool(baseToken2.address, DEFAULT_FEE)
-                // verify isPoolExisted
-                expect(await clearingHouse.getPool(baseToken2.address)).to.eq(mockedPool2.address)
-            })
-
-            it("force error, pool is not existent in uniswap v3", async () => {
-                uniV3Factory.smocked.getPool.will.return.with(() => {
-                    return EMPTY_ADDRESS
-                })
-                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_NEP")
-            })
-
-            // FIXME move to exchange spec
-            it.skip("force error, pool is already existent in ClearingHouse", async () => {
-                await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
-                await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_EP")
-            })
-
-            it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
-                const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
-                await expect(clearingHouse.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith(
-                    "CH_IB",
-                )
-            })
-        })
-
-        // FIXME move to exchange spec
-        it.skip("force error, before the pool is initialized", async () => {
-            await expect(clearingHouse.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("CH_PNI")
-        })
-    })
-
     describe("onlyOwner setters", () => {
         it("setLiquidationPenaltyRatio", async () => {
             await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5"))
+            await expect(clearingHouse.setLiquidationPenaltyRatio(parseEther("0.5")))
+                .to.emit(clearingHouse, "LiquidationPenaltyRatioChanged")
+                .withArgs(parseEther("0.5"))
             expect(await clearingHouse.liquidationPenaltyRatio()).eq(parseEther("0.5"))
         })
 
         it("setPartialCloseRatio", async () => {
             await expect(clearingHouse.setPartialCloseRatio(parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setPartialCloseRatio(parseEther("0.5"))
+            await expect(clearingHouse.setPartialCloseRatio(parseEther("0.5")))
+                .to.emit(clearingHouse, "PartialCloseRatioChanged")
+                .withArgs(parseEther("0.5"))
             expect(await clearingHouse.partialCloseRatio()).eq(parseEther("0.5"))
+        })
+
+        it("setTwapInterval", async () => {
+            await expect(clearingHouse.setTwapInterval(0)).to.be.revertedWith("CH_ITI")
+            await expect(clearingHouse.setTwapInterval(3600))
+                .to.emit(clearingHouse, "TwapIntervalChanged")
+                .withArgs(3600)
+            expect(await clearingHouse.twapInterval()).eq(3600)
         })
 
         // FIXME move to exchange spec
@@ -131,18 +73,10 @@ describe("ClearingHouse Spec", () => {
             const mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            await clearingHouse.addPool(baseToken.address, DEFAULT_FEE)
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
 
             await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
             expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
-        })
-
-        // FIXME move to exchange spec
-        // FIXME change all ratio to uint24?
-        it.skip("setFeeRatio", async () => {
-            await expect(clearingHouse.setFeeRatio(baseToken.address, parseEther("2"))).to.be.revertedWith("CH_RO")
-            await clearingHouse.setFeeRatio(baseToken.address, parseEther("0.5"))
-            expect(await clearingHouse.getFeeRatio(baseToken.address)).eq(parseEther("0.5"))
         })
     })
 

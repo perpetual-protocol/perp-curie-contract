@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -11,6 +11,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -22,6 +23,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchange = _clearingHouseFixture.exchange
         collateral = _clearingHouseFixture.USDC
         vault = _clearingHouseFixture.vault
         baseToken = _clearingHouseFixture.baseToken
@@ -50,7 +52,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("200", "1"))
                 // add pool after it's initialized
-                await clearingHouse.addPool(baseToken.address, 10000)
+                await exchange.addPool(baseToken.address, 10000)
             })
 
             it("taker has no position", async () => {
@@ -87,7 +89,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("100", "1"))
                 // add pool after it's initialized
-                await clearingHouse.addPool(baseToken.address, 10000)
+                await exchange.addPool(baseToken.address, 10000)
             })
 
             it("maker adds liquidity above price with base only", async () => {
