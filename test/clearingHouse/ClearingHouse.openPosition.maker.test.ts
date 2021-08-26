@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -13,6 +13,7 @@ describe("ClearingHouse maker close position", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let quoteToken: VirtualToken
@@ -29,6 +30,7 @@ describe("ClearingHouse maker close position", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         quoteToken = _clearingHouseFixture.quoteToken
@@ -48,7 +50,7 @@ describe("ClearingHouse maker close position", () => {
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-        await clearingHouse.addPool(baseToken.address, "10000")
+        await exchange.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -233,7 +235,7 @@ describe("ClearingHouse maker close position", () => {
             // the initial number of oracle can be recorded is 1; thus, have to expand it
             await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-            await clearingHouse.addPool(baseToken2.address, "10000")
+            await exchange.addPool(baseToken2.address, "10000")
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))

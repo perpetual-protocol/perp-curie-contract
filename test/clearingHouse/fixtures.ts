@@ -83,7 +83,6 @@ export function createClearingHouseFixture(
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-                0,
             )) as TestClearingHouse
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -92,7 +91,6 @@ export function createClearingHouseFixture(
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-                0,
             )) as ClearingHouse
         }
 
@@ -114,7 +112,6 @@ export function createClearingHouseFixture(
             clearingHouse.address,
             uniV3Factory.address,
             quoteToken.address,
-            0,
         )) as Exchange
         await clearingHouse.setExchange(exchange.address)
 
@@ -249,15 +246,13 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
-        0,
     )) as ClearingHouse
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy(
         clearingHouse.address,
         mockedUniV3Factory.address,
-        token1.address,
-        0,
+        mockedQuoteToken.address,
     )) as Exchange
     const mockedExchange = await smockit(exchange)
     await clearingHouse.setExchange(mockedExchange.address)

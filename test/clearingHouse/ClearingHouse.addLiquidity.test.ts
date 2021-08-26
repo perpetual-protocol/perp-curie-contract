@@ -57,8 +57,8 @@ describe("ClearingHouse", () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 // add pool after it's initialized
-                await clearingHouse.addPool(baseToken.address, 10000)
-                await clearingHouse.addPool(baseToken2.address, 10000)
+                await exchange.addPool(baseToken.address, 10000)
+                await exchange.addPool(baseToken2.address, 10000)
 
                 // mint
                 await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
@@ -528,7 +528,7 @@ describe("ClearingHouse", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_ONE")
+                ).to.be.revertedWith("EX_ONE")
 
                 // should be fine to add a order in market2,
                 await expect(
@@ -571,7 +571,7 @@ describe("ClearingHouse", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
                 // add pool after it's initialized
-                await clearingHouse.addPool(baseToken.address, 10000)
+                await exchange.addPool(baseToken.address, 10000)
 
                 // mint
                 await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)

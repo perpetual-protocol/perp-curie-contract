@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -13,6 +13,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
@@ -28,6 +29,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
             createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
         )
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
+        exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -40,7 +42,7 @@ describe.skip("ClearingHouse.swap gasEstimation", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
         await pool.initialize(encodePriceSqrt("100", "1"))
-        await clearingHouse.addPool(baseToken.address, "10000")
+        await exchange.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

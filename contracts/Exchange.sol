@@ -23,6 +23,7 @@ import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
@@ -35,6 +36,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     using PerpSafeCast for int256;
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
+    //
+    // EVENT
+    //
+    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+
+    //
+    // STRUCT
+    //
     struct AddLiquidityToOrderParams {
         address maker;
         address baseToken;
@@ -71,8 +80,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint160 sqrtPriceLimitX96;
     }
 
-    // TODO can remove pool once we move addPool to Exchange
-    // TODO can remove quotteToken once we add quoteToken to constructor
     struct AddLiquidityParams {
         address trader;
         address baseToken;
@@ -80,8 +87,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
-        uint256 minBase;
-        uint256 minQuote;
         Funding.Growth updatedGlobalFundingGrowth;
     }
 
@@ -93,7 +98,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     struct InternalSwapState {
-        address pool;
         uint24 clearingHouseFeeRatio;
         uint24 uniswapFeeRatio;
         uint256 fee;
@@ -108,7 +112,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         Funding.Growth updatedGlobalFundingGrowth;
-        bool mintForTrader; // TODO delet
+        bool mintForTrader; // TODO delet after remove ch.swap
     }
 
     struct SwapResponse {
@@ -119,13 +123,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external {
+        // EX_RO: ratio overflow
+        require(feeRatio <= 1000000, "EX_RO");
         _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
     struct SwapCallbackData {
         address trader;
         address baseToken;
-        bool mintForTrader;
+        bool mintForTrader; // TODO delet after remove ch.swap
         uint24 uniswapFeeRatio;
         uint256 fee;
     }
@@ -186,9 +192,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     address public immutable quoteToken;
     address public immutable uniswapV3Factory;
     address public clearingHouse;
+
     uint8 public maxOrdersPerMarket;
 
-    // TODO refactoring
     // key: base token, value: pool
     mapping(address => address) private _poolMap;
 
@@ -213,11 +219,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) private _tickStatusMap;
 
-    // uniswapFeeRatioMap cache only
-    mapping(address => uint24) public uniswapFeeRatioMap;
+    // _uniswapFeeRatioMap cache only
+    mapping(address => uint24) private _uniswapFeeRatioMap;
 
     // TODO rename to exchangeFeeRatio
     mapping(address => uint24) private _clearingHouseFeeRatioMap;
+
     mapping(address => uint24) private _insuranceFundFeeRatioMap;
 
     //
@@ -232,14 +239,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     constructor(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
-        address quoteTokenArg,
-        uint8 maxOrdersPerMarketArg
+        address quoteTokenArg
     ) {
         // TODO check zero
         clearingHouse = clearingHouseArg;
         uniswapV3Factory = uniswapV3FactoryArg;
         quoteToken = quoteTokenArg;
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     //
@@ -255,10 +260,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external {
+        _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
-    // TODO move back to CH
     function saveTickBeforeFirstSwapThisBlock(address baseToken) external onlyClearingHouse {
         // only do this when it's the first swap in this block
         uint256 blockNumber = _blockNumber();
@@ -273,12 +278,26 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         });
     }
 
-    // TODO refactoring
-    function addPool(address baseToken, uint24 feeRatio) external onlyClearingHouse returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
+        // EX_BDN18: baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
+        // to ensure the base is always token0 and quote is always token1
+        // EX_IB: invalid baseToken
+        require(baseToken < quoteToken, "EX_IB");
+
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
+        // EX_NEP: non-existent pool in uniswapV3 factory
+        require(pool != address(0), "EX_NEP");
+        // EX_EP: existent pool in ClearingHouse
+        require(pool != _poolMap[baseToken], "EX_EP");
+        // EX_PNI: pool not (yet) initialized
+        require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
+
         _poolMap[baseToken] = pool;
-        uniswapFeeRatioMap[pool] = feeRatio;
+        _uniswapFeeRatioMap[pool] = feeRatio;
         _clearingHouseFeeRatioMap[pool] = feeRatio;
+
+        emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
     }
 
@@ -288,9 +307,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
         InternalSwapState memory internalSwapState =
             InternalSwapState({
-                pool: _poolMap[params.baseToken],
                 clearingHouseFeeRatio: _clearingHouseFeeRatioMap[pool],
-                uniswapFeeRatio: uniswapFeeRatioMap[pool],
+                uniswapFeeRatio: _uniswapFeeRatioMap[pool],
                 fee: 0,
                 insuranceFundFee: 0
             });
@@ -305,11 +323,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 );
             SwapState memory state =
                 SwapState({
-                    tick: UniswapV3Broker.getTick(internalSwapState.pool),
-                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(internalSwapState.pool),
+                    tick: UniswapV3Broker.getTick(pool),
+                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
                     amountSpecifiedRemaining: signedScaledAmount,
                     feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: UniswapV3Broker.getLiquidity(internalSwapState.pool)
+                    liquidity: UniswapV3Broker.getLiquidity(pool)
                 });
             // simulate the swap to calculate the fees charged in clearing house
             (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
@@ -326,7 +344,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             );
             response = UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
-                    internalSwapState.pool,
+                    pool,
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap
@@ -337,14 +355,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                             params.trader,
                             params.baseToken,
                             params.mintForTrader,
-                            uniswapFeeRatioMap[pool],
+                            _uniswapFeeRatioMap[pool],
                             internalSwapState.fee
                         )
                     )
                 )
             );
 
-            // TODO avoid this
+            // TODO can be removed once we move the custodian of vToken from CH to EX
             // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
             address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
             uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
@@ -434,9 +452,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             }
         }
 
-        // price slippage check
-        require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
-
         // mutate states
         uint256 fee =
             _addLiquidityToOrder(
@@ -470,10 +485,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
-        // CH_ZL non-existent openOrder
-        require(openOrder.liquidity > 0, "CH_NEO");
-        // CH_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "CH_NEL");
+        // EX_NEO non-existent openOrder
+        require(openOrder.liquidity > 0, "EX_NEO");
+        // EX_NEL not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
 
         address pool = _poolMap[params.baseToken];
         UniswapV3Broker.RemoveLiquidityResponse memory response =
@@ -503,13 +518,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
 
-        // TODO avoid this
+        // TODO can be removed once we move the custodian of vToken from CH to EX
         TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
         TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
 
         return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
     }
 
+    // TODO rename to updateLastFundingGrowth
     function getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
         address baseToken,
@@ -530,11 +546,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
 
+            // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
                 _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
             );
 
-            // TODO funding review whether this section should be here or go upward -> should be a yes
+            // thus, state updates have to come after
             order.lastTwPremiumGrowthInsideX96 = fundingGrowthRangeInfo.twPremiumGrowthInsideX96;
             order.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
@@ -542,7 +559,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
     }
 
-    // or just deal with the vToken in Exchange
+    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -551,12 +568,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     ) external override {
         address baseToken = abi.decode(data, (address));
         address pool = _poolMap[baseToken];
-        // CH_FSV: failed mintCallback verification
+        // E_FMV: failed mintCallback verification
         require(_msgSender() == address(pool), "E_FMV");
 
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
+    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(
         int256 amount0Delta,
@@ -565,8 +583,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     ) external override {
         SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
         IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
-        // CH_FSV: failed swapCallback verification
-        require(_msgSender() == address(pool), "E_FSV");
+        // EX_FSV: failed swapCallback verification
+        require(_msgSender() == address(pool), "EX_FSV");
 
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
@@ -583,7 +601,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _clearingHouseFeeRatioMap[pool];
-        uint24 uniswapFeeRatio = uniswapFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
         (, int256 signedScaledAmount) =
             _getScaledAmount(
                 params.isBaseToQuote,
@@ -623,7 +641,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // PRIVATE
     //
 
-    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256 fee) {
+    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256) {
         // update token info based on existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
@@ -635,11 +653,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 UniswapV3Broker.getTick(params.pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
-        fee = _calcOwedFee(
-            openOrder.liquidity,
-            feeGrowthInsideClearingHouseX128,
-            openOrder.feeGrowthInsideClearingHouseLastX128
-        );
+        uint256 fee =
+            _calcOwedFee(
+                openOrder.liquidity,
+                feeGrowthInsideClearingHouseX128,
+                openOrder.feeGrowthInsideClearingHouseLastX128
+            );
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity).toUint128();
@@ -648,6 +667,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         } else {
             openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
         }
+
+        return fee;
     }
 
     function _removeOrder(
@@ -669,18 +690,19 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         delete _openOrderMap[orderId];
     }
 
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256 fee) {
+    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256) {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+        uint256 fee;
         if (openOrder.liquidity == 0) {
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[_getAccountMarketId(params.maker, params.baseToken)];
-            // CH_ONE: orders number exceeded
-            require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "CH_ONE");
+            // EX_ONE: orders number exceeded
+            require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "EX_ONE");
             orderIds.push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
@@ -715,6 +737,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
         openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+
+        return fee;
     }
 
     function _replaySwap(ReplaySwapParams memory params)
@@ -847,8 +871,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // EXTERNAL VIEW
     //
 
+    function getPool(address baseToken) external view returns (address) {
+        return _poolMap[baseToken];
+    }
+
     function getFeeRatio(address baseToken) external view returns (uint24) {
         return _clearingHouseFeeRatioMap[_poolMap[baseToken]];
+    }
+
+    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
+        return _uniswapFeeRatioMap[_poolMap[baseToken]];
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
@@ -976,7 +1008,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     function _getLiquidityCoefficientInFundingPayment(
         Exchange.OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) private pure returns (int256 liquidityCoefficientInFundingPayment) {
+    ) private pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
         // base amount below the range
@@ -1026,13 +1058,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint128 liquidity,
         uint256 feeGrowthInsideNew,
         uint256 feeGrowthInsideOld
-    ) private pure returns (uint256) {
+    ) internal pure returns (uint256) {
         // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
         // which causes underflow but what we want is the difference only
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
     }
 
-    function _getAccountMarketId(address account, address baseToken) private pure returns (bytes32) {
+    function _getAccountMarketId(address account, address baseToken) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
@@ -1042,7 +1074,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount,
         uint24 clearingHouseFeeRatio,
         uint24 uniswapFeeRatio
-    ) private pure returns (uint256 scaledAmount, int256 signedScaledAmount) {
+    ) internal pure returns (uint256 scaledAmount, int256 signedScaledAmount) {
         // input or output amount for swap
         // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
         // 2. Q2B && exact out --> output base(params.base)
@@ -1065,5 +1097,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             : isExactInput
             ? amount.toInt256()
             : -amount.toInt256();
+    }
+
+    function _requireHasBaseToken(address baseToken) internal view {
+        // EX_BTNE: base token not exists
+        require(_poolMap[baseToken] != address(0), "EX_BTNE");
     }
 }
