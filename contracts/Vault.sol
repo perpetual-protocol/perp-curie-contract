@@ -88,7 +88,6 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
             _decreaseBalance(to, settlementToken, pnl.abs());
         }
 
-        // TODO WIP: are there more edge cases?
         require(_getFreeCollateral(to) >= amount, "V_NEFC");
         _decreaseBalance(to, token, amount);
         TransferHelper.safeTransfer(token, to, amount);
@@ -169,6 +168,9 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
         // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
 
         // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
+        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
+        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256();
     }
 }
