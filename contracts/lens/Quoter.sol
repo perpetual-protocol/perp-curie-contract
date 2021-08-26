@@ -62,8 +62,8 @@ contract Quoter is IUniswapV3SwapCallback {
         uint256 scaledAmount =
             params.isBaseToQuote
                 ? params.isExactInput
-                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
-                    : FeeMath.calcScaledAmount(params.amount, exchangeFeeRatio, true)
+                    ? FeeMath.calcAmountScaledByFeeRatio(params.amount, uniswapFeeRatio, true)
+                    : FeeMath.calcAmountScaledByFeeRatio(params.amount, exchangeFeeRatio, true)
                 : params.isExactInput
                 ? FeeMath.calcAmountWithFeeRatioReplaced(params.amount, uniswapFeeRatio, exchangeFeeRatio, true)
                 : params.amount;
@@ -93,7 +93,7 @@ contract Quoter is IUniswapV3SwapCallback {
             if (params.isBaseToQuote) {
                 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(base, uniswapFeeRatio, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
                 exchangedPositionNotional = quote.toInt256();
@@ -106,7 +106,9 @@ contract Quoter is IUniswapV3SwapCallback {
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
-                exchangedPositionNotional = -(FeeMath.calcScaledAmount(quote, uniswapFeeRatio, false).toInt256());
+                exchangedPositionNotional = -(
+                    FeeMath.calcAmountScaledByFeeRatio(quote, uniswapFeeRatio, false).toInt256()
+                );
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase

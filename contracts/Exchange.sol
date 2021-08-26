@@ -376,7 +376,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
             exchangedPositionSize = -(
-                FeeMath.calcScaledAmount(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
             );
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
@@ -385,7 +385,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
             exchangedPositionNotional = -(
-                FeeMath.calcScaledAmount(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
             );
         }
 
@@ -1083,8 +1083,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // 4. B2Q && exact out --> output base / (1 - y)
         scaledAmount = isBaseToQuote
             ? isExactInput
-                ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
-                : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
+                ? FeeMath.calcAmountScaledByFeeRatio(amount, uniswapFeeRatio, true)
+                : FeeMath.calcAmountScaledByFeeRatio(amount, clearingHouseFeeRatio, true)
             : isExactInput
             ? FeeMath.calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, clearingHouseFeeRatio, true)
             : amount;

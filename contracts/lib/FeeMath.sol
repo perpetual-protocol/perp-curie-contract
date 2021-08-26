@@ -9,7 +9,7 @@ import { UniswapV3Broker } from "./UniswapV3Broker.sol";
 library FeeMath {
     using SafeMath for uint256;
 
-    function calcScaledAmount(
+    function calcAmountScaledByFeeRatio(
         uint256 amount,
         uint24 feeRatio,
         bool isScaledUp
