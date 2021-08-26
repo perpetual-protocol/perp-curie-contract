@@ -1148,7 +1148,7 @@ contract ClearingHouse is
                 response.exchangedPositionSize.abs(), // deltaAvailableBase
                 response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
                 response.exchangedPositionSize, // exchangedPositionSize
-                response.exchangedPositionNotional, // exchangedPositionNotional (fee excluded)
+                response.exchangedPositionNotional, // exchangedPositionNotional
                 response.fee, // fee
                 0, // openNotional
                 0 // realizedPnl
