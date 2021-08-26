@@ -88,12 +88,9 @@ contract Vault is ReentrancyGuard, Ownable, IVault {
             _decreaseBalance(to, settlementToken, pnl.abs());
         }
 
-        // V_NEB: not enough balance
-        require(_getBalance(to, token) >= amount.toInt256(), "V_NEB");
+        // TODO WIP: are there more edge cases?
+        require(_getFreeCollateral(to) >= amount, "V_NEFC");
         _decreaseBalance(to, token, amount);
-
-        // V_NEFC: not enough free collateral
-        require(_getFreeCollateral(to) >= 0, "V_NEFC");
         TransferHelper.safeTransfer(token, to, amount);
         emit Withdrawn(token, to, amount);
     }
