@@ -76,12 +76,14 @@ contract ClearingHouse is
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
-    event Swapped(
+    event PositionChanged(
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
-        uint256 fee
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl
     );
     event PositionLiquidated(
         address indexed trader,
@@ -191,8 +193,11 @@ contract ClearingHouse is
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
-        uint256 exchangedPositionSize;
-        uint256 exchangedPositionNotional;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        int256 openNotional;
+        int256 realizedPnl;
     }
 
     struct SwapStep {
@@ -545,7 +550,7 @@ contract ClearingHouse is
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
+        uint256 liquidationFee = response.exchangedPositionNotional.abs().mul(liquidationPenaltyRatio).divideBy10_18();
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
@@ -557,7 +562,7 @@ contract ClearingHouse is
         emit PositionLiquidated(
             trader,
             baseToken,
-            response.exchangedPositionNotional,
+            response.exchangedPositionNotional.abs(),
             response.deltaAvailableBase,
             liquidationFee,
             liquidator
@@ -994,6 +999,7 @@ contract ClearingHouse is
             //                      = 0 - (-252.53) + 0 = 252.53
             // openNotional = -openNotionalFraction = -252.53
             _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
+            response.openNotional = getOpenNotional(params.trader, params.baseToken);
 
             // there is no realizedPnl when increasing position
             return response;
@@ -1053,6 +1059,9 @@ contract ClearingHouse is
 
         _addOpenNotionalFraction(params.trader, params.baseToken, realizedPnl.sub(deltaAvailableQuote));
         _realizePnl(params.trader, realizedPnl);
+        response.openNotional = getOpenNotional(params.trader, params.baseToken);
+        response.realizedPnl = realizedPnl;
+
         return response;
     }
 
@@ -1134,20 +1143,15 @@ contract ClearingHouse is
             }
         }
 
-        emit Swapped(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee
-        );
-
         return
             SwapResponse(
                 response.exchangedPositionSize.abs(), // deltaAvailableBase
                 response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
-                response.exchangedPositionSize.abs(),
-                response.exchangedPositionNotional.abs()
+                response.exchangedPositionSize, // exchangedPositionSize
+                response.exchangedPositionNotional, // exchangedPositionNotional
+                response.fee, // fee
+                0, // openNotional
+                0 // realizedPnl
             );
     }
 
@@ -1234,6 +1238,16 @@ contract ClearingHouse is
             // it's not closing the position, check margin ratio
             _requireLargerThanInitialMarginRequirement(params.trader);
         }
+
+        emit PositionChanged(
+            params.trader,
+            params.baseToken,
+            swapResponse.exchangedPositionSize,
+            swapResponse.exchangedPositionNotional,
+            swapResponse.fee,
+            swapResponse.openNotional,
+            swapResponse.realizedPnl
+        );
 
         return swapResponse;
     }
