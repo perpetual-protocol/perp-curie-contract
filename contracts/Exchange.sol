@@ -196,36 +196,36 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     uint8 public maxOrdersPerMarket;
 
     // key: base token, value: pool
-    mapping(address => address) private _poolMap;
+    mapping(address => address) internal _poolMap;
 
     // key: accountMarketId => openOrderIds
-    mapping(bytes32 => bytes32[]) private _openOrderIdsMap;
+    mapping(bytes32 => bytes32[]) internal _openOrderIdsMap;
 
     // key: openOrderId
-    mapping(bytes32 => OpenOrder) private _openOrderMap;
+    mapping(bytes32 => OpenOrder) internal _openOrderMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **Tick.GrowthInfo** outside each tick of each pool
-    mapping(address => mapping(int24 => Tick.GrowthInfo)) private _growthOutsideTickMap;
+    mapping(address => mapping(int24 => Tick.GrowthInfo)) internal _growthOutsideTickMap;
 
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     // key: base token, value: pool
-    mapping(address => uint256) private _feeGrowthGlobalX128Map;
+    mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint256) private _maxTickCrossedWithinBlockMap;
+    mapping(address => uint256) internal _maxTickCrossedWithinBlockMap;
 
     // key: base token. tracking the final tick from last block
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
-    mapping(address => TickStatus) private _tickStatusMap;
+    mapping(address => TickStatus) internal _tickStatusMap;
 
     // _uniswapFeeRatioMap cache only
-    mapping(address => uint24) private _uniswapFeeRatioMap;
+    mapping(address => uint24) internal _uniswapFeeRatioMap;
 
     // TODO rename to exchangeFeeRatio
-    mapping(address => uint24) private _clearingHouseFeeRatioMap;
+    mapping(address => uint24) internal _clearingHouseFeeRatioMap;
 
-    mapping(address => uint24) private _insuranceFundFeeRatioMap;
+    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
     //
     // MODIFIERS
@@ -648,7 +648,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // PRIVATE
     //
 
-    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) private returns (uint256) {
+    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
         // update token info based on existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
@@ -682,7 +682,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address maker,
         address baseToken,
         bytes32 orderId
-    ) private {
+    ) internal {
         bytes32[] storage orderIds = _openOrderIdsMap[_getAccountMarketId(maker, baseToken)];
         uint256 idx;
         for (idx = 0; idx < orderIds.length; idx++) {
@@ -697,7 +697,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         delete _openOrderMap[orderId];
     }
 
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) private returns (uint256) {
+    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
         bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
@@ -1009,13 +1009,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     //
-    // PRIVATE VIEW
+    // internal VIEW
     //
 
     function _getLiquidityCoefficientInFundingPayment(
         Exchange.OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) private pure returns (int256) {
+    ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
         // base amount below the range
