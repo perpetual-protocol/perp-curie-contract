@@ -1000,7 +1000,6 @@ contract ClearingHouse is
             // openNotional = -openNotionalFraction = -252.53
             _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
             response.openNotional = getOpenNotional(params.trader, params.baseToken);
-            response.realizedPnl = 0;
 
             // there is no realizedPnl when increasing position
             return response;
