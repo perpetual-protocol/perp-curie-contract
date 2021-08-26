@@ -88,10 +88,11 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: "0",
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // accountValue = netQuoteBalance + totalMarketPnl = 100 + 0.06 + 0
-            // pnl is 0 because it's calculated based on index price
-            // min(100, 100+) - (0 + 1 * 100) * 10% = 99.8993848666
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(100, 100+) - max(1 * 100, 1 * 100 + 0) * 0.1, 0)
+            //                  = 90
             expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("90", collateralDecimals))
             await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("90", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
@@ -115,9 +116,15 @@ describe("ClearingHouse withdraw", () => {
             // collateral = 100, base debt = 0, quote debt = 0.122414646
             // maker.quoteInPool -= 0.06151334176
             // maker.baseInPool += 0.0004084104205
-            // free collateral =
-            // min(100, 100 - 0.06151334176 (+Q) + 0.0006151334176 (B2QFee) + 0.0004084104205 (-B) * 100 (indexPrice)) - (0 + 0.122414646) * 0.1 = 10,000
-            // 100 - 0.06151334176 + 0.0006151334176 + 0.0004084104205 * 100 - (0 + 0.122414646) * 0.1 = 99.9677013691
+            // maker.unrealizedPnl = positionValue + openNotional
+            //                     = 0.0004084104205 * 100 + (0.0006151334176 - 0.06151334176)
+            //                     = -0.02005716629
+            //
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(100, 100 - 0.02005716629) - max(0.0004084104205 * 100, 0 * 100 + 0.122414646) * 0.1, 0)
+            //                  = 99.9677013691
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
         })
     })
@@ -186,9 +193,11 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1000, accountValue) < (0 + 10,000) * 10% = 1000
-            // accountValue = 1000 + PnL, PnL is negative due to fee
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(1000, 1000 + 0) - max(10000, 10000 + 0) * 0.1, 0)
+            //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
@@ -225,8 +234,11 @@ describe("ClearingHouse withdraw", () => {
                 return [0, parseUnits("110", 6), 0, 0, 0]
             })
 
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(1000, 1000 + profit) < (0 + 100 * 110) * 10% = 1100
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(1000, 1000 + profit) - max(100 * 110, 100 * 110 + 0) * 0.1, 0)
+            //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
                 vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
