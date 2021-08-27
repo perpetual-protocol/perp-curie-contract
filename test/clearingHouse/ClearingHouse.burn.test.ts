@@ -133,12 +133,7 @@ describe("ClearingHouse.burn", () => {
             })
 
             // alice removes liquidity
-            const { liquidity } = await clearingHouse.getOpenOrder(
-                alice.address,
-                baseToken.address,
-                lowerTick,
-                upperTick,
-            )
+            const { liquidity } = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: lowerTick,
@@ -219,12 +214,7 @@ describe("ClearingHouse.burn", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            const { liquidity } = await clearingHouse.getOpenOrder(
-                alice.address,
-                baseToken.address,
-                lowerTick,
-                upperTick,
-            )
+            const { liquidity } = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: lowerTick,
@@ -341,12 +331,7 @@ describe("ClearingHouse.burn", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            const { liquidity } = await clearingHouse.getOpenOrder(
-                alice.address,
-                baseToken.address,
-                lowerTick,
-                upperTick,
-            )
+            const { liquidity } = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: lowerTick,
@@ -429,12 +414,7 @@ describe("ClearingHouse.burn", () => {
             })
 
             // alice removes liquidity
-            const { liquidity } = await clearingHouse.getOpenOrder(
-                alice.address,
-                baseToken.address,
-                lowerTick,
-                upperTick,
-            )
+            const { liquidity } = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: lowerTick,

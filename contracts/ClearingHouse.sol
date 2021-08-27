@@ -107,6 +107,7 @@ contract ClearingHouse is
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
+    event ExchangeUpdated(address exchange);
 
     //
     // Struct
@@ -318,16 +319,11 @@ contract ClearingHouse is
     //
     // EXTERNAL FUNCTIONS
     //
-
-    // TODO event, check null
     function setExchange(address exchangeArg) external onlyOwner {
+        // exchange is 0
+        require(exchangeArg != address(0), "CH_EI0");
         exchange = exchangeArg;
-    }
-
-    // TODO remove
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
-        _requireHasBaseToken(baseToken);
-        Exchange(exchange).setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock);
+        emit ExchangeUpdated(exchange);
     }
 
     // TODO internal
@@ -556,16 +552,6 @@ contract ClearingHouse is
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        // TODO remove
-        Exchange(exchange).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
-    }
-
-    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        // TODO remove
-        Exchange(exchange).setFeeRatio(baseToken, feeRatio);
-    }
-
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
     }
@@ -758,21 +744,6 @@ contract ClearingHouse is
     // EXTERNAL VIEW FUNCTIONS
     //
 
-    // TODO move to exchange
-    function getPool(address baseToken) external view returns (address) {
-        return Exchange(exchange).getPool(baseToken);
-    }
-
-    // TODO move to exchange
-    function getFeeRatio(address baseToken) external view returns (uint24) {
-        return Exchange(exchange).getFeeRatio(baseToken);
-    }
-
-    // TODO move to exchange
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
-        return Exchange(exchange).getMaxTickCrossedWithinBlock(baseToken);
-    }
-
     // return in settlement token decimals
     function getAccountValue(address account) public view returns (int256) {
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
@@ -815,21 +786,6 @@ contract ClearingHouse is
 
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
-    }
-
-    // TODO move to exchange
-    function getOpenOrder(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) external view returns (Exchange.OpenOrder memory) {
-        return Exchange(exchange).getOpenOrder(trader, baseToken, lowerTick, upperTick);
-    }
-
-    // TODO move to exchange
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return Exchange(exchange).getOpenOrderIds(trader, baseToken);
     }
 
     // TODO move to exchange
@@ -899,6 +855,31 @@ contract ClearingHouse is
         return _getTotalInitialMarginRequirement(trader);
     }
 
+    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    // we will start with the conservative one, then gradually change it to more aggressive ones
+    // to increase capital efficiency.
+    function getFreeCollateralWithBalance(address trader, int256 balance) public view returns (int256) {
+        // accountValue = collateralValue + owedRealizedPnl - pendingFundingPayment + totalUnrealizedPnl
+        int256 pendingFundingPayment = _getAllPendingFundingPayment(trader);
+        int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
+        int256 collateralValue = balance.addS(owedRealizedPnl.sub(pendingFundingPayment), _settlementTokenDecimals);
+        int256 totalUnrealizedPnl = getTotalUnrealizedPnl(trader);
+        int256 accountValue = collateralValue.addS(totalUnrealizedPnl, _settlementTokenDecimals);
+        int256 totalImReq = _getTotalInitialMarginRequirement(trader).toInt256();
+
+        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        return PerpMath.min(collateralValue, accountValue).subS(totalImReq, _settlementTokenDecimals);
+
+        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
+        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+
+        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
+        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
+        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
+        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+    }
+
     //
     // INTERNAL FUNCTIONS
     //
@@ -920,7 +901,7 @@ contract ClearingHouse is
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
-            _requireLargerThanInitialMarginRequirement(account);
+            _requireEnoughFreeCollateral(account);
         }
 
         IMintableERC20(token).mint(address(this), amount);
@@ -1280,7 +1261,7 @@ contract ClearingHouse is
 
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
-            _requireLargerThanInitialMarginRequirement(params.trader);
+            _requireEnoughFreeCollateral(params.trader);
         }
 
         emit PositionChanged(
@@ -1692,11 +1673,8 @@ contract ClearingHouse is
         require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
-    function _requireLargerThanInitialMarginRequirement(address trader) internal view {
+    function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
-        require(
-            getAccountValue(trader).gte(_getTotalInitialMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
-            "CH_NEAV"
-        );
+        require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
     }
 }

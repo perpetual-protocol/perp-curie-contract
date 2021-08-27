@@ -292,8 +292,8 @@ describe("ClearingHouse liquidate", () => {
     describe("alice long ETH and BTC; later, ETH price goes down", () => {
         beforeEach(async () => {
             // makes alice able to trade
-            setPool1IndexPrice(200)
-            setPool2IndexPrice(200)
+            setPool1IndexPrice("151.373307")
+            setPool2IndexPrice("151.373307")
 
             // alice long ETH and BTC
             await clearingHouse.connect(alice).openPosition({
@@ -433,8 +433,8 @@ describe("ClearingHouse liquidate", () => {
     describe("alice short ETH and BTC; later, ETH up BTC down", () => {
         beforeEach(async () => {
             // makes alice able to trade
-            setPool1IndexPrice(100)
-            setPool2IndexPrice(100)
+            setPool1IndexPrice("151")
+            setPool2IndexPrice("151")
 
             // alice short ETH
             await clearingHouse.connect(alice).openPosition({

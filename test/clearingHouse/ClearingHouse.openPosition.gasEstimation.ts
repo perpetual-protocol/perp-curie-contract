@@ -101,7 +101,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         }
 
         // maker remove liquidity position
-        const order = await clearingHouse.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+        const order = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
         const liquidity = order.liquidity
         await clearingHouse.connect(alice).removeLiquidity({
             baseToken: baseToken.address,
