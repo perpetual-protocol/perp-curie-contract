@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -532,10 +531,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 totalFee;
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-
-            console.log("ex orderId");
-            console.logBytes32(orderId);
-
             OpenOrder memory order = _openOrderMap[orderId];
 
             RemoveLiquidityResponse memory response =
