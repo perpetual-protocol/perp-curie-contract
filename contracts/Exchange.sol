@@ -189,6 +189,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     uint8 public maxOrdersPerMarket;
 
+    uint24 internal constant _ONE_HUNDRED_PERCENTAGE = 1e6; // 100%
+
     // key: base token, value: pool
     mapping(address => address) internal _poolMap;
 
@@ -251,7 +253,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
-        require(ratio <= 1000000, "EX_RO");
+        require(ratio <= _ONE_HUNDRED_PERCENTAGE, "EX_RO");
         _;
     }
 
@@ -632,9 +634,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         bytes calldata data
     ) external override {
         address baseToken = abi.decode(data, (address));
-        address pool = _poolMap[baseToken];
-        // E_FMV: failed mintCallback verification
-        require(_msgSender() == address(pool), "E_FMV");
+        // EX_FMV: failed mintCallback verification
+        require(_msgSender() == _poolMap[baseToken], "EX_FMV");
 
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
@@ -647,9 +648,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         bytes calldata data
     ) external override {
         SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
-        IUniswapV3Pool pool = IUniswapV3Pool(_poolMap[callbackData.baseToken]);
         // EX_FSV: failed swapCallback verification
-        require(_msgSender() == address(pool), "EX_FSV");
+        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FSV");
 
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
