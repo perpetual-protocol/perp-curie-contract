@@ -124,7 +124,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // B2QFee: expect 1% of quote = 0.0006151334175725025 ~= 615133417572502 / 10^18
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -246,7 +246,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // expect 1% of quote = 0.001135501475
                     // there's one wei of imprecision, thus expecting 0.001135501474999999
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .to.emit(exchange, "LiquidityChanged")
                         .withArgs(
                             alice.address,
                             baseToken.address,
@@ -363,7 +363,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // Q2BFee: expect 1% of quote = 0.001135501475
                     // 0.00112414646 + 0.001135501475 = 0.002259647935
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .to.emit(exchange, "LiquidityChanged")
                         .withArgs(
                             alice.address,
                             baseToken.address,
@@ -529,7 +529,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // expect 75% of 1% of quote in Uniswap = 0.001135501475 * 0.75 = 0.0008516261063
                 // 0.0008373408142 + 0.0008516261063 = 0.00168896692
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -546,7 +546,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // expect 25% of 1% of quote = 0.001135501475 * 0.25 = 0.0002838753688
                 // 0.0002791136048 + 0.0002838753688 = 0.0005629889736
                 await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,
@@ -739,7 +739,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //
                 // total quote fee: 0.002213305435 + 0.002235662055 = 0.00444896749
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParamsAlice))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -770,7 +770,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 //
                 // total quote fee: 0.00122414646 + 0.001236511576 = 0.002460658036
                 await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,

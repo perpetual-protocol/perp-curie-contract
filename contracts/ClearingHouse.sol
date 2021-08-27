@@ -63,19 +63,7 @@ contract ClearingHouse is
     //
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
+
     event PositionChanged(
         address indexed trader,
         address indexed baseToken,
@@ -372,18 +360,6 @@ contract ClearingHouse is
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
-
-        emit LiquidityChanged(
-            trader,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.liquidity.toInt128(),
-            response.fee
-        );
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
@@ -1123,31 +1099,24 @@ contract ClearingHouse is
             );
     }
 
-    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
-        private
-        returns (RemoveLiquidityResponse memory)
-    {
-        _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
+    function _removeLiquidityByIds(
+        address maker,
+        address baseToken,
+        bytes32[] memory orderIds
+    ) private returns (RemoveLiquidityResponse memory) {
+        _settleFundingAndUpdateFundingGrowth(maker, baseToken);
         Exchange.RemoveLiquidityResponse memory response;
         {
-            uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
+            uint256 baseBalanceBefore = IERC20Metadata(baseToken).balanceOf(address(this));
             uint256 quoteBalanceBefore = IERC20Metadata(quoteToken).balanceOf(address(this));
 
-            response = Exchange(exchange).removeLiquidity(
-                Exchange.RemoveLiquidityParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
+            response = Exchange(exchange).removeLiquidityByIds(maker, baseToken, orderIds);
 
             // burn base/quote fee
             // base/quote fee of all makers in the range of lowerTick and upperTick should be
             // balanceAfter - balanceBefore - response.base / response.quote
-            IMintableERC20(params.baseToken).burn(
-                IERC20Metadata(params.baseToken).balanceOf(address(this)).sub(baseBalanceBefore).sub(response.base)
+            IMintableERC20(baseToken).burn(
+                IERC20Metadata(baseToken).balanceOf(address(this)).sub(baseBalanceBefore).sub(response.base)
             );
             IMintableERC20(quoteToken).burn(
                 IERC20Metadata(quoteToken).balanceOf(address(this)).sub(quoteBalanceBefore).sub(response.quote)
@@ -1155,26 +1124,23 @@ contract ClearingHouse is
         }
         {
             uint256 removedQuoteAmount = response.quote.add(response.fee);
-            TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
+            TokenInfo storage baseTokenInfo = _accountMap[maker].tokenInfoMap[baseToken];
+            TokenInfo storage quoteTokenInfo = _accountMap[maker].tokenInfoMap[quoteToken];
             baseTokenInfo.available = baseTokenInfo.available.add(response.base);
             quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
-            _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
+            _addOpenNotionalFraction(maker, baseToken, -(removedQuoteAmount.toInt256()));
         }
 
-        emit LiquidityChanged(
-            params.maker,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
-            response.fee
-        );
-
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
+    }
+
+    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
+        private
+        returns (RemoveLiquidityResponse memory)
+    {
+        bytes32[] memory orderIds = new bytes32[](1);
+        orderIds[0] = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        return _removeLiquidityByIds(params.maker, params.baseToken, orderIds);
     }
 
     function _openPosition(InternalOpenPositionParams memory params) internal returns (SwapResponse memory) {
@@ -1619,5 +1585,14 @@ contract ClearingHouse is
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
         require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
+    }
+
+    function _getOrderId(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 }

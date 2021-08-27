@@ -40,6 +40,19 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     // EVENT
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 base,
+        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 quote,
+        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
+        uint256 quoteFee // amount of quote token the maker received as fee
+    );
 
     //
     // STRUCT
@@ -487,6 +500,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 })
             );
 
+        emit LiquidityChanged(
+            params.trader,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.liquidity.toInt128(),
+            fee
+        );
+
         return
             AddLiquidityResponse({
                 base: response.base,
@@ -572,6 +597,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // TODO can be removed once we move the custodian of vToken from CH to EX
         TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
         TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
+
+        emit LiquidityChanged(
+            params.maker,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            fee
+        );
 
         return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
     }
