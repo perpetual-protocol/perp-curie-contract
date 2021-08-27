@@ -501,6 +501,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address baseToken,
         bytes32[] calldata orderIds
     ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+        // TODO: we don't need the response?
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
