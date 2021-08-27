@@ -135,8 +135,8 @@ export function createClearingHouseFixture(
         await baseToken2.addWhitelist(pool2.address)
         await quoteToken.addWhitelist(pool2.address)
 
-        await clearingHouse.setFeeRatio(baseToken.address, feeTier)
-        await clearingHouse.setFeeRatio(baseToken2.address, feeTier)
+        await exchange.setFeeRatio(baseToken.address, feeTier)
+        await exchange.setFeeRatio(baseToken2.address, feeTier)
 
         const mockedArbSys = await getMockedArbSys()
         return {

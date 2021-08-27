@@ -80,7 +80,7 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         })
 
         it("has 0 open orders left", async () => {
-            const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).to.deep.eq([])
         })
 
@@ -125,7 +125,7 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
 
         it("has 0 open orders left", async () => {
             // bob as a keeper
-            const openOrderIds = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).to.deep.eq([])
         })
 
@@ -145,13 +145,13 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        const openOrderIdsBefore = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
         await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
 
-        const openOrderIdsAfter = await clearingHouse.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
     })
 })

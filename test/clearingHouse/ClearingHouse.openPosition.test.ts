@@ -128,7 +128,7 @@ describe("ClearingHouse openPosition", () => {
 
             it("force error due to not enough liquidity", async () => {
                 // empty the liquidity
-                const order = await clearingHouse.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
+                const order = await exchange.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
                 await clearingHouse.connect(maker).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick,
