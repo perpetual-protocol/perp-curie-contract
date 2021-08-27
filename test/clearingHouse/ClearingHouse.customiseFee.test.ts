@@ -99,8 +99,11 @@ describe("ClearingHouse customized fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -146,8 +149,11 @@ describe("ClearingHouse customized fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -193,8 +199,11 @@ describe("ClearingHouse customized fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -233,8 +242,11 @@ describe("ClearingHouse customized fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -278,8 +290,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("2"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
 
                 // virtual base liquidity = 71.9062751863 - 0.01307786649 = 71.8931973198
@@ -294,8 +309,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
 
                 const fee = (
@@ -325,8 +343,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("2"),
                     sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
 
                 const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
@@ -347,8 +368,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
 
                 const feeAfterSwap = (
@@ -387,8 +411,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -434,8 +461,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -481,8 +511,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -521,8 +554,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -568,8 +604,11 @@ describe("ClearingHouse customized fee", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -582,8 +621,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -626,8 +668,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -669,8 +714,11 @@ describe("ClearingHouse customized fee", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             await clearingHouse.setFeeRatio(baseToken.address, 50000)
@@ -681,8 +729,11 @@ describe("ClearingHouse customized fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "PositionChanged")
@@ -734,8 +785,11 @@ describe("ClearingHouse customized fee", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("8000"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             const fee = (
@@ -760,8 +814,11 @@ describe("ClearingHouse customized fee", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("30"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             const fee = (

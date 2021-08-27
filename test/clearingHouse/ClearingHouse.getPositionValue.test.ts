@@ -103,8 +103,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.4084104205"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
@@ -169,8 +172,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2042052103"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // mark price should be 150.6155385 (tick = 50149.8122)
 
@@ -181,8 +187,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2042052103"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
@@ -277,8 +286,11 @@ describe("ClearingHouse.getPositionValue", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("247.3023151515"),
             sqrtPriceLimitX96: "0",
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams1)
         // mark price should be 151.3733069 (tick = 50200)
@@ -290,8 +302,11 @@ describe("ClearingHouse.getPositionValue", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("99.9150479293"),
             sqrtPriceLimitX96: "0",
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams2)
         // mark price should be 153.8170921 (tick = 50360.15967)

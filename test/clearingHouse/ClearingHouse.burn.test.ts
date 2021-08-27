@@ -109,8 +109,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("0.1"), // the amount of quote
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // bob mints 100 quote for swap
@@ -122,8 +125,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2"), // the amount of quote
                 sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // alice removes liquidity
@@ -206,8 +212,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.001"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             const { liquidity } = await clearingHouse.getOpenOrder(
@@ -325,8 +334,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("0.01"), // the amount of base to buy
                 sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             const { liquidity } = await clearingHouse.getOpenOrder(
@@ -393,8 +405,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("0.1"), // the amount of base
                 sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // bob mints 1 extra base for swap
@@ -406,8 +421,11 @@ describe("ClearingHouse.burn", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2"), // the amount of base
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // alice removes liquidity

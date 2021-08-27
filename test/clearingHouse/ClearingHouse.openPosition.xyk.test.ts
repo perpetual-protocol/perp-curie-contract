@@ -95,8 +95,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("250"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(
                 parseEther("19.839679358717434869"),
@@ -110,8 +113,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("20"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("20"))
             expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).closeTo(
@@ -126,8 +132,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
             expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
@@ -139,8 +148,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
             expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
@@ -154,8 +166,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("20"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -165,8 +180,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("20"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
             })
 
@@ -188,8 +206,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
             })
 
@@ -209,8 +230,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: pos,
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
                     parseEther("-5.025252525252525255"),
@@ -224,8 +248,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("30"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("-10"))
             // trader's actual delta = 340.91 - 3.41 = 337.5
@@ -242,8 +269,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -253,8 +283,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("12.5"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
             })
 
@@ -272,8 +305,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: pos.abs(),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
                 // should be exact -4?
                 expect(await clearingHouse.getOwedRealizedPnl(taker.address)).closeTo(
@@ -288,8 +324,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("40"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("15"))
             // 142.58823529

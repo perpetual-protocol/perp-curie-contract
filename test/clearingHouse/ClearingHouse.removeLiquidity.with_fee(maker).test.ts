@@ -101,6 +101,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.0004084104205"),
                     sqrtPriceLimitX96: "0",
                 }
@@ -232,6 +233,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
@@ -335,6 +337,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
@@ -349,6 +352,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.0007507052579"),
                         sqrtPriceLimitX96: "0",
                     }
@@ -502,6 +506,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.1135501475"),
                     sqrtPriceLimitX96: "0",
                 }
@@ -515,6 +520,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.0007507052579"),
                     sqrtPriceLimitX96: "0",
                 }
@@ -697,6 +703,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.3472173631"),
                     sqrtPriceLimitX96: "0",
                 }
@@ -718,6 +725,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.00228188664"),
                     sqrtPriceLimitX96: "0",
                 }

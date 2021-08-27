@@ -85,6 +85,8 @@ describe("ClearingHouse openPosition slippage in xyk pool", () => {
                 amount: parseEther("25"),
                 oppositeAmountBound: parseEther("200"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             }),
         ).to.be.revertedWith("CH_TLR")
     })
@@ -99,6 +101,8 @@ describe("ClearingHouse openPosition slippage in xyk pool", () => {
                 amount: parseEther("250"),
                 oppositeAmountBound: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             }),
         ).to.be.revertedWith("CH_TMR")
     })
@@ -113,6 +117,8 @@ describe("ClearingHouse openPosition slippage in xyk pool", () => {
                 amount: parseEther("250"),
                 oppositeAmountBound: parseEther("20"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             }),
         ).to.be.revertedWith("CH_TLR")
     })
@@ -127,6 +133,8 @@ describe("ClearingHouse openPosition slippage in xyk pool", () => {
                 amount: parseEther("20"),
                 oppositeAmountBound: parseEther("250"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             }),
         ).to.be.revertedWith("CH_TMR")
     })
