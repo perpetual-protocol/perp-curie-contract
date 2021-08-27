@@ -146,16 +146,6 @@ contract ClearingHouse is
         uint256 deadline;
     }
 
-    struct RemoveLiquidityFromOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
-    }
-
     struct InternalRemoveLiquidityParams {
         address maker;
         address baseToken;
@@ -1512,7 +1502,7 @@ contract ClearingHouse is
         // funding inside the range =
         // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
         int256 fundingInsideX96 =
-            uint256(order.liquidity).toInt256().mul(
+            order.liquidity.toInt256().mul(
                 // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
                 fundingGrowthRangeInfo
                     .twPremiumDivBySqrtPriceGrowthInsideX96

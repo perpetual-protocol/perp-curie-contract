@@ -27,6 +27,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
+    using SafeMath for uint128;
     using SignedSafeMath for int256;
     using PerpMath for uint256;
     using PerpMath for int256;
@@ -52,7 +53,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 upperTick;
         uint256 feeGrowthGlobalClearingHouseX128;
         uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
+        uint128 liquidity;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -155,7 +156,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 lowerTick;
         int24 upperTick;
         uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
+        uint128 liquidity;
     }
 
     struct SwapState {
@@ -486,7 +487,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     upperTick: params.upperTick,
                     feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
                     feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: response.liquidity.toUint256(),
+                    liquidity: response.liquidity,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
@@ -682,7 +683,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             );
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
@@ -756,7 +757,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
 
         return fee;
@@ -1045,7 +1046,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // funding inside the range =
         // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
         int256 fundingInsideX96 =
-            uint256(order.liquidity).toInt256().mul(
+            order.liquidity.toInt256().mul(
                 // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
                 fundingGrowthRangeInfo
                     .twPremiumDivBySqrtPriceGrowthInsideX96
