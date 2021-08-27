@@ -15,8 +15,10 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: VirtualToken
+    let baseToken2: VirtualToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
 
@@ -27,9 +29,11 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
+        baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -47,6 +51,10 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized
         await exchange.addPool(baseToken.address, 10000)
+
+        await pool2.initialize(encodePriceSqrt("50000", "1"))
+        // add pool after it's initialized
+        await exchange.addPool(baseToken2.address, 10000)
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)
@@ -153,5 +161,23 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
 
         const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+    })
+
+    describe("cancelExcessOrders", () => {
+        beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100000", 6), 0, 0, 0]
+            })
+            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+        })
+
+        it("nothing happen when baseToken and orderId doesn't match", async () => {
+            const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+
+            await clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore)
+
+            const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+            expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+        })
     })
 })
