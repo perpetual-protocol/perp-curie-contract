@@ -281,13 +281,15 @@ describe("ClearingHouse openPosition", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
                         "6539527905092835", // exchangedPositionSize
-                        parseEther("-0.99"), // costBasis
+                        parseEther("-0.99"), // exchangedPositionNotional
                         parseEther("0.01"), // fee = 1 * 0.01
+                        parseEther("-1"), // openNotional
+                        parseEther("0"), // realizedPnl
                     )
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -316,13 +318,15 @@ describe("ClearingHouse openPosition", () => {
                             sqrtPriceLimitX96: 0,
                         }),
                     )
-                        .to.emit(clearingHouse, "Swapped")
+                        .to.emit(clearingHouse, "PositionChanged")
                         .withArgs(
                             taker.address, // trader
                             baseToken.address, // baseToken
                             parseEther("1"), // exchangedPositionSize
-                            "-153508143394151325059", // costBasis
+                            "-153508143394151325059", // exchangedPositionNotional
                             "1550587307011629547", // fee
+                            "-155058730701162954606", // openNotional
+                            parseEther("0"), // realizedPnl
                         )
 
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -459,13 +463,15 @@ describe("ClearingHouse openPosition", () => {
                         sqrtPriceLimitX96: 0,
                     }),
                 )
-                    .to.emit(clearingHouse, "Swapped")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
                         parseEther("-1"), // exchangedPositionSize
-                        parseEther("149.297034185732877727"), // costBasis
+                        parseEther("149.297034185732877727"), // exchangedPositionNotional
                         parseEther("1.492970341857328778"), // fee: 149.297034185732877727 * 0.01 = 1.492970341857328777
+                        parseEther("147.804063843875548949"), // openNotional
+                        parseEther("0"), // realizedPnl
                     )
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -929,7 +935,7 @@ describe("ClearingHouse openPosition", () => {
                     amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
                 }),
-            ).to.emit(clearingHouse, "Swapped")
+            ).to.emit(clearingHouse, "PositionChanged")
         })
 
         it("force error, markets number exceeded", async () => {
@@ -941,7 +947,7 @@ describe("ClearingHouse openPosition", () => {
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
                 }),
-            ).to.emit(clearingHouse, "Swapped")
+            ).to.emit(clearingHouse, "PositionChanged")
 
             await expect(
                 clearingHouse.connect(taker).openPosition({

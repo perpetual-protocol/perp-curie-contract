@@ -76,12 +76,14 @@ contract ClearingHouse is
         int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
         uint256 quoteFee // amount of quote token the maker received as fee
     );
-    event Swapped(
+    event PositionChanged(
         address indexed trader,
         address indexed baseToken,
         int256 exchangedPositionSize,
         int256 exchangedPositionNotional,
-        uint256 fee
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl
     );
     event PositionLiquidated(
         address indexed trader,
@@ -191,8 +193,11 @@ contract ClearingHouse is
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
-        uint256 exchangedPositionSize;
-        uint256 exchangedPositionNotional;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        int256 openNotional;
+        int256 realizedPnl;
     }
 
     struct SwapStep {
@@ -545,7 +550,7 @@ contract ClearingHouse is
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.mul(liquidationPenaltyRatio).divideBy10_18();
+        uint256 liquidationFee = response.exchangedPositionNotional.abs().mul(liquidationPenaltyRatio).divideBy10_18();
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
@@ -557,7 +562,7 @@ contract ClearingHouse is
         emit PositionLiquidated(
             trader,
             baseToken,
-            response.exchangedPositionNotional,
+            response.exchangedPositionNotional.abs(),
             response.deltaAvailableBase,
             liquidationFee,
             liquidator
@@ -847,25 +852,32 @@ contract ClearingHouse is
 
     // return decimals 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        _getTotalInitialMarginRequirement(trader);
+        return _getTotalInitialMarginRequirement(trader);
     }
 
-    function getFreeCollateralWithBalance(address trader, uint256 balance) public view returns (int256) {
-        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-        uint256 openOrderMarginRequirement = getTotalOpenOrderMarginRequirement(trader);
+    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    // we will start with the conservative one, then gradually change it to more aggressive ones
+    // to increase capital efficiency.
+    function getFreeCollateralWithBalance(address trader, int256 balance) public view returns (int256) {
+        // accountValue = collateralValue + owedRealizedPnl - pendingFundingPayment + totalUnrealizedPnl
         int256 pendingFundingPayment = _getAllPendingFundingPayment(trader);
-
-        // accountValue = totalCollateralValue + totalMarketPnl
         int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
-        int256 collateralValue =
-            balance.toInt256().addS(owedRealizedPnl.sub(pendingFundingPayment), _settlementTokenDecimals);
-        int256 totalMarketPnl = getTotalUnrealizedPnl(trader);
-        int256 accountValue = collateralValue.addS(totalMarketPnl, _settlementTokenDecimals);
+        int256 collateralValue = balance.addS(owedRealizedPnl.sub(pendingFundingPayment), _settlementTokenDecimals);
+        int256 totalUnrealizedPnl = getTotalUnrealizedPnl(trader);
+        int256 accountValue = collateralValue.addS(totalUnrealizedPnl, _settlementTokenDecimals);
+        int256 totalImReq = _getTotalInitialMarginRequirement(trader).toInt256();
 
-        // collateral
-        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
+        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        return PerpMath.min(collateralValue, accountValue).subS(totalImReq, _settlementTokenDecimals);
 
-        return min.subS(openOrderMarginRequirement.toInt256(), _settlementTokenDecimals);
+        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
+        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+
+        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
+        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
+        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
+        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
     //
@@ -1012,6 +1024,7 @@ contract ClearingHouse is
             //                      = 0 - (-252.53) + 0 = 252.53
             // openNotional = -openNotionalFraction = -252.53
             _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
+            response.openNotional = getOpenNotional(params.trader, params.baseToken);
 
             // there is no realizedPnl when increasing position
             return response;
@@ -1071,6 +1084,9 @@ contract ClearingHouse is
 
         _addOpenNotionalFraction(params.trader, params.baseToken, realizedPnl.sub(deltaAvailableQuote));
         _realizePnl(params.trader, realizedPnl);
+        response.openNotional = getOpenNotional(params.trader, params.baseToken);
+        response.realizedPnl = realizedPnl;
+
         return response;
     }
 
@@ -1152,20 +1168,15 @@ contract ClearingHouse is
             }
         }
 
-        emit Swapped(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee
-        );
-
         return
             SwapResponse(
                 response.exchangedPositionSize.abs(), // deltaAvailableBase
                 response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
-                response.exchangedPositionSize.abs(),
-                response.exchangedPositionNotional.abs()
+                response.exchangedPositionSize, // exchangedPositionSize
+                response.exchangedPositionNotional, // exchangedPositionNotional
+                response.fee, // fee
+                0, // openNotional
+                0 // realizedPnl
             );
     }
 
@@ -1252,6 +1263,16 @@ contract ClearingHouse is
             // it's not closing the position, check margin ratio
             _requireEnoughFreeCollateral(params.trader);
         }
+
+        emit PositionChanged(
+            params.trader,
+            params.baseToken,
+            swapResponse.exchangedPositionSize,
+            swapResponse.exchangedPositionNotional,
+            swapResponse.fee,
+            swapResponse.openNotional,
+            swapResponse.realizedPnl
+        );
 
         return swapResponse;
     }
@@ -1561,7 +1582,7 @@ contract ClearingHouse is
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
         return
-            IVault(vault).balanceOf(trader).toInt256().addS(
+            IVault(vault).balanceOf(trader).addS(
                 owedRealizedPnl.sub(_getAllPendingFundingPayment(trader)),
                 _settlementTokenDecimals
             );

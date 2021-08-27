@@ -84,7 +84,13 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
 
         it("stop swapping and returns same result with CH.swap when price limit reached", async () => {
@@ -247,7 +253,13 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
 
         it("stops swapping and returns same result with CH.swap when price limit reached", async () => {
@@ -274,7 +286,13 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: priceLimit,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
 
         it("returns same result with CH.swap when liquidity is not enough", async () => {
@@ -297,7 +315,13 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
     })
 
@@ -321,7 +345,13 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
 
         it("stops swapping and returns same result with CH.swap when price limit reached", async () => {
@@ -348,7 +378,13 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: priceLimit,
             })
-            expect(quoteResponse).to.be.deep.eq(swapResponse)
+            const partialSwapResponse = [
+                swapResponse.deltaAvailableBase,
+                swapResponse.deltaAvailableQuote,
+                swapResponse.exchangedPositionSize,
+                swapResponse.exchangedPositionNotional,
+            ]
+            expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
 
         it("force error, unmatched output amount when liquidity is not enough", async () => {

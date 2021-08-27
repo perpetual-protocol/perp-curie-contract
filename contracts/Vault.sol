@@ -44,9 +44,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     // address[] private _assetLiquidationOrder;
 
     // key: trader, token address
-    mapping(address => mapping(address => uint256)) private _balance;
-    // key: trader
-    mapping(address => uint256) private _debt;
+    mapping(address => mapping(address => int256)) private _balance;
 
     // key: token
     // TODO: change bool to collateral factor
@@ -99,19 +97,15 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
             _decreaseBalance(to, settlementToken, pnl.abs());
         }
 
-        // V_NEB: not enough balance
-        require(_getBalance(to, token) >= amount, "V_NEB");
+        require(_getFreeCollateral(to) >= amount, "V_NEFC");
         _decreaseBalance(to, token, amount);
-
-        // V_NEFC: not enough free collateral
-        require(_getFreeCollateral(to) >= 0, "V_NEFC");
         TransferHelper.safeTransfer(token, to, amount);
         emit Withdrawn(token, to, amount);
     }
 
     // expensive call
-    function balanceOf(address trader) public view override returns (uint256) {
-        uint256 settlementTokenValue;
+    function balanceOf(address trader) public view override returns (int256) {
+        int256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             address token = _collateralTokens[i];
             if (settlementToken != token) {
@@ -125,8 +119,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     }
 
     function getFreeCollateral(address trader) external view returns (uint256) {
-        int256 freeCollateral = _getFreeCollateral(trader);
-        return freeCollateral > 0 ? freeCollateral.toUint256() : 0;
+        return _getFreeCollateral(trader);
     }
 
     function _addCollateralToken(address token) private {
@@ -141,7 +134,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address token,
         uint256 amount
     ) private {
-        _balance[trader][token] = _getBalance(trader, token).add(amount);
+        _balance[trader][token] = _getBalance(trader, token).add(amount.toInt256());
     }
 
     function _decreaseBalance(
@@ -149,7 +142,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address token,
         uint256 amount
     ) private {
-        _balance[trader][token] = _getBalance(trader, token).sub(amount);
+        _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
     }
 
     function _liquidate(
@@ -160,14 +153,17 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         revert("TBD");
     }
 
-    function _getBalance(address trader, address token) private view returns (uint256) {
+    function _getBalance(address trader, address token) private view returns (int256) {
         return _balance[trader][token];
     }
 
     // TODO reduce external calls
     // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-    function _getFreeCollateral(address trader) private view returns (int256) {
-        return ClearingHouse(clearingHouse).getFreeCollateralWithBalance(trader, balanceOf(trader));
+    function _getFreeCollateral(address trader) private view returns (uint256) {
+        return
+            PerpMath
+                .max(ClearingHouse(clearingHouse).getFreeCollateralWithBalance(trader, balanceOf(trader)), 0)
+                .toUint256();
     }
 
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {

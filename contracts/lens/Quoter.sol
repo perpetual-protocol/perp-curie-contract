@@ -36,8 +36,8 @@ contract Quoter is IUniswapV3SwapCallback {
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
-        uint256 exchangedPositionSize;
-        uint256 exchangedPositionNotional;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
     }
 
     constructor(address exchangeArg) {
@@ -109,8 +109,8 @@ contract Quoter is IUniswapV3SwapCallback {
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase
                 exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
-                exchangedPositionSize.abs(),
-                exchangedPositionNotional.abs()
+                exchangedPositionSize,
+                exchangedPositionNotional
             );
 
             // if it's exact output with a price limit, ensure that the full output amount has been receive
