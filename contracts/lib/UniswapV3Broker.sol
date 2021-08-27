@@ -20,14 +20,14 @@ import { PerpMath } from "../lib/PerpMath.sol";
  * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
  * Our system: base & quote
  * -> base's price = quote / base; tick index = log(1.0001, base price)
- * Figure out: (base, quote) == (token0, token1) or (token1, token0)
+ * Thus, we require that (base, quote) = (token0, token1) is always true for convenience
  */
 library UniswapV3Broker {
-    using PerpSafeCast for uint256;
     using SafeMath for uint256;
+    using PerpMath for int256;
+    using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
-    using PerpMath for int256;
 
     struct AddLiquidityParams {
         address pool;
@@ -115,11 +115,11 @@ library UniswapV3Broker {
         internal
         returns (RemoveLiquidityResponse memory response)
     {
-        // call burn(), this will only update tokensOwed instead of transfer the token
+        // call burn(), which only updates tokensOwed instead of transferring the tokens
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
 
-        // call collect to `transfer` tokens to CH
+        // call collect() to transfer tokens to CH
         // we don't care about the returned values here as they include:
         // 1. every maker's fee in the same range (ClearingHouse is the only maker in the pool's perspective)
         // 2. the amount of token equivalent to liquidity burned
@@ -131,8 +131,7 @@ library UniswapV3Broker {
             type(uint128).max
         );
 
-        // TODO: feeGrowthInside{01}LastX128 would be reset to 0 after pool.burn(0)?
-        // fetch the fee growth state if this has liquidity
+        // fetch the fee growth state if there is liquidity
         uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
 
         // make base & quote into the right order
@@ -145,7 +144,7 @@ library UniswapV3Broker {
         // zero input
         require(params.amount > 0, "UB_ZI");
 
-        // UniswapV3Pool will use a signed value to determine isExactInput or not.
+        // UniswapV3Pool uses the sign to determine isExactInput or not
         int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
 
         // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
@@ -195,32 +194,27 @@ library UniswapV3Broker {
         liquidity = IUniswapV3Pool(pool).liquidity();
     }
 
-    // note assuming base token == token0
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
-    // note assuming base token == token0
     function getTick(address pool) internal view returns (int24 tick) {
         (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
-    // note assuming base token == token0
     function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
         (, , , , , , , initialized) = IUniswapV3Pool(pool).ticks(tick);
     }
 
-    // note assuming base token == token0
     function getTickLiquidityNet(address pool, int24 tick) internal view returns (int128 liquidityNet) {
         (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
     }
 
-    // note assuming base token == token0
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
         if (twapInterval == 0) {
+            // return the current price if twapInterval == 0
             return getSqrtMarkPriceX96(pool);
         }
-
         uint32[] memory secondsAgos = new uint32[](2);
 
         // solhint-disable-next-line not-rely-on-time
@@ -228,6 +222,7 @@ library UniswapV3Broker {
         secondsAgos[1] = 0;
         (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
 
+        // tick(imprecise as it's an integer) to price
         return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
     }
 
@@ -268,7 +263,6 @@ library UniswapV3Broker {
         return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
     }
 
-    // note assuming base token == token0
     function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {
         return IUniswapV3Pool(pool).tickBitmap(wordPos);
     }
