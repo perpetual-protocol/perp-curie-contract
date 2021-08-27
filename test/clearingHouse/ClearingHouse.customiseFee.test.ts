@@ -271,6 +271,7 @@ describe("ClearingHouse customized fee", () => {
         describe("opening long first then", () => {
             beforeEach(async () => {
                 await deposit(taker, vault, 1000, collateral)
+                await deposit(taker2, vault, 1000, collateral)
 
                 // 71.9062751863 - 884.6906588359 ^ 2  / (10884.6906588362 + 2 * 0.99) = 0.01307786649
                 // taker swap 2 USD for 0.01307786649 ETH
