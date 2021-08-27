@@ -98,7 +98,8 @@ contract Quoter is IUniswapV3SwapCallback {
                 // s.t. we can take the fee away from exchangedPositionNotional
                 exchangedPositionNotional = quote.toInt256();
             } else {
-                // check the doc of custom fee for more details,
+                // check the doc of custom fee for more details
+                // let x : uniswapFeeRatio, y : clearingHouseFeeRatio
                 // qr * y * (1 - x) / (1 - y)
                 fee = FeeMath
                     .calcAmountWithFeeRatioReplaced(
