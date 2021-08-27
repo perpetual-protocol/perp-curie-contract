@@ -6,7 +6,7 @@ import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe.only("Quoter.swap", () => {
+describe("Quoter.swap", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
