@@ -80,7 +80,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     })
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=523274954
-    it.only("quote to base: 0.001633641682q => 0.244829292B, maker get fee", async () => {
+    it("quote to base: 0.001633641682q => 0.244829292B, maker get fee", async () => {
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,
