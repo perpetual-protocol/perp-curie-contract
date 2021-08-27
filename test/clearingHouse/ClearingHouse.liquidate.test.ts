@@ -141,8 +141,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
                 "CH_EAV",
@@ -157,8 +160,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Alice swap : 151.4780456375
             // setPool1IndexPrice(151.4780456375)
@@ -169,8 +175,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("50"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after bob swap : 143.0326798397
             // setPool1IndexPrice(143.0326798397)
@@ -223,8 +232,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("90"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Alice swap : 151.2675469692
             // setPool1IndexPrice(151.2675469692)
@@ -235,8 +247,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("40"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after bob swap : 158.6340597836
             // setPool1IndexPrice(158.6340597836)
@@ -277,16 +292,19 @@ describe("ClearingHouse liquidate", () => {
     describe("alice long ETH and BTC; later, ETH price goes down", () => {
         beforeEach(async () => {
             // makes alice able to trade
-            setPool1IndexPrice(200)
-            setPool2IndexPrice(200)
+            setPool1IndexPrice("151.373307")
+            setPool2IndexPrice("151.373307")
 
             // alice long ETH and BTC
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // ETH price after Alice long: 151.4256717409
             // setPool1IndexPrice(151.4256717409)
@@ -296,8 +314,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // BTC price after Alice long: 151.4256717409
             // setPool2IndexPrice(151.425671)
@@ -308,8 +329,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("80"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Bob short: 138.130291
             // setPool1IndexPrice(138.130291)
@@ -320,8 +344,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Bob long: 151.54207047
             // setPool2IndexPrice(151.54207047)
@@ -406,16 +433,19 @@ describe("ClearingHouse liquidate", () => {
     describe("alice short ETH and BTC; later, ETH up BTC down", () => {
         beforeEach(async () => {
             // makes alice able to trade
-            setPool1IndexPrice(100)
-            setPool2IndexPrice(100)
+            setPool1IndexPrice("151")
+            setPool2IndexPrice("151")
 
             // alice short ETH
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Alice short, 151.3198881742
             // setPool1IndexPrice(151.319888)
@@ -425,8 +455,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("45"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Alice short, 151.3198881742
             // setPool2IndexPrice(151.319888)
@@ -437,8 +470,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("80"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after bob swap : 166.6150230501
             // setPool1IndexPrice(166.615023)
@@ -449,8 +485,11 @@ describe("ClearingHouse liquidate", () => {
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after Bob short, 151.20121364648824
             // setPool2IndexPrice(151.201213)

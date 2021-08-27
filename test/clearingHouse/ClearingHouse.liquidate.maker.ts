@@ -99,9 +99,12 @@ describe("ClearingHouse liquidate maker", () => {
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: true, // exact input (quote)
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact input (quote)
             amount: parseEther("1000"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         setPool1IndexPrice(100000)
@@ -119,9 +122,12 @@ describe("ClearingHouse liquidate maker", () => {
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: true, // exact input (quote)
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact input (quote)
             amount: parseEther("1000"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         setPool1IndexPrice(100000)

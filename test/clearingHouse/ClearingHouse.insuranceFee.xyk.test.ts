@@ -42,7 +42,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         })
         await pool.initialize(encodePriceSqrt("10", "1"))
         await exchange.addPool(baseToken.address, "10000")
-        await clearingHouse.setInsuranceFundFeeRatio(baseToken.address, "400000")
+        await exchange.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -98,8 +98,11 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("250"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -108,8 +111,11 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("19.839679358717434869"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -151,8 +157,11 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 
@@ -161,8 +170,11 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
 

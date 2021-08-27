@@ -83,8 +83,11 @@ describe("ClearingHouse.funding", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.099"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // alice:
@@ -132,8 +135,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.099"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     await forward(3600)
 
@@ -167,8 +173,11 @@ describe("ClearingHouse.funding", () => {
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
+                            oppositeAmountBound: 0,
                             amount: parseEther("0.0000000001"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
                     )
                         .to.emit(clearingHouse, "FundingSettled")
@@ -191,8 +200,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.099"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
 
                     // alice add arbitrarily more liquidity. This should not impact alice's position size
@@ -231,8 +243,11 @@ describe("ClearingHouse.funding", () => {
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
+                            oppositeAmountBound: 0,
                             amount: parseEther("0.101"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
                     )
                         .to.emit(clearingHouse, "FundingSettled")
@@ -263,8 +278,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.099"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     await forward(3600)
 
@@ -273,8 +291,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("0.09"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
 
                     // alice's funding payment shouldn't change after carol swaps
@@ -315,8 +336,11 @@ describe("ClearingHouse.funding", () => {
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
+                            oppositeAmountBound: 0,
                             amount: parseEther("0.0000000001"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
                     )
                         .to.emit(clearingHouse, "FundingSettled")
@@ -339,8 +363,11 @@ describe("ClearingHouse.funding", () => {
                             baseToken: baseToken.address,
                             isBaseToQuote: false,
                             isExactInput: false,
+                            oppositeAmountBound: ethers.constants.MaxUint256,
                             amount: parseEther("0.0000000001"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
                     )
                         .to.emit(clearingHouse, "FundingSettled")
@@ -366,8 +393,11 @@ describe("ClearingHouse.funding", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("0.099"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
                 await forward(300)
 
@@ -381,8 +411,11 @@ describe("ClearingHouse.funding", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("0.09"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
 
                 // alice's funding payment shouldn't change after carol swaps
@@ -420,8 +453,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.0000000001"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "FundingSettled")
@@ -486,8 +522,11 @@ describe("ClearingHouse.funding", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1.2"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
                 await forward(3600)
 
@@ -501,8 +540,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
                 let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                let liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                    .liquidity
+                let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove half of the liquidity of the order (50000, 50400); all pending funding payment should be settled
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -534,7 +572,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove all the remaining liquidity of the order (50000, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -566,7 +604,7 @@ describe("ClearingHouse.funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
+                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
                 // remove all liquidity of the order (50200, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -625,8 +663,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1.2"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     await forward(3600)
 
@@ -646,7 +687,7 @@ describe("ClearingHouse.funding", () => {
                     )
 
                     let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                    let liquidity = (await clearingHouse.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                         .liquidity
 
                     // carol removes half of her liquidity; all pending funding payment should be settled
@@ -682,8 +723,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("0.4"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     // note that bob will settle his pending funding payment here
                     await forward(3600)
@@ -735,8 +779,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("0.2"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     await forward(3600)
 
@@ -754,8 +801,11 @@ describe("ClearingHouse.funding", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     await forward(3600)
 
@@ -770,7 +820,7 @@ describe("ClearingHouse.funding", () => {
                     )
 
                     const owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(carol.address)
-                    let liquidity = (await clearingHouse.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
+                    let liquidity = (await exchange.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
                         .liquidity
 
                     // carol removes all her liquidity; all pending funding payment should be settled
