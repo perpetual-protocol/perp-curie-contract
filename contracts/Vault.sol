@@ -167,21 +167,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     // TODO reduce external calls
     // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
     function _getFreeCollateral(address trader) private view returns (int256) {
-        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-        uint256 openOrderMarginRequirement = ClearingHouse(clearingHouse).getTotalOpenOrderMarginRequirement(trader);
-        int256 pendingFundingPayment = ClearingHouse(clearingHouse).getAllPendingFundingPayment(trader);
-
-        // accountValue = totalCollateralValue + totalMarketPnl
-        int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(trader);
-        int256 collateralValue =
-            balanceOf(trader).toInt256().addS(owedRealizedPnl.sub(pendingFundingPayment), decimals);
-        int256 totalMarketPnl = ClearingHouse(clearingHouse).getTotalUnrealizedPnl(trader);
-        int256 accountValue = collateralValue.addS(totalMarketPnl, decimals);
-
-        // collateral
-        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
-
-        return min.subS(openOrderMarginRequirement.toInt256(), decimals);
+        return ClearingHouse(clearingHouse).getFreeCollateralWithBalance(trader, balanceOf(trader));
     }
 
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {

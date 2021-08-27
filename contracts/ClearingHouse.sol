@@ -35,7 +35,6 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import "hardhat/console.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -731,7 +730,7 @@ contract ClearingHouse is
     }
 
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-    function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
+    function getTotalOpenOrderMarginRequirement(address trader) public view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
@@ -851,6 +850,24 @@ contract ClearingHouse is
         _getTotalInitialMarginRequirement(trader);
     }
 
+    function getFreeCollateralWithBalance(address trader, uint256 balance) public view returns (int256) {
+        // totalOpenOrderMarginRequirement = (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
+        uint256 openOrderMarginRequirement = getTotalOpenOrderMarginRequirement(trader);
+        int256 pendingFundingPayment = _getAllPendingFundingPayment(trader);
+
+        // accountValue = totalCollateralValue + totalMarketPnl
+        int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
+        int256 collateralValue =
+            balance.toInt256().addS(owedRealizedPnl.sub(pendingFundingPayment), _settlementTokenDecimals);
+        int256 totalMarketPnl = getTotalUnrealizedPnl(trader);
+        int256 accountValue = collateralValue.addS(totalMarketPnl, _settlementTokenDecimals);
+
+        // collateral
+        int256 min = collateralValue < accountValue ? collateralValue : accountValue;
+
+        return min.subS(openOrderMarginRequirement.toInt256(), _settlementTokenDecimals);
+    }
+
     //
     // INTERNAL FUNCTIONS
     //
@@ -872,7 +889,7 @@ contract ClearingHouse is
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
-            _requireLargerThanInitialMarginRequirement(account);
+            _requireEnoughFreeCollateral(account);
         }
 
         IMintableERC20(token).mint(address(this), amount);
@@ -1230,18 +1247,10 @@ contract ClearingHouse is
             TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
             _realizePnl(params.trader, quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256()));
         }
-        int256 cv = _getTotalCollateralValue(params.trader);
-        int256 pnl = getTotalUnrealizedPnl(params.trader);
-        int256 acc = getAccountValue(params.trader);
-        uint256 imr = _getTotalInitialMarginRequirement(params.trader);
-        console.log("init margin req ", imr);
-        console.logInt(acc);
-        console.logInt(cv);
-        console.logInt(pnl);
 
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
-            _requireLargerThanInitialMarginRequirement(params.trader);
+            _requireEnoughFreeCollateral(params.trader);
         }
 
         return swapResponse;
@@ -1643,11 +1652,8 @@ contract ClearingHouse is
         require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
-    function _requireLargerThanInitialMarginRequirement(address trader) internal view {
+    function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
-        require(
-            getAccountValue(trader).gte(_getTotalInitialMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
-            "CH_NEAV"
-        );
+        require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
     }
 }

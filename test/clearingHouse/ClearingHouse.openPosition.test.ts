@@ -151,171 +151,100 @@ describe("ClearingHouse openPosition", () => {
                 ).to.be.revertedWith("CH_F0S")
             })
         })
+    })
 
-        describe.only("taker has 0 collateral", () => {
-            describe("market price lesser than index price", () => {
-                beforeEach(async () => {
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("185", 6), 0, 0, 0]
-                    })
+    describe("taker has 0 collateral", () => {
+        // using formula: https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f#d3d12da52d4c455999dcca491a1ba34d
+        const calcQuoteAmountForLong = (marketPrice: number, indexPrice: number, liquidity: number): number => {
+            return (indexPrice * liquidity * 0.9 - marketPrice * liquidity) / Math.sqrt(marketPrice) / 10 ** 18 - 1
+        }
+        // using formula: https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f#a14db12f09404b0bb43242be5a706179
+        const calcQuoteAmountForShort = (marketPrice: number, indexPrice: number, liquidity: number): number => {
+            return (
+                (0.9 * marketPrice * liquidity - indexPrice * liquidity) / (0.9 * Math.sqrt(marketPrice)) / 10 ** 18 - 1
+            )
+        }
+        beforeEach(async () => {
+            // set fee ratio to 0
+            await clearingHouse.setFeeRatio(baseToken.address, 0)
+        })
+        describe("market price lesser than index price", () => {
+            beforeEach(async () => {
+                // the index price must be larger than (market price / 0.9) = 151 / 0.9 ~= 167
+                // market price = 151.373306858723226652
+                // index price = 170
+                // liquidity = 884690658835870366575
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("170", 6), 0, 0, 0]
                 })
-                it("force error, Q2B, due to not enough collateral for mint", async () => {
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: false,
-                            isExactInput: true,
-                            amount: parseEther("500"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
-
-                it("force error, B2Q, due to not enough collateral for mint", async () => {
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: false,
-                            amount: parseEther("500"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
-
-                it("force error, Q2B, deposit small amount (1 wei)", async () => {
-                    await collateral.connect(taker).approve(vault.address, 1)
-                    await vault.connect(taker).deposit(collateral.address, 1)
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: false,
-                            isExactInput: true,
-                            amount: parseEther("1"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
-                it("force error, B2Q, deposit small amount (1 wei)", async () => {
-                    await collateral.connect(taker).approve(vault.address, 1)
-                    await vault.connect(taker).deposit(collateral.address, 1)
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: false,
-                            amount: parseEther("1"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
-
-                it.only("test available quote token amount in long", async () => {
-                    // set fee ratio to 0
-                    await clearingHouse.setFeeRatio(baseToken.address, 0)
-
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("169", 6), 0, 0, 0]
-                    })
-
-                    const result = await clearingHouse
-                        .connect(maker)
-                        .getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
-                    console.log("liquidity: ", result.liquidity.toString()) // liquidity is 884690658835870366575
-
-                    // using formula in https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f#d3d12da52d4c455999dcca491a1ba34d
-                    const calcQuoteAmount = (marketPrice: number, indexPrice: number, liquidity: number): number => {
-                        return (
-                            (indexPrice * liquidity * 0.9 - marketPrice * liquidity) / Math.sqrt(marketPrice) / 10 ** 18
-                        )
-                    }
-
-                    // market price = 151.373306858723226652
-                    // index price = 169
-                    // liquidity = 884690658835870366575
-                    console.log(
-                        "quote amount(open long position without collateral): ",
-                        calcQuoteAmount(151.373306858723226652, 169, 884690658835870366575),
-                    )
-
-                    // can open a long position without collateral with quote token amount 52.25
-                    await clearingHouse.connect(taker).openPosition({
+            })
+            it("force error, Q2B, due to not enough collateral for mint", async () => {
+                const quoteAmount = calcQuoteAmountForLong(
+                    151.373306858723226652,
+                    170,
+                    884690658835870366575,
+                ).toString()
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
-                        amount: parseEther("52.25"),
+                        amount: parseEther(quoteAmount),
                         sqrtPriceLimitX96: 0,
-                    })
-
-                    // if quote token amount increased, open position failed
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: false,
-                            isExactInput: true,
-                            amount: parseEther("52.35"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
+                    }),
+                ).to.be.revertedWith("CH_NEAV")
             })
 
-            describe("market price greater than index price", () => {
-                beforeEach(async () => {
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("125", 6), 0, 0, 0]
-                    })
-                })
-                it("force error, Q2B, due to not enough collateral for mint", async () => {
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: false,
-                            isExactInput: true,
-                            amount: parseEther("500"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
+            it("force error, B2Q, due to not enough collateral for mint", async () => {
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: false,
+                        amount: parseEther("100"),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_NEAV")
+            })
+        })
 
-                it("force error, B2Q, due to not enough collateral for mint", async () => {
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: false,
-                            amount: parseEther("500"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
+        describe("market price larger than index price", () => {
+            beforeEach(async () => {
+                // the index price must be lesser than (market price * 0.9) = 151 * 0.9 ~= 135.9
+                // market price = 151.373306858723226652
+                // index price = 133
+                // liquidity = 884690658835870366575
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("133", 6), 0, 0, 0]
                 })
+            })
+            it("force error, Q2B, due to not enough collateral for mint", async () => {
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: true,
+                        amount: parseEther("100"),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_NEAV")
+            })
 
-                it("force error, Q2B, deposit small amount (1 wei)", async () => {
-                    await collateral.connect(taker).approve(vault.address, 1)
-                    await vault.connect(taker).deposit(collateral.address, 1)
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: false,
-                            isExactInput: true,
-                            amount: parseEther("1"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
-                it("force error, B2Q, deposit small amount (1 wei)", async () => {
-                    await collateral.connect(taker).approve(vault.address, 1)
-                    await vault.connect(taker).deposit(collateral.address, 1)
-                    await expect(
-                        clearingHouse.connect(taker).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: false,
-                            amount: parseEther("1"),
-                            sqrtPriceLimitX96: 0,
-                        }),
-                    ).to.be.revertedWith("CH_NEAV")
-                })
+            it("force error, B2Q, due to not enough collateral for mint", async () => {
+                const quoteAmount = calcQuoteAmountForShort(
+                    151.373306858723226652,
+                    133,
+                    884690658835870366575,
+                ).toString()
+                await expect(
+                    clearingHouse.connect(taker).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: false,
+                        amount: parseEther(quoteAmount),
+                        sqrtPriceLimitX96: 0,
+                    }),
+                ).to.be.revertedWith("CH_NEAV")
             })
         })
     })
