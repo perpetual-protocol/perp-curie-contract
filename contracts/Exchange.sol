@@ -112,7 +112,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         Funding.Growth updatedGlobalFundingGrowth;
-        bool mintForTrader; // TODO delet after remove ch.swap
     }
 
     struct SwapResponse {
@@ -131,7 +130,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     struct SwapCallbackData {
         address trader;
         address baseToken;
-        bool mintForTrader; // TODO delet after remove ch.swap
         uint24 uniswapFeeRatio;
         uint256 fee;
     }
@@ -354,7 +352,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                         SwapCallbackData(
                             params.trader,
                             params.baseToken,
-                            params.mintForTrader,
                             _uniswapFeeRatioMap[pool],
                             internalSwapState.fee
                         )

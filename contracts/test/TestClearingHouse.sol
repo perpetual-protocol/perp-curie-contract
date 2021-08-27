@@ -36,8 +36,7 @@ contract TestClearingHouse is ClearingHouse {
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mintForTrader: false
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
     }

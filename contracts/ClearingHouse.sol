@@ -187,7 +187,6 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        bool mintForTrader;
     }
 
     struct SwapResponse {
@@ -614,15 +613,13 @@ contract ClearingHouse is
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
         // 2. openPosition
-        if (callbackData.mintForTrader) {
-            uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            // if quote to base, need to mint clearing house quote fee for trader
-            uint256 amount =
-                token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
+        uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+        // if quote to base, need to mint clearing house quote fee for trader
+        uint256 amount =
+            token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
 
-            if (availableBefore < amount) {
-                _mint(callbackData.trader, token, amount.sub(availableBefore), false);
-            }
+        if (availableBefore < amount) {
+            _mint(callbackData.trader, token, amount.sub(availableBefore), false);
         }
 
         // swap
@@ -1107,8 +1104,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth,
-                    mintForTrader: params.mintForTrader
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
 
@@ -1218,8 +1214,7 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mintForTrader: true
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 
