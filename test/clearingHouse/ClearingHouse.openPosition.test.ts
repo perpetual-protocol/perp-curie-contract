@@ -166,7 +166,7 @@ describe("ClearingHouse openPosition", () => {
         }
         beforeEach(async () => {
             // set fee ratio to 0
-            await clearingHouse.setFeeRatio(baseToken.address, 0)
+            await exchange.setFeeRatio(baseToken.address, 0)
         })
         describe("market price lesser than index price", () => {
             beforeEach(async () => {
