@@ -986,13 +986,29 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _openOrderMap[orderId];
     }
 
+    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
+        uint256 totalQuoteAmountInPools;
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            address baseToken = baseTokens[i];
+            uint256 quoteInPool =
+                getTotalTokenAmountInPool(
+                    trader,
+                    baseToken,
+                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
+                    false
+                );
+            totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
+        }
+        return totalQuoteAmountInPools;
+    }
+
     /// @dev funding payment belongs to realizedPnl, not token amount
     function getTotalTokenAmountInPool(
         address trader,
         address baseToken,
         uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view returns (uint256 tokenAmount) {
+    ) public view returns (uint256 tokenAmount) {
         bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
 
         //

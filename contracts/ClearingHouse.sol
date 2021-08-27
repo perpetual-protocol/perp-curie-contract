@@ -722,27 +722,15 @@ contract ClearingHouse is
         return _getPositionSize(trader, baseToken, Exchange(exchange).getSqrtMarkPriceX96(baseToken));
     }
 
-    // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
+    // quote.available - quote.debt + totalQuoteInPools - pendingFundingPayment
     function getNetQuoteBalance(address trader) public view returns (int256) {
-        uint256 quoteInPool;
-        uint256 tokenLen = _accountMap[trader].tokens.length;
-
-        // TODO merge into 1 exchange function
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _accountMap[trader].tokens[i];
-            quoteInPool = quoteInPool.add(
-                Exchange(exchange).getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    Exchange(exchange).getSqrtMarkPriceX96(baseToken),
-                    false // fetch quote token amount
-                )
-            );
-        }
-
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+
+        // include pendingFundingPayment
+        uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
+
         int256 netQuoteBalance =
-            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
+            quoteTokenInfo.available.toInt256().add(totalQuoteInPools.toInt256()).sub(quoteTokenInfo.debt.toInt256());
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
