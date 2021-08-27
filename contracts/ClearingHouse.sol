@@ -476,16 +476,20 @@ contract ClearingHouse is
         // CH_FMV: failed mintCallback verification
         require(_msgSender() == exchange, "CH_FMV");
 
-        address baseToken = abi.decode(data, (address));
+        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
 
-        // TODO move to calldata
-        address pool = Exchange(exchange).getPool(baseToken);
+        // TODO won't need this external call once moved to Exchange
+        address pool = Exchange(exchange).getPool(callbackData.baseToken);
 
         if (amount0Owed > 0) {
-            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
+            address token = IUniswapV3Pool(pool).token0();
+            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
+            TransferHelper.safeTransfer(token, pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token1(), pool, amount1Owed);
+            address token = IUniswapV3Pool(pool).token1();
+            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
+            TransferHelper.safeTransfer(token, pool, amount1Owed);
         }
     }
 
@@ -583,7 +587,7 @@ contract ClearingHouse is
 
         Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
 
-        // TODO move to calldata
+        // TODO won't need this external call once moved to Exchange
         IUniswapV3Pool pool = IUniswapV3Pool(Exchange(exchange).getPool(callbackData.baseToken));
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
@@ -880,6 +884,18 @@ contract ClearingHouse is
 
         emit Minted(account, token, amount);
         return amount;
+    }
+
+    // mint more token if the trader does not have more than the specified amount available
+    function _mintIfNotEnough(
+        address account,
+        address token,
+        uint256 amount
+    ) internal {
+        uint256 availableBefore = getTokenInfo(account, token).available;
+        if (availableBefore < amount) {
+            _mint(account, token, amount.sub(availableBefore), false);
+        }
     }
 
     // caller must ensure the token exists
@@ -1189,6 +1205,10 @@ contract ClearingHouse is
             quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
             _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
         }
+
+        // burn all unnecessary tokens
+        _burnMax(params.maker, params.baseToken);
+        _burnMax(params.maker, quoteToken);
 
         emit LiquidityChanged(
             params.maker,

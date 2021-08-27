@@ -127,6 +127,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _clearingHouseFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
+    struct MintCallbackData {
+        address trader;
+        address baseToken;
+    }
+
     struct SwapCallbackData {
         address trader;
         address baseToken;
@@ -418,7 +423,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     params.lowerTick,
                     params.upperTick,
                     params.base,
-                    params.quote
+                    params.quote,
+                    abi.encode(MintCallbackData(params.trader, params.baseToken))
                 )
             );
             // mint callback
