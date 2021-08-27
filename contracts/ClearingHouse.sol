@@ -735,7 +735,7 @@ contract ClearingHouse is
     }
 
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-    function getTotalOpenOrderMarginRequirement(address trader) public view returns (uint256) {
+    function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
