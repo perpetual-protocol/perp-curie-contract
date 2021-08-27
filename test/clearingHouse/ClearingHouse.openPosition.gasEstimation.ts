@@ -91,8 +91,11 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             await forward(3600)
         }
@@ -115,9 +118,12 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: false, // exact output (base)
+            isExactInput: false,
+            oppositeAmountBound: ethers.constants.MaxUint256, // exact output (base)
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
     }).timeout(300000) // 5 mins
 })

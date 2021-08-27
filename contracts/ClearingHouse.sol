@@ -106,6 +106,7 @@ contract ClearingHouse is
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
+    event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeUpdated(address exchange);
 
     //
@@ -216,7 +217,20 @@ contract ClearingHouse is
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        // when it's 0 in exactInput, means ignore slippage protection
+        // when it's maxUint in exactOutput = ignore
+        // when it's over or under the bound, it will be reverted
+        uint256 oppositeAmountBound;
+        uint256 deadline;
+        // B2Q: the price cannot be less than this value after the swap
+        // Q2B: The price cannot be greater than this value after the swap
+        // it will fill the trade until it reach the price limit instead of reverted
+        uint160 sqrtPriceLimitX96;
+        bytes32 referralCode;
     }
 
     struct InternalOpenPositionParams {
@@ -413,16 +427,23 @@ contract ClearingHouse is
         return (response.base, response.quote, response.fee);
     }
 
-    function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
-        external
-        returns (uint256 deltaBase, uint256 deltaQuote)
-    {
+    function closePosition(
+        address baseToken,
+        uint160 sqrtPriceLimitX96,
+        uint256 deadline,
+        bytes32 referralCode
+    ) external checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
         SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
+        emit ReferredPositionChanged(referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
+    function openPosition(OpenPositionParams memory params)
+        external
+        checkDeadline(params.deadline)
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
@@ -460,6 +481,29 @@ contract ClearingHouse is
                 })
             );
 
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        if (params.isBaseToQuote) {
+            if (params.isExactInput) {
+                // too little received
+                require(response.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
+            }
+        } else {
+            if (params.isExactInput) {
+                // too little received
+                require(response.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
+            }
+        }
+
+        emit ReferredPositionChanged(params.referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
