@@ -473,6 +473,31 @@ contract ClearingHouse is
                 })
             );
 
+        // when base to quote, exact input
+        // want more output quote as possible, so we set a lower bound of output quote
+        // when base to quote, exact output
+        // want less input base as possible, so we set a upper bound of input base
+        // when quote to base, exact input, lowerBase
+        // want more output base as possible, so we set a lower bound of output base
+        // when quote to base, exact output
+        // want less input quote as possible, so we set a upper bound of input quote
+        if (params.isBaseToQuote) {
+            if (params.isExactInput) {
+                // too little received
+                require(response.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
+            }
+        } else {
+            if (params.isExactInput) {
+                require(response.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
+            }
+        }
+
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
