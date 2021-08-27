@@ -3,7 +3,6 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -81,7 +80,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     })
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=523274954
-    it("quote to base: 0.001633641682q => 0.244829292B, maker get fee", async () => {
+    it.only("quote to base: 0.001633641682q => 0.244829292B, maker get fee", async () => {
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,
