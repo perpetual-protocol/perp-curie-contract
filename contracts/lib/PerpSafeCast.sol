@@ -148,6 +148,24 @@ library PerpSafeCast {
     }
 
     /**
+     * @dev Returns the downcasted int24 from int256, reverting on
+     * overflow (when the input is less than smallest int24 or
+     * greater than largest int24).
+     *
+     * Counterpart to Solidity's `int24` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 24 bits
+     *
+     * _Available since v3.1._
+     */
+    function toInt24(int256 value) internal pure returns (int24) {
+        require(value >= -2**23 && value < 2**23, "SafeCast: value doesn't fit in 24 bits");
+        return int24(value);
+    }
+
+    /**
      * @dev Returns the downcasted int16 from int256, reverting on
      * overflow (when the input is less than smallest int16 or
      * greater than largest int16).

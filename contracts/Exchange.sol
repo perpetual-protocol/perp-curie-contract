@@ -214,7 +214,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint256) internal _maxTickCrossedWithinBlockMap;
+    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
 
     // key: base token. tracking the final tick from last block
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
@@ -270,7 +270,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BTNE: base token not exists
         require(_poolMap[baseToken] != address(0), "EX_BTNE");
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
@@ -584,51 +584,50 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
-        uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
-        if (maxTickDelta == 0) {
-            return false;
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+
+        if (maxTickDelta != 0) {
+            int24 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
+            int24 upperTickBound = int256(tickLastBlock).add(maxTickDelta).toInt24();
+            int24 lowerTickBound = int256(tickLastBlock).sub(maxTickDelta).toInt24();
+
+            address pool = _poolMap[params.baseToken];
+            uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
+            uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
+            (, int256 signedScaledAmountForReplaySwap) =
+                _getScaledAmountForSwaps(
+                    params.isBaseToQuote,
+                    params.isExactInput,
+                    params.amount,
+                    clearingHouseFeeRatio,
+                    uniswapFeeRatio
+                );
+            SwapState memory state =
+                SwapState({
+                    tick: UniswapV3Broker.getTick(pool),
+                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                    amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
+                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                    liquidity: UniswapV3Broker.getLiquidity(pool)
+                });
+
+            // globalFundingGrowth can be empty if shouldUpdateState is false
+            (, , int24 tickAfterSwap) =
+                _replaySwap(
+                    ReplaySwapParams({
+                        state: state,
+                        baseToken: params.baseToken,
+                        isBaseToQuote: params.isBaseToQuote,
+                        sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                        clearingHouseFeeRatio: clearingHouseFeeRatio,
+                        uniswapFeeRatio: uniswapFeeRatio,
+                        shouldUpdateState: false,
+                        globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                    })
+                );
+
+            return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
         }
-
-        int256 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
-        int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
-        int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
-
-        address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
-        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
-        (, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.amount,
-                clearingHouseFeeRatio,
-                uniswapFeeRatio
-            );
-        SwapState memory state =
-            SwapState({
-                tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
-                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                liquidity: UniswapV3Broker.getLiquidity(pool)
-            });
-
-        // globalFundingGrowth can be empty if shouldUpdateState is false
-        (, , int24 tickAfterSwap) =
-            _replaySwap(
-                ReplaySwapParams({
-                    state: state,
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio: clearingHouseFeeRatio,
-                    uniswapFeeRatio: uniswapFeeRatio,
-                    shouldUpdateState: false,
-                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
-                })
-            );
-
-        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
 
     // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
@@ -965,13 +964,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             tokenAmount = tokenAmount.add(amount);
 
             if (!fetchBase) {
-                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
+                // get uncollected fee (only quote)
 
-                // uncollected quote fee in ClearingHouse
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
                 uint256 feeGrowthInsideClearingHouseX128 =
-                    tickMap.getFeeGrowthInside(order.lowerTick, order.upperTick, tick, feeGrowthGlobalX128);
+                    tickMap.getFeeGrowthInside(
+                        order.lowerTick,
+                        order.upperTick,
+                        TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96),
+                        feeGrowthGlobalX128
+                    );
 
                 tokenAmount = tokenAmount.add(
                     _calcOwedFee(
@@ -984,7 +987,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
     }
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
