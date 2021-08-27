@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import "hardhat/console.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
@@ -1126,8 +1127,13 @@ contract ClearingHouse is
         private
         returns (RemoveLiquidityResponse memory)
     {
+        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+
+        console.log("ch orderId");
+        console.logBytes32(orderId);
+
         bytes32[] memory orderIds = new bytes32[](1);
-        orderIds[0] = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        orderIds[0] = orderId;
         return _removeLiquidityByIds(params.maker, params.baseToken, orderIds);
     }
 
