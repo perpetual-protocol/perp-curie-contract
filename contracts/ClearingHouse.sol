@@ -220,11 +220,15 @@ contract ClearingHouse is
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
         // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
-        // lower bound to 0 = ignore = exactInput
-        // upper bound to MaxUint = ignore = exactOutput
+        // when it's 0 in exactInput, means ignore slippage protection
+        // when it's maxUint in exactOutput = ignore
+        // when it's over or under the bound, it will be reverted
         uint256 oppositeAmountBound;
         uint256 deadline;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        // B2Q: the price cannot be less than this value after the swap
+        // Q2B: The price cannot be greater than this value after the swap
+        // it will fill the trade until it reach the price limit instead of reverted
+        uint160 sqrtPriceLimitX96;
         bytes32 referralCode;
     }
 
@@ -495,6 +499,7 @@ contract ClearingHouse is
             }
         } else {
             if (params.isExactInput) {
+                // too little received
                 require(response.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
             } else {
                 // too much requested
