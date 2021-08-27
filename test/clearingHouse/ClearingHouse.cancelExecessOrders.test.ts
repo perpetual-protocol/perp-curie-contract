@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse cancelAllExcessOrders()", () => {
+describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -163,21 +163,20 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
     })
 
-    describe("cancelExcessOrders", () => {
-        beforeEach(async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100000", 6), 0, 0, 0]
-            })
-            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+    it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100000", 6), 0, 0, 0]
         })
 
-        it("nothing happen when baseToken and orderId doesn't match", async () => {
-            const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 1).to.be.true
 
-            await clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore)
+        // _getOrderId() with baseToken2 would generate a non-existent orderId
+        await expect(
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
+        ).to.be.revertedWith("EX_NEO")
 
-            const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-            expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
-        })
+        const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
     })
 })
