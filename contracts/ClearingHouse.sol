@@ -106,6 +106,7 @@ contract ClearingHouse is
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
+    event ReferredPositionChanged(bytes32 indexed referralCode);
 
     //
     // Struct
@@ -219,8 +220,12 @@ contract ClearingHouse is
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
         // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        // lower bound to 0 = ignore = exactInput
+        // upper bound to MaxUint = ignore = exactOutput
         uint256 oppositeAmountBound;
+        uint256 deadline;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        bytes32 referralCode;
     }
 
     struct InternalOpenPositionParams {
@@ -422,16 +427,23 @@ contract ClearingHouse is
         return (response.base, response.quote, response.fee);
     }
 
-    function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
-        external
-        returns (uint256 deltaBase, uint256 deltaQuote)
-    {
+    function closePosition(
+        address baseToken,
+        uint160 sqrtPriceLimitX96,
+        uint256 deadline,
+        bytes32 referralCode
+    ) external checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
         SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
+        emit ReferredPositionChanged(referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
+    function openPosition(OpenPositionParams memory params)
+        external
+        checkDeadline(params.deadline)
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
@@ -490,6 +502,7 @@ contract ClearingHouse is
             }
         }
 
+        emit ReferredPositionChanged(params.referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
