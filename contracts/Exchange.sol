@@ -496,8 +496,39 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             });
     }
 
-    function removeLiquidity(RemoveLiquidityParams calldata params)
-        external
+    function removeLiquidityByIds(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+        uint256 totalBase;
+        uint256 totalQuote;
+        uint256 totalFee;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            bytes32 orderId = orderIds[i];
+            OpenOrder memory order = _openOrderMap[orderId];
+
+            RemoveLiquidityResponse memory response =
+                removeLiquidity(
+                    RemoveLiquidityParams({
+                        maker: maker,
+                        baseToken: baseToken,
+                        lowerTick: order.lowerTick,
+                        upperTick: order.upperTick,
+                        liquidity: order.liquidity
+                    })
+                );
+
+            totalBase = totalBase.add(response.base);
+            totalQuote = totalQuote.add(response.quote);
+            totalFee = totalFee.add(response.fee);
+        }
+
+        return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
+    }
+
+    function removeLiquidity(RemoveLiquidityParams memory params)
+        public
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {

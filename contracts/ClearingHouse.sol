@@ -629,23 +629,10 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        // TODO add exchange removeLiquidity(orderIds)
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            Exchange.OpenOrder memory openOrder = Exchange(exchange).getOpenOrderById(orderId);
-            _removeLiquidity(
-                InternalRemoveLiquidityParams(
-                    maker,
-                    baseToken,
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
-                    openOrder.liquidity
-                )
-            );
+        Exchange(exchange).removeLiquidityByIds(maker, baseToken, orderIds);
 
-            // burn maker's debt to reduce maker's init margin requirement
-            _burnMax(maker, baseToken);
-        }
+        // burn maker's debt to reduce maker's init margin requirement
+        _burnMax(maker, baseToken);
 
         // burn maker's quote to reduce maker's init margin requirement
         _burnMax(maker, quoteToken);
