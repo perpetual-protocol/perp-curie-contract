@@ -8,7 +8,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-// TODO make every test fail bcs of oppositeAmountBound
+// https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=238402888
 describe("ClearingHouse openPosition slippage in xyk pool", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -76,66 +76,58 @@ describe("ClearingHouse openPosition slippage in xyk pool", () => {
         await deposit(taker, vault, 1000, collateral)
     })
 
-    // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=238402888
-    describe("taker open position from zero", () => {
-        afterEach(async () => {
-            expect(await clearingHouse.getOwedRealizedPnl(taker.address)).eq(parseEther("0"))
-        })
+    it("B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote", async () => {
+        await expect(
+            clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("25"),
+                oppositeAmountBound: parseEther("200"),
+                sqrtPriceLimitX96: 0,
+            }),
+        ).to.be.revertedWith("CH_TLR")
+    })
 
-        it.only("Q2B exactInput", async () => {
-            // taker swap exact 250 USD for 19.84 ETH
-            expect(
-                await clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: false,
-                    isExactInput: true,
-                    amount: parseEther("250"),
-                    oppositeAmountBound: parseEther("20"),
-                    sqrtPriceLimitX96: 0,
-                }),
-            ).to.be.revertedWith("CH_TLR")
-        })
+    it("B2Q + exact output, want less input base as possible, so we set a upper bound of input base", async () => {
+        // taker swap exact 250 USD for expected 20 ETH but got less
+        await expect(
+            clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: parseEther("250"),
+                oppositeAmountBound: parseEther("25"),
+                sqrtPriceLimitX96: 0,
+            }),
+        ).to.be.revertedWith("CH_TMR")
+    })
 
-        // it("increase positionSize and openNotional (negative for long) - exactOutput", async () => {
-        //     // taker swap 252.53 USD for exact 20 ETH
-        //     await clearingHouse.connect(taker).openPosition({
-        //         baseToken: baseToken.address,
-        //         isBaseToQuote: false,
-        //         isExactInput: false,
-        //         amount: parseEther("20"),
-        //         sqrtPriceLimitX96: 0,
-        //     })
-        //     expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("20"))
-        //     expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).closeTo(
-        //         parseEther("-252.525252525252525252"),
-        //         1,
-        //     )
-        // })
-        //
-        // it("increase -positionSize and openNotional (positive for short) - exactInput", async () => {
-        //     // taker swap exact 25 ETH for 198 USD
-        //     await clearingHouse.connect(taker).openPosition({
-        //         baseToken: baseToken.address,
-        //         isBaseToQuote: true,
-        //         isExactInput: true,
-        //         amount: parseEther("25"),
-        //         sqrtPriceLimitX96: 0,
-        //     })
-        //     expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-        //     expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
-        // })
-        //
-        // it("increase -positionSize and openNotional (positive for short) - exactOutput", async () => {
-        //     // taker swap exact 25 ETH for 198 USD
-        //     await clearingHouse.connect(taker).openPosition({
-        //         baseToken: baseToken.address,
-        //         isBaseToQuote: true,
-        //         isExactInput: false,
-        //         amount: parseEther("198"),
-        //         sqrtPriceLimitX96: 0,
-        //     })
-        //     expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-        //     expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
-        // })
+    it("Q2B + exact input, want more output base as possible, so we set a lower bound of output base", async () => {
+        // taker swap exact 250 USD for expected 20 ETH but got less
+        await expect(
+            clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("250"),
+                oppositeAmountBound: parseEther("20"),
+                sqrtPriceLimitX96: 0,
+            }),
+        ).to.be.revertedWith("CH_TLR")
+    })
+
+    it("Q2B + exact output want less input quote as possible, so we set a upper bound of input quote", async () => {
+        // taker swap exact 250 USD for expected 20 ETH but got less
+        await expect(
+            clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                amount: parseEther("20"),
+                oppositeAmountBound: parseEther("250"),
+                sqrtPriceLimitX96: 0,
+            }),
+        ).to.be.revertedWith("CH_TMR")
     })
 })

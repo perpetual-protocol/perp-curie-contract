@@ -215,14 +215,10 @@ contract ClearingHouse is
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
-        // when base to quote, exact input
-        // want more output quote as possible, so we set a lower bound of output quote
-        // when base to quote, exact output
-        // want less input base as possible, so we set a upper bound of input base
-        // when quote to base, exact input, lowerBase
-        // want more output base as possible, so we set a lower bound of output base
-        // when quote to base, exact output
-        // want less input quote as possible, so we set a upper bound of input quote
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
         uint256 oppositeAmountBound;
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
@@ -473,14 +469,10 @@ contract ClearingHouse is
                 })
             );
 
-        // when base to quote, exact input
-        // want more output quote as possible, so we set a lower bound of output quote
-        // when base to quote, exact output
-        // want less input base as possible, so we set a upper bound of input base
-        // when quote to base, exact input, lowerBase
-        // want more output base as possible, so we set a lower bound of output base
-        // when quote to base, exact output
-        // want less input quote as possible, so we set a upper bound of input quote
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
         if (params.isBaseToQuote) {
             if (params.isExactInput) {
                 // too little received
