@@ -723,8 +723,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
     }
 
     // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function

@@ -1437,7 +1437,7 @@ contract ClearingHouse is
             twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[token]));
         }
 
-        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg);
+        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
     }
 
     // --- funding related getters ---
