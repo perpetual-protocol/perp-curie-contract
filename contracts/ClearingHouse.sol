@@ -1402,7 +1402,7 @@ contract ClearingHouse is
                 .twPremiumDivBySqrtPriceX96
                 .add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-                    uint256(Exchange(exchange).getSqrtMarkPriceX96(baseToken)).toInt256()
+                    uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
                 )
             );
         } else {
@@ -1546,10 +1546,12 @@ contract ClearingHouse is
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }

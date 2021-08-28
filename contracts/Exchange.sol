@@ -687,10 +687,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _exchangeFeeRatioMap[_poolMap[baseToken]];
     }
 
-    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
-        return _uniswapFeeRatioMap[_poolMap[baseToken]];
-    }
-
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
         return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
     }
@@ -702,10 +698,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 upperTick
     ) external view returns (OpenOrder memory) {
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
-    }
-
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
-        return _openOrderMap[orderId];
     }
 
     function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
@@ -733,10 +725,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
         return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
     // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
