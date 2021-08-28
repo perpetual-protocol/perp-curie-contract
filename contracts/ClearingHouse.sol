@@ -536,7 +536,7 @@ contract ClearingHouse is
 
         address[] memory tokens = _accountMap[trader].tokens;
 
-        // TODO merge into 1 exchange function
+        // TODO merge into 1 exchange function, or just call cancelAllExcessOrders
         for (uint256 i = 0; i < tokens.length; i++) {
             bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, tokens[i]);
             // CH_NEO: not empty order
