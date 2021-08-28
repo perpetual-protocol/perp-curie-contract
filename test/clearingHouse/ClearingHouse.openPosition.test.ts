@@ -404,8 +404,6 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 it("mint more but burn all of them after swap because there's enough available", async () => {
-                    await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("200"))
-
                     // taker swap ? USD for 1 ETH
                     await expect(
                         clearingHouse.connect(taker).openPosition({
@@ -418,7 +416,7 @@ describe("ClearingHouse openPosition", () => {
                             deadline: ethers.constants.MaxUint256,
                             referralCode: ethers.constants.HashZero,
                         }),
-                    ).not.emit(clearingHouse, "Minted")
+                    ).emit(clearingHouse, "Minted")
 
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
