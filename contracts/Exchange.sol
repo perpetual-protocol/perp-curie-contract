@@ -289,7 +289,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external checkRatio(feeRatio) {
+    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner checkRatio(feeRatio) {
         _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
@@ -565,35 +565,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _removeLiquidity(params);
     }
 
-    // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
-    function getLiquidityCoefficientInFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory updatedGlobalFundingGrowth
-    ) external view returns (int256) {
-        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
-        int256 liquidityCoefficientInFundingPayment;
-
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = _openOrderMap[orderIds[i]];
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                _growthOutsideTickMap[baseToken].getAllFundingGrowth(
-                    order.lowerTick,
-                    order.upperTick,
-                    UniswapV3Broker.getTick(_poolMap[baseToken]),
-                    updatedGlobalFundingGrowth.twPremiumX96,
-                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                );
-
-            // the calculation here is based on cached values
-            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
-            );
-        }
-
-        return liquidityCoefficientInFundingPayment;
-    }
-
     // TODO rename to updateLastFundingGrowth
     function getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
@@ -702,6 +673,106 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FSV");
 
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    //
+    // EXTERNAL VIEW
+    //
+
+    function getPool(address baseToken) external view returns (address) {
+        return _poolMap[baseToken];
+    }
+
+    function getFeeRatio(address baseToken) external view returns (uint24) {
+        return _exchangeFeeRatioMap[_poolMap[baseToken]];
+    }
+
+    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
+        return _uniswapFeeRatioMap[_poolMap[baseToken]];
+    }
+
+    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
+        return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+    }
+
+    function getOpenOrder(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (OpenOrder memory) {
+        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
+    }
+
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
+        return _openOrderMap[orderId];
+    }
+
+    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
+        uint256 totalQuoteAmountInPools;
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            address baseToken = baseTokens[i];
+            uint256 quoteInPool =
+                _getTotalTokenAmountInPool(
+                    trader,
+                    baseToken,
+                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
+                    false
+                );
+            totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
+        }
+        return totalQuoteAmountInPools;
+    }
+
+    /// @dev funding payment belongs to realizedPnl, not token amount
+    function getTotalTokenAmountInPool(
+        address trader,
+        address baseToken,
+        uint160 sqrtMarkPriceX96,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
+    ) external view returns (uint256 tokenAmount) {
+        return _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, fetchBase);
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
+    }
+
+    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+    }
+
+    // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
+    function getLiquidityCoefficientInFundingPayment(
+        address trader,
+        address baseToken,
+        Funding.Growth memory updatedGlobalFundingGrowth
+    ) external view returns (int256) {
+        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        int256 liquidityCoefficientInFundingPayment;
+
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+                _growthOutsideTickMap[baseToken].getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    updatedGlobalFundingGrowth.twPremiumX96,
+                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+
+            // the calculation here is based on cached values
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+            );
+        }
+
+        return liquidityCoefficientInFundingPayment;
     }
 
     //
@@ -985,77 +1056,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
 
         return (fee, insuranceFundFee, params.state.tick);
-    }
-
-    //
-    // EXTERNAL VIEW
-    //
-
-    function getPool(address baseToken) external view returns (address) {
-        return _poolMap[baseToken];
-    }
-
-    function getFeeRatio(address baseToken) external view returns (uint24) {
-        return _exchangeFeeRatioMap[_poolMap[baseToken]];
-    }
-
-    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
-        return _uniswapFeeRatioMap[_poolMap[baseToken]];
-    }
-
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
-    }
-
-    function getOpenOrder(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) external view returns (OpenOrder memory) {
-        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
-    }
-
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
-        return _openOrderMap[orderId];
-    }
-
-    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
-        uint256 totalQuoteAmountInPools;
-        for (uint256 i = 0; i < baseTokens.length; i++) {
-            address baseToken = baseTokens[i];
-            uint256 quoteInPool =
-                _getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
-                    false
-                );
-            totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
-        }
-        return totalQuoteAmountInPools;
-    }
-
-    /// @dev funding payment belongs to realizedPnl, not token amount
-    function getTotalTokenAmountInPool(
-        address trader,
-        address baseToken,
-        uint160 sqrtMarkPriceX96,
-        bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view returns (uint256 tokenAmount) {
-        return _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, fetchBase);
-    }
-
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
     }
 
     //
