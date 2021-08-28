@@ -37,6 +37,8 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     address public immutable settlementToken;
     address public clearingHouse;
 
+    // cached the settlement token's decimal for gas optimization
+    // owner must ensure the settlement token's decimal is not immutable
     uint8 public immutable override decimals;
 
     address[] internal _collateralTokens;

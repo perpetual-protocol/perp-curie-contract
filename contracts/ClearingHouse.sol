@@ -260,6 +260,8 @@ contract ClearingHouse is
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
+    // cached the settlement token's decimal for gas optimization
+    // owner must ensure the settlement token's decimal is not immutable
     uint8 internal immutable _settlementTokenDecimals;
 
     uint32 public twapInterval = 15 minutes;

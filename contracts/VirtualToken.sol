@@ -15,7 +15,7 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
 
     address public priceFeed;
     address public minter;
-    uint8 private immutable _priceFeedDecimals;
+
     mapping(address => bool) private _whitelistMap;
 
     constructor(
@@ -29,7 +29,6 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
         // invalid price feed decimals
         require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "VT_IPFD");
         priceFeed = priceFeedArg;
-        _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
 
         // transfer to 0 = burn
         _whitelistMap[address(0)] = true;
@@ -70,7 +69,8 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        return _price.mul(10**uint256(decimals())).div(10**uint256(_priceFeedDecimals));
+        uint8 decimals = IPriceFeed(priceFeedArg).decimals();
+        return _price.mul(10**uint256(decimals())).div(10**uint256(decimals));
     }
 
     /// @inheritdoc ERC20
