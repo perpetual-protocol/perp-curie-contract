@@ -639,7 +639,8 @@ contract ClearingHouse is
         //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
         //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
         //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
-        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, callbackData.uniswapFeeRatio, false);
+        uint256 exactSwappedAmount =
+            FeeMath.calcAmountScaledByFeeRatio(amountToPay, callbackData.uniswapFeeRatio, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 

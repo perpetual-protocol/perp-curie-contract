@@ -332,8 +332,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 insuranceFundFee: 0
             });
         {
-            (uint256 scaledAmount, int256 signedScaledAmount) =
-                _getScaledAmount(
+            (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
+                _getScaledAmountForSwaps(
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
@@ -344,7 +344,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 SwapState({
                     tick: UniswapV3Broker.getTick(pool),
                     sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                    amountSpecifiedRemaining: signedScaledAmount,
+                    amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                     feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
                     liquidity: UniswapV3Broker.getLiquidity(pool)
                 });
@@ -367,7 +367,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap
-                    scaledAmount,
+                    scaledAmountForUniswapV3PoolSwap,
                     params.sqrtPriceLimitX96,
                     abi.encode(
                         SwapCallbackData(
@@ -395,16 +395,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
             exchangedPositionSize = -(
-                FeeMath.calcScaledAmount(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
             );
             // due to base to quote fee, exchangedPositionNotional contains the fee
-            // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+            // s.t. we can take the fee away from exchangedPositionNotional
             exchangedPositionNotional = response.quote.toInt256();
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
             exchangedPositionNotional = -(
-                FeeMath.calcScaledAmount(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
             );
         }
 
@@ -591,8 +591,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
-        (, int256 signedScaledAmount) =
-            _getScaledAmount(
+        (, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
@@ -603,7 +603,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             SwapState({
                 tick: UniswapV3Broker.getTick(pool),
                 sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: signedScaledAmount,
+                amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                 feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
                 liquidity: UniswapV3Broker.getLiquidity(pool)
             });
@@ -813,10 +813,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     : step.nextSqrtPriceX96,
                 params.state.liquidity,
                 params.state.amountSpecifiedRemaining,
-                // if base to quote: fee is charged on base token, so use uniswap fee ratio in calculation to
-                //                   replay the swap in uniswap pool
-                // if quote to base: use clearing house fee for calculation because the fee is charged
-                //                   on quote token in clearing house
+                // isBaseToQuote: fee is charged in base token in uniswap pool; thus, use uniswapFeeRatio to replay
+                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use clearingHouseFeeRatio
                 params.isBaseToQuote ? params.uniswapFeeRatio : params.clearingHouseFeeRatio
             );
 
@@ -1085,34 +1083,37 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
-    function _getScaledAmount(
+    /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
+    /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()
+    /// @dev for UniswapV3Pool.swap(), scaling the amount is necessary to achieve the custom fee effect
+    /// @dev for _replaySwap(), however, as we can input ClearingHouseFeeRatio directly in SwapMath.computeSwapStep(),
+    ///      there is no need to stick to the scaled amount
+    function _getScaledAmountForSwaps(
         bool isBaseToQuote,
         bool isExactInput,
         uint256 amount,
         uint24 clearingHouseFeeRatio,
         uint24 uniswapFeeRatio
-    ) internal pure returns (uint256 scaledAmount, int256 signedScaledAmount) {
-        // input or output amount for swap
-        // 1. Q2B && exact in  --> input quote * (1 - y) / (1 - x)
-        // 2. Q2B && exact out --> output base(params.base)
-        // 3. B2Q && exact in  --> input base / (1 - x)
-        // 4. B2Q && exact out --> output base / (1 - y)
-        scaledAmount = isBaseToQuote
-            ? isExactInput
-                ? FeeMath.calcScaledAmount(amount, uniswapFeeRatio, true)
-                : FeeMath.calcScaledAmount(amount, clearingHouseFeeRatio, true)
-            : isExactInput
-            ? FeeMath.magicFactor(amount, uniswapFeeRatio, clearingHouseFeeRatio, false)
-            : amount;
+    ) internal pure returns (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) {
+        scaledAmountForUniswapV3PoolSwap = FeeMath.calcScaledAmountForUniswapV3PoolSwap(
+            isBaseToQuote,
+            isExactInput,
+            amount,
+            clearingHouseFeeRatio,
+            uniswapFeeRatio
+        );
 
-        // if Q2B, we use params.amount directly
-        // for example, input 1 quote and x = 1%, y = 3%. Our target is to get 0.03 fee
-        // we simulate the swap step in `_replaySwap`.
-        // If we scale the input(1 * 0.97 / 0.99), the fee calculated in `_replaySwap` won't be 0.03.
-        signedScaledAmount = isBaseToQuote
-            ? isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256()
-            : isExactInput
-            ? amount.toInt256()
-            : -amount.toInt256();
+        // x : uniswapFeeRatio, y : clearingHouseFeeRatio
+        // since we can input ClearingHouseFeeRatio directly in SwapMath.computeSwapStep() in _replaySwap(),
+        // when !isBaseToQuote, we can use the original amount directly
+        // ex: when x(uniswapFeeRatio) = 1%, y(clearingHouseFeeRatio) = 3%, input == 1 quote
+        // our target is to get fee == 0.03 quote
+        // if scaling the input as 1 * 0.97 / 0.99, the fee calculated in `_replaySwap()` won't be 0.03
+        signedScaledAmountForReplaySwap = isBaseToQuote
+            ? scaledAmountForUniswapV3PoolSwap.toInt256()
+            : amount.toInt256();
+        signedScaledAmountForReplaySwap = isExactInput
+            ? signedScaledAmountForReplaySwap
+            : -signedScaledAmountForReplaySwap;
     }
 }
