@@ -359,10 +359,9 @@ contract ClearingHouse is
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        // CH_NEB: not enough available base amount
-        require(baseTokenInfo.available >= params.base, "CH_NEB");
-        // CH_NEB: not enough available quote amount
-        require(quoteTokenInfo.available >= params.quote, "CH_NEQ");
+
+        // note that we no longer check available tokens here because CH will always auto-mint
+        // when requested by UniswapV3MintCallback
 
         Exchange.AddLiquidityResponse memory response =
             Exchange(exchange).addLiquidity(

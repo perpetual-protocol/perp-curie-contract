@@ -63,12 +63,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // add pool after it's initialized
                 await exchange.addPool(baseToken.address, 10000)
 
-                // mint
-                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-                await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-                await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
-                await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
-
                 const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                 const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
@@ -86,6 +80,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
+                // will mint x quote -> transfer to pool
                 await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                 // liquidity ~= 1
@@ -104,6 +99,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     amount: parseEther("0.0004084104205"),
                     sqrtPriceLimitX96: "0",
                 }
+                // will mint 0.0004084104205 base -> transfer to pool
                 await clearingHouse.connect(bob).swap(swapParams)
 
                 // alice remove liq 0, alice should collect fee
@@ -124,6 +120,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(response.quote).to.be.eq("0")
 
                 // B2QFee: expect 1% of quote = 0.0006151334175725025 ~= 615133417572502 / 10^18
+                // will transfer all 0.0004084104205 base the the remaining quote to CH
+                // will collect and burn all extra base and quote tokens (Uniswap v3 pool fees that we are not using)
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
@@ -138,15 +136,18 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "615133417572502",
                     )
 
-                // no base fee
+                // no base fee, and excess vTokens should be auto-burnt
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseEther("100"), // available
-                    parseEther("100"), // debt
+                    parseEther("0"), // available
+                    parseEther("0"), // debt
                 ])
                 // 10000 - 0.122414646(added liquidity) + 0.000615133417572501(fee) = 9999.8782004874
+                // auto-burnt:
+                //   available = 9999.8782004874 -> 0
+                //   debt = 10000 -> 10000 - 9999.8782004874 = 0.1217995126
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    parseEther("9999.878200487417572502"), // available
-                    parseEther("10000"), // debt
+                    parseEther("0"), // available
+                    parseEther("0.121799512582427498"), // debt
                 ])
                 // note skipping Bob's/ taker's balance
 
@@ -169,13 +170,12 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 ])
 
                 // verify CH balance changes
-                // base diff: 0.0004084104205 (bob swaps)
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseEther("0.000408410420500000"),
-                )
-                // quote diff: 0.122414646 (alice addLiquidity) - 0.061513341757250249 (CH gets (from swap)) = 0.06090130424
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseEther("0.060901304242749751"),
+                // all base tokens should've been burnt by now
+                expect((await baseToken.balanceOf(clearingHouse.address)).sub(baseBefore)).to.eq("0")
+                // alice should've burnt all the quote tokens (liquidity + fees) she received from the removing liquidity,
+                // so the remaining quote tokens are all bob's
+                expect((await quoteToken.balanceOf(clearingHouse.address)).sub(quoteBefore)).to.eq(
+                    parseEther("0.060898208339677747"),
                 )
             })
 

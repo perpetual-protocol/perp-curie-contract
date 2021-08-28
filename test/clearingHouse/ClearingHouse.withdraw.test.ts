@@ -271,8 +271,6 @@ describe("ClearingHouse withdraw", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("999999999", 6), 0, 0, 0]
             })
-            console.log(`positionValue: ${await clearingHouse.getPositionValue(bob.address, baseToken.address, 0)}`)
-            console.log(`unrealizedPnl: ${await clearingHouse.getTotalUnrealizedPnl(bob.address)}`)
 
             // 65.2726375819(positionSize) * 999999999 = 65,272,637,516.627365 > 50,000,000,000
             expect(await vault.getFreeCollateral(bob.address)).to.lt(parseUnits("50000000000", collateralDecimals))
