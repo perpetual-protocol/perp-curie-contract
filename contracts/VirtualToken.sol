@@ -69,8 +69,8 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        uint8 decimals = IPriceFeed(priceFeedArg).decimals();
-        return _price.mul(10**uint256(decimals())).div(10**uint256(decimals));
+        uint8 priceFeedDecimals = IPriceFeed(priceFeed).decimals();
+        return _price.mul(10**uint256(decimals())).div(10**uint256(priceFeedDecimals));
     }
 
     /// @inheritdoc ERC20
