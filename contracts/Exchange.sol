@@ -636,9 +636,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 amount1Owed,
         bytes calldata data
     ) external override {
-        address baseToken = abi.decode(data, (address));
+        MintCallbackData memory callbackData = abi.decode(data, (MintCallbackData));
         // EX_FMV: failed mintCallback verification
-        require(_msgSender() == _poolMap[baseToken], "EX_FMV");
+        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FMV");
 
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
