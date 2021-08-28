@@ -539,7 +539,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             OpenOrder memory order = _openOrderMap[orderId];
 
             RemoveLiquidityResponse memory response =
-                removeLiquidity(
+                _removeLiquidity(
                     RemoveLiquidityParams({
                         maker: maker,
                         baseToken: baseToken,
@@ -557,64 +557,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
     }
 
-    function removeLiquidity(RemoveLiquidityParams memory params)
-        public
+    function removeLiquidity(RemoveLiquidityParams calldata params)
+        external
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
-        // load existing open order
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
-        // EX_NEO non-existent openOrder
-        require(openOrder.liquidity > 0, "EX_NEO");
-        // EX_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
-
-        address pool = _poolMap[params.baseToken];
-        UniswapV3Broker.RemoveLiquidityResponse memory response =
-            UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
-            );
-
-        // update token info based on existing open order
-        uint256 fee =
-            _removeLiquidityFromOrder(
-                RemoveLiquidityFromOrderParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    pool: pool,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: params.liquidity
-                })
-            );
-
-        // if flipped from initialized to uninitialized, clear the tick info
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-            _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
-        }
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-            _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
-        }
-
-        // TODO can be removed once we move the custodian of vToken from CH to EX
-        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
-        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
-
-        emit LiquidityChanged(
-            params.maker,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
-            fee
-        );
-
-        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+        return _removeLiquidity(params);
     }
 
     // TODO rename to updateLastFundingGrowth
@@ -730,6 +678,61 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     //
     // INTERNAL
     //
+    function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
+        // load existing open order
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _openOrderMap[orderId];
+        // EX_NEO non-existent openOrder
+        require(openOrder.liquidity > 0, "EX_NEO");
+        // EX_NEL not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
+
+        address pool = _poolMap[params.baseToken];
+        UniswapV3Broker.RemoveLiquidityResponse memory response =
+            UniswapV3Broker.removeLiquidity(
+                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
+            );
+
+        // update token info based on existing open order
+        uint256 fee =
+            _removeLiquidityFromOrder(
+                RemoveLiquidityFromOrderParams({
+                    maker: params.maker,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
+                    liquidity: params.liquidity
+                })
+            );
+
+        // if flipped from initialized to uninitialized, clear the tick info
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
+        }
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
+        }
+
+        // TODO can be removed once we move the custodian of vToken from CH to EX
+        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
+        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
+
+        emit LiquidityChanged(
+            params.maker,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            fee
+        );
+
+        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+    }
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
         // update token info based on existing open order
