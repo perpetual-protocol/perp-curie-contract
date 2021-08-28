@@ -51,8 +51,6 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("10000"))
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -81,8 +79,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -99,8 +100,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // price after swap: 103.727208
@@ -119,8 +123,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -137,8 +144,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
@@ -158,8 +168,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
@@ -178,8 +191,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // price after swap: 99.981348
@@ -198,8 +214,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
@@ -218,8 +237,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("198"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
@@ -241,8 +263,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // price after swap: 101.855079
@@ -265,8 +290,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
@@ -290,8 +318,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("100"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // maker before swap:
@@ -327,8 +358,11 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("99"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // maker before swap:

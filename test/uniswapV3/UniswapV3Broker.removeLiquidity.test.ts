@@ -51,6 +51,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: "50200",
                 base,
                 quote,
+                data: hexlify([]),
             })
 
             await expect(
@@ -85,6 +86,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: "50200",
                 base,
                 quote,
+                data: hexlify([]),
             })
 
             await expect(
@@ -120,6 +122,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: 50200,
                 base,
                 quote,
+                data: hexlify([]),
             })
 
             await expect(
@@ -152,6 +155,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: 50400, // 154.4310961
                 base: parseEther("0.000808693720084599"),
                 quote: parseEther("0.122414646"),
+                data: hexlify([]),
             })
 
             await expect(
@@ -188,6 +192,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: "50200",
                 base: parseEther("0.000808693720084599"),
                 quote: parseEther("0.122414646"),
+                data: hexlify([]),
             }
             await uniswapV3Broker.addLiquidity(addLiquidityParams)
 
@@ -216,6 +221,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 upperTick: 50200, // 151.3733069
                 base: "0",
                 quote: parseEther("0.122414646"),
+                data: hexlify([]),
             })
 
             // 0.0004084104205 / 0.99 = 0.0004125357783

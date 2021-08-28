@@ -54,8 +54,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await deposit(maker, vault, 1000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("100"))
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -94,8 +92,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
@@ -111,7 +112,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
             })
 
             // remaining position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse.connect(carol).closePosition(baseToken.address, 0)
+            await clearingHouse
+                .connect(carol)
+                .closePosition(baseToken.address, 0, ethers.constants.MaxUint256, ethers.constants.HashZero)
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
@@ -122,8 +125,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
+                    oppositeAmountBound: ethers.constants.MaxUint256,
                     amount: parseEther("25"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).to.revertedWith("CH_OPI")
         })
@@ -134,8 +140,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("0.1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
         })
@@ -149,8 +158,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 

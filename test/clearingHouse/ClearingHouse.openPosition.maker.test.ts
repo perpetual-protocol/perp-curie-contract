@@ -59,8 +59,6 @@ describe("ClearingHouse maker close position", () => {
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("100"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("10"),
@@ -75,8 +73,6 @@ describe("ClearingHouse maker close position", () => {
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("900"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("90"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("90"),
@@ -94,13 +90,15 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: true, // exact input (quote)
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact input (quote)
             amount: parseEther("250"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // maker remove liquidity position
@@ -121,9 +119,12 @@ describe("ClearingHouse maker close position", () => {
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: false, // exact output (base)
+            isExactInput: false,
+            oppositeAmountBound: ethers.constants.MaxUint256, // exact output (base)
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // available + earned fee - debt = (124.75 - 31.75 - 0.32) + (2.5 * 10%) - 100 = -7.07
@@ -134,13 +135,15 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: true, // exact input (quote)
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact input (quote)
             amount: parseEther("250"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // maker remove liquidity position
@@ -162,9 +165,12 @@ describe("ClearingHouse maker close position", () => {
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
-                isExactInput: false, // exact output (base)
+                isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256, // exact output (base)
                 amount: posSize.div(2).abs().toString(),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(
@@ -178,9 +184,12 @@ describe("ClearingHouse maker close position", () => {
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
-            isExactInput: false, // exact output (base)
+            isExactInput: false,
+            oppositeAmountBound: ethers.constants.MaxUint256, // exact output (base)
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
         expect(await clearingHouse.getOwedRealizedPnl(alice.address)).closeTo(parseEther("-7.069408740359897191"), 3)
     })
@@ -189,13 +198,15 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: true,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("25"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // maker remove liquidity position
@@ -216,9 +227,12 @@ describe("ClearingHouse maker close position", () => {
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: true, // quote to base
-            isExactInput: true, // exact output (base)
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact output (base)
             amount: posSize.abs().toString(),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // available + earned fee - debt = (80 - -15.65 - 0.16) + (2 * 10%) - 100 = -4.3043478260869
@@ -240,8 +254,6 @@ describe("ClearingHouse maker close position", () => {
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
             await deposit(alice, vault, 1000, collateral)
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("100"))
-            await clearingHouse.connect(alice).mint(baseToken2.address, parseEther("10"))
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("10"),
@@ -256,8 +268,6 @@ describe("ClearingHouse maker close position", () => {
             // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
             await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
             await deposit(carol, vault, 1000, collateral)
-            await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("900"))
-            await clearingHouse.connect(carol).mint(baseToken2.address, parseEther("90"))
             await clearingHouse.connect(carol).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("90"),
@@ -274,13 +284,15 @@ describe("ClearingHouse maker close position", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
-                isExactInput: true, // exact input (quote)
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
                 amount: parseEther("250"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // maker remove liquidity position
@@ -301,9 +313,12 @@ describe("ClearingHouse maker close position", () => {
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
-                isExactInput: false, // exact output (base)
+                isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256, // exact output (base)
                 amount: posSize.abs().toString(),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // should be same as the situation when adding liquidity in 1 pool
@@ -317,13 +332,15 @@ describe("ClearingHouse maker close position", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // maker remove liquidity position
@@ -344,9 +361,12 @@ describe("ClearingHouse maker close position", () => {
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true, // quote to base
-                isExactInput: true, // exact output (base)
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact output (base)
                 amount: posSize.abs().toString(),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // should be same as the situation when adding liquidity in 1 pool

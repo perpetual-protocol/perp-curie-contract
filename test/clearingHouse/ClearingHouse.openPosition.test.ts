@@ -57,8 +57,6 @@ describe("ClearingHouse openPosition", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("65.943787")) // should only mint exact amount
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("65.943787"),
@@ -95,8 +93,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: pool.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: 1,
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_BTNE")
             })
@@ -107,8 +108,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: 0,
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("UB_ZI")
             })
@@ -120,8 +124,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: 1,
                         sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("SPL")
             })
@@ -145,8 +152,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: 1,
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_F0S")
             })
@@ -189,8 +199,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther(quoteAmount),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
             })
@@ -201,8 +214,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("100"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
             })
@@ -224,8 +240,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("100"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
             })
@@ -241,8 +260,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther(quoteAmount),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.be.revertedWith("CH_NEAV")
             })
@@ -261,8 +283,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 })
                 expect(response.deltaBase).to.be.eq("6539527905092835")
                 expect(response.deltaQuote).to.be.eq("1000000000000000000")
@@ -277,8 +302,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -314,8 +342,11 @@ describe("ClearingHouse openPosition", () => {
                             baseToken: baseToken.address,
                             isBaseToQuote: false,
                             isExactInput: false,
+                            oppositeAmountBound: ethers.constants.MaxUint256,
                             amount: parseEther("1"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
                     )
                         .to.emit(clearingHouse, "PositionChanged")
@@ -343,7 +374,6 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
-                    await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("50"))
                     const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                     // taker swap ? USD for 1 ETH
@@ -351,8 +381,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: false,
+                        oppositeAmountBound: ethers.constants.MaxUint256,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     })
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -362,24 +395,25 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
                     expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-                        balanceBefore.sub(parseEther("50")).add(parseEther("1.550587307011629547")),
+                        balanceBefore.add(parseEther("1.550587307011629547")),
                         1,
                     )
                 })
 
                 it("mint more but burn all of them after swap because there's enough available", async () => {
-                    await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("200"))
-
                     // taker swap ? USD for 1 ETH
                     await expect(
                         clearingHouse.connect(taker).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: false,
                             isExactInput: false,
+                            oppositeAmountBound: ethers.constants.MaxUint256,
                             amount: parseEther("1"),
                             sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
                         }),
-                    ).not.emit(clearingHouse, "Minted")
+                    ).emit(clearingHouse, "Minted")
 
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -391,22 +425,21 @@ describe("ClearingHouse openPosition", () => {
             })
 
             it("mint missing amount of vUSD for swapping", async () => {
-                await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("1"))
-                const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // taker swap 2 USD for ? ETH
-                // it will mint 1 more USD
                 await expect(
                     clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("2"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "Minted")
-                    .withArgs(taker.address, quoteToken.address, parseEther("1"))
+                    .withArgs(taker.address, quoteToken.address, parseEther("2"))
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -415,9 +448,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteInfo.available.eq(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("2"))).to.be.true
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(
-                    balanceBefore.sub(parseEther("1")).add(parseEther("0.02")),
-                )
+                // CH will take 1% fee for maker
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(parseEther("0.02"))
             })
 
             it("does not mint anything if the vUSD is sufficient", async () => {
@@ -430,8 +462,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: false,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.not.emit(clearingHouse, "Minted")
 
@@ -459,8 +494,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "PositionChanged")
@@ -495,8 +533,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("2"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 )
                     .to.emit(clearingHouse, "Minted")
@@ -522,8 +563,11 @@ describe("ClearingHouse openPosition", () => {
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
+                        oppositeAmountBound: 0,
                         amount: parseEther("1"),
                         sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
                     }),
                 ).to.not.emit(clearingHouse, "Minted")
 
@@ -547,8 +591,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("2"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // virtual base liquidity = 71.9062751863 - 0.01307786649 = 71.8931973198
             // virtual quote liquidity = 10884.6906588362 + 2 * 0.99 = 10886.6706588362
@@ -566,8 +613,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             )
                 .to.emit(clearingHouse, "Minted")
@@ -602,8 +652,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: reducedBase,
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).not.emit(clearingHouse, "Minted")
 
@@ -641,8 +694,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: posSize,
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).not.emit(clearingHouse, "Minted")
 
@@ -685,8 +741,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // virtual base liquidity = 71.8931973198 - 5.9927792385 = 65.9004180813
             // virtual quote liquidity = 10886.6706588362 + 990 = 11876.6706588362
@@ -700,8 +759,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: posSize,
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // mock index price to market price
@@ -748,8 +810,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // 0.0130787866
@@ -767,8 +832,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: posSize,
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // base debt and available will be 0
@@ -799,8 +867,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("10"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // position size = -0.05368894844
@@ -825,8 +896,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: carolAmount,
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // taker want to increase position but he's under collateral
@@ -836,8 +910,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: 1,
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).to.be.revertedWith("CH_CNE")
         })
@@ -851,8 +928,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("2"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
         })
         it("increase position")
@@ -866,8 +946,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("10"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
@@ -893,8 +976,6 @@ describe("ClearingHouse openPosition", () => {
 
     describe("markets number exceeded", () => {
         beforeEach(async () => {
-            await clearingHouse.connect(maker).mint(baseToken2.address, parseEther("65.943787")) // should only mint exact amount
-            await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
             await clearingHouse.connect(maker).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("65.943787"),
@@ -914,8 +995,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // close market of baseToken
@@ -923,8 +1007,11 @@ describe("ClearingHouse openPosition", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("1"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             await expect(
@@ -932,8 +1019,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken2.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).to.emit(clearingHouse, "PositionChanged")
         })
@@ -944,8 +1034,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).to.emit(clearingHouse, "PositionChanged")
 
@@ -954,8 +1047,11 @@ describe("ClearingHouse openPosition", () => {
                     baseToken: baseToken2.address,
                     isBaseToQuote: true,
                     isExactInput: true,
+                    oppositeAmountBound: 0,
                     amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
                 }),
             ).to.be.revertedWith("CH_MNE")
         })

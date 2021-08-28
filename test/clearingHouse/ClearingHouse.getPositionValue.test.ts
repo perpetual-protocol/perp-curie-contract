@@ -57,12 +57,6 @@ describe("ClearingHouse.getPositionValue", () => {
             await pool.initialize(encodePriceSqrt("151.3733069", "1"))
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
-
-            // mint
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
         })
 
         // see more desc in getPositionSize test
@@ -103,8 +97,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.4084104205"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
@@ -169,8 +166,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2042052103"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
             // mark price should be 150.6155385 (tick = 50149.8122)
 
@@ -181,8 +181,11 @@ describe("ClearingHouse.getPositionValue", () => {
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
+                oppositeAmountBound: 0,
                 amount: parseEther("0.2042052103"),
                 sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
             })
 
             // B2QFee: Bob is down 0.4084104205 base tokens and Alice received it full because she's the sole LP
@@ -228,13 +231,6 @@ describe("ClearingHouse.getPositionValue", () => {
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-        // mint
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
-
         const lowerTick = "50000"
         const middleTick = "50200"
         const upperTick = "50400"
@@ -277,8 +273,11 @@ describe("ClearingHouse.getPositionValue", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("247.3023151515"),
             sqrtPriceLimitX96: "0",
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams1)
         // mark price should be 151.3733069 (tick = 50200)
@@ -290,8 +289,11 @@ describe("ClearingHouse.getPositionValue", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("99.9150479293"),
             sqrtPriceLimitX96: "0",
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams2)
         // mark price should be 153.8170921 (tick = 50360.15967)

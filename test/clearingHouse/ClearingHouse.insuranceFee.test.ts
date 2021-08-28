@@ -45,7 +45,6 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // prepare collateral for maker1
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
         await deposit(maker1, vault, 1000, collateral)
-        await clearingHouse.connect(maker1).mint(baseToken.address, parseEther("0.000816820841"))
         await clearingHouse.connect(maker1).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0.000816820841"),
@@ -60,7 +59,6 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // prepare collateral for maker2
         await collateral.mint(maker2.address, parseUnits("1000", collateralDecimals))
         await deposit(maker2, vault, 1000, collateral)
-        await clearingHouse.connect(maker2).mint(baseToken.address, parseEther("0.0008086937422"))
         await clearingHouse.connect(maker2).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0.0008086937422"),
@@ -85,8 +83,11 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther("0.001633641682"),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // check maker & insurance fund's fee
@@ -123,17 +124,23 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             // make sure uniswapV3pool get the same numbers as spreadsheet
             amount: parseEther((0.122414646 / 0.99).toString()),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,
             isExactInput: true,
+            oppositeAmountBound: 0,
             amount: parseEther((0.1236448718 / 0.99).toString()),
             sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
         })
 
         // check maker & insurance fund's fee

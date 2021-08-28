@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
@@ -95,6 +94,7 @@ contract ClearingHouse is
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
+    event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeUpdated(address exchange);
 
     //
@@ -177,7 +177,6 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        bool mintForTrader;
     }
 
     struct SwapResponse {
@@ -205,7 +204,20 @@ contract ClearingHouse is
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        // when it's 0 in exactInput, means ignore slippage protection
+        // when it's maxUint in exactOutput = ignore
+        // when it's over or under the bound, it will be reverted
+        uint256 oppositeAmountBound;
+        uint256 deadline;
+        // B2Q: the price cannot be less than this value after the swap
+        // Q2B: The price cannot be greater than this value after the swap
+        // it will fill the trade until it reach the price limit instead of reverted
+        uint160 sqrtPriceLimitX96;
+        bytes32 referralCode;
     }
 
     struct InternalOpenPositionParams {
@@ -301,27 +313,6 @@ contract ClearingHouse is
         emit ExchangeUpdated(exchange);
     }
 
-    // TODO internal
-    function mint(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-            _registerBaseToken(_msgSender(), token);
-        }
-        // always check margin ratio
-        _mint(_msgSender(), token, amount, true);
-    }
-
-    /**
-     * @param amount the amount of debt to burn
-     */
-    // TODO internal
-    function burn(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-        }
-        _burn(_msgSender(), token, amount);
-    }
-
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
         _requireHasBaseToken(params.baseToken);
 
@@ -335,11 +326,9 @@ contract ClearingHouse is
         // update internal states
         TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
         TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-        // CH_NEB: not enough available base amount
-        require(baseTokenInfo.available >= params.base, "CH_NEB");
-        // CH_NEB: not enough available quote amount
-        require(quoteTokenInfo.available >= params.quote, "CH_NEQ");
 
+        // note that we no longer check available tokens here because CH will always auto-mint
+        // when requested by UniswapV3MintCallback
         Exchange.AddLiquidityResponse memory response =
             Exchange(exchange).addLiquidity(
                 Exchange.AddLiquidityParams({
@@ -361,6 +350,9 @@ contract ClearingHouse is
         baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
+
+        // must after token info is updated to ensure free collateral is positive after updated
+        _requireEnoughFreeCollateral(trader);
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
@@ -390,16 +382,23 @@ contract ClearingHouse is
         return (response.base, response.quote, response.fee);
     }
 
-    function closePosition(address baseToken, uint160 sqrtPriceLimitX96)
-        external
-        returns (uint256 deltaBase, uint256 deltaQuote)
-    {
+    function closePosition(
+        address baseToken,
+        uint160 sqrtPriceLimitX96,
+        uint256 deadline,
+        bytes32 referralCode
+    ) external checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
         SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
+        emit ReferredPositionChanged(referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote) {
+    function openPosition(OpenPositionParams memory params)
+        external
+        checkDeadline(params.deadline)
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
@@ -437,6 +436,29 @@ contract ClearingHouse is
                 })
             );
 
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        if (params.isBaseToQuote) {
+            if (params.isExactInput) {
+                // too little received
+                require(response.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
+            }
+        } else {
+            if (params.isExactInput) {
+                // too little received
+                require(response.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(response.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
+            }
+        }
+
+        emit ReferredPositionChanged(params.referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
@@ -450,16 +472,17 @@ contract ClearingHouse is
         // CH_FMV: failed mintCallback verification
         require(_msgSender() == exchange, "CH_FMV");
 
-        address baseToken = abi.decode(data, (address));
-
-        // TODO move to calldata
-        address pool = Exchange(exchange).getPool(baseToken);
+        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
 
         if (amount0Owed > 0) {
-            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token0(), pool, amount0Owed);
+            address token = IUniswapV3Pool(callbackData.pool).token0();
+            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            TransferHelper.safeTransfer(IUniswapV3Pool(pool).token1(), pool, amount1Owed);
+            address token = IUniswapV3Pool(callbackData.pool).token1();
+            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
         }
     }
 
@@ -547,7 +570,7 @@ contract ClearingHouse is
 
         Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
 
-        // TODO move to calldata
+        // TODO won't need this external call once moved to Exchange
         IUniswapV3Pool pool = IUniswapV3Pool(Exchange(exchange).getPool(callbackData.baseToken));
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
@@ -572,20 +595,19 @@ contract ClearingHouse is
         //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
         //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
         //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
-        uint256 exactSwappedAmount = FeeMath.calcScaledAmount(amountToPay, callbackData.uniswapFeeRatio, false);
+        uint256 exactSwappedAmount =
+            FeeMath.calcAmountScaledByFeeRatio(amountToPay, callbackData.uniswapFeeRatio, false);
         // not use _mint() here since it will change trader's baseToken available/debt
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
         // 2. openPosition
-        if (callbackData.mintForTrader) {
-            uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
-            // if quote to base, need to mint clearing house quote fee for trader
-            uint256 amount =
-                token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
+        uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+        // if quote to base, need to mint clearing house quote fee for trader
+        uint256 amount =
+            token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
 
-            if (availableBefore < amount) {
-                _mint(callbackData.trader, token, amount.sub(availableBefore), false);
-            }
+        if (availableBefore < amount) {
+            _mint(callbackData.trader, token, amount.sub(availableBefore), false);
         }
 
         // swap
@@ -842,6 +864,18 @@ contract ClearingHouse is
         return amount;
     }
 
+    // mint more token if the trader does not have more than the specified amount available
+    function _mintIfNotEnough(
+        address account,
+        address token,
+        uint256 amount
+    ) internal {
+        uint256 availableBefore = getTokenInfo(account, token).available;
+        if (availableBefore < amount) {
+            _mint(account, token, amount.sub(availableBefore), false);
+        }
+    }
+
     // caller must ensure the token exists
     function _burn(
         address account,
@@ -1019,6 +1053,11 @@ contract ClearingHouse is
         response.openNotional = getOpenNotional(params.trader, params.baseToken);
         response.realizedPnl = realizedPnl;
 
+        // burn excess tokens
+        _burnMax(params.trader, params.baseToken);
+        _burnMax(params.trader, quoteToken);
+        _deregisterBaseToken(params.trader, params.baseToken);
+
         return response;
     }
 
@@ -1064,40 +1103,31 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth,
-                    mintForTrader: params.mintForTrader
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
 
-        {
-            // update internal states
-            // examples:
-            // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-            TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
+        // update internal states
+        // examples:
+        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+        TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
 
-            baseTokenInfo.available = baseTokenInfo
-                .available
-                .toInt256()
-                .add(response.exchangedPositionSize)
-                .toUint256();
-            quoteTokenInfo.available = quoteTokenInfo
-                .available
-                .toInt256()
-                .add(response.exchangedPositionNotional)
-                .toUint256()
-                .sub(response.fee);
+        baseTokenInfo.available = baseTokenInfo.available.toInt256().add(response.exchangedPositionSize).toUint256();
+        quoteTokenInfo.available = quoteTokenInfo
+            .available
+            .toInt256()
+            .add(response.exchangedPositionNotional)
+            .toUint256()
+            .sub(response.fee);
 
-            _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
-                response.insuranceFundFee.toInt256()
-            );
-        }
+        _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
+            response.insuranceFundFee.toInt256()
+        );
 
-        {
-            // update timestamp of the first tx in this market
-            if (_firstTradedTimestampMap[params.baseToken] == 0) {
-                _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
-            }
+        // update timestamp of the first tx in this market
+        if (_firstTradedTimestampMap[params.baseToken] == 0) {
+            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
         }
 
         return
@@ -1151,6 +1181,10 @@ contract ClearingHouse is
             _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
         }
 
+        // burn all unnecessary tokens
+        _burnMax(params.maker, params.baseToken);
+        _burnMax(params.maker, quoteToken);
+
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
@@ -1163,14 +1197,9 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    mintForTrader: true
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
-
-        _burnMax(params.trader, params.baseToken);
-        _burnMax(params.trader, quoteToken);
-        _deregisterBaseToken(params.trader, params.baseToken);
 
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)

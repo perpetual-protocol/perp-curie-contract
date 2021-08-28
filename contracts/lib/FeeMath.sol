@@ -9,8 +9,7 @@ import { UniswapV3Broker } from "./UniswapV3Broker.sol";
 library FeeMath {
     using SafeMath for uint256;
 
-    // the calculation has to be modified for exactInput or exactOutput if we have our own feeRatio
-    function calcScaledAmount(
+    function calcAmountScaledByFeeRatio(
         uint256 amount,
         uint24 feeRatio,
         bool isScaledUp
@@ -22,17 +21,48 @@ library FeeMath {
                 : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
     }
 
-    // FIXME: have a better name
-    // calculate amount * (1-uniswapFeeRatio) / (1-clearingHouseFeeRatio)
-    function magicFactor(
+    /// @param isReplacingUniswapFeeRatio is to replace uniswapFeeRatio or clearingHouseFeeRatio
+    ///        let x : uniswapFeeRatio, y : clearingHouseFeeRatio
+    ///        true: replacing uniswapFeeRatio with clearingHouseFeeRatio: amount * (1 - y) / (1 - x)
+    ///        false: replacing clearingHouseFeeRatio with uniswapFeeRatio: amount * (1 - x) / (1 - y)
+    ///        multiplying a fee is applying it as the new standard and dividing a fee is removing its effect
+    /// @dev calculate the amount when feeRatio is switched between uniswapFeeRatio and clearingHouseFeeRatio
+    function calcAmountWithFeeRatioReplaced(
         uint256 amount,
         uint24 uniswapFeeRatio,
         uint24 clearingHouseFeeRatio,
-        bool isScaledUp
+        bool isReplacingUniswapFeeRatio
     ) internal pure returns (uint256) {
-        return
-            isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, uint256(1e6 - uniswapFeeRatio), 1e6 - clearingHouseFeeRatio)
-                : FullMath.mulDivRoundingUp(amount, uint256(1e6 - clearingHouseFeeRatio), 1e6 - uniswapFeeRatio);
+        (uint24 newFee, uint24 replacedFee) =
+            isReplacingUniswapFeeRatio
+                ? (clearingHouseFeeRatio, uniswapFeeRatio)
+                : (uniswapFeeRatio, clearingHouseFeeRatio);
+
+        return FullMath.mulDivRoundingUp(amount, uint256(1e6).sub(newFee), uint256(1e6).sub(replacedFee));
+    }
+
+    /// @param amount depending on isBaseToQuote & isExactInput, either input or output amount needs to be scaled
+    /// @return scaledAmount the scaled amount for UniswapV3Pool.swap()
+    function calcScaledAmountForUniswapV3PoolSwap(
+        bool isBaseToQuote,
+        bool isExactInput,
+        uint256 amount,
+        uint24 clearingHouseFeeRatio,
+        uint24 uniswapFeeRatio
+    ) internal pure returns (uint256 scaledAmount) {
+        // let x : uniswapFeeRatio, y : clearingHouseFeeRatio
+        // 1. isBaseToQuote && isExactInput   --> input base / (1 - x)
+        // 2. isBaseToQuote && !isExactInput  --> output base / (1 - y)
+        // 3. !isBaseToQuote && isExactInput  --> input quote * (1 - y) / (1 - x)
+        // 4. !isBaseToQuote && !isExactInput --> output base
+        if (isBaseToQuote) {
+            scaledAmount = isExactInput
+                ? calcAmountScaledByFeeRatio(amount, uniswapFeeRatio, true)
+                : calcAmountScaledByFeeRatio(amount, clearingHouseFeeRatio, true);
+        } else {
+            scaledAmount = isExactInput
+                ? calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, clearingHouseFeeRatio, true)
+                : amount;
+        }
     }
 }

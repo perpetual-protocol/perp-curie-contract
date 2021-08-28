@@ -62,7 +62,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
         // freeCollateral = 0
         // alice adds liquidity (base only) above the current price
         const baseAmount = parseUnits("1", await baseToken.decimals())
-        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: baseAmount,
@@ -111,8 +110,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await deposit(alice, vault, 20, collateral)
 
             const baseAmount = parseUnits("1", await baseToken.decimals())
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseUnits("100"))
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: baseAmount,

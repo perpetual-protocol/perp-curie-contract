@@ -58,16 +58,16 @@ contract Quoter is IUniswapV3SwapCallback {
         uint24 uniswapFeeRatio = Exchange(exchange).getUniswapFeeRatio(params.baseToken);
         uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
 
-        // scale up before swap to cover uniswap fee
+        // scale up before swap to achieve customized fee/ignore Uniswap fee
         uint256 scaledAmount =
-            params.isBaseToQuote
-                ? params.isExactInput
-                    ? FeeMath.calcScaledAmount(params.amount, uniswapFeeRatio, true)
-                    : FeeMath.calcScaledAmount(params.amount, exchangeFeeRatio, true)
-                : params.isExactInput
-                ? FeeMath.magicFactor(params.amount, uniswapFeeRatio, exchangeFeeRatio, false)
-                : params.amount;
-        // UniswapV3Pool will use a signed value to determine isExactInput or not.
+            FeeMath.calcScaledAmountForUniswapV3PoolSwap(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                exchangeFeeRatio,
+                uniswapFeeRatio
+            );
+        // UniswapV3Pool uses the sign to determine isExactInput or not
         int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
 
         try
@@ -93,18 +93,28 @@ contract Quoter is IUniswapV3SwapCallback {
             if (params.isBaseToQuote) {
                 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcScaledAmount(base, uniswapFeeRatio, false).toInt256());
+                exchangedPositionSize = -(FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
-                // s.t. we can take the fee away from exchangedPositionNotional(exchangedPositionNotional)
+                // s.t. we can take the fee away from exchangedPositionNotional
                 exchangedPositionNotional = quote.toInt256();
             } else {
-                // check the doc of custom fee for more details,
-                // qr * ((1 - x) / (1 - y)) * y ==> qr * y * (1-x) / (1-y)
-                fee = FeeMath.magicFactor(quote * exchangeFeeRatio, uniswapFeeRatio, exchangeFeeRatio, true).div(1e6);
+                // check the doc of custom fee for more details
+                // let x : uniswapFeeRatio, y : clearingHouseFeeRatio
+                // qr * y * (1 - x) / (1 - y)
+                fee = FeeMath
+                    .calcAmountWithFeeRatioReplaced(
+                    quote.mul(exchangeFeeRatio),
+                    uniswapFeeRatio,
+                    exchangeFeeRatio,
+                    false
+                )
+                    .div(1e6);
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
-                exchangedPositionNotional = -(FeeMath.calcScaledAmount(quote, uniswapFeeRatio, false).toInt256());
+                exchangedPositionNotional = -(
+                    FeeMath.calcAmountScaledByFeeRatio(quote, uniswapFeeRatio, false).toInt256()
+                );
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase

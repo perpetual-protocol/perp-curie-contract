@@ -1,7 +1,7 @@
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
@@ -61,19 +61,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
 
-            // mint
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-            await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
-            await clearingHouse.connect(carol).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(carol).mint(quoteToken.address, quoteAmount)
-
-            const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-            const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            // will mint 100 base -> transfer to pool
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("100"),
@@ -87,6 +77,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
+            // will receive 100 base from pool
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
@@ -112,13 +103,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 )
 
             // WIP verify account states
+            // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+            //  however, the actual number of tokens sent/received are matched
             expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                BigNumber.from("99999999999999999999"), // available
-                parseUnits("100", await baseToken.decimals()), // debt
+                BigNumber.from(0), // available
+                BigNumber.from(1), // debt
             ])
             expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                parseUnits("10000", await quoteToken.decimals()), // available
-                parseUnits("10000", await quoteToken.decimals()), // debt
+                parseUnits("0", await quoteToken.decimals()), // available
+                parseUnits("0", await quoteToken.decimals()), // debt
             ])
             expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
             const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
@@ -133,9 +126,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             ])
 
             // verify CH balance changes
-            // TODO somehow Alice receives 1 wei less than she deposited, it could be a problem for closing positions
-            expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
-            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
+            // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+            //  however, the actual number of tokens sent/received are matched
+            expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
         })
 
         it("force error, pool does not exist", async () => {
@@ -157,22 +151,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 // add pool after it's initialized
                 await exchange.addPool(baseToken.address, 10000)
-
-                // mint
-                await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-                await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-                await clearingHouse.connect(bob).mint(baseToken.address, baseAmount)
-                await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
-                await clearingHouse.connect(carol).mint(baseToken.address, baseAmount)
-                await clearingHouse.connect(carol).mint(quoteToken.address, quoteAmount)
             })
 
             it("below current price", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
+                // will mint 10000 quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
@@ -187,6 +171,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
                     .liquidity
 
+                // will receive 10000 quote from pool
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
                         baseToken: baseToken.address,
@@ -213,12 +198,14 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
                 // verify account states
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseUnits("100", await baseToken.decimals()), // available
-                    parseUnits("100", await baseToken.decimals()), // debt
+                    parseUnits("0", await baseToken.decimals()), // available
+                    parseUnits("0", await baseToken.decimals()), // debt
                 ])
+                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+                //  however, the actual number of tokens sent/received are matched
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("9999999999999999999999"), // available, ~= -10,000
-                    parseUnits("10000", await quoteToken.decimals()), // debt
+                    BigNumber.from("0"), // available
+                    BigNumber.from("1"), // debt
                 ])
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
@@ -233,16 +220,16 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 ])
 
                 // verify CH balance changes
-                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
+                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+                //  however, the actual number of tokens sent/received are matched
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("at current price", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseUnits("100", await baseToken.decimals()),
@@ -257,6 +244,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
+                // will receive x base and y quote from pool
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
                         baseToken: baseToken.address,
@@ -282,13 +270,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     )
 
                 // verify account states
+                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+                //  however, the actual number of tokens sent/received are matched
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    BigNumber.from("99999999999999999999"), // available
-                    parseUnits("100", await baseToken.decimals()), // debt
+                    BigNumber.from("0"), // available
+                    BigNumber.from("1"), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("9999999999999999999999"), // available
-                    parseUnits("10000", await quoteToken.decimals()), // debt
+                    BigNumber.from("0"), // available
+                    BigNumber.from("1"), // debt
                 ])
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
@@ -303,16 +293,16 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 ])
 
                 // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
+                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+                //  however, the actual number of tokens sent/received are matched
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("twice", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseUnits("100", await baseToken.decimals()),
@@ -328,6 +318,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     .liquidity
 
                 const firstRemoveLiquidity = liquidity.div(2)
+                // will receive x/2 base and y/2 quote from pool
                 await clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick: 50000,
@@ -339,6 +330,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 })
 
                 const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
+                // will receive x/2 base and y/2 quote from pool
                 await clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick: 50000,
@@ -350,13 +342,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 })
 
                 // verify account states
+                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
+                //  however, the actual number of tokens sent/received are matched
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    BigNumber.from("99999999999999999999"), // available, ~= 100
-                    parseUnits("100", await baseToken.decimals()), // debt
+                    BigNumber.from("0"), // available
+                    BigNumber.from("1"), // debt
                 ])
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("9999999999999999999999"), // available ~= 10,000
-                    parseUnits("10000", await quoteToken.decimals()), // debt
+                    BigNumber.from("0"), // available
+                    BigNumber.from("1"), // debt
                 ])
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
@@ -371,14 +365,11 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 ])
 
                 // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(1)
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(1)
+                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("force error, remove too much liquidity", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
@@ -441,15 +432,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // add pool after it's initialized
         await exchange.addPool(baseToken.address, 10000)
 
-        // mint
-        await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-        await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
-
-        const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-        const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
         // assume imRatio = 0.1
         // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+        // will mint x base and y quote and transfer to pool
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseUnits("100", await baseToken.decimals()),
@@ -462,6 +447,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         })
         const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
+        // will receive no tokens from pool (no fees)
         await expect(
             clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
@@ -477,9 +463,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
 
         // verify account states
+        // alice should have 100 - 33.9381545695 = 66.0618454305 debt
         expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-            BigNumber.from("33938154569530515977"), // available
-            parseUnits("100", await baseToken.decimals()), // debt
+            BigNumber.from("0"), // available
+            parseUnits("66.061845430469484023", await baseToken.decimals()), // debt
         ])
         expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
             BigNumber.from(0), // available
@@ -500,11 +487,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         ])
 
         // verify CH balance changes
-        expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-            BigNumber.from("66061845430469484023"),
-        )
-        expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-            parseUnits("10000", await quoteToken.decimals()),
-        )
+        // CH should have burnt all base received from pool
+        expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
+        // CH should have burnt all quote received from pool
+        expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
     })
 })
