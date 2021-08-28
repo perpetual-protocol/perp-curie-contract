@@ -28,6 +28,8 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
 
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+    event ClearingHouseUpdated(address clearingHouse);
+    event TrustedForwarderUpdated(address trustedForwarder);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -37,11 +39,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
 
     uint8 public immutable override decimals;
 
-    // those 4 are not used until multi collateral is implemented
-    // uint256 public maxCloseFactor;
-    // uint256 public minCloseFactor;
-    // uint256 public liquidationDiscount;
-    // address[] private _assetLiquidationOrder;
+    address[] private _collateralTokens;
 
     // key: trader, token address
     mapping(address => mapping(address => int256)) private _balance;
@@ -49,28 +47,37 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     // key: token
     // TODO: change bool to collateral factor
     mapping(address => bool) private _collateralTokenMap;
-    address[] private _collateralTokens;
 
     constructor(address settlementTokenArg) {
-        settlementToken = settlementTokenArg;
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
-        decimals = IERC20Metadata(settlementTokenArg).decimals();
 
+        // update states
+        decimals = IERC20Metadata(settlementTokenArg).decimals();
+        settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
     }
 
+    //
+    // OWNER SETTER
+    //
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
         // invalid ClearingHouse address
         require(clearingHouseArg != address(0), "V_ICHA");
-        // TODO add event
         clearingHouse = clearingHouseArg;
+        emit ClearingHouseUpdated(clearingHouseArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        // invalid trusted forwarder address
+        require(trustedForwarderArg != address(0), "V_ITFA");
         trustedForwarder = trustedForwarderArg;
+        emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 
+    //
+    // EXTERNAL
+    //
     function deposit(address token, uint256 amount) external nonReentrant() {
         // collateralToken not found
         require(_collateralTokenMap[token], "V_CNF");
@@ -84,9 +91,6 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant() {
-        // invalid ClearingHouse address
-        require(clearingHouse != address(0), "V_ICHA");
-
         address to = _msgSender();
 
         // settle ClearingHouse's owedRealizedPnl to collateral
@@ -166,10 +170,12 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
                 .toUint256();
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }
