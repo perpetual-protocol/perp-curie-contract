@@ -462,22 +462,22 @@ describe("ClearingHouse", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_NEQ")
+                ).to.be.revertedWith("UB_ZL")
             })
 
             it("force error, add quote over minted quote", async () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: parseUnits("101", await quoteToken.decimals()),
-                        quote: 0,
+                        base: 0,
+                        quote: parseUnits("100000000", await quoteToken.decimals()),
                         lowerTick: 50000,
-                        upperTick: 50400,
+                        upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_NEB")
+                ).to.be.revertedWith("CH_NEAV")
             })
 
             it("force error, add base over minted base", async () => {

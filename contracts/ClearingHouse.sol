@@ -385,6 +385,9 @@ contract ClearingHouse is
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
+        // it's not closing the position, check margin ratio
+        _requireEnoughFreeCollateral(trader);
+
         emit LiquidityChanged(
             trader,
             params.baseToken,
