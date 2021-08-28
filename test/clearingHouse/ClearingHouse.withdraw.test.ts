@@ -54,7 +54,6 @@ describe("ClearingHouse withdraw", () => {
 
             // mint vToken
             const quoteAmount = parseEther("0.122414646")
-            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -67,6 +66,7 @@ describe("ClearingHouse withdraw", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             }
+            // will mint 0.122414646 quote and transfer to pool
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
         })
 
@@ -74,12 +74,13 @@ describe("ClearingHouse withdraw", () => {
             // prepare collateral for bob
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
 
             // bob swap
             // base: 0.0004084104205
             // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334176 quote
             // bob gets 0.06151334176 * 0.99 = 0.06089820834
+            // will mint 0.0004084104205 base and transfer to pool
+            // will receive 0.06151334176 quote from pool
             await clearingHouse.connect(bob).swap({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -90,18 +91,19 @@ describe("ClearingHouse withdraw", () => {
 
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
-            //                  = max(min(100, 100+) - max(1 * 100, 1 * 100 + 0) * 0.1, 0)
-            //                  = 90
-            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("90", collateralDecimals))
-            await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("90", collateralDecimals)))
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
+            //                  = max(min(100, 100+) - max(0.0004084104205 * 100, 0.0004084104205 * 100 + 0) * 0.1, 0)
+            //                  = 99.9959158958
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("99.995915", collateralDecimals))
+            await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("99.995915", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, parseUnits("90", collateralDecimals))
-            expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("90", collateralDecimals))
-            expect(await vault.balanceOf(bob.address)).to.eq(parseUnits("10", collateralDecimals))
+                .withArgs(collateral.address, bob.address, parseUnits("99.995915", collateralDecimals))
+            expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("99.995915", collateralDecimals))
+            expect(await vault.balanceOf(bob.address)).to.eq(parseUnits("0.004085", collateralDecimals))
 
             // alice remove liq 0, alice should collect fee
             // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
+            // will receive and burn base and quote tokens (uniswap fees)
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick,
@@ -113,7 +115,7 @@ describe("ClearingHouse withdraw", () => {
             })
 
             // verify maker's free collateral
-            // collateral = 100, base debt = 0, quote debt = 0.122414646
+            // collateral = 100, base debt = 0, quote debt = 0.122414646 - 0.0006151334176 = 0.1217995126
             // maker.quoteInPool -= 0.06151334176
             // maker.baseInPool += 0.0004084104205
             // maker.unrealizedPnl = positionValue + openNotional
@@ -122,24 +124,23 @@ describe("ClearingHouse withdraw", () => {
             //
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
-            //                  = max(min(100, 100 - 0.02005716629) - max(0.0004084104205 * 100, 0 * 100 + 0.122414646) * 0.1, 0)
-            //                  = 99.9677013691
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
+            //                  = max(min(100, 100 - 0.02005716629) - max(0.0004084104205 * 100, 0.1217995126) * 0.1, 0)
+            //                  = 99.9677628825
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967762", collateralDecimals))
         })
     })
 
     describe("# withdraw", () => {
         beforeEach(async () => {
-            await collateral.mint(alice.address, parseUnits("20000", await collateral.decimals()))
+            await collateral.mint(alice.address, parseUnits("20000", collateralDecimals))
             await deposit(alice, vault, 20000, collateral)
-            const collateralAmount = parseUnits("1000", await collateral.decimals())
+            const collateralAmount = parseUnits("1000", collateralDecimals)
             await collateral.mint(bob.address, collateralAmount)
             await deposit(bob, vault, 1000, collateral)
 
             // alice the maker add liq. first
-            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("500"))
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("50000"))
+            // will mint x base and y quote and transfer to pool
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseUnits("500"),
@@ -150,10 +151,16 @@ describe("ClearingHouse withdraw", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
+            expect((await clearingHouse.getTokenInfo(alice.address, baseToken.address)).debt).to.eq(
+                parseEther("330.309218099849988845"),
+            )
+            expect((await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).debt).to.eq(
+                parseEther("50000"),
+            )
         })
 
         it("taker do nothing and then withdraw", async () => {
-            const amount = parseUnits("1000", await collateral.decimals())
+            const amount = parseUnits("1000", collateralDecimals)
             expect(await vault.getFreeCollateral(bob.address)).to.eq(amount)
 
             await expect(vault.connect(bob).withdraw(collateral.address, amount))
@@ -164,26 +171,28 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("maker withdraw after adding liquidity", async () => {
-            // free collateral = min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-            // min(20000, 20000) - (500 * 100 + 50000, 0) * 10% = 10000
-            const amount = parseUnits("10000", await collateral.decimals())
+            // free collateral = max(min(collateral, accountValue) - imReq, 0)
+            //                 = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
+            //                 = max(min(20000, 20000) - max(0, 330.3092180998 * 100 + 50000) * 0.1, 0)
+            //                 = 11696.907819002
+            const amount = parseUnits("11696.907819", collateralDecimals)
             expect(await vault.getFreeCollateral(alice.address)).to.eq(amount)
 
             await expect(vault.connect(alice).withdraw(collateral.address, amount))
                 .to.emit(vault, "Withdrawn")
                 .withArgs(collateral.address, alice.address, amount)
             expect(await collateral.balanceOf(alice.address)).to.eq(amount)
-            expect(await vault.balanceOf(alice.address)).to.eq(amount)
+            // 20000 - 11696.907819002 = 8303.092180998
+            expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("8303.092181", collateralDecimals))
         })
 
         it("force error, withdraw without deposit", async () => {
             await expect(
-                vault.connect(carol).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
+                vault.connect(carol).withdraw(collateral.address, parseUnits("1000", collateralDecimals)),
             ).to.be.revertedWith("V_NEFC")
         })
 
         it("force error, margin requirement is larger than accountValue", async () => {
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("10000"))
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -195,17 +204,16 @@ describe("ClearingHouse withdraw", () => {
 
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                  = max(min(1000, 1000 - loss) - max(10000 - loss, 10000 + 0) * 0.1, 0)
             //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
-                vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
+                vault.connect(bob).withdraw(collateral.address, parseUnits("1000", collateralDecimals)),
             ).to.be.revertedWith("V_NEFC")
         })
 
         it("force error, margin requirement is larger than collateral", async () => {
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("100"))
             await clearingHouse.connect(bob).swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -217,10 +225,9 @@ describe("ClearingHouse withdraw", () => {
 
             // carol open a short position to make price goes down.
             // So that Bob has profit
-            const collateralAmount = parseUnits("1000", await collateral.decimals())
+            const collateralAmount = parseUnits("1000", collateralDecimals)
             await collateral.mint(carol.address, collateralAmount)
             await deposit(carol, vault, 1000, collateral)
-            await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
             await clearingHouse.connect(carol).swap({
                 // sell base
                 baseToken: baseToken.address,
@@ -236,18 +243,18 @@ describe("ClearingHouse withdraw", () => {
 
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue), 0)
+            //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                  = max(min(1000, 1000 + profit) - max(100 * 110, 100 * 110 + 0) * 0.1, 0)
             //                  = 0
             expect(await vault.getFreeCollateral(bob.address)).to.eq("0")
             await expect(
-                vault.connect(bob).withdraw(collateral.address, parseUnits("1000", await collateral.decimals())),
+                vault.connect(bob).withdraw(collateral.address, parseUnits("1000", collateralDecimals)),
             ).to.be.revertedWith("V_NEFC")
         })
 
         it("force error, withdrawal amount is more than collateral", async () => {
             await expect(
-                vault.connect(carol).withdraw(collateral.address, parseUnits("5000", await collateral.decimals())),
+                vault.connect(carol).withdraw(collateral.address, parseUnits("5000", collateralDecimals)),
             ).to.be.revertedWith("V_NEFC")
         })
 
@@ -257,7 +264,6 @@ describe("ClearingHouse withdraw", () => {
         // Therefore, we should implement an anomaly check before using the config.
         // The following test would fail without the said anomaly check.
         it("force error, free collateral should not depend solely on index price", async () => {
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("10000"))
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
