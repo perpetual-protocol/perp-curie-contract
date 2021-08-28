@@ -24,6 +24,9 @@ contract TestClearingHouse is ClearingHouse {
         return _testBlockTimestamp;
     }
 
+    //
+    // BELOW WERE EXTERNAL FUNCTION, MOVE TO HERE FOR THE TESTING, CAN BE REMOVE LATER ONCE WE CLEAN THE TESTS
+    //
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
@@ -39,5 +42,25 @@ contract TestClearingHouse is ClearingHouse {
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
+    }
+
+    function mint(address token, uint256 amount) external nonReentrant() {
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+            _registerBaseToken(_msgSender(), token);
+        }
+        // always check margin ratio
+        _mint(_msgSender(), token, amount, true);
+    }
+
+    /**
+     * @param amount the amount of debt to burn
+     */
+    // TODO internal
+    function burn(address token, uint256 amount) external nonReentrant() {
+        if (token != quoteToken) {
+            _requireHasBaseToken(token);
+        }
+        _burn(_msgSender(), token, amount);
     }
 }

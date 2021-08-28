@@ -325,27 +325,6 @@ contract ClearingHouse is
         emit ExchangeUpdated(exchange);
     }
 
-    // TODO internal
-    function mint(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-            _registerBaseToken(_msgSender(), token);
-        }
-        // always check margin ratio
-        _mint(_msgSender(), token, amount, true);
-    }
-
-    /**
-     * @param amount the amount of debt to burn
-     */
-    // TODO internal
-    function burn(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-        }
-        _burn(_msgSender(), token, amount);
-    }
-
     function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
         _requireHasBaseToken(params.baseToken);
 
