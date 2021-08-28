@@ -996,7 +996,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
             uint256 quoteInPool =
-                getTotalTokenAmountInPool(
+                _getTotalTokenAmountInPool(
                     trader,
                     baseToken,
                     UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
@@ -1013,7 +1013,57 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         address baseToken,
         uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) public view returns (uint256 tokenAmount) {
+    ) external view returns (uint256 tokenAmount) {
+        return _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, fetchBase);
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
+    }
+
+    function getTickFundingGrowthRangeInfo(
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick,
+        int256 twPremiumX96,
+        int256 twPremiumDivBySqrtPriceX96
+    ) external view returns (Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        fundingGrowthRangeInfo = tickMap.getAllFundingGrowth(
+            lowerTick,
+            upperTick,
+            UniswapV3Broker.getTick(_poolMap[baseToken]),
+            twPremiumX96,
+            twPremiumDivBySqrtPriceX96
+        );
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
+    }
+
+    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
+    }
+
+    function getAmount0ForLiquidity(
+        uint160 sqrtRatioAX96,
+        uint160 sqrtRatioBX96,
+        uint128 liquidity
+    ) external pure returns (uint256 amount0) {
+        return UniswapV3Broker.getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+    }
+
+    //
+    // INTERNAL VIEW
+    //
+
+    function _getTotalTokenAmountInPool(
+        address trader,
+        address baseToken,
+        uint160 sqrtMarkPriceX96,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
+    ) internal view returns (uint256 tokenAmount) {
         bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
 
         //
@@ -1070,47 +1120,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             }
         }
     }
-
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
-    }
-
-    function getTickFundingGrowthRangeInfo(
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick,
-        int256 twPremiumX96,
-        int256 twPremiumDivBySqrtPriceX96
-    ) external view returns (Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        fundingGrowthRangeInfo = tickMap.getAllFundingGrowth(
-            lowerTick,
-            upperTick,
-            UniswapV3Broker.getTick(_poolMap[baseToken]),
-            twPremiumX96,
-            twPremiumDivBySqrtPriceX96
-        );
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
-    }
-
-    function getAmount0ForLiquidity(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity
-    ) external pure returns (uint256 amount0) {
-        return UniswapV3Broker.getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
-    }
-
-    //
-    // internal VIEW
-    //
 
     function _getLiquidityCoefficientInFundingPayment(
         Exchange.OpenOrder memory order,
