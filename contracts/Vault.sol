@@ -157,13 +157,32 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         return _balance[trader][token];
     }
 
-    // TODO reduce external calls
-    // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
+    function _getTotalCollateralValue(address trader) internal view returns (int256) {
+        int256 balance = balanceOf(trader);
+        int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(trader);
+        return balance.addS(owedRealizedPnl, decimals);
+    }
+
+    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    // we will start with the conservative one, then gradually change it to more aggressive ones
+    // to increase capital efficiency.
     function _getFreeCollateral(address trader) private view returns (uint256) {
-        return
-            PerpMath
-                .max(ClearingHouse(clearingHouse).getFreeCollateralWithBalance(trader, balanceOf(trader)), 0)
-                .toUint256();
+        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        int256 totalCollateralValue = _getTotalCollateralValue(trader);
+        int256 accountValue = ClearingHouse(clearingHouse).getAccountValue(trader);
+        uint256 totalInitialMarginRequirement = ClearingHouse(clearingHouse).getTotalInitialMarginRequirement(trader);
+        int256 freeCollateral =
+            PerpMath.min(totalCollateralValue, accountValue).subS(totalInitialMarginRequirement.toInt256(), decimals);
+        return PerpMath.max(freeCollateral, 0).toUint256();
+
+        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
+        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+
+        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
+        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
+        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
+        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
