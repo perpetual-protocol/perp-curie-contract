@@ -1099,6 +1099,11 @@ contract ClearingHouse is
         response.openNotional = getOpenNotional(params.trader, params.baseToken);
         response.realizedPnl = realizedPnl;
 
+        // burn excess tokens
+        _burnMax(params.trader, params.baseToken);
+        _burnMax(params.trader, quoteToken);
+        _deregisterBaseToken(params.trader, params.baseToken);
+
         return response;
     }
 
@@ -1261,10 +1266,6 @@ contract ClearingHouse is
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
-
-        _burnMax(params.trader, params.baseToken);
-        _burnMax(params.trader, quoteToken);
-        _deregisterBaseToken(params.trader, params.baseToken);
 
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)
