@@ -37,6 +37,7 @@ library UniswapV3Broker {
         int24 upperTick;
         uint256 base;
         uint256 quote;
+        bytes data;
     }
 
     struct AddLiquidityResponse {
@@ -92,14 +93,13 @@ library UniswapV3Broker {
 
         {
             // call mint()
-            bytes memory data = abi.encode(params.baseToken);
             (uint256 addedAmount0, uint256 addedAmount1) =
                 IUniswapV3Pool(params.pool).mint(
                     address(this),
                     params.lowerTick,
                     params.upperTick,
                     response.liquidity,
-                    data
+                    params.data
                 );
 
             // fetch the fee growth state if this has liquidity

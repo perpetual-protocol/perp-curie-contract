@@ -51,8 +51,6 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         // prepare collateral for maker1
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
         await deposit(maker1, vault, 1000, collateral)
-        await clearingHouse.connect(maker1).mint(baseToken.address, parseEther("90"))
-        await clearingHouse.connect(maker1).mint(quoteToken.address, parseEther("900"))
         await clearingHouse.connect(maker1).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("90"),
@@ -67,8 +65,6 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         // prepare collateral for maker2
         await collateral.mint(maker2.address, parseUnits("1000", collateralDecimals))
         await deposit(maker2, vault, 1000, collateral)
-        await clearingHouse.connect(maker2).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(maker2).mint(quoteToken.address, parseEther("100"))
         await clearingHouse.connect(maker2).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("10"),

@@ -57,8 +57,6 @@ describe("ClearingHouse openPosition", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("65.943787")) // should only mint exact amount
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("65.943787"),
@@ -376,7 +374,6 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
-                    await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("50"))
                     const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                     // taker swap ? USD for 1 ETH
@@ -398,14 +395,12 @@ describe("ClearingHouse openPosition", () => {
                     expect(quoteInfo.debt.gt(parseEther("0"))).to.be.true
 
                     expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-                        balanceBefore.sub(parseEther("50")).add(parseEther("1.550587307011629547")),
+                        balanceBefore.add(parseEther("1.550587307011629547")),
                         1,
                     )
                 })
 
                 it("mint more but burn all of them after swap because there's enough available", async () => {
-                    await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("200"))
-
                     // taker swap ? USD for 1 ETH
                     await expect(
                         clearingHouse.connect(taker).openPosition({
@@ -418,7 +413,7 @@ describe("ClearingHouse openPosition", () => {
                             deadline: ethers.constants.MaxUint256,
                             referralCode: ethers.constants.HashZero,
                         }),
-                    ).not.emit(clearingHouse, "Minted")
+                    ).emit(clearingHouse, "Minted")
 
                     const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -430,11 +425,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             it("mint missing amount of vUSD for swapping", async () => {
-                await clearingHouse.connect(taker).mint(quoteToken.address, parseEther("1"))
-                const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // taker swap 2 USD for ? ETH
-                // it will mint 1 more USD
                 await expect(
                     clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
@@ -448,7 +439,7 @@ describe("ClearingHouse openPosition", () => {
                     }),
                 )
                     .to.emit(clearingHouse, "Minted")
-                    .withArgs(taker.address, quoteToken.address, parseEther("1"))
+                    .withArgs(taker.address, quoteToken.address, parseEther("2"))
 
                 const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
@@ -457,9 +448,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteInfo.available.eq(parseEther("0"))).to.be.true
                 expect(quoteInfo.debt.eq(parseEther("2"))).to.be.true
 
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(
-                    balanceBefore.sub(parseEther("1")).add(parseEther("0.02")),
-                )
+                // CH will take 1% fee for maker
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(parseEther("0.02"))
             })
 
             it("does not mint anything if the vUSD is sufficient", async () => {
@@ -986,8 +976,6 @@ describe("ClearingHouse openPosition", () => {
 
     describe("markets number exceeded", () => {
         beforeEach(async () => {
-            await clearingHouse.connect(maker).mint(baseToken2.address, parseEther("65.943787")) // should only mint exact amount
-            await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
             await clearingHouse.connect(maker).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("65.943787"),

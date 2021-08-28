@@ -46,10 +46,6 @@ describe("ClearingHouse addLiquidity slippage", () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001 ^ 50200 = 151.373306858723226651)
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
-
-            // mint
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
         })
 
         it("force error, over slippage protection when adding liquidity above price with only base", async () => {
@@ -93,10 +89,6 @@ describe("ClearingHouse addLiquidity slippage", () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001 ^ 50200 = 151.373306858723226652)
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
-
-            // mint
-            await clearingHouse.connect(alice).mint(baseToken.address, baseAmount)
-            await clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount)
         })
 
         it("force error, over slippage protection when adding liquidity below price with only quote token", async () => {

@@ -72,20 +72,6 @@ describe("ClearingHouse", () => {
             await exchange.addPool(baseToken.address, 10000)
         })
 
-        // @SAMPLE - mint
-        it("alice mint quote and sends an event", async () => {
-            // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
-            const quoteAmount = parseUnits("10000", await quoteToken.decimals())
-            await expect(clearingHouse.connect(alice).mint(quoteToken.address, quoteAmount))
-                .to.emit(clearingHouse, "Minted")
-                .withArgs(alice.address, quoteToken.address, quoteAmount)
-
-            expect(await clearingHouse.getAccountValue(alice.address)).to.eq(parseUnits("1000", collateralDecimals))
-            // verify freeCollateral = 1000 - 10,000 * 0.1 = 0
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(0)
-        })
-
         it("alice mint base and sends an event", async () => {
             // assume imRatio = 0.1, price = 100
             // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
