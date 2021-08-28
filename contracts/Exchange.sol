@@ -294,7 +294,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // EX_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "EX_NEP");
         // EX_EP: existent pool in ClearingHouse
-        require(pool != _poolMap[baseToken], "EX_EP");
+        require(_poolMap[baseToken] == address(0), "EX_EP");
         // EX_PNI: pool not (yet) initialized
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
 

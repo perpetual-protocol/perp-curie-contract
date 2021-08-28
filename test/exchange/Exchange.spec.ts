@@ -88,6 +88,14 @@ describe("Exchange Spec", () => {
                 await expect(exchange.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_EP")
             })
 
+            it("force error, pool is existed in Exchange even with the same base but diff fee", async () => {
+                await exchange.addPool(baseToken.address, DEFAULT_FEE)
+                uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
+                    return POOL_B_ADDRESS
+                })
+                await expect(exchange.addPool(baseToken.address, 10000)).to.be.revertedWith("EX_EP")
+            })
+
             it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
                 const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
                 await expect(exchange.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("EX_IB")
