@@ -24,6 +24,7 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { OrderKey } from "./lib/OrderKey.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
@@ -562,7 +563,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         returns (RemoveLiquidityResponse memory)
     {
         // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
         // EX_NEO non-existent openOrder
         require(openOrder.liquidity > 0, "EX_NEO");
@@ -732,7 +733,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
         // update token info based on existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         OpenOrder storage openOrder = _openOrderMap[orderId];
         uint256 feeGrowthInsideClearingHouseX128 =
@@ -781,7 +782,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
@@ -980,7 +981,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 lowerTick,
         int24 upperTick
     ) external view returns (OpenOrder memory) {
-        return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
+        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
     function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
@@ -1146,15 +1147,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             );
 
         return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
-    }
-
-    function _getOrderId(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 
     function _calcOwedFee(

@@ -1626,13 +1626,4 @@ contract ClearingHouse is
         // CH_NEAV: not enough account value
         require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
     }
-
-    function _getOrderId(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
-    }
 }
