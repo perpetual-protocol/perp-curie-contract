@@ -59,8 +59,6 @@ describe("ClearingHouse maker close position", () => {
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("100"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("10"),
@@ -75,8 +73,6 @@ describe("ClearingHouse maker close position", () => {
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("900"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("90"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("90"),
@@ -94,7 +90,6 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -140,7 +135,6 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -204,7 +198,6 @@ describe("ClearingHouse maker close position", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: true,
@@ -261,8 +254,6 @@ describe("ClearingHouse maker close position", () => {
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
             await deposit(alice, vault, 1000, collateral)
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("100"))
-            await clearingHouse.connect(alice).mint(baseToken2.address, parseEther("10"))
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("10"),
@@ -277,8 +268,6 @@ describe("ClearingHouse maker close position", () => {
             // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
             await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
             await deposit(carol, vault, 1000, collateral)
-            await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("900"))
-            await clearingHouse.connect(carol).mint(baseToken2.address, parseEther("90"))
             await clearingHouse.connect(carol).addLiquidity({
                 baseToken: baseToken2.address,
                 base: parseEther("90"),
@@ -295,7 +284,6 @@ describe("ClearingHouse maker close position", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -344,7 +332,6 @@ describe("ClearingHouse maker close position", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
             await deposit(bob, vault, 250, collateral)
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("25"))
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,

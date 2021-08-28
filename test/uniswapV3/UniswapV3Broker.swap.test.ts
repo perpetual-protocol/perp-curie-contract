@@ -72,6 +72,7 @@ describe("UniswapV3Broker swap", () => {
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.000816820841"),
                 quote: "0",
+                data: hexlify([]),
             })
 
             // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
@@ -115,6 +116,7 @@ describe("UniswapV3Broker swap", () => {
                 upperTick: 50200, // 151.3733069
                 base: "0",
                 quote: parseEther("0.122414646"),
+                data: hexlify([]),
             })
 
             // 0.0004084104205 / 0.99 = 0.0004125357783
@@ -157,6 +159,7 @@ describe("UniswapV3Broker swap", () => {
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.000816820841"),
                 quote: "0",
+                data: hexlify([]),
             })
 
             const base = 0.000750705258114652
@@ -198,6 +201,7 @@ describe("UniswapV3Broker swap", () => {
                 upperTick: 50200, // 151.3733069
                 base: "0",
                 quote: parseEther("0.122414646"),
+                data: hexlify([]),
             })
 
             const quote = 0.061513341759797928
@@ -242,6 +246,7 @@ describe("UniswapV3Broker swap", () => {
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.00816820841"),
                 quote: "0",
+                data: hexlify([]),
             })
 
             // 1.12414646 / 0.99 = 1.135501475

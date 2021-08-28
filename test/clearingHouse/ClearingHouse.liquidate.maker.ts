@@ -62,8 +62,6 @@ describe("ClearingHouse liquidate maker", () => {
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
         await deposit(alice, vault, 200, collateral)
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("100"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("10"),
@@ -78,8 +76,6 @@ describe("ClearingHouse liquidate maker", () => {
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("900"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("90"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("90"),

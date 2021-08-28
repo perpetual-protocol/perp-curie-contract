@@ -57,12 +57,6 @@ describe("ClearingHouse.getPositionValue", () => {
             await pool.initialize(encodePriceSqrt("151.3733069", "1"))
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
-
-            // mint
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
         })
 
         // see more desc in getPositionSize test
@@ -236,13 +230,6 @@ describe("ClearingHouse.getPositionValue", () => {
         await exchange.addPool(baseToken.address, 10000)
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // mint
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
 
         const lowerTick = "50000"
         const middleTick = "50200"

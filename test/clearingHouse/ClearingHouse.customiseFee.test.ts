@@ -52,8 +52,6 @@ describe("ClearingHouse customized fee", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("65.943787")) // should only mint exact amount
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("10000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("65.943787"),

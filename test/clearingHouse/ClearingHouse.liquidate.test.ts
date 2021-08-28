@@ -91,11 +91,6 @@ describe("ClearingHouse liquidate", () => {
         await deposit(bob, vault, 1000000, collateral)
         await deposit(carol, vault, 1000000, collateral)
 
-        // mint base
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("100"))
-        await clearingHouse.connect(carol).mint(baseToken2.address, parseEther("100"))
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("50000"))
-
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),

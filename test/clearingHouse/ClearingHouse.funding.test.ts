@@ -48,8 +48,6 @@ describe("ClearingHouse.funding", () => {
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
 
         // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
         // because the very first funding settlement on the market only records the timestamp and
@@ -67,13 +65,9 @@ describe("ClearingHouse.funding", () => {
 
         await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("2"))
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
 
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("2"))
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
     })
 
     describe("# getPendingFundingPayment", () => {

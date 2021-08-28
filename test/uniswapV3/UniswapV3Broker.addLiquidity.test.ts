@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
+import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
@@ -53,6 +53,7 @@ describe("UniswapV3Broker addLiquidity", () => {
             upperTick: 50400, // 154.4310961
             base,
             quote,
+            data: hexlify([]),
         })
         expect((await pool.positions(posKey)).liquidity.gt(0)).be.true
     })
@@ -76,6 +77,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 upperTick: 50400, // 154.4310961
                 base,
                 quote,
+                data: hexlify([]),
             }),
         )
             .to.emit(pool, "Mint")
@@ -109,6 +111,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 upperTick: 50200,
                 base,
                 quote,
+                data: hexlify([]),
             }),
         )
             .to.emit(pool, "Mint")
@@ -138,6 +141,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 upperTick: "50200",
                 base,
                 quote,
+                data: hexlify([]),
             }),
         ).to.be.revertedWith("UB_ZL")
     })
@@ -160,6 +164,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 upperTick: "50200",
                 base,
                 quote,
+                data: hexlify([]),
             }),
         )
             .to.emit(pool, "Mint")
@@ -189,6 +194,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 upperTick: "50200",
                 base,
                 quote,
+                data: hexlify([]),
             }),
         ).to.be.revertedWith("UB_ZL")
     })

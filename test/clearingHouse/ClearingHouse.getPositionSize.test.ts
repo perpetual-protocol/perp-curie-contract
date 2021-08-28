@@ -51,12 +51,6 @@ describe("ClearingHouse.getPositionSize", () => {
             await pool.initialize(encodePriceSqrt("151.3733069", "1"))
             // add pool after it's initialized
             await exchange.addPool(baseToken.address, 10000)
-
-            // mint
-            await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
         })
 
         it("size = 0, if no swap", async () => {
@@ -175,13 +169,6 @@ describe("ClearingHouse.getPositionSize", () => {
         await pool.initialize(encodePriceSqrt("148.3760629", "1"))
         // add pool after it's initialized
         await exchange.addPool(baseToken.address, 10000)
-
-        // mint
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("1000"))
-        await clearingHouse.connect(bob).mint(baseToken.address, parseEther("10"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
 
         const lowerTick = "50000"
         const middleTick = "50200"

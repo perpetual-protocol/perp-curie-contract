@@ -45,7 +45,6 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // prepare collateral for maker1
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
         await deposit(maker1, vault, 1000, collateral)
-        await clearingHouse.connect(maker1).mint(baseToken.address, parseEther("0.000816820841"))
         await clearingHouse.connect(maker1).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0.000816820841"),
@@ -60,7 +59,6 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // prepare collateral for maker2
         await collateral.mint(maker2.address, parseUnits("1000", collateralDecimals))
         await deposit(maker2, vault, 1000, collateral)
-        await clearingHouse.connect(maker2).mint(baseToken.address, parseEther("0.0008086937422"))
         await clearingHouse.connect(maker2).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0.0008086937422"),
