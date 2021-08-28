@@ -35,6 +35,7 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -329,7 +330,7 @@ contract ClearingHouse is
     }
 
     // TODO internal
-    function mint(address token, uint256 amount) external nonReentrant() {
+    function mint(address token, uint256 amount) external nonReentrant {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
             _registerBaseToken(_msgSender(), token);
@@ -342,14 +343,19 @@ contract ClearingHouse is
      * @param amount the amount of debt to burn
      */
     // TODO internal
-    function burn(address token, uint256 amount) external nonReentrant() {
+    function burn(address token, uint256 amount) external nonReentrant {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
         }
         _burn(_msgSender(), token, amount);
     }
 
-    function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
+    function addLiquidity(AddLiquidityParams calldata params)
+        external
+        whenNotPaused
+        nonReentrant
+        checkDeadline(params.deadline)
+    {
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
@@ -404,7 +410,8 @@ contract ClearingHouse is
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        nonReentrant()
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (
             uint256 base,
@@ -434,7 +441,7 @@ contract ClearingHouse is
         uint160 sqrtPriceLimitX96,
         uint256 deadline,
         bytes32 referralCode
-    ) external checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
+    ) external whenNotPaused checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
         _requireHasBaseToken(baseToken);
         SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
         emit ReferredPositionChanged(referralCode);
@@ -443,6 +450,7 @@ contract ClearingHouse is
 
     function openPosition(OpenPositionParams memory params)
         external
+        whenNotPaused
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -562,7 +570,7 @@ contract ClearingHouse is
         trustedForwarder = trustedForwarderArg;
     }
 
-    function liquidate(address trader, address baseToken) external nonReentrant() {
+    function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(
@@ -701,11 +709,11 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external nonReentrant() {
+    ) external nonReentrant {
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
+    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant {
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }

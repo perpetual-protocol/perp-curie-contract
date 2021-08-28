@@ -16,6 +16,7 @@ import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     using SafeMath for uint256;
@@ -80,7 +81,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     //
     // EXTERNAL
     //
-    function deposit(address token, uint256 amount) external nonReentrant() {
+    function deposit(address token, uint256 amount) external whenNotPaused nonReentrant {
         // collateralToken not found
         require(_collateralTokenMap[token], "V_CNF");
 
@@ -92,7 +93,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         emit Deposited(token, from, amount);
     }
 
-    function withdraw(address token, uint256 amount) external nonReentrant() {
+    function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
         // settle ClearingHouse's owedRealizedPnl to collateral

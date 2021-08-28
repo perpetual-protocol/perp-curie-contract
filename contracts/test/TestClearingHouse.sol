@@ -24,7 +24,7 @@ contract TestClearingHouse is ClearingHouse {
         return _testBlockTimestamp;
     }
 
-    function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
+    function swap(SwapParams memory params) external nonReentrant returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
