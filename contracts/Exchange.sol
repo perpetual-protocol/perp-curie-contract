@@ -712,13 +712,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         uint256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
-            uint256 quoteInPool =
-                _getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]),
-                    false
-                );
+            uint256 quoteInPool = _getTotalTokenAmountInPool(trader, baseToken, false);
             totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
         }
         return totalQuoteAmountInPools;
@@ -728,10 +722,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     function getTotalTokenAmountInPool(
         address trader,
         address baseToken,
-        uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) external view returns (uint256 tokenAmount) {
-        return _getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, fetchBase);
+        return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
     }
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
@@ -1065,7 +1058,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     function _getTotalTokenAmountInPool(
         address trader,
         address baseToken,
-        uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) internal view returns (uint256 tokenAmount) {
         bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
@@ -1082,6 +1074,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // if current price > lower tick, maker has quote
         // case 2 : current price > upper tick
         //  --> maker only has quote token
+        uint160 sqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
 

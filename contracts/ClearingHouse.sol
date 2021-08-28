@@ -706,26 +706,13 @@ contract ClearingHouse is
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        uint160 sqrtMarkPrice = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
-        int256 quoteInPool =
-            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPrice, false).toInt256();
+        int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
         int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
         return quoteInPool.sub(openNotionalFraction);
     }
 
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
-    }
-
-    // TODO move to exchange
-    function getTotalTokenAmountInPool(address trader, address baseToken)
-        public
-        view
-        returns (uint256 base, uint256 quote)
-    {
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
-        base = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, true);
-        quote = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
@@ -935,28 +922,29 @@ contract ClearingHouse is
     }
 
     // expensive
-    function _deregisterBaseToken(address account, address baseToken) internal {
+    function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        TokenInfo memory tokenInfo = _accountMap[account].tokenInfoMap[baseToken];
+        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         if (tokenInfo.available > 0 || tokenInfo.debt > 0) {
             return;
         }
 
-        (uint256 baseInPool, uint256 quoteInPool) = getTotalTokenAmountInPool(account, baseToken);
+        uint256 baseInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false);
         if (baseInPool > 0 || quoteInPool > 0) {
             return;
         }
 
-        delete _accountMap[account].tokenInfoMap[baseToken];
+        delete _accountMap[trader].tokenInfoMap[baseToken];
 
-        uint256 length = _accountMap[account].tokens.length;
+        uint256 length = _accountMap[trader].tokens.length;
         for (uint256 i; i < length; i++) {
-            if (_accountMap[account].tokens[i] == baseToken) {
+            if (_accountMap[trader].tokens[i] == baseToken) {
                 // if the removal item is the last one, just `pop`
                 if (i != length - 1) {
-                    _accountMap[account].tokens[i] = _accountMap[account].tokens[length - 1];
+                    _accountMap[trader].tokens[i] = _accountMap[trader].tokens[length - 1];
                 }
-                _accountMap[account].tokens.pop();
+                _accountMap[trader].tokens.pop();
                 break;
             }
         }
@@ -1528,7 +1516,6 @@ contract ClearingHouse is
                 Exchange(exchange).getTotalTokenAmountInPool(
                     trader,
                     baseToken,
-                    sqrtMarkPriceX96,
                     true // get base token amount
                 )
             );
