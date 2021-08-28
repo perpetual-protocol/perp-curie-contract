@@ -46,8 +46,6 @@ describe("ClearingHouse.swap", () => {
         // prepare maker alice
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("100"))
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -185,7 +183,6 @@ describe("ClearingHouse.swap", () => {
             await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
             await deposit(bob, vault, 25, collateral)
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, parseEther("250"))
             bobQuoteAvailableBefore = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
             await clearingHouse.connect(bob).swap({
                 // buy base

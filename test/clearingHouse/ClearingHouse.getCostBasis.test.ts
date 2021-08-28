@@ -62,13 +62,11 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
             it("taker mints quote", async () => {
                 const quoteAmount = parseEther("100")
-                await clearingHouse.connect(taker).mint(quoteToken.address, quoteAmount)
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("0"))
                 expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(parseEther("0"))
             })
 
             it("maker adds liquidity below price with quote only", async () => {
-                await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("100"))
                 await clearingHouse.connect(maker).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0"),
@@ -93,8 +91,6 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             it("maker adds liquidity above price with base only", async () => {
-                await clearingHouse.connect(maker).mint(baseToken.address, parseEther("5"))
-
                 await clearingHouse.connect(maker).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("2"),
@@ -125,8 +121,6 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             it("maker adds liquidity with both quote and base", async () => {
-                await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("100"))
-                await clearingHouse.connect(maker).mint(baseToken.address, parseEther("1"))
                 await clearingHouse.connect(maker).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("1"),

@@ -51,8 +51,6 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000000", collateralDecimals))
         await deposit(alice, vault, 1000000, collateral)
-        await clearingHouse.connect(alice).mint(quoteToken.address, parseEther("10000"))
-        await clearingHouse.connect(alice).mint(baseToken.address, parseEther("100"))
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -67,8 +65,6 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
         await collateral.mint(carol.address, parseUnits("1000000", collateralDecimals))
         await deposit(carol, vault, 1000000, collateral)
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("10000"))
-        await clearingHouse.connect(carol).mint(baseToken.address, parseEther("100"))
         await clearingHouse.connect(carol).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
@@ -85,7 +81,6 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         // carol long
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
-        await clearingHouse.connect(carol).mint(quoteToken.address, parseEther("1000"))
         for (let i = 0; i < 720; i++) {
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,

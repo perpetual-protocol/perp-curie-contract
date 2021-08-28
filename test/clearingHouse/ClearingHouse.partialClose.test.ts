@@ -54,8 +54,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await deposit(maker, vault, 1000, collateral)
 
         // maker add liquidity
-        await clearingHouse.connect(maker).mint(baseToken.address, parseEther("100"))
-        await clearingHouse.connect(maker).mint(quoteToken.address, parseEther("1000"))
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
