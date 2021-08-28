@@ -691,7 +691,7 @@ contract ClearingHouse is
         address token,
         uint256 twapIntervalArg
     ) public view returns (int256 positionValue) {
-        int256 positionSize = _getPositionSize(trader, token, Exchange(exchange).getSqrtMarkPriceX96(token));
+        int256 positionSize = _getPositionSize(trader, token);
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
@@ -716,7 +716,7 @@ contract ClearingHouse is
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        return _getPositionSize(trader, baseToken, Exchange(exchange).getSqrtMarkPriceX96(baseToken));
+        return _getPositionSize(trader, baseToken);
     }
 
     // quote.available - quote.debt + totalQuoteInPools - pendingFundingPayment
@@ -1354,7 +1354,6 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
 
-        Funding.Growth memory updatedGlobalFundingGrowth = _getUpdatedGlobalFundingGrowth(baseToken);
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
         // funding of liquidity
@@ -1505,11 +1504,7 @@ contract ClearingHouse is
         return totalBaseDebtValue;
     }
 
-    function _getPositionSize(
-        address trader,
-        address baseToken,
-        uint160 sqrtMarkPriceX96
-    ) internal view returns (int256) {
+    function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
         TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
             baseTokenInfo.available.add(
@@ -1527,7 +1522,7 @@ contract ClearingHouse is
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
-    function _getBaseQuoteTokenBalance(address baseToken) internal returns (uint256 base, uint256 quote) {
+    function _getBaseQuoteTokenBalance(address baseToken) internal view returns (uint256 base, uint256 quote) {
         base = IERC20Metadata(baseToken).balanceOf(address(this));
         quote = IERC20Metadata(quoteToken).balanceOf(address(this));
     }
