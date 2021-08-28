@@ -39,14 +39,14 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
 
     uint8 public immutable override decimals;
 
-    address[] private _collateralTokens;
+    address[] internal _collateralTokens;
 
     // key: trader, token address
-    mapping(address => mapping(address => int256)) private _balance;
+    mapping(address => mapping(address => int256)) internal _balance;
 
     // key: token
     // TODO: change bool to collateral factor
-    mapping(address => bool) private _collateralTokenMap;
+    mapping(address => bool) internal _collateralTokenMap;
 
     constructor(address settlementTokenArg) {
         // invalid settlementToken decimals
@@ -126,7 +126,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         return _getFreeCollateral(trader);
     }
 
-    function _addCollateralToken(address token) private {
+    function _addCollateralToken(address token) internal {
         // collateral token existed
         require(!_collateralTokenMap[token], "V_CTE");
         _collateralTokenMap[token] = true;
@@ -137,7 +137,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address token,
         uint256 amount
-    ) private {
+    ) internal {
         _balance[trader][token] = _getBalance(trader, token).add(amount.toInt256());
     }
 
@@ -145,7 +145,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address token,
         uint256 amount
-    ) private {
+    ) internal {
         _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
     }
 
@@ -153,17 +153,17 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address collateralToken,
         uint256 amount
-    ) private {
+    ) internal {
         revert("TBD");
     }
 
-    function _getBalance(address trader, address token) private view returns (int256) {
+    function _getBalance(address trader, address token) internal view returns (int256) {
         return _balance[trader][token];
     }
 
     // TODO reduce external calls
     // min(collateral, accountValue) - (totalBaseDebt + totalQuoteDebt) * imRatio
-    function _getFreeCollateral(address trader) private view returns (uint256) {
+    function _getFreeCollateral(address trader) internal view returns (uint256) {
         return
             PerpMath
                 .max(ClearingHouse(clearingHouse).getFreeCollateralWithBalance(trader, balanceOf(trader)), 0)
