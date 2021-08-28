@@ -565,6 +565,35 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _removeLiquidity(params);
     }
 
+    // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
+    function getLiquidityCoefficientInFundingPayment(
+        address trader,
+        address baseToken,
+        Funding.Growth memory updatedGlobalFundingGrowth
+    ) external view returns (int256) {
+        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        int256 liquidityCoefficientInFundingPayment;
+
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+                _growthOutsideTickMap[baseToken].getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    updatedGlobalFundingGrowth.twPremiumX96,
+                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+
+            // the calculation here is based on cached values
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+            );
+        }
+
+        return liquidityCoefficientInFundingPayment;
+    }
+
     // TODO rename to updateLastFundingGrowth
     function getPendingFundingPaymentAndUpdateLastFundingGrowth(
         address trader,
@@ -1021,23 +1050,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
-    function getTickFundingGrowthRangeInfo(
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick,
-        int256 twPremiumX96,
-        int256 twPremiumDivBySqrtPriceX96
-    ) external view returns (Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        fundingGrowthRangeInfo = tickMap.getAllFundingGrowth(
-            lowerTick,
-            upperTick,
-            UniswapV3Broker.getTick(_poolMap[baseToken]),
-            twPremiumX96,
-            twPremiumDivBySqrtPriceX96
-        );
-    }
-
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
         return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
     }
@@ -1122,7 +1134,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function _getLiquidityCoefficientInFundingPayment(
-        Exchange.OpenOrder memory order,
+        OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);

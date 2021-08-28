@@ -1365,27 +1365,11 @@ contract ClearingHouse is
     ) internal view returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, baseToken);
 
-        int256 liquidityCoefficientInFundingPayment;
+        Funding.Growth memory updatedGlobalFundingGrowth = _getUpdatedGlobalFundingGrowth(baseToken);
+        int256 liquidityCoefficientInFundingPayment =
+            Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
         // funding of liquidity
-
-        // TODO merge into 1 exchange funciton
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            Exchange.OpenOrder memory order = Exchange(exchange).getOpenOrderById(orderIds[i]);
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                Exchange(exchange).getTickFundingGrowthRangeInfo(
-                    baseToken,
-                    order.lowerTick,
-                    order.upperTick,
-                    updatedGlobalFundingGrowth.twPremiumX96,
-                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                );
-
-            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
-            );
-        }
 
         int256 availableAndDebtCoefficientInFundingPayment =
             _getAvailableAndDebtCoefficientInFundingPayment(
@@ -1394,10 +1378,9 @@ contract ClearingHouse is
                 account.lastTwPremiumGrowthGlobalX96Map[baseToken]
             );
 
-        fundingPayment = fundingPayment
-            .add(liquidityCoefficientInFundingPayment)
-            .add(availableAndDebtCoefficientInFundingPayment)
-            .div(1 days);
+        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
+            1 days
+        );
     }
 
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
@@ -1439,46 +1422,6 @@ contract ClearingHouse is
             // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
             updatedGlobalFundingGrowth = outdatedGlobalFundingGrowth;
         }
-    }
-
-    function _getLiquidityCoefficientInFundingPayment(
-        Exchange.OpenOrder memory order,
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) internal view returns (int256 liquidityCoefficientInFundingPayment) {
-        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-
-        // base amount below the range
-        uint256 baseAmountBelow =
-            Exchange(exchange).getAmount0ForLiquidity(
-                TickMath.getSqrtRatioAtTick(order.lowerTick),
-                sqrtPriceX96AtUpperTick,
-                order.liquidity
-            );
-        int256 fundingBelowX96 =
-            baseAmountBelow.toInt256().mul(
-                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
-            );
-
-        // funding inside the range =
-        // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
-        int256 fundingInsideX96 =
-            uint256(order.liquidity).toInt256().mul(
-                // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
-                fundingGrowthRangeInfo
-                    .twPremiumDivBySqrtPriceGrowthInsideX96
-                    .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
-                    .sub(
-                    // ΔtwPremiumGrowthInsideX96
-                    (
-                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(
-                            PerpFixedPoint96.IQ96
-                        )
-                    )
-                        .div(sqrtPriceX96AtUpperTick)
-                )
-            );
-
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
     }
 
     function _getAvailableAndDebtCoefficientInFundingPayment(
