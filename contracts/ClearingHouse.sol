@@ -362,7 +362,6 @@ contract ClearingHouse is
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
-
         Exchange.AddLiquidityResponse memory response =
             Exchange(exchange).addLiquidity(
                 Exchange.AddLiquidityParams({
@@ -385,7 +384,7 @@ contract ClearingHouse is
         quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
-        // it's not closing the position, check margin ratio
+        // must after token info is updated to ensure free collateral is positive after updated
         _requireEnoughFreeCollateral(trader);
 
         emit LiquidityChanged(
@@ -520,18 +519,15 @@ contract ClearingHouse is
 
         Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
 
-        // TODO won't need this external call once moved to Exchange
-        address pool = Exchange(exchange).getPool(callbackData.baseToken);
-
         if (amount0Owed > 0) {
-            address token = IUniswapV3Pool(pool).token0();
+            address token = IUniswapV3Pool(callbackData.pool).token0();
             _mintIfNotEnough(callbackData.trader, token, amount0Owed);
-            TransferHelper.safeTransfer(token, pool, amount0Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
         }
         if (amount1Owed > 0) {
-            address token = IUniswapV3Pool(pool).token1();
+            address token = IUniswapV3Pool(callbackData.pool).token1();
             _mintIfNotEnough(callbackData.trader, token, amount1Owed);
-            TransferHelper.safeTransfer(token, pool, amount1Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
         }
     }
 

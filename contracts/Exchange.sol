@@ -124,6 +124,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     struct MintCallbackData {
         address trader;
         address baseToken;
+        address pool;
     }
 
     struct SwapCallbackData {
@@ -443,7 +444,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     params.upperTick,
                     params.base,
                     params.quote,
-                    abi.encode(MintCallbackData(params.trader, params.baseToken))
+                    abi.encode(MintCallbackData(params.trader, params.baseToken, pool))
                 )
             );
             // mint callback
