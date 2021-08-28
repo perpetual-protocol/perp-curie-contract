@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -35,7 +34,7 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { PerpOwnable } from "./base/PerpOwnable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -43,7 +42,7 @@ contract ClearingHouse is
     ISettlement,
     ReentrancyGuard,
     Validation,
-    Ownable,
+    PerpOwnable,
     BaseRelayRecipient
 {
     using SafeMath for uint256;
@@ -709,11 +708,11 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant {
+    function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }

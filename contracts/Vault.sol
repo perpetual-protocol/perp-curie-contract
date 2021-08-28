@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
@@ -16,9 +15,9 @@ import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { PerpOwnable } from "./base/PerpOwnable.sol";
 
-contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
+contract Vault is ReentrancyGuard, PerpOwnable, BaseRelayRecipient, IVault {
     using SafeMath for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
