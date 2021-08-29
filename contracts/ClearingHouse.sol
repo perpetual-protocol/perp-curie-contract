@@ -13,9 +13,6 @@ import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
@@ -27,12 +24,10 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { Validation } from "./base/Validation.sol";
-import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 
@@ -54,7 +49,6 @@ contract ClearingHouse is
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
-    using Tick for mapping(int24 => Tick.GrowthInfo);
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
 
