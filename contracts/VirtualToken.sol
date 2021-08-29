@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { SafeOwnable } from "./base/SafeOwnable.sol";
 
-contract VirtualToken is IIndexPrice, Ownable, ERC20 {
+contract VirtualToken is IIndexPrice, SafeOwnable, ERC20 {
     using SafeMath for uint256;
 
     event WhitelistAdded(address account);
