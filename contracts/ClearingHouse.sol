@@ -249,6 +249,22 @@ contract ClearingHouse is
         bool skipMarginRequirementCheck;
     }
 
+    struct ClosePositionParams {
+        address baseToken;
+        uint160 sqrtPriceLimitX96;
+        uint256 oppositeAmountBound;
+        uint256 deadline;
+        bytes32 referralCode;
+    }
+
+    struct CheckSlippageParams {
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 deltaAvailableQuote;
+        uint256 deltaAvailableBase;
+        uint256 oppositeAmountBound;
+    }
+
     // not used in CH, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
     // 10 wei
@@ -424,15 +440,31 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
     }
 
-    function closePosition(
-        address baseToken,
-        uint160 sqrtPriceLimitX96,
-        uint256 deadline,
-        bytes32 referralCode
-    ) external whenNotPaused checkDeadline(deadline) returns (uint256 deltaBase, uint256 deltaQuote) {
-        _requireHasBaseToken(baseToken);
-        SwapResponse memory response = _closePosition(_msgSender(), baseToken, sqrtPriceLimitX96);
-        emit ReferredPositionChanged(referralCode);
+    function closePosition(ClosePositionParams calldata params)
+        external
+        whenNotPaused
+        checkDeadline(params.deadline)
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
+        _requireHasBaseToken(params.baseToken);
+        address trader = _msgSender();
+        SwapResponse memory response = _closePosition(trader, params.baseToken, params.sqrtPriceLimitX96);
+
+        // TODO scale up or down the opposite amount bound if it's a partial close
+        // if oldPositionSize is long, close a long position is short, B2Q
+        // if oldPositionSize is short, close a short position is long, Q2B
+        bool isBaseToQuote = _getPositionSize(trader, params.baseToken) > 0 ? true : false;
+        _checkSlippage(
+            CheckSlippageParams({
+                isBaseToQuote: isBaseToQuote,
+                isExactInput: true,
+                deltaAvailableQuote: response.deltaAvailableQuote,
+                deltaAvailableBase: response.deltaAvailableBase,
+                oppositeAmountBound: params.oppositeAmountBound
+            })
+        );
+
+        emit ReferredPositionChanged(params.referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
@@ -479,27 +511,15 @@ contract ClearingHouse is
                 })
             );
 
-        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
-        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
-        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
-        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
-        if (params.isBaseToQuote) {
-            if (params.isExactInput) {
-                // too little received
-                require(response.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
-            } else {
-                // too much requested
-                require(response.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
-            }
-        } else {
-            if (params.isExactInput) {
-                // too little received
-                require(response.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
-            } else {
-                // too much requested
-                require(response.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
-            }
-        }
+        _checkSlippage(
+            CheckSlippageParams({
+                isBaseToQuote: params.isBaseToQuote,
+                isExactInput: params.isExactInput,
+                deltaAvailableQuote: response.deltaAvailableQuote,
+                deltaAvailableBase: response.deltaAvailableBase,
+                oppositeAmountBound: params.oppositeAmountBound
+            })
+        );
 
         emit ReferredPositionChanged(params.referralCode);
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
@@ -760,7 +780,7 @@ contract ClearingHouse is
         address token,
         uint256 twapIntervalArg
     ) public view returns (int256 positionValue) {
-        int256 positionSize = _getPositionSize(trader, token, Exchange(exchange).getSqrtMarkPriceX96(token));
+        int256 positionSize = _getPositionSize(trader, token);
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
@@ -798,7 +818,7 @@ contract ClearingHouse is
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        return _getPositionSize(trader, baseToken, Exchange(exchange).getSqrtMarkPriceX96(baseToken));
+        return _getPositionSize(trader, baseToken);
     }
 
     // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
@@ -1631,11 +1651,8 @@ contract ClearingHouse is
         return totalBaseDebtValue;
     }
 
-    function _getPositionSize(
-        address trader,
-        address baseToken,
-        uint160 sqrtMarkPriceX96
-    ) internal view returns (int256) {
+    function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
+        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
         TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
             baseTokenInfo.available.add(
@@ -1689,5 +1706,29 @@ contract ClearingHouse is
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
         require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
+    }
+
+    function _checkSlippage(CheckSlippageParams memory params) internal view {
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        if (params.isBaseToQuote) {
+            if (params.isExactInput) {
+                // too little received
+                require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
+            }
+        } else {
+            if (params.isExactInput) {
+                // too little received
+                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
+            } else {
+                // too much requested
+                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
+            }
+        }
     }
 }
