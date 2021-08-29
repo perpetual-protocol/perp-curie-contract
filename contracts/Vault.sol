@@ -87,7 +87,13 @@ contract Vault is ReentrancyGuard, PerpOwnable, BaseRelayRecipient, IVault {
         address from = _msgSender();
 
         _increaseBalance(from, token, amount);
+
+        // for deflationary token,
+        // amount may not be equal to the received amount due to the charged (and burned) transaction fee
+        uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
         TransferHelper.safeTransferFrom(token, from, address(this), amount);
+        // deposit amount inconsistent
+        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
 
         emit Deposited(token, from, amount);
     }
