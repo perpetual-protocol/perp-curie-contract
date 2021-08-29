@@ -34,7 +34,7 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { PerpOwnable } from "./base/PerpOwnable.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -42,7 +42,7 @@ contract ClearingHouse is
     ISettlement,
     ReentrancyGuard,
     Validation,
-    PerpOwnable,
+    OwnerPausable,
     BaseRelayRecipient
 {
     using SafeMath for uint256;

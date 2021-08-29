@@ -15,9 +15,9 @@ import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
-import { PerpOwnable } from "./base/PerpOwnable.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
-contract Vault is ReentrancyGuard, PerpOwnable, BaseRelayRecipient, IVault {
+contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMath for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
