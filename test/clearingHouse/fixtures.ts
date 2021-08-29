@@ -114,11 +114,13 @@ export function createClearingHouseFixture(
             quoteToken.address,
         )) as Exchange
         await clearingHouse.setExchange(exchange.address)
+        await quoteToken.addWhitelist(exchange.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
         await baseToken.addWhitelist(clearingHouse.address)
+        await baseToken.addWhitelist(exchange.address)
         await baseToken.addWhitelist(pool.address)
         await quoteToken.addWhitelist(pool.address)
 
@@ -132,6 +134,7 @@ export function createClearingHouseFixture(
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
 
         await baseToken2.addWhitelist(clearingHouse.address)
+        await baseToken2.addWhitelist(exchange.address)
         await baseToken2.addWhitelist(pool2.address)
         await quoteToken.addWhitelist(pool2.address)
 

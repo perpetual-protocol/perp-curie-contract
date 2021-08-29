@@ -398,7 +398,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                 )
             );
 
-            // TODO can be removed once we move the custodian of vToken from CH to EX
             // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
             address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
             uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
@@ -647,7 +646,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
 
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -661,7 +659,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(
         int256 amount0Delta,
@@ -796,7 +793,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
 
-        // TODO can be removed once we move the custodian of vToken from CH to EX
         TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
         TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
 

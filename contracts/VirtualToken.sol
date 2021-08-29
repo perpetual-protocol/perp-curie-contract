@@ -81,8 +81,7 @@ contract VirtualToken is IIndexPrice, Ownable, ERC20 {
     ) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
 
-        // FIXME added it back once finishing mint/burn at exchange, or add exchange to whitelist
         // not whitelisted
-        //        require(_whitelistMap[from], "VT_NW");
+        require(_whitelistMap[from], "VT_NW");
     }
 }

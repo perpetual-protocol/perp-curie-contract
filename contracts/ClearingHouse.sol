@@ -472,7 +472,6 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    // TODO can we move to exchange
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -565,7 +564,6 @@ contract ClearingHouse is
         );
     }
 
-    // TODO can we move to exchange
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
