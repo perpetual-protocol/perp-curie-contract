@@ -2,9 +2,9 @@
 pragma solidity 0.7.6;
 
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { SafeOwnable } from "./SafeOwnable.sol";
 
-abstract contract OwnerPausable is Ownable, Pausable {
+abstract contract OwnerPausable is SafeOwnable, Pausable {
     function pause() external onlyOwner {
         _pause();
     }
