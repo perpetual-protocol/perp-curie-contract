@@ -1,29 +1,35 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { UniswapV3Factory, UniswapV3Pool } from "../../typechain"
+import { BaseToken, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
-    token0: VirtualToken
-    mockedAggregator0: MockContract
+    token0: BaseToken
     token1: VirtualToken
-    mockedAggregator1: MockContract
+    mockedAggregator0: MockContract
 }
 
 interface PoolFixture {
     factory: UniswapV3Factory
     pool: UniswapV3Pool
-    baseToken: VirtualToken
+    baseToken: BaseToken
     quoteToken: VirtualToken
 }
 
 interface BaseTokenFixture {
-    baseToken: VirtualToken
+    baseToken: BaseToken
     mockedAggregator: MockContract
 }
 
-export function createTokenFixture(name: string, symbol: string): () => Promise<BaseTokenFixture> {
+export function createVirtualTokenFixture(name: string, symbol: string): () => Promise<VirtualToken> {
+    return async (): Promise<VirtualToken> => {
+        const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
+        return (await virtualTokenFactory.deploy(name, symbol)) as VirtualToken
+    }
+}
+
+export function createBaseTokenFixture(name: string, symbol: string): () => Promise<BaseTokenFixture> {
     return async (): Promise<BaseTokenFixture> => {
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
@@ -36,8 +42,8 @@ export function createTokenFixture(name: string, symbol: string): () => Promise<
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
         const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
 
-        const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
-        const baseToken = (await virtualTokenFactory.deploy(name, symbol, chainlinkPriceFeed.address)) as VirtualToken
+        const baseTokenFactory = await ethers.getContractFactory("BaseToken")
+        const baseToken = (await baseTokenFactory.deploy(name, symbol, chainlinkPriceFeed.address)) as BaseToken
 
         return { baseToken, mockedAggregator }
     }
@@ -50,42 +56,16 @@ export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
 
 // assume isAscendingTokensOrder() == true/ token0 < token1
 export async function tokensFixture(): Promise<TokensFixture> {
-    const { baseToken: randomToken0, mockedAggregator: randomMockedAggregator0 } = await createTokenFixture(
-        "RandomTestToken0",
-        "randomToken0",
-    )()
-    const { baseToken: randomToken1, mockedAggregator: randomMockedAggregator1 } = await createTokenFixture(
-        "RandomTestToken1",
-        "randomToken1",
-    )()
+    const quoteToken = await createVirtualTokenFixture("RandomVirtualToken", "RVT")()
+    const { baseToken, mockedAggregator } = await token0Fixture(quoteToken.address)
 
-    let token0: VirtualToken
-    let token1: VirtualToken
-    let mockedAggregator0: MockContract
-    let mockedAggregator1: MockContract
-    if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
-        token0 = randomToken0
-        mockedAggregator0 = randomMockedAggregator0
-        token1 = randomToken1
-        mockedAggregator1 = randomMockedAggregator1
-    } else {
-        token0 = randomToken1
-        mockedAggregator0 = randomMockedAggregator1
-        token1 = randomToken0
-        mockedAggregator1 = randomMockedAggregator0
-    }
-    return {
-        token0,
-        mockedAggregator0,
-        token1,
-        mockedAggregator1,
-    }
+    return { token0: baseToken, token1: quoteToken, mockedAggregator0: mockedAggregator }
 }
 
 export async function token0Fixture(token1Addr: string): Promise<BaseTokenFixture> {
     let token0Fixture: BaseTokenFixture
     while (!token0Fixture || !isAscendingTokenOrder(token0Fixture.baseToken.address, token1Addr)) {
-        token0Fixture = await createTokenFixture("RandomTestToken0", "randomToken0")()
+        token0Fixture = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
     }
     return token0Fixture
 }
