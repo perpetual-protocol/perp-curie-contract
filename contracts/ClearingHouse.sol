@@ -344,10 +344,6 @@ contract ClearingHouse is
         Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
-        // update internal states
-        TokenInfo storage baseTokenInfo = _accountMap[trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
-
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
         Exchange.AddLiquidityResponse memory response =
@@ -368,8 +364,9 @@ contract ClearingHouse is
 
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
-        baseTokenInfo.available = baseTokenInfo.available.sub(response.base);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(response.fee).sub(response.quote);
+
+        _updateAvailable(trader, params.baseToken, -(response.base.toInt256()));
+        _updateAvailable(trader, quoteToken, response.fee.toInt256().sub(response.quote.toInt256()));
         _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
         // must after token info is updated to ensure free collateral is positive after updated
@@ -630,7 +627,7 @@ contract ClearingHouse is
         IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
 
         // 2. openPosition
-        uint256 availableBefore = getTokenInfo(callbackData.trader, token).available;
+        uint256 availableBefore = _getAvailable(callbackData.trader, token);
         // if quote to base, need to mint clearing house quote fee for trader
         uint256 amount =
             token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
@@ -670,19 +667,20 @@ contract ClearingHouse is
         }
 
         // settle quote if all position are closed
-        TokenInfo storage quoteInfo = _accountMap[account].tokenInfoMap[quoteToken];
-        if (quoteInfo.available >= quoteInfo.debt) {
+        uint256 quoteAvailable = _getAvailable(account, quoteToken);
+        uint256 quoteDebt = _getDebt(account, quoteToken);
+        if (quoteAvailable >= quoteDebt) {
             // profit
-            uint256 profit = quoteInfo.available.sub(quoteInfo.debt);
-            quoteInfo.available = quoteInfo.available.sub(profit);
+            uint256 profit = quoteAvailable.sub(quoteDebt);
+            _updateAvailable(account, quoteToken, -(profit.toInt256()));
             pnl = pnl.add(profit.toInt256());
 
             // burn profit in quote and add to collateral
             IMintableERC20(quoteToken).burn(profit);
         } else {
             // loss
-            uint256 loss = quoteInfo.debt.sub(quoteInfo.available);
-            quoteInfo.debt = quoteInfo.debt.sub(loss);
+            uint256 loss = quoteDebt.sub(quoteAvailable);
+            _updateDebt(account, quoteToken, -(loss.toInt256()));
             pnl = pnl.sub(loss.toInt256());
         }
         return pnl;
@@ -700,7 +698,7 @@ contract ClearingHouse is
     // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
+        uint256 quoteDebtValue = _getDebt(trader, quoteToken);
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
@@ -747,7 +745,9 @@ contract ClearingHouse is
         uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
 
         int256 netQuoteBalance =
-            quoteTokenInfo.available.toInt256().add(totalQuoteInPools.toInt256()).sub(quoteTokenInfo.debt.toInt256());
+            _getAvailable(trader, quoteToken).toInt256().add(totalQuoteInPools.toInt256()).sub(
+                _getDebt(trader, quoteToken).toInt256()
+            );
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
@@ -794,9 +794,8 @@ contract ClearingHouse is
         }
 
         // update internal states
-        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
-        tokenInfo.available = tokenInfo.available.add(amount);
-        tokenInfo.debt = tokenInfo.debt.add(amount);
+        _updateAvailable(account, token, amount.toInt256());
+        _updateDebt(account, token, amount.toInt256());
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
@@ -815,7 +814,7 @@ contract ClearingHouse is
         address token,
         uint256 amount
     ) internal {
-        uint256 availableBefore = getTokenInfo(account, token).available;
+        uint256 availableBefore = _getAvailable(account, token);
         if (availableBefore < amount) {
             _mint(account, token, amount.sub(availableBefore), false);
         }
@@ -831,14 +830,13 @@ contract ClearingHouse is
             return;
         }
 
-        TokenInfo storage tokenInfo = _accountMap[account].tokenInfoMap[token];
         // CH_IBTB: insufficient balance to burn
         // can only burn the amount of debt that can be pay back with available
-        require(amount <= Math.min(tokenInfo.debt, tokenInfo.available), "CH_IBTB");
+        require(amount <= Math.min(_getDebt(account, token), _getAvailable(account, token)), "CH_IBTB");
 
         // pay back debt
-        tokenInfo.available = tokenInfo.available.sub(amount);
-        tokenInfo.debt = tokenInfo.debt.sub(amount);
+        _updateAvailable(account, token, -(amount.toInt256()));
+        _updateDebt(account, token, -(amount.toInt256()));
 
         if (token != quoteToken) {
             _deregisterBaseToken(account, token);
@@ -850,8 +848,7 @@ contract ClearingHouse is
     }
 
     function _burnMax(address account, address token) internal {
-        TokenInfo memory tokenInfo = getTokenInfo(account, token);
-        uint256 burnedAmount = Math.min(tokenInfo.available, tokenInfo.debt);
+        uint256 burnedAmount = Math.min(_getAvailable(account, token), _getDebt(account, token));
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
         }
@@ -903,10 +900,8 @@ contract ClearingHouse is
             quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
         );
         uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
-        TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
-        baseTokenInfo.available = baseTokenInfo.available.add(params.removedBase);
-        quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
+        _updateAvailable(params.maker, params.baseToken, params.removedBase);
+        _updateAvailable(params.maker, quoteToken, removedQuoteAmount);
         _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
@@ -919,8 +914,7 @@ contract ClearingHouse is
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
-        if (tokenInfo.available > 0 || tokenInfo.debt > 0) {
+        if (_getAvailable(trader, baseToken) > 0 || _getDebt(trader, baseToken) > 0) {
             return;
         }
 
@@ -953,8 +947,7 @@ contract ClearingHouse is
         }
 
         // if both available and debt == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[token];
-        if (tokenInfo.available == 0 && tokenInfo.debt == 0) {
+        if (_getAvailable(trader, token) == 0 && _getDebt(trader, token) == 0) {
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -1074,21 +1067,22 @@ contract ClearingHouse is
         // TODO refactor with settle()
         _accountMap[account].owedRealizedPnl = _accountMap[account].owedRealizedPnl.add(deltaPnl);
 
-        TokenInfo storage quoteTokenInfo = _accountMap[account].tokenInfoMap[quoteToken];
+        uint256 quoteAvailable = _getAvailable(account, quoteToken);
+        uint256 quoteDebt = _getDebt(account, quoteToken);
         uint256 deltaPnlAbs = deltaPnl.abs();
         // has profit
         if (deltaPnl > 0) {
-            quoteTokenInfo.available = quoteTokenInfo.available.sub(deltaPnlAbs);
+            _updateAvailable(account, quoteToken, -(deltaPnlAbs.toInt256()));
             IMintableERC20(quoteToken).burn(deltaPnlAbs);
             return;
         }
 
         // deltaPnl < 0 (has loss)
-        if (deltaPnlAbs > quoteTokenInfo.debt) {
+        if (deltaPnlAbs > quoteDebt) {
             // increase quote.debt enough so that subtraction wil not underflow
-            _mint(account, quoteToken, deltaPnlAbs.sub(quoteTokenInfo.debt), false);
+            _mint(account, quoteToken, deltaPnlAbs.sub(quoteDebt), false);
         }
-        quoteTokenInfo.debt = quoteTokenInfo.debt.sub(deltaPnlAbs);
+        _updateDebt(account, quoteToken, -(deltaPnlAbs.toInt256()));
     }
 
     // check here for custom fee design,
@@ -1114,17 +1108,8 @@ contract ClearingHouse is
         // update internal states
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
-        TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
-
-        baseTokenInfo.available = baseTokenInfo.available.toInt256().add(response.exchangedPositionSize).toUint256();
-        quoteTokenInfo.available = quoteTokenInfo
-            .available
-            .toInt256()
-            .add(response.exchangedPositionNotional)
-            .toUint256()
-            .sub(response.fee);
-
+        _updateAvailable(params.trader, params.baseToken, response.exchangedPositionSize);
+        _updateAvailable(params.trader, quoteToken, response.exchangedPositionNotional.sub(response.fee.toInt256()));
         _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
             response.insuranceFundFee.toInt256()
         );
@@ -1163,6 +1148,7 @@ contract ClearingHouse is
                     liquidity: params.liquidity
                 })
             );
+
         _afterRemoveLiquidity(
             AfterRemoveLiquidityParams({
                 maker: params.maker,
@@ -1193,8 +1179,10 @@ contract ClearingHouse is
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)
         if (_accountMap[params.trader].tokens.length == 0) {
-            TokenInfo memory quoteTokenInfo = getTokenInfo(params.trader, quoteToken);
-            _realizePnl(params.trader, quoteTokenInfo.available.toInt256().sub(quoteTokenInfo.debt.toInt256()));
+            _realizePnl(
+                params.trader,
+                _getAvailable(params.trader, quoteToken).toInt256().sub(_getDebt(params.trader, quoteToken).toInt256())
+            );
         }
 
         if (!params.skipMarginRequirementCheck) {
@@ -1454,7 +1442,7 @@ contract ClearingHouse is
     // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-        uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
+        uint256 quoteDebtValue = _getDebt(trader, quoteToken);
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
         uint256 totalBaseDebtValue = _getTotalBaseDebtValue(trader);
         return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
@@ -1497,7 +1485,7 @@ contract ClearingHouse is
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_isPoolExistent(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, account.tokenInfoMap[baseToken].debt);
+                uint256 baseDebtValue = _getDebtValue(baseToken, _getDebt(trader, baseToken));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
         }
@@ -1505,10 +1493,8 @@ contract ClearingHouse is
     }
 
     function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0);
-        TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
-            baseTokenInfo.available.add(
+            _getAvailable(trader, baseToken).add(
                 Exchange(exchange).getTotalTokenAmountInPool(
                     trader,
                     baseToken,
@@ -1519,7 +1505,7 @@ contract ClearingHouse is
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize = vBaseAmount.toInt256().sub(baseTokenInfo.debt.toInt256());
+        int256 positionSize = vBaseAmount.toInt256().sub(_getDebt(trader, baseToken).toInt256());
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
@@ -1615,5 +1601,34 @@ contract ClearingHouse is
                 require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
             }
         }
+    }
+
+    // TODO REMOVE AFTER AVAI/DEBT IS MERGED
+    // TEMP FUNC FOR BRIDGING THE INTERFACE
+    function _getAvailable(address trader, address token) internal view returns (uint256) {
+        return _accountMap[trader].tokenInfoMap[token].available;
+    }
+
+    function _getDebt(address trader, address token) internal view returns (uint256) {
+        return _accountMap[trader].tokenInfoMap[token].debt;
+    }
+
+    function _updateAvailable(
+        address trader,
+        address token,
+        int256 delta
+    ) internal {
+        _accountMap[trader].tokenInfoMap[token].available = _getAvailable(trader, token)
+            .toInt256()
+            .add(delta)
+            .toUint256();
+    }
+
+    function _updateDebt(
+        address trader,
+        address token,
+        int256 delta
+    ) internal {
+        _accountMap[trader].tokenInfoMap[token].debt = _getDebt(trader, token).toInt256().add(delta).toUint256();
     }
 }
