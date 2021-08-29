@@ -72,11 +72,11 @@ describe("ClearingHouse.burn", () => {
             await collateral.mint(bob.address, parseUnits("100", await collateral.decimals()))
             await deposit(bob, vault, 100, collateral)
 
-            // bob takes position
+            // bob takes short position
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: false,
+                isBaseToQuote: true, // B2Q
+                isExactInput: false, // exact quote
                 oppositeAmountBound: ethers.constants.MaxUint256,
                 amount: parseEther("0.1"), // the amount of quote
                 sqrtPriceLimitX96: 0,
@@ -84,15 +84,14 @@ describe("ClearingHouse.burn", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // bob close position
-            await clearingHouse
-                .connect(bob)
-                .closePosition(
-                    baseToken.address,
-                    encodePriceSqrt("155", "1"),
-                    ethers.constants.MaxUint256,
-                    ethers.constants.HashZero,
-                )
+            // bob close short position
+            await clearingHouse.connect(bob).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: encodePriceSqrt("155", "1"),
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
 
             // alice removes liquidity
             const { liquidity } = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
