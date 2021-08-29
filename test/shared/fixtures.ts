@@ -6,8 +6,9 @@ import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
     token0: BaseToken
-    token1: VirtualToken
+    token1: BaseToken
     mockedAggregator0: MockContract
+    mockedAggregator1: MockContract
 }
 
 interface PoolFixture {
@@ -56,10 +57,36 @@ export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
 
 // assume isAscendingTokensOrder() == true/ token0 < token1
 export async function tokensFixture(): Promise<TokensFixture> {
-    const quoteToken = await createVirtualTokenFixture("RandomVirtualToken", "RVT")()
-    const { baseToken, mockedAggregator } = await token0Fixture(quoteToken.address)
+    const { baseToken: randomToken0, mockedAggregator: randomMockedAggregator0 } = await createBaseTokenFixture(
+        "RandomTestToken0",
+        "randomToken0",
+    )()
+    const { baseToken: randomToken1, mockedAggregator: randomMockedAggregator1 } = await createBaseTokenFixture(
+        "RandomTestToken1",
+        "randomToken1",
+    )()
 
-    return { token0: baseToken, token1: quoteToken, mockedAggregator0: mockedAggregator }
+    let token0: BaseToken
+    let token1: BaseToken
+    let mockedAggregator0: MockContract
+    let mockedAggregator1: MockContract
+    if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
+        token0 = randomToken0
+        mockedAggregator0 = randomMockedAggregator0
+        token1 = randomToken1
+        mockedAggregator1 = randomMockedAggregator1
+    } else {
+        token0 = randomToken1
+        mockedAggregator0 = randomMockedAggregator1
+        token1 = randomToken0
+        mockedAggregator1 = randomMockedAggregator0
+    }
+    return {
+        token0,
+        mockedAggregator0,
+        token1,
+        mockedAggregator1,
+    }
 }
 
 export async function token0Fixture(token1Addr: string): Promise<BaseTokenFixture> {

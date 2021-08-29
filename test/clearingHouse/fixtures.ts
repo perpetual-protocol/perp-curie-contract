@@ -25,9 +25,9 @@ interface ClearingHouseFixture {
     feeTier: number
     USDC: TestERC20
     quoteToken: VirtualToken
-    baseToken: VirtualToken
+    baseToken: BaseToken
     mockedBaseAggregator: MockContract
-    baseToken2: VirtualToken
+    baseToken2: BaseToken
     mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
     mockedArbSys: MockContract
@@ -43,7 +43,7 @@ export enum BaseQuoteOrdering {
 }
 
 export function createClearingHouseFixture(
-    baseQuoteOrdering: BaseQuoteOrdering,
+    baseQuoteOrdering: BaseQuoteOrdering = BaseQuoteOrdering.BASE_0_QUOTE_1, // TODO remove
     canMockTime: boolean = true,
 ): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
@@ -52,17 +52,15 @@ export function createClearingHouseFixture(
         const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
         await USDC.setupDecimals(6)
 
-        let baseToken: VirtualToken, quoteToken: VirtualToken, mockedBaseAggregator: MockContract
+        let baseToken: BaseToken, quoteToken: VirtualToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
 
         if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
             baseToken = token0
-            quoteToken = token1
+            quoteToken = token1 as VirtualToken
             mockedBaseAggregator = mockedAggregator0
         } else {
-            baseToken = token1
-            quoteToken = token0
-            mockedBaseAggregator = mockedAggregator0
+            throw new Error("!B1Q0")
         }
 
         // deploy UniV3 factory
