@@ -66,6 +66,21 @@ describe("ClearingHouse addLiquidity", () => {
                 const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                 const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
 
+                const result = await clearingHouse.connect(alice).callStatic.addLiquidity({
+                    baseToken: baseToken.address,
+                    base: 0,
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50200,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                expect(result.base).to.be.eq("0")
+                expect(result.quote).to.be.eq(parseUnits("10000", await quoteToken.decimals()))
+                expect(result.fee).to.be.eq("0")
+                expect(result.liquidity).to.be.eq("81689571696303801037492")
+
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
                 await expect(
@@ -193,6 +208,21 @@ describe("ClearingHouse addLiquidity", () => {
             it("add liquidity with both tokens, over commit base", async () => {
                 const baseBefore = await baseToken.balanceOf(clearingHouse.address)
                 const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
+
+                const result = await clearingHouse.connect(alice).callStatic.addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                expect(result.base).to.be.eq(parseUnits("66.061845430469484023", await baseToken.decimals()))
+                expect(result.quote).to.be.eq(parseUnits("10000", await quoteToken.decimals()))
+                expect(result.fee).to.be.eq("0")
+                expect(result.liquidity).to.be.eq("81689571696303801018159")
 
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
