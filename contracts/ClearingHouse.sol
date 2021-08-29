@@ -174,6 +174,13 @@ contract ClearingHouse is
         uint256 fee;
     }
 
+    struct AddLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+        uint256 liquidity;
+    }
+
     struct SwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -325,7 +332,12 @@ contract ClearingHouse is
         emit ExchangeUpdated(exchange);
     }
 
-    function addLiquidity(AddLiquidityParams calldata params) external nonReentrant() checkDeadline(params.deadline) {
+    function addLiquidity(AddLiquidityParams calldata params)
+        external
+        nonReentrant()
+        checkDeadline(params.deadline)
+        returns (AddLiquidityResponse memory)
+    {
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
@@ -377,33 +389,35 @@ contract ClearingHouse is
             response.liquidity.toInt128(),
             response.fee
         );
+
+        return
+            AddLiquidityResponse({
+                base: response.base,
+                quote: response.quote,
+                fee: response.fee,
+                liquidity: response.liquidity
+            });
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         nonReentrant()
         checkDeadline(params.deadline)
-        returns (
-            uint256 base,
-            uint256 quote,
-            uint256 fee
-        )
+        returns (RemoveLiquidityResponse memory response)
     {
         _requireHasBaseToken(params.baseToken);
-        RemoveLiquidityResponse memory response =
-            _removeLiquidity(
-                InternalRemoveLiquidityParams({
-                    maker: _msgSender(),
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
+        response = _removeLiquidity(
+            InternalRemoveLiquidityParams({
+                maker: _msgSender(),
+                baseToken: params.baseToken,
+                lowerTick: params.lowerTick,
+                upperTick: params.upperTick,
+                liquidity: params.liquidity
+            })
+        );
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
-        return (response.base, response.quote, response.fee);
     }
 
     function closePosition(
