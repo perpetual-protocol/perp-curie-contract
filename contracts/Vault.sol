@@ -29,7 +29,6 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
     event ClearingHouseUpdated(address clearingHouse);
-    event TrustedForwarderUpdated(address trustedForwarder);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -71,10 +70,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        // invalid trusted forwarder address
-        require(trustedForwarderArg != address(0), "V_ITFA");
-        trustedForwarder = trustedForwarderArg;
-        emit TrustedForwarderUpdated(trustedForwarderArg);
+        _setTrustedForwarder(trustedForwarder);
     }
 
     //

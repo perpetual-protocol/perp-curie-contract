@@ -545,7 +545,7 @@ contract ClearingHouse is
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        trustedForwarder = trustedForwarderArg;
+        _setTrustedForwarder(trustedForwarderArg);
     }
 
     function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
