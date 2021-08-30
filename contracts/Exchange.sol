@@ -23,6 +23,7 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMath for uint256;
@@ -698,7 +699,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     function hasOrder(address trader, address[] calldata tokens) external returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (_openOrderIdsMap[trader][baseToken].length > 0) {
+            if (_openOrderIdsMap[trader][tokens[i]].length > 0) {
                 return true;
             }
         }
@@ -1074,13 +1075,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 uint160 sqrtPriceAtLowerTick = TickMath.getSqrtRatioAtTick(order.lowerTick);
                 uint160 sqrtPriceAtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
                 if (fetchBase && sqrtMarkPriceX96 < sqrtPriceAtUpperTick) {
-                    amount = UniswapV3Broker.getAmount0ForLiquidity(
+                    amount = LiquidityAmounts.getAmount0ForLiquidity(
                         sqrtMarkPriceX96 > sqrtPriceAtLowerTick ? sqrtMarkPriceX96 : sqrtPriceAtLowerTick,
                         sqrtPriceAtUpperTick,
                         order.liquidity
                     );
                 } else if (!fetchBase && sqrtMarkPriceX96 > sqrtPriceAtLowerTick) {
-                    amount = UniswapV3Broker.getAmount1ForLiquidity(
+                    amount = LiquidityAmounts.getAmount1ForLiquidity(
                         sqrtPriceAtLowerTick,
                         sqrtMarkPriceX96 < sqrtPriceAtUpperTick ? sqrtMarkPriceX96 : sqrtPriceAtUpperTick,
                         order.liquidity
@@ -1121,7 +1122,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
         // base amount below the range
         uint256 baseAmountBelow =
-            UniswapV3Broker.getAmount0ForLiquidity(
+            LiquidityAmounts.getAmount0ForLiquidity(
                 TickMath.getSqrtRatioAtTick(order.lowerTick),
                 sqrtPriceX96AtUpperTick,
                 order.liquidity
