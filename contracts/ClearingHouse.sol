@@ -713,7 +713,7 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external nonReentrant whenNotPaused {
+    ) external whenNotPaused nonReentrant {
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 

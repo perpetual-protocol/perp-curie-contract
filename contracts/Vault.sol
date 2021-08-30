@@ -92,7 +92,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
         // amount may not be equal to the received amount due to the charged (and burned) transaction fee
         uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
         TransferHelper.safeTransferFrom(token, from, address(this), amount);
-        // deposit amount inconsistent
+        // balance amount inconsistent
         require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
 
         emit Deposited(token, from, amount);

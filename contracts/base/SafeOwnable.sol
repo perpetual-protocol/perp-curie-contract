@@ -12,7 +12,7 @@ abstract contract SafeOwnable is Context {
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor() internal {
+    constructor() {
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
@@ -25,6 +25,9 @@ abstract contract SafeOwnable is Context {
         return _owner;
     }
 
+    /**
+     * @dev Returns the candidate that can become the owner.
+     */
     function candidate() public view returns (address) {
         return _candidate;
     }
@@ -46,6 +49,7 @@ abstract contract SafeOwnable is Context {
      * thereby removing any functionality that is only available to the owner.
      */
     function renounceOwnership() public virtual onlyOwner {
+        // emitting event first to avoid caching values
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
     }
@@ -75,6 +79,7 @@ abstract contract SafeOwnable is Context {
         // caller is not candidate
         require(_candidate == _msgSender(), "SO_CNC");
 
+        // emitting event first to avoid caching values
         emit OwnershipTransferred(_owner, _candidate);
         _owner = _candidate;
         _candidate = address(0);

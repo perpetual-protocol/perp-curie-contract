@@ -1,6 +1,6 @@
+import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
 import { TestSafeOwnable } from "../../typechain"
-import { expect } from "chai"
 
 describe("SafeOwnable spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
@@ -38,7 +38,7 @@ describe("SafeOwnable spec", () => {
         await expect(ownable.connect(alice).setOwner(alice.address)).to.be.revertedWith("SO_CNO")
     })
 
-    it("force error set owner same as original", async () => {
+    it("force error, set owner same as original", async () => {
         await expect(ownable.setOwner(admin.address)).to.be.revertedWith("SO_SAO")
     })
 
@@ -47,11 +47,11 @@ describe("SafeOwnable spec", () => {
         await expect(ownable.connect(admin).updateOwner()).to.be.revertedWith("SO_CNC")
     })
 
-    it("force error, candiate is 0", async () => {
+    it("force error, candidate is 0", async () => {
         await expect(ownable.connect(admin).updateOwner()).to.be.revertedWith("SO_C0")
     })
 
-    it("force error, can not update twice", async () => {
+    it("force error, cannot update twice", async () => {
         await ownable.setOwner(alice.address)
         await ownable.connect(alice).updateOwner()
         await expect(ownable.connect(admin).updateOwner()).to.be.revertedWith("SO_C0")
