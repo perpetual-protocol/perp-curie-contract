@@ -85,7 +85,7 @@ contract ClearingHouse is
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
-    event ExchangeUpdated(address exchange);
+    event ExchangeChanged(address exchange);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
     //
@@ -326,7 +326,7 @@ contract ClearingHouse is
         // exchange is 0
         require(exchangeArg != address(0), "CH_EI0");
         exchange = exchangeArg;
-        emit ExchangeUpdated(exchange);
+        emit ExchangeChanged(exchange);
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
