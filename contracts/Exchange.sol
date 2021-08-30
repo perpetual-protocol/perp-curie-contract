@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
@@ -24,8 +23,9 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { SafeOwnable } from "./base/SafeOwnable.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMath for uint256;
     using SafeMath for uint128;
     using SignedSafeMath for int256;
@@ -299,7 +299,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // EX_NEP: non-existent pool in uniswapV3 factory
         require(pool != address(0), "EX_NEP");
         // EX_EP: existent pool in ClearingHouse
-        require(pool != _poolMap[baseToken], "EX_EP");
+        require(_poolMap[baseToken] == address(0), "EX_EP");
         // EX_PNI: pool not (yet) initialized
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
 

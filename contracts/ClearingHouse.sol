@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -35,6 +34,7 @@ import { Exchange } from "./Exchange.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -42,7 +42,7 @@ contract ClearingHouse is
     ISettlement,
     ReentrancyGuard,
     Validation,
-    Ownable,
+    OwnerPausable,
     BaseRelayRecipient
 {
     using SafeMath for uint256;
@@ -268,6 +268,8 @@ contract ClearingHouse is
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
+    // cached the settlement token's decimal for gas optimization
+    // owner must ensure the settlement token's decimal is not immutable
     uint8 internal immutable _settlementTokenDecimals;
 
     uint32 public twapInterval = 15 minutes;
@@ -336,7 +338,8 @@ contract ClearingHouse is
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
-        nonReentrant()
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
@@ -403,7 +406,8 @@ contract ClearingHouse is
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        nonReentrant()
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (RemoveLiquidityResponse memory response)
     {
@@ -424,6 +428,8 @@ contract ClearingHouse is
 
     function closePosition(ClosePositionParams calldata params)
         external
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -451,6 +457,8 @@ contract ClearingHouse is
 
     function openPosition(OpenPositionParams memory params)
         external
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -559,7 +567,7 @@ contract ClearingHouse is
         trustedForwarder = trustedForwarderArg;
     }
 
-    function liquidate(address trader, address baseToken) external nonReentrant() {
+    function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(
@@ -697,11 +705,11 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external nonReentrant() {
+    ) external whenNotPaused nonReentrant {
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
+    function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }

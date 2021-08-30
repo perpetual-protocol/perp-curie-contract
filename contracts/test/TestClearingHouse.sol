@@ -56,7 +56,6 @@ contract TestClearingHouse is ClearingHouse {
     /**
      * @param amount the amount of debt to burn
      */
-    // TODO internal
     function burn(address token, uint256 amount) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);

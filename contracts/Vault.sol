@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
@@ -16,8 +15,9 @@ import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
-contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
+contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMath for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
@@ -28,6 +28,8 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
 
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+    event ClearingHouseUpdated(address clearingHouse);
+    event TrustedForwarderUpdated(address trustedForwarder);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -35,58 +37,68 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
     address public immutable settlementToken;
     address public clearingHouse;
 
+    // cached the settlement token's decimal for gas optimization
+    // owner must ensure the settlement token's decimal is not immutable
     uint8 public immutable override decimals;
 
-    // those 4 are not used until multi collateral is implemented
-    // uint256 public maxCloseFactor;
-    // uint256 public minCloseFactor;
-    // uint256 public liquidationDiscount;
-    // address[] private _assetLiquidationOrder;
+    address[] internal _collateralTokens;
 
     // key: trader, token address
-    mapping(address => mapping(address => int256)) private _balance;
+    mapping(address => mapping(address => int256)) internal _balance;
 
     // key: token
     // TODO: change bool to collateral factor
-    mapping(address => bool) private _collateralTokenMap;
-    address[] private _collateralTokens;
+    mapping(address => bool) internal _collateralTokenMap;
 
     constructor(address settlementTokenArg) {
-        settlementToken = settlementTokenArg;
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
-        decimals = IERC20Metadata(settlementTokenArg).decimals();
 
+        // update states
+        decimals = IERC20Metadata(settlementTokenArg).decimals();
+        settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
     }
 
+    //
+    // OWNER SETTER
+    //
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
         // invalid ClearingHouse address
         require(clearingHouseArg != address(0), "V_ICHA");
-        // TODO add event
         clearingHouse = clearingHouseArg;
+        emit ClearingHouseUpdated(clearingHouseArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        // invalid trusted forwarder address
+        require(trustedForwarderArg != address(0), "V_ITFA");
         trustedForwarder = trustedForwarderArg;
+        emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 
-    function deposit(address token, uint256 amount) external nonReentrant() {
+    //
+    // EXTERNAL
+    //
+    function deposit(address token, uint256 amount) external whenNotPaused nonReentrant {
         // collateralToken not found
         require(_collateralTokenMap[token], "V_CNF");
 
         address from = _msgSender();
 
         _increaseBalance(from, token, amount);
+
+        // for deflationary token,
+        // amount may not be equal to the received amount due to the charged (and burned) transaction fee
+        uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
         TransferHelper.safeTransferFrom(token, from, address(this), amount);
+        // balance amount inconsistent
+        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
 
         emit Deposited(token, from, amount);
     }
 
-    function withdraw(address token, uint256 amount) external nonReentrant() {
-        // invalid ClearingHouse address
-        require(clearingHouse != address(0), "V_ICHA");
-
+    function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
         // settle ClearingHouse's owedRealizedPnl to collateral
@@ -122,7 +134,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         return _getFreeCollateral(trader);
     }
 
-    function _addCollateralToken(address token) private {
+    function _addCollateralToken(address token) internal {
         // collateral token existed
         require(!_collateralTokenMap[token], "V_CTE");
         _collateralTokenMap[token] = true;
@@ -133,7 +145,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address token,
         uint256 amount
-    ) private {
+    ) internal {
         _balance[trader][token] = _getBalance(trader, token).add(amount.toInt256());
     }
 
@@ -141,7 +153,7 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address token,
         uint256 amount
-    ) private {
+    ) internal {
         _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
     }
 
@@ -149,11 +161,11 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         address trader,
         address collateralToken,
         uint256 amount
-    ) private {
+    ) internal {
         revert("TBD");
     }
 
-    function _getBalance(address trader, address token) private view returns (int256) {
+    function _getBalance(address trader, address token) internal view returns (int256) {
         return _balance[trader][token];
     }
 
@@ -185,10 +197,12 @@ contract Vault is ReentrancyGuard, Ownable, BaseRelayRecipient, IVault {
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }
