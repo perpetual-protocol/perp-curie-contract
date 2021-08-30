@@ -5,11 +5,11 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 
 contract VirtualToken is SafeOwnable, ERC20 {
-    event WhitelistAdded(address account);
-    event WhitelistRemoved(address account);
-
     address public minter;
     mapping(address => bool) internal _whitelistMap;
+
+    event WhitelistAdded(address account);
+    event WhitelistRemoved(address account);
 
     constructor(string memory nameArg, string memory symbolArg) public ERC20(nameArg, symbolArg) {
         // transfer to 0 = burn

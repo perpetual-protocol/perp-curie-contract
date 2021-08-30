@@ -697,7 +697,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
-    function hasOrder(address trader, address[] calldata tokens) external returns (bool) {
+    function hasOrder(address trader, address[] calldata tokens) external view returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
             if (_openOrderIdsMap[trader][tokens[i]].length > 0) {
                 return true;

@@ -9,15 +9,22 @@ import "./IRelayRecipient.sol";
  * A subclass must use "_msgSender()" instead of "msg.sender"
  */
 abstract contract BaseRelayRecipient is IRelayRecipient {
-    event TrustedForwarderUpdated(address trustedForwarder);
-
     /*
      * Forwarder singleton we accept calls from
      */
     address public trustedForwarder;
 
+    event TrustedForwarderUpdated(address trustedForwarder);
+
     function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return forwarder == trustedForwarder;
+    }
+
+    function _setTrustedForwarder(address trustedForwarderArg) internal {
+        // invalid trusted forwarder address
+        require(trustedForwarderArg != address(0), "BRC_ITFA");
+        trustedForwarder = trustedForwarderArg;
+        emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 
     /**
@@ -64,12 +71,5 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
         } else {
             return msg.data;
         }
-    }
-
-    function _setTrustedForwarder(address trustedForwarderArg) internal {
-        // invalid trusted forwarder address
-        require(trustedForwarderArg != address(0), "BRC_ITFA");
-        trustedForwarder = trustedForwarderArg;
-        emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 }

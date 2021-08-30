@@ -70,7 +70,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        _setTrustedForwarder(trustedForwarder);
+        _setTrustedForwarder(trustedForwarderArg);
     }
 
     //
@@ -151,14 +151,6 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
         uint256 amount
     ) internal {
         _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
-    }
-
-    function _liquidate(
-        address trader,
-        address collateralToken,
-        uint256 amount
-    ) internal {
-        revert("TBD");
     }
 
     function _getBalance(address trader, address token) internal view returns (int256) {
