@@ -211,8 +211,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // key: base token, value: pool
     mapping(address => address) internal _poolMap;
 
-    // key: accountMarketId => openOrderIds
-    mapping(bytes32 => bytes32[]) internal _openOrderIdsMap;
+    // first key: trader, second key: base token
+    mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
 
     // key: openOrderId
     mapping(bytes32 => OpenOrder) internal _openOrderMap;
@@ -569,7 +569,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
-        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
 
         // update funding of liquidity
@@ -684,7 +684,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        return _openOrderIdsMap[trader][baseToken];
     }
 
     function getOpenOrder(
@@ -694,6 +694,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int24 upperTick
     ) external view returns (OpenOrder memory) {
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
+    }
+
+    function hasOrder(address trader, address[] calldata tokens) external returns (bool) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (_openOrderIdsMap[trader][baseToken].length > 0) {
+                return true;
+            }
+        }
     }
 
     function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
@@ -729,7 +737,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) external view returns (int256) {
-        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         int256 liquidityCoefficientInFundingPayment;
 
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -845,7 +853,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken,
         bytes32 orderId
     ) internal {
-        bytes32[] storage orderIds = _openOrderIdsMap[_getAccountMarketId(maker, baseToken)];
+        bytes32[] storage orderIds = _openOrderIdsMap[maker][baseToken];
         uint256 idx;
         for (idx = 0; idx < orderIds.length; idx++) {
             if (orderIds[idx] == orderId) {
@@ -869,7 +877,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 fee;
         if (openOrder.liquidity == 0) {
             // it's a new order
-            bytes32[] storage orderIds = _openOrderIdsMap[_getAccountMarketId(params.maker, params.baseToken)];
+            bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // EX_ONE: orders number exceeded
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "EX_ONE");
             orderIds.push(orderId);
@@ -1043,7 +1051,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) internal view returns (uint256 tokenAmount) {
-        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
 
         //
         // tick:    lower             upper
@@ -1153,10 +1161,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
         // which causes underflow but what we want is the difference only
         return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
-    }
-
-    function _getAccountMarketId(address account, address baseToken) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(account, baseToken));
     }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()

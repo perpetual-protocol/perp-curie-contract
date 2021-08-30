@@ -556,14 +556,8 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        address[] memory tokens = _accountMap[trader].tokens;
-
-        // TODO merge into 1 exchange function, or just call cancelAllExcessOrders
-        for (uint256 i = 0; i < tokens.length; i++) {
-            bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, tokens[i]);
-            // CH_NEO: not empty order
-            require(orderIds.length == 0, "CH_NEO");
-        }
+        // CH_NEO: not empty order
+        require(!Exchange(exchange).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
 
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
