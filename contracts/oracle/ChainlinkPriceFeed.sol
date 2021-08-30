@@ -11,7 +11,7 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext {
 
     AggregatorV3Interface private immutable _aggregator;
 
-    constructor(AggregatorV3Interface aggregator) {
+    constructor(AggregatorV3Interface aggregator) public {
         // BT_IA: invalid address
         require(address(aggregator) != address(0), "BT_IA");
 

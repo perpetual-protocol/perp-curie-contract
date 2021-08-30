@@ -287,7 +287,7 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) {
+    ) public {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
         // InsuranceFund is 0

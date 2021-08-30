@@ -245,7 +245,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address clearingHouseArg,
         address uniswapV3FactoryArg,
         address quoteTokenArg
-    ) {
+    ) public {
         // ClearingHouse is 0
         require(clearingHouseArg != address(0), "EX_CH0");
         // UnsiwapV3Factory is 0

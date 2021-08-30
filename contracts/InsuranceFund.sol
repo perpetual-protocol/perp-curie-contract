@@ -9,7 +9,7 @@ contract InsuranceFund is ReentrancyGuard, OwnerPausable {
     address public immutable vault;
     address private immutable _token;
 
-    constructor(address vaultArg) {
+    constructor(address vaultArg) public {
         vault = vaultArg;
         _token = Vault(vaultArg).settlementToken();
     }

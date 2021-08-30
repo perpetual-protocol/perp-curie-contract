@@ -50,7 +50,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
 
-    constructor(address settlementTokenArg) {
+    constructor(address settlementTokenArg) public {
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
 

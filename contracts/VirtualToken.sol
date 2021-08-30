@@ -11,7 +11,7 @@ contract VirtualToken is SafeOwnable, ERC20 {
     address public minter;
     mapping(address => bool) internal _whitelistMap;
 
-    constructor(string memory nameArg, string memory symbolArg) ERC20(nameArg, symbolArg) {
+    constructor(string memory nameArg, string memory symbolArg) public ERC20(nameArg, symbolArg) {
         // transfer to 0 = burn
         _whitelistMap[address(0)] = true;
     }

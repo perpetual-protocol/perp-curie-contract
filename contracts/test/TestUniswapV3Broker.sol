@@ -16,7 +16,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback {
 
     address private _factory;
 
-    constructor(address factory) {
+    constructor(address factory) public {
         _factory = factory;
     }
 
