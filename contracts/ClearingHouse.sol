@@ -86,6 +86,7 @@ contract ClearingHouse is
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeUpdated(address exchange);
+    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
     //
     // Struct
@@ -540,6 +541,7 @@ contract ClearingHouse is
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
+        emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
@@ -1505,7 +1507,6 @@ contract ClearingHouse is
     }
 
     function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0);
         TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
             baseTokenInfo.available.add(
@@ -1593,7 +1594,7 @@ contract ClearingHouse is
         require(_getFreeCollateral(trader) >= 0, "CH_NEAV");
     }
 
-    function _checkSlippage(CheckSlippageParams memory params) internal view {
+    function _checkSlippage(CheckSlippageParams memory params) internal pure {
         // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
