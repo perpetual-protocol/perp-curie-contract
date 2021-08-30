@@ -27,6 +27,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, ArbBlockContext {
     using SafeMath for uint256;
+    using SafeMath for uint128;
     using SignedSafeMath for int256;
     using PerpMath for uint256;
     using PerpMath for int256;
@@ -52,7 +53,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 upperTick;
         uint256 feeGrowthGlobalClearingHouseX128;
         uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
+        uint128 liquidity;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -155,7 +156,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         int24 lowerTick;
         int24 upperTick;
         uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
+        uint128 liquidity;
     }
 
     struct SwapState {
@@ -213,7 +214,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint256) internal _maxTickCrossedWithinBlockMap;
+    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
 
     // key: base token. tracking the final tick from last block
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
@@ -269,7 +270,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint256 maxTickCrossedWithinBlock) external onlyOwner {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BTNE: base token not exists
         require(_poolMap[baseToken] != address(0), "EX_BTNE");
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
@@ -486,7 +487,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
                     upperTick: params.upperTick,
                     feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
                     feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: response.liquidity.toUint256(),
+                    liquidity: response.liquidity,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
@@ -583,14 +584,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
     }
 
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
-        uint256 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
             return false;
         }
 
-        int256 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
-        int256 upperTickBound = tickLastBlock.add(maxTickDelta.toInt256());
-        int256 lowerTickBound = tickLastBlock.sub(maxTickDelta.toInt256());
+        int24 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
+        int24 upperTickBound = int256(tickLastBlock).add(maxTickDelta).toInt24();
+        int24 lowerTickBound = int256(tickLastBlock).sub(maxTickDelta).toInt24();
 
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
@@ -682,7 +683,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             );
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().sub(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
@@ -756,7 +757,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
 
         // update open order with new liquidity
-        openOrder.liquidity = openOrder.liquidity.toUint256().add(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
 
         return fee;
@@ -964,13 +965,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
             tokenAmount = tokenAmount.add(amount);
 
             if (!fetchBase) {
-                int24 tick = TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96);
+                // get uncollected fee (only quote)
 
-                // uncollected quote fee in ClearingHouse
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
                 uint256 feeGrowthInsideClearingHouseX128 =
-                    tickMap.getFeeGrowthInside(order.lowerTick, order.upperTick, tick, feeGrowthGlobalX128);
+                    tickMap.getFeeGrowthInside(
+                        order.lowerTick,
+                        order.upperTick,
+                        TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96),
+                        feeGrowthGlobalX128
+                    );
 
                 tokenAmount = tokenAmount.add(
                     _calcOwedFee(
@@ -983,7 +988,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         }
     }
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
@@ -1045,7 +1050,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
         // funding inside the range =
         // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
         int256 fundingInsideX96 =
-            uint256(order.liquidity).toInt256().mul(
+            order.liquidity.toInt256().mul(
                 // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
                 fundingGrowthRangeInfo
                     .twPremiumDivBySqrtPriceGrowthInsideX96
