@@ -117,7 +117,7 @@ describe("MetaTxGateway Spec", () => {
     it("force error, only owner can add whitelisting", async () => {
         await expect(
             metaTxGateway.connect(alice).addToWhitelists("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-        ).to.be.revertedWith("Ownable: caller is not the owner")
+        ).to.be.revertedWith("SO_CNO")
     })
 
     it("force error, incorrect domain info", async () => {

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { LowLevelErrorMessage } from "./base/LowLevelErrorMessage.sol";
+import { SafeOwnable } from "./base/SafeOwnable.sol";
 
 // this is functionally identical to
 // https://github.com/bcnmy/metatx-standard/blob/master/src/contracts/EIP712MetaTransaction.sol
 // except it implements openzeppelin Initializable
-contract MetaTxGateway is Ownable, LowLevelErrorMessage {
+contract MetaTxGateway is SafeOwnable, LowLevelErrorMessage {
     using SafeMath for uint256;
 
     //

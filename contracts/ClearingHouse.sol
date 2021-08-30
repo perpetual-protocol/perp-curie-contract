@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -30,6 +29,7 @@ import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -37,7 +37,7 @@ contract ClearingHouse is
     ISettlement,
     ReentrancyGuard,
     Validation,
-    Ownable,
+    OwnerPausable,
     BaseRelayRecipient
 {
     using SafeMath for uint256;
@@ -126,16 +126,6 @@ contract ClearingHouse is
         uint256 minBase;
         uint256 minQuote;
         uint256 deadline;
-    }
-
-    struct RemoveLiquidityFromOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthInsideQuoteX128;
-        uint256 liquidity;
     }
 
     struct InternalRemoveLiquidityParams {
@@ -270,6 +260,8 @@ contract ClearingHouse is
     uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
     uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
 
+    // cached the settlement token's decimal for gas optimization
+    // owner must ensure the settlement token's decimal is not immutable
     uint8 internal immutable _settlementTokenDecimals;
 
     uint32 public twapInterval = 15 minutes;
@@ -338,7 +330,8 @@ contract ClearingHouse is
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
-        nonReentrant()
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
@@ -393,7 +386,8 @@ contract ClearingHouse is
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        nonReentrant()
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (RemoveLiquidityResponse memory response)
     {
@@ -414,6 +408,8 @@ contract ClearingHouse is
 
     function closePosition(ClosePositionParams calldata params)
         external
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -441,6 +437,8 @@ contract ClearingHouse is
 
     function openPosition(OpenPositionParams memory params)
         external
+        whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -548,7 +546,7 @@ contract ClearingHouse is
         trustedForwarder = trustedForwarderArg;
     }
 
-    function liquidate(address trader, address baseToken) external nonReentrant() {
+    function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
         // CH_EAV: enough account value
         require(
@@ -649,11 +647,11 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external nonReentrant() {
+    ) external whenNotPaused nonReentrant {
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function cancelAllExcessOrders(address maker, address baseToken) external nonReentrant() {
+    function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
         bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
@@ -706,12 +704,12 @@ contract ClearingHouse is
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
-    // NOTE: the negative value will only be used when calculating pnl
+    /// @dev a negative returned value is only be used when calculating pnl
     function getPositionValue(
         address trader,
         address token,
         uint256 twapIntervalArg
-    ) public view returns (int256 positionValue) {
+    ) public view returns (int256) {
         int256 positionSize = _getPositionSize(trader, token);
         if (positionSize == 0) return 0;
 
@@ -753,21 +751,20 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    /// @return fundingPayment; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
         return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
-    /// @return fundingPayment; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment > 0 is payment and < 0 is receipt
     function getAllPendingFundingPayment(address trader) external view returns (int256) {
         return _getAllPendingFundingPayment(trader);
     }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
-        uint256 tokenLen = _accountMap[trader].tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
+        for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_isPoolExistent(baseToken)) {
                 totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
@@ -980,7 +977,7 @@ contract ClearingHouse is
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
-        // if: increase position (old/new position are in the same direction)
+        // if increase position (old / new position are in the same direction)
         if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
@@ -1008,7 +1005,6 @@ contract ClearingHouse is
         response = _swap(params);
 
         uint256 positionSizeAbs = positionSize.abs();
-
         // position size based closedRatio
         uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSizeAbs);
 
@@ -1036,7 +1032,7 @@ contract ClearingHouse is
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
-            // else: opens a larger reverse position
+            // else, open a larger reverse position
 
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
             // taker:
@@ -1432,7 +1428,7 @@ contract ClearingHouse is
     function _getMarkTwapX96(address token) internal view returns (uint256) {
         uint32 twapIntervalArg = twapInterval;
 
-        // shorten twapInterval if there is no prior observation
+        // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[token] == 0) {
             twapIntervalArg = 0;
         } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[token])) {

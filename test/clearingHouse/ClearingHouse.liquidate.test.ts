@@ -125,7 +125,7 @@ describe("ClearingHouse liquidate", () => {
         it("force error, only admin", async () => {
             await expect(
                 clearingHouse.connect(alice).setLiquidationPenaltyRatio(parseEther("0.03")),
-            ).to.be.revertedWith("Ownable: caller is not the owner")
+            ).to.be.revertedWith("SO_CNO")
         })
     })
 

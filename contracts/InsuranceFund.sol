@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Vault } from "./Vault.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
-contract InsuranceFund is ReentrancyGuard, Ownable {
+contract InsuranceFund is ReentrancyGuard, OwnerPausable {
     address public immutable vault;
     address private immutable _token;
 
@@ -23,11 +23,11 @@ contract InsuranceFund is ReentrancyGuard, Ownable {
         _;
     }
 
-    function collect() external {
+    function collect() external whenNotPaused {
         revert("TBD");
     }
 
-    function borrow() external onlyVault {
+    function borrow() external onlyVault whenNotPaused {
         revert("TBD");
     }
 }
