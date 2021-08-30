@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -16,7 +16,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: VirtualToken
+    let baseToken: BaseToken
     let quoteToken: VirtualToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool

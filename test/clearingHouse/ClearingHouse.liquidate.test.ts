@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -17,10 +17,10 @@ describe("ClearingHouse liquidate", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: VirtualToken
+    let baseToken: BaseToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
-    let baseToken2: VirtualToken
+    let baseToken2: BaseToken
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract

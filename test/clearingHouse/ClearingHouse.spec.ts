@@ -1,18 +1,15 @@
-import { MockContract, smockit } from "@eth-optimism/smock"
+import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
-import { ethers, waffle } from "hardhat"
-import { ClearingHouse, UniswapV3Pool } from "../../typechain"
-import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedClearingHouseFixture, mockedTokenTo } from "./fixtures"
+import { waffle } from "hardhat"
+import { ClearingHouse } from "../../typechain"
+import { mockedClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
-    const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000b"
-    const DEFAULT_FEE = 3000
 
     let clearingHouse: ClearingHouse
     let baseToken: MockContract
