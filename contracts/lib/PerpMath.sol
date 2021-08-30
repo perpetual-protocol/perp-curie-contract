@@ -45,4 +45,8 @@ library PerpMath {
     function divideBy10_18(uint256 value) internal pure returns (uint256) {
         return value.div(1 ether);
     }
+
+    function mulRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
+        return FullMath.mulDiv(value, ratio, 1e6);
+    }
 }
