@@ -585,49 +585,50 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, Ownable, Ar
 
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
-
-        if (maxTickDelta != 0) {
-            int24 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
-            int24 upperTickBound = int256(tickLastBlock).add(maxTickDelta).toInt24();
-            int24 lowerTickBound = int256(tickLastBlock).sub(maxTickDelta).toInt24();
-
-            address pool = _poolMap[params.baseToken];
-            uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
-            uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
-            (, int256 signedScaledAmountForReplaySwap) =
-                _getScaledAmountForSwaps(
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    params.amount,
-                    clearingHouseFeeRatio,
-                    uniswapFeeRatio
-                );
-            SwapState memory state =
-                SwapState({
-                    tick: UniswapV3Broker.getTick(pool),
-                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                    amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
-                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: UniswapV3Broker.getLiquidity(pool)
-                });
-
-            // globalFundingGrowth can be empty if shouldUpdateState is false
-            (, , int24 tickAfterSwap) =
-                _replaySwap(
-                    ReplaySwapParams({
-                        state: state,
-                        baseToken: params.baseToken,
-                        isBaseToQuote: params.isBaseToQuote,
-                        sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                        clearingHouseFeeRatio: clearingHouseFeeRatio,
-                        uniswapFeeRatio: uniswapFeeRatio,
-                        shouldUpdateState: false,
-                        globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
-                    })
-                );
-
-            return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+        if (maxTickDelta == 0) {
+            return false;
         }
+
+        int24 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
+        int24 upperTickBound = int256(tickLastBlock).add(maxTickDelta).toInt24();
+        int24 lowerTickBound = int256(tickLastBlock).sub(maxTickDelta).toInt24();
+
+        address pool = _poolMap[params.baseToken];
+        uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
+        (, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                clearingHouseFeeRatio,
+                uniswapFeeRatio
+            );
+        SwapState memory state =
+            SwapState({
+                tick: UniswapV3Broker.getTick(pool),
+                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
+                amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
+                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
+                liquidity: UniswapV3Broker.getLiquidity(pool)
+            });
+
+        // globalFundingGrowth can be empty if shouldUpdateState is false
+        (, , int24 tickAfterSwap) =
+            _replaySwap(
+                ReplaySwapParams({
+                    state: state,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    clearingHouseFeeRatio: clearingHouseFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    shouldUpdateState: false,
+                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                })
+            );
+
+        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
 
     // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX

@@ -754,12 +754,12 @@ contract ClearingHouse is
         return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
     }
 
-    // NOTE: the negative value will only be used when calculating pnl
+    /// @dev a negative returned value is only be used when calculating pnl
     function getPositionValue(
         address trader,
         address token,
         uint256 twapIntervalArg
-    ) public view returns (int256 positionValue) {
+    ) public view returns (int256) {
         int256 positionSize = _getPositionSize(trader, token);
         if (positionSize == 0) return 0;
 
@@ -775,9 +775,9 @@ contract ClearingHouse is
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        uint160 sqrtMarkPrice = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
+        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
         int256 quoteInPool =
-            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPrice, false).toInt256();
+            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false).toInt256();
         int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
         return quoteInPool.sub(openNotionalFraction);
     }
@@ -826,21 +826,20 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    /// @return fundingPayment; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
         return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
-    /// @return fundingPayment; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment > 0 is payment and < 0 is receipt
     function getAllPendingFundingPayment(address trader) external view returns (int256) {
         return _getAllPendingFundingPayment(trader);
     }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
-        uint256 tokenLen = _accountMap[trader].tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
+        for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_isPoolExistent(baseToken)) {
                 totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
@@ -993,7 +992,7 @@ contract ClearingHouse is
         SwapResponse memory response;
         int256 deltaAvailableQuote;
 
-        // if: increase position (old/new position are in the same direction)
+        // if increase position (old / new position are in the same direction)
         if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
@@ -1021,7 +1020,6 @@ contract ClearingHouse is
         response = _swap(params);
 
         uint256 positionSizeAbs = positionSize.abs();
-
         // position size based closedRatio
         uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSizeAbs);
 
@@ -1049,7 +1047,7 @@ contract ClearingHouse is
             int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
-            // else: opens a larger reverse position
+            // else, open a larger reverse position
 
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
             // taker:
@@ -1152,11 +1150,9 @@ contract ClearingHouse is
             );
         }
 
-        {
-            // update timestamp of the first tx in this market
-            if (_firstTradedTimestampMap[params.baseToken] == 0) {
-                _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
-            }
+        // update timestamp of the first tx in this market
+        if (_firstTradedTimestampMap[params.baseToken] == 0) {
+            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
         }
 
         return
@@ -1538,7 +1534,7 @@ contract ClearingHouse is
     function _getMarkTwapX96(address token) internal view returns (uint256) {
         uint32 twapIntervalArg = twapInterval;
 
-        // shorten twapInterval if there is no prior observation
+        // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[token] == 0) {
             twapIntervalArg = 0;
         } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[token])) {
