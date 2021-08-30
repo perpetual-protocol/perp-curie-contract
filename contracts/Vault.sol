@@ -197,12 +197,12 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
-    // @inheritdoc BaseRelayRecipient
+    /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
-    // @inheritdoc BaseRelayRecipient
+    /// @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }

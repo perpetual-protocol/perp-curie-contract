@@ -493,7 +493,7 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    // @inheritdoc IUniswapV3MintCallback
+    /// @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
@@ -1547,12 +1547,12 @@ contract ClearingHouse is
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
-    // @inheritdoc BaseRelayRecipient
+    /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
-    // @inheritdoc BaseRelayRecipient
+    /// @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }
