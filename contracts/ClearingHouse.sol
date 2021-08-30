@@ -439,6 +439,7 @@ contract ClearingHouse is
     function closePosition(ClosePositionParams calldata params)
         external
         whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
@@ -467,6 +468,7 @@ contract ClearingHouse is
     function openPosition(OpenPositionParams memory params)
         external
         whenNotPaused
+        nonReentrant
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
