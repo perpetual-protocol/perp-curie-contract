@@ -312,9 +312,9 @@ contract ClearingHouse is
     //
     // MODIFIER
     //
-    modifier checkRatio(uint256 ratio) {
+    modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
-        require(ratio <= 1 ether, "CH_RO");
+        require(ratio <= 1e6, "CH_RO");
         _;
     }
 
