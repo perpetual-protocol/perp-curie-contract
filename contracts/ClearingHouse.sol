@@ -12,9 +12,6 @@ import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
@@ -26,12 +23,10 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { Validation } from "./base/Validation.sol";
-import { Tick } from "./lib/Tick.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
@@ -54,7 +49,6 @@ contract ClearingHouse is
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
-    using Tick for mapping(int24 => Tick.GrowthInfo);
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
 
@@ -63,19 +57,7 @@ contract ClearingHouse is
     //
     event Minted(address indexed trader, address indexed token, uint256 amount);
     event Burned(address indexed trader, address indexed token, uint256 amount);
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
+
     event PositionChanged(
         address indexed trader,
         address indexed baseToken,
@@ -235,6 +217,16 @@ contract ClearingHouse is
         bool skipMarginRequirementCheck;
     }
 
+    struct AfterRemoveLiquidityParams {
+        address maker;
+        address baseToken;
+        uint256 baseBalanceBeforeRemoveLiquidity;
+        uint256 quoteBalanceBeforeRemoveLiquidity;
+        uint256 removedBase;
+        uint256 removedQuote;
+        uint256 collectedFee;
+    }
+
     struct ClosePositionParams {
         address baseToken;
         uint160 sqrtPriceLimitX96;
@@ -383,18 +375,6 @@ contract ClearingHouse is
         // must after token info is updated to ensure free collateral is positive after updated
         _requireEnoughFreeCollateral(trader);
 
-        emit LiquidityChanged(
-            trader,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.liquidity.toInt128(),
-            response.fee
-        );
-
         return
             AddLiquidityResponse({
                 base: response.base,
@@ -513,7 +493,6 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    // TODO can we move to exchange
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -577,7 +556,7 @@ contract ClearingHouse is
 
         address[] memory tokens = _accountMap[trader].tokens;
 
-        // TODO merge into 1 exchange function
+        // TODO merge into 1 exchange function, or just call cancelAllExcessOrders
         for (uint256 i = 0; i < tokens.length; i++) {
             bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, tokens[i]);
             // CH_NEO: not empty order
@@ -606,7 +585,6 @@ contract ClearingHouse is
         );
     }
 
-    // TODO can we move to exchange
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -663,42 +641,6 @@ contract ClearingHouse is
 
         // swap
         TransferHelper.safeTransfer(token, address(pool), amountToPay);
-    }
-
-    function _cancelExcessOrders(
-        address maker,
-        address baseToken,
-        bytes32[] memory orderIds
-    ) internal {
-        _requireHasBaseToken(baseToken);
-
-        // CH_EAV: enough account value
-        // shouldn't cancel open orders
-        require(
-            getAccountValue(maker).lt(_getTotalInitialMarginRequirement(maker).toInt256(), _settlementTokenDecimals),
-            "CH_EAV"
-        );
-
-        // TODO add exchange removeLiquidity(orderIds)
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            Exchange.OpenOrder memory openOrder = Exchange(exchange).getOpenOrderById(orderId);
-            _removeLiquidity(
-                InternalRemoveLiquidityParams(
-                    maker,
-                    baseToken,
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
-                    openOrder.liquidity
-                )
-            );
-
-            // burn maker's debt to reduce maker's init margin requirement
-            _burnMax(maker, baseToken);
-        }
-
-        // burn maker's quote to reduce maker's init margin requirement
-        _burnMax(maker, quoteToken);
     }
 
     function cancelExcessOrders(
@@ -783,9 +725,7 @@ contract ClearingHouse is
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
-        int256 quoteInPool =
-            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false).toInt256();
+        int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
         int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
         return quoteInPool.sub(openNotionalFraction);
     }
@@ -795,42 +735,19 @@ contract ClearingHouse is
         return _accountMap[trader].owedRealizedPnl;
     }
 
-    // TODO move to exchange
-    function getTotalTokenAmountInPool(address trader, address baseToken)
-        public
-        view
-        returns (uint256 base, uint256 quote)
-    {
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
-        base = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, true);
-        quote = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, sqrtMarkPriceX96, false);
-    }
-
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
         return _getPositionSize(trader, baseToken);
     }
 
-    // quote.available - quote.debt + totalQuoteFromEachPool - pendingFundingPayment
+    // quote.available - quote.debt + totalQuoteInPools - pendingFundingPayment
     function getNetQuoteBalance(address trader) public view returns (int256) {
-        uint256 quoteInPool;
-        uint256 tokenLen = _accountMap[trader].tokens.length;
-
-        // TODO merge into 1 exchange function
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _accountMap[trader].tokens[i];
-            quoteInPool = quoteInPool.add(
-                Exchange(exchange).getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    Exchange(exchange).getSqrtMarkPriceX96(baseToken),
-                    false // fetch quote token amount
-                )
-            );
-        }
-
         TokenInfo memory quoteTokenInfo = _accountMap[trader].tokenInfoMap[quoteToken];
+
+        // include pendingFundingPayment
+        uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
+
         int256 netQuoteBalance =
-            quoteTokenInfo.available.toInt256().add(quoteInPool.toInt256()).sub(quoteTokenInfo.debt.toInt256());
+            quoteTokenInfo.available.toInt256().add(totalQuoteInPools.toInt256()).sub(quoteTokenInfo.debt.toInt256());
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
@@ -940,29 +857,89 @@ contract ClearingHouse is
         }
     }
 
+    function _cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] memory orderIds
+    ) internal {
+        _requireHasBaseToken(baseToken);
+
+        // TODO refactor with liquidate and fix the formula with collateral
+        // CH_EAV: enough account value
+        // shouldn't cancel open orders
+        require(
+            getAccountValue(maker).lt(_getTotalInitialMarginRequirement(maker).toInt256(), _settlementTokenDecimals),
+            "CH_EAV"
+        );
+
+        // must settle funding before getting token info
+        _settleFundingAndUpdateFundingGrowth(maker, baseToken);
+        (uint256 baseBalanceBefore, uint256 quoteBalanceBefore) = _getBaseQuoteTokenBalance(baseToken);
+        Exchange.RemoveLiquidityResponse memory response =
+            Exchange(exchange).removeLiquidityByIds(maker, baseToken, orderIds);
+        _afterRemoveLiquidity(
+            AfterRemoveLiquidityParams({
+                maker: maker,
+                baseToken: baseToken,
+                baseBalanceBeforeRemoveLiquidity: baseBalanceBefore,
+                quoteBalanceBeforeRemoveLiquidity: quoteBalanceBefore,
+                removedBase: response.base,
+                removedQuote: response.quote,
+                collectedFee: response.fee
+            })
+        );
+    }
+
+    function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
+        (uint256 baseBalanceAfter, uint256 quoteBalanceAfter) = _getBaseQuoteTokenBalance(params.baseToken);
+
+        // burn base/quote fee
+        // base/quote fee of all makers in the range of lowerTick and upperTick should be
+        // balanceAfter - balanceBefore - response.base / response.quote
+        IMintableERC20(params.baseToken).burn(
+            baseBalanceAfter.sub(params.baseBalanceBeforeRemoveLiquidity).sub(params.removedBase)
+        );
+        IMintableERC20(quoteToken).burn(
+            quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
+        );
+        uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
+        TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
+        baseTokenInfo.available = baseTokenInfo.available.add(params.removedBase);
+        quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
+        _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
+
+        // burn maker's debt to reduce maker's init margin requirement
+        _burnMax(params.maker, params.baseToken);
+
+        // burn maker's quote to reduce maker's init margin requirement
+        _burnMax(params.maker, quoteToken);
+    }
+
     // expensive
-    function _deregisterBaseToken(address account, address baseToken) internal {
+    function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        TokenInfo memory tokenInfo = _accountMap[account].tokenInfoMap[baseToken];
+        TokenInfo memory tokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         if (tokenInfo.available > 0 || tokenInfo.debt > 0) {
             return;
         }
 
-        (uint256 baseInPool, uint256 quoteInPool) = getTotalTokenAmountInPool(account, baseToken);
+        uint256 baseInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false);
         if (baseInPool > 0 || quoteInPool > 0) {
             return;
         }
 
-        delete _accountMap[account].tokenInfoMap[baseToken];
+        delete _accountMap[trader].tokenInfoMap[baseToken];
 
-        uint256 length = _accountMap[account].tokens.length;
+        uint256 length = _accountMap[trader].tokens.length;
         for (uint256 i; i < length; i++) {
-            if (_accountMap[account].tokens[i] == baseToken) {
+            if (_accountMap[trader].tokens[i] == baseToken) {
                 // if the removal item is the last one, just `pop`
                 if (i != length - 1) {
-                    _accountMap[account].tokens[i] = _accountMap[account].tokens[length - 1];
+                    _accountMap[trader].tokens[i] = _accountMap[trader].tokens[length - 1];
                 }
-                _accountMap[account].tokens.pop();
+                _accountMap[trader].tokens.pop();
                 break;
             }
         }
@@ -1134,29 +1111,23 @@ contract ClearingHouse is
                 })
             );
 
-        {
-            // update internal states
-            // examples:
-            // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-            TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
+        // update internal states
+        // examples:
+        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+        TokenInfo storage baseTokenInfo = _accountMap[params.trader].tokenInfoMap[params.baseToken];
+        TokenInfo storage quoteTokenInfo = _accountMap[params.trader].tokenInfoMap[quoteToken];
 
-            baseTokenInfo.available = baseTokenInfo
-                .available
-                .toInt256()
-                .add(response.exchangedPositionSize)
-                .toUint256();
-            quoteTokenInfo.available = quoteTokenInfo
-                .available
-                .toInt256()
-                .add(response.exchangedPositionNotional)
-                .toUint256()
-                .sub(response.fee);
+        baseTokenInfo.available = baseTokenInfo.available.toInt256().add(response.exchangedPositionSize).toUint256();
+        quoteTokenInfo.available = quoteTokenInfo
+            .available
+            .toInt256()
+            .add(response.exchangedPositionNotional)
+            .toUint256()
+            .sub(response.fee);
 
-            _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
-                response.insuranceFundFee.toInt256()
-            );
-        }
+        _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
+            response.insuranceFundFee.toInt256()
+        );
 
         // update timestamp of the first tx in this market
         if (_firstTradedTimestampMap[params.baseToken] == 0) {
@@ -1179,13 +1150,11 @@ contract ClearingHouse is
         private
         returns (RemoveLiquidityResponse memory)
     {
+        // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
-        Exchange.RemoveLiquidityResponse memory response;
-        {
-            uint256 baseBalanceBefore = IERC20Metadata(params.baseToken).balanceOf(address(this));
-            uint256 quoteBalanceBefore = IERC20Metadata(quoteToken).balanceOf(address(this));
-
-            response = Exchange(exchange).removeLiquidity(
+        (uint256 baseBalanceBefore, uint256 quoteBalanceBefore) = _getBaseQuoteTokenBalance(params.baseToken);
+        Exchange.RemoveLiquidityResponse memory response =
+            Exchange(exchange).removeLiquidity(
                 Exchange.RemoveLiquidityParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
@@ -1194,42 +1163,17 @@ contract ClearingHouse is
                     liquidity: params.liquidity
                 })
             );
-
-            // burn base/quote fee
-            // base/quote fee of all makers in the range of lowerTick and upperTick should be
-            // balanceAfter - balanceBefore - response.base / response.quote
-            IMintableERC20(params.baseToken).burn(
-                IERC20Metadata(params.baseToken).balanceOf(address(this)).sub(baseBalanceBefore).sub(response.base)
-            );
-            IMintableERC20(quoteToken).burn(
-                IERC20Metadata(quoteToken).balanceOf(address(this)).sub(quoteBalanceBefore).sub(response.quote)
-            );
-        }
-        {
-            uint256 removedQuoteAmount = response.quote.add(response.fee);
-            TokenInfo storage baseTokenInfo = _accountMap[params.maker].tokenInfoMap[params.baseToken];
-            TokenInfo storage quoteTokenInfo = _accountMap[params.maker].tokenInfoMap[quoteToken];
-            baseTokenInfo.available = baseTokenInfo.available.add(response.base);
-            quoteTokenInfo.available = quoteTokenInfo.available.add(removedQuoteAmount);
-            _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
-        }
-
-        // burn all unnecessary tokens
-        _burnMax(params.maker, params.baseToken);
-        _burnMax(params.maker, quoteToken);
-
-        emit LiquidityChanged(
-            params.maker,
-            params.baseToken,
-            quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
-            response.fee
+        _afterRemoveLiquidity(
+            AfterRemoveLiquidityParams({
+                maker: params.maker,
+                baseToken: params.baseToken,
+                baseBalanceBeforeRemoveLiquidity: baseBalanceBefore,
+                quoteBalanceBeforeRemoveLiquidity: quoteBalanceBefore,
+                removedBase: response.base,
+                removedQuote: response.quote,
+                collectedFee: response.fee
+            })
         );
-
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
@@ -1402,27 +1346,10 @@ contract ClearingHouse is
     ) internal view returns (int256 fundingPayment) {
         _requireHasBaseToken(baseToken);
         Account storage account = _accountMap[trader];
-        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, baseToken);
 
-        int256 liquidityCoefficientInFundingPayment;
+        int256 liquidityCoefficientInFundingPayment =
+            Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
         // funding of liquidity
-
-        // TODO merge into 1 exchange funciton
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            Exchange.OpenOrder memory order = Exchange(exchange).getOpenOrderById(orderIds[i]);
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                Exchange(exchange).getTickFundingGrowthRangeInfo(
-                    baseToken,
-                    order.lowerTick,
-                    order.upperTick,
-                    updatedGlobalFundingGrowth.twPremiumX96,
-                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-                );
-
-            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
-            );
-        }
 
         int256 availableAndDebtCoefficientInFundingPayment =
             _getAvailableAndDebtCoefficientInFundingPayment(
@@ -1431,10 +1358,9 @@ contract ClearingHouse is
                 account.lastTwPremiumGrowthGlobalX96Map[baseToken]
             );
 
-        fundingPayment = fundingPayment
-            .add(liquidityCoefficientInFundingPayment)
-            .add(availableAndDebtCoefficientInFundingPayment)
-            .div(1 days);
+        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
+            1 days
+        );
     }
 
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
@@ -1476,53 +1402,13 @@ contract ClearingHouse is
                 .twPremiumDivBySqrtPriceX96
                 .add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-                    uint256(Exchange(exchange).getSqrtMarkPriceX96(baseToken)).toInt256()
+                    uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
                 )
             );
         } else {
             // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
             updatedGlobalFundingGrowth = outdatedGlobalFundingGrowth;
         }
-    }
-
-    function _getLiquidityCoefficientInFundingPayment(
-        Exchange.OpenOrder memory order,
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) internal view returns (int256 liquidityCoefficientInFundingPayment) {
-        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-
-        // base amount below the range
-        uint256 baseAmountBelow =
-            Exchange(exchange).getAmount0ForLiquidity(
-                TickMath.getSqrtRatioAtTick(order.lowerTick),
-                sqrtPriceX96AtUpperTick,
-                order.liquidity
-            );
-        int256 fundingBelowX96 =
-            baseAmountBelow.toInt256().mul(
-                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
-            );
-
-        // funding inside the range =
-        // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
-        int256 fundingInsideX96 =
-            order.liquidity.toInt256().mul(
-                // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
-                fundingGrowthRangeInfo
-                    .twPremiumDivBySqrtPriceGrowthInsideX96
-                    .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
-                    .sub(
-                    // ΔtwPremiumGrowthInsideX96
-                    (
-                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(
-                            PerpFixedPoint96.IQ96
-                        )
-                    )
-                        .div(sqrtPriceX96AtUpperTick)
-                )
-            );
-
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
     }
 
     function _getAvailableAndDebtCoefficientInFundingPayment(
@@ -1551,7 +1437,7 @@ contract ClearingHouse is
             twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[token]));
         }
 
-        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg);
+        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
     }
 
     // --- funding related getters ---
@@ -1619,14 +1505,13 @@ contract ClearingHouse is
     }
 
     function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
-        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkPriceX96(baseToken);
+        uint160 sqrtMarkPriceX96 = Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0);
         TokenInfo memory baseTokenInfo = _accountMap[trader].tokenInfoMap[baseToken];
         uint256 vBaseAmount =
             baseTokenInfo.available.add(
                 Exchange(exchange).getTotalTokenAmountInPool(
                     trader,
                     baseToken,
-                    sqrtMarkPriceX96,
                     true // get base token amount
                 )
             );
@@ -1636,6 +1521,11 @@ contract ClearingHouse is
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(baseTokenInfo.debt.toInt256());
         return positionSize.abs() < _DUST ? 0 : positionSize;
+    }
+
+    function _getBaseQuoteTokenBalance(address baseToken) internal view returns (uint256 base, uint256 quote) {
+        base = IERC20Metadata(baseToken).balanceOf(address(this));
+        quote = IERC20Metadata(quoteToken).balanceOf(address(this));
     }
 
     function _isPoolExistent(address baseToken) internal view returns (bool) {
@@ -1657,10 +1547,12 @@ contract ClearingHouse is
         return keccak256(abi.encodePacked(account, baseToken));
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
     }
 
+    // @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
         return super._msgData();
     }

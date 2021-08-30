@@ -120,7 +120,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // will transfer all 0.0004084104205 base the the remaining quote to CH
                 // will collect and burn all extra base and quote tokens (Uniswap v3 pool fees that we are not using)
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -237,7 +237,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // there's one wei of imprecision, thus expecting 0.001135501474999999
                     // will transfer just the fee collected to CH -> burnt
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .to.emit(exchange, "LiquidityChanged")
                         .withArgs(
                             alice.address,
                             baseToken.address,
@@ -356,7 +356,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // 0.00112414646 + 0.001135501475 = 0.002259647935
                     // will transfer and burnt all Uniswap fees collected
                     await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                        .to.emit(clearingHouse, "LiquidityChanged")
+                        .to.emit(exchange, "LiquidityChanged")
                         .withArgs(
                             alice.address,
                             baseToken.address,
@@ -514,7 +514,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // 0.0008373408142 + 0.0008516261063 = 0.00168896692
                 // will receive and burn base & quote tokens from pool (Uniswap fees)
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -532,7 +532,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // 0.0002791136048 + 0.0002838753688 = 0.0005629889736
                 // will receive and burn base & quote tokens from pool (Uniswap fees)
                 await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParams))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,
@@ -721,7 +721,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // total quote fee: 0.002213305435 + 0.002235662055 = 0.00444896749
                 // will receive and burn base & quote tokens from pool (Uniswap fees)
                 await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParamsAlice))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -753,7 +753,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // total quote fee: 0.00122414646 + 0.001236511576 = 0.002460658036
                 // will receive and burn base & quote tokens from pool (Uniswap fees)
                 await expect(clearingHouse.connect(carol).removeLiquidity(removeLiquidityParamsCarol))
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,

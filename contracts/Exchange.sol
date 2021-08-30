@@ -7,7 +7,6 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
@@ -16,13 +15,13 @@ import { FeeMath } from "./lib/FeeMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
-import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { OrderKey } from "./lib/OrderKey.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
@@ -41,6 +40,19 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // EVENT
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 base,
+        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 quote,
+        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
+        uint256 quoteFee // amount of quote token the maker received as fee
+    );
 
     //
     // STRUCT
@@ -276,7 +288,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external checkRatio(feeRatio) {
+    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner checkRatio(feeRatio) {
         _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
@@ -385,7 +397,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 )
             );
 
-            // TODO can be removed once we move the custodian of vToken from CH to EX
             // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
             address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
             uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
@@ -492,6 +503,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 })
             );
 
+        emit LiquidityChanged(
+            params.trader,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.liquidity.toInt128(),
+            fee
+        );
+
         return
             AddLiquidityResponse({
                 base: response.base,
@@ -501,52 +524,43 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
+    function removeLiquidityByIds(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+        uint256 totalBase;
+        uint256 totalQuote;
+        uint256 totalFee;
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            bytes32 orderId = orderIds[i];
+            OpenOrder memory order = _openOrderMap[orderId];
+
+            RemoveLiquidityResponse memory response =
+                _removeLiquidity(
+                    RemoveLiquidityParams({
+                        maker: maker,
+                        baseToken: baseToken,
+                        lowerTick: order.lowerTick,
+                        upperTick: order.upperTick,
+                        liquidity: order.liquidity
+                    })
+                );
+
+            totalBase = totalBase.add(response.base);
+            totalQuote = totalQuote.add(response.quote);
+            totalFee = totalFee.add(response.fee);
+        }
+
+        return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
+    }
+
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
-        // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
-        // EX_NEO non-existent openOrder
-        require(openOrder.liquidity > 0, "EX_NEO");
-        // EX_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
-
-        address pool = _poolMap[params.baseToken];
-        UniswapV3Broker.RemoveLiquidityResponse memory response =
-            UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
-            );
-
-        // update token info based on existing open order
-        uint256 fee =
-            _removeLiquidityFromOrder(
-                RemoveLiquidityFromOrderParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    pool: pool,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
-                    liquidity: params.liquidity
-                })
-            );
-
-        // if flipped from initialized to uninitialized, clear the tick info
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
-            _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
-        }
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
-            _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
-        }
-
-        // TODO can be removed once we move the custodian of vToken from CH to EX
-        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
-        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
-
-        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+        return _removeLiquidity(params);
     }
 
     // TODO rename to updateLastFundingGrowth
@@ -631,7 +645,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
     }
 
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -645,7 +658,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
-    // TODO can avoid to call ch back once we move the custodian of vToken from CH to EX
     // @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(
         int256 amount0Delta,
@@ -660,12 +672,147 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     //
+    // EXTERNAL VIEW
+    //
+
+    function getPool(address baseToken) external view returns (address) {
+        return _poolMap[baseToken];
+    }
+
+    function getFeeRatio(address baseToken) external view returns (uint24) {
+        return _exchangeFeeRatioMap[_poolMap[baseToken]];
+    }
+
+    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
+        return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+    }
+
+    function getOpenOrder(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (OpenOrder memory) {
+        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
+    }
+
+    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
+        uint256 totalQuoteAmountInPools;
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            address baseToken = baseTokens[i];
+            uint256 quoteInPool = _getTotalTokenAmountInPool(trader, baseToken, false);
+            totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
+        }
+        return totalQuoteAmountInPools;
+    }
+
+    /// @dev funding payment belongs to realizedPnl, not token amount
+    function getTotalTokenAmountInPool(
+        address trader,
+        address baseToken,
+        bool fetchBase // true: fetch base amount, false: fetch quote amount
+    ) external view returns (uint256 tokenAmount) {
+        return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
+    }
+
+    // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
+    function getLiquidityCoefficientInFundingPayment(
+        address trader,
+        address baseToken,
+        Funding.Growth memory updatedGlobalFundingGrowth
+    ) external view returns (int256) {
+        bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
+        int256 liquidityCoefficientInFundingPayment;
+
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+                _growthOutsideTickMap[baseToken].getAllFundingGrowth(
+                    order.lowerTick,
+                    order.upperTick,
+                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    updatedGlobalFundingGrowth.twPremiumX96,
+                    updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
+                );
+
+            // the calculation here is based on cached values
+            liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
+                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+            );
+        }
+
+        return liquidityCoefficientInFundingPayment;
+    }
+
+    //
     // INTERNAL
     //
+    function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
+        // load existing open order
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        OpenOrder storage openOrder = _openOrderMap[orderId];
+        // EX_NEO non-existent openOrder
+        require(openOrder.liquidity > 0, "EX_NEO");
+        // EX_NEL not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
+
+        address pool = _poolMap[params.baseToken];
+        UniswapV3Broker.RemoveLiquidityResponse memory response =
+            UniswapV3Broker.removeLiquidity(
+                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
+            );
+
+        // update token info based on existing open order
+        uint256 fee =
+            _removeLiquidityFromOrder(
+                RemoveLiquidityFromOrderParams({
+                    maker: params.maker,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
+                    liquidity: params.liquidity
+                })
+            );
+
+        // if flipped from initialized to uninitialized, clear the tick info
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
+        }
+        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+            _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
+        }
+
+        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
+        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
+
+        emit LiquidityChanged(
+            params.maker,
+            params.baseToken,
+            quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            -response.base.toInt256(),
+            -response.quote.toInt256(),
+            -params.liquidity.toInt128(),
+            fee
+        );
+
+        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+    }
 
     function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
         // update token info based on existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         OpenOrder storage openOrder = _openOrderMap[orderId];
         uint256 feeGrowthInsideClearingHouseX128 =
@@ -714,7 +861,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
-        bytes32 orderId = _getOrderId(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
 
         uint256 feeGrowthInsideClearingHouseX128;
@@ -888,45 +1035,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     //
-    // EXTERNAL VIEW
+    // INTERNAL VIEW
     //
 
-    function getPool(address baseToken) external view returns (address) {
-        return _poolMap[baseToken];
-    }
-
-    function getFeeRatio(address baseToken) external view returns (uint24) {
-        return _exchangeFeeRatioMap[_poolMap[baseToken]];
-    }
-
-    function getUniswapFeeRatio(address baseToken) external view returns (uint24) {
-        return _uniswapFeeRatioMap[_poolMap[baseToken]];
-    }
-
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
-    }
-
-    function getOpenOrder(
+    function _getTotalTokenAmountInPool(
         address trader,
         address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) external view returns (OpenOrder memory) {
-        return _openOrderMap[_getOrderId(trader, baseToken, lowerTick, upperTick)];
-    }
-
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
-        return _openOrderMap[orderId];
-    }
-
-    /// @dev funding payment belongs to realizedPnl, not token amount
-    function getTotalTokenAmountInPool(
-        address trader,
-        address baseToken,
-        uint160 sqrtMarkPriceX96,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view returns (uint256 tokenAmount) {
+    ) internal view returns (uint256 tokenAmount) {
         bytes32[] memory orderIds = _openOrderIdsMap[_getAccountMarketId(trader, baseToken)];
 
         //
@@ -941,6 +1057,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // if current price > lower tick, maker has quote
         // case 2 : current price > upper tick
         //  --> maker only has quote token
+        uint160 sqrtMarkPriceX96 = UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
 
@@ -988,49 +1105,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         }
     }
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
-    }
-
-    function getTickFundingGrowthRangeInfo(
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick,
-        int256 twPremiumX96,
-        int256 twPremiumDivBySqrtPriceX96
-    ) external view returns (Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        fundingGrowthRangeInfo = tickMap.getAllFundingGrowth(
-            lowerTick,
-            upperTick,
-            UniswapV3Broker.getTick(_poolMap[baseToken]),
-            twPremiumX96,
-            twPremiumDivBySqrtPriceX96
-        );
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint256) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval).formatSqrtPriceX96ToPriceX96();
-    }
-
-    function getSqrtMarkPriceX96(address baseToken) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkPriceX96(_poolMap[baseToken]);
-    }
-
-    function getAmount0ForLiquidity(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity
-    ) external pure returns (uint256 amount0) {
-        return UniswapV3Broker.getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
-    }
-
-    //
-    // internal VIEW
-    //
-
     function _getLiquidityCoefficientInFundingPayment(
-        Exchange.OpenOrder memory order,
+        OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
@@ -1067,15 +1143,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             );
 
         return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
-    }
-
-    function _getOrderId(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(address(trader), address(baseToken), lowerTick, upperTick));
     }
 
     function _calcOwedFee(

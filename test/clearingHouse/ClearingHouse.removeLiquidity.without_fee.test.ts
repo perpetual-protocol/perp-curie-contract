@@ -89,7 +89,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(clearingHouse, "LiquidityChanged")
+                .to.emit(exchange, "LiquidityChanged")
                 .withArgs(
                     alice.address,
                     baseToken.address,
@@ -183,7 +183,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -256,7 +256,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -459,7 +459,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 deadline: ethers.constants.MaxUint256,
             }),
         )
-            .to.emit(clearingHouse, "LiquidityChanged")
+            .to.emit(exchange, "LiquidityChanged")
             .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
 
         // verify account states

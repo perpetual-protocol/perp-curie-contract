@@ -7,7 +7,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse cancelAllExcessOrders()", () => {
+describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -15,8 +15,10 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
+    let baseToken2: BaseToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
+    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
 
@@ -27,9 +29,11 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
+        baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
+        pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -47,6 +51,10 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized
         await exchange.addPool(baseToken.address, 10000)
+
+        await pool2.initialize(encodePriceSqrt("50000", "1"))
+        // add pool after it's initialized
+        await exchange.addPool(baseToken2.address, 10000)
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)
@@ -147,6 +155,23 @@ describe("ClearingHouse cancelAllExcessOrders()", () => {
 
         // bob as a keeper
         await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
+
+        const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+    })
+
+    it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100000", 6), 0, 0, 0]
+        })
+
+        const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 1).to.be.true
+
+        // _getOrderId() with baseToken2 would generate a non-existent orderId
+        await expect(
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
+        ).to.be.revertedWith("EX_NEO")
 
         const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)

@@ -55,7 +55,7 @@ contract Quoter is IUniswapV3SwapCallback {
         require(pool != address(0), "Q_BTNE");
 
         // TODO: maybe can merge this two fee ratios into one
-        uint24 uniswapFeeRatio = Exchange(exchange).getUniswapFeeRatio(params.baseToken);
+        uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
         uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
 
         // scale up before swap to achieve customized fee/ignore Uniswap fee

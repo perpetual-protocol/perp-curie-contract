@@ -9,7 +9,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse", () => {
+describe("ClearingHouse addLiquidity", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -95,7 +95,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -159,7 +159,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -238,7 +238,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -304,7 +304,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -566,7 +566,7 @@ describe("ClearingHouse", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.emit(clearingHouse, "LiquidityChanged")
+                ).to.emit(exchange, "LiquidityChanged")
             })
 
             it("force error, markets number exceeded", async () => {
@@ -617,7 +617,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -681,7 +681,7 @@ describe("ClearingHouse", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "LiquidityChanged")
+                    .to.emit(exchange, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
