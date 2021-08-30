@@ -1,13 +1,13 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { VirtualToken } from "../../typechain"
+import { BaseToken, VirtualToken } from "../../typechain"
 
-interface VirtualTokenFixture {
-    virtualToken: VirtualToken
+interface BaseTokenFixture {
+    baseToken: BaseToken
     mockedAggregator: MockContract
 }
 
-export async function virtualTokenFixture(): Promise<VirtualTokenFixture> {
+export async function baseTokenFixture(): Promise<BaseTokenFixture> {
     const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
     const aggregator = await aggregatorFactory.deploy()
     const mockedAggregator = await smockit(aggregator)
@@ -19,12 +19,12 @@ export async function virtualTokenFixture(): Promise<VirtualTokenFixture> {
     const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
     const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
 
-    const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
-    const virtualToken = (await virtualTokenFactory.deploy(
+    const baseTokenFactory = await ethers.getContractFactory("BaseToken")
+    const baseToken = (await baseTokenFactory.deploy(
         "RandomTestToken0",
         "RandomTestToken0",
         chainlinkPriceFeed.address,
-    )) as VirtualToken
+    )) as BaseToken
 
-    return { virtualToken, mockedAggregator }
+    return { baseToken, mockedAggregator }
 }

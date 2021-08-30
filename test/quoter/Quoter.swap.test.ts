@@ -1,7 +1,16 @@
 import { expect } from "chai"
 import { defaultAbiCoder, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { Exchange, Quoter, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    Quoter,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+    VirtualToken,
+} from "../../typechain"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -13,7 +22,7 @@ describe("Quoter.swap", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: VirtualToken
+    let baseToken: BaseToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
