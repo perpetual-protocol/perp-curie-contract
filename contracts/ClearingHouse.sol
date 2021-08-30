@@ -257,11 +257,11 @@ contract ClearingHouse is
     address public insuranceFund;
     address public exchange;
 
-    uint24 public imRatio = 1e5; // initial-margin ratio, 10%
-    uint24 public mmRatio = 62500; // minimum-margin ratio, 6.25%
+    uint24 public imRatio = 10e4; // initial-margin ratio, 10%
+    uint24 public mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
 
-    uint24 public liquidationPenaltyRatio = 25000; // initial penalty ratio, 2.5%
-    uint24 public partialCloseRatio = 250000; // partial close ratio, 25%
+    uint24 public liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
+    uint24 public partialCloseRatio = 25e4; // partial close ratio, 25%
     uint8 public maxMarketsPerAccount;
 
     // cached the settlement token's decimal for gas optimization
