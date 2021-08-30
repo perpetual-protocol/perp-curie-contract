@@ -93,16 +93,12 @@ contract ClearingHouse is
         uint256 liquidationFee,
         address liquidator
     );
-    event FundingSettled(
+    event FundingPaymentSettled(
         address indexed trader,
         address indexed baseToken,
         int256 amount // +: trader pays, -: trader receives
     );
-    event GlobalFundingGrowthUpdated(
-        address indexed baseToken,
-        int256 twPremiumGrowthX192,
-        int256 twPremiumDivBySqrtPriceX96
-    );
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
@@ -841,7 +837,8 @@ contract ClearingHouse is
 
     /// @return fundingPayment; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        return _getPendingFundingPayment(trader, baseToken, _getUpdatedGlobalFundingGrowth(baseToken));
+        (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
+        return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
     /// @return fundingPayment; > 0 is payment and < 0 is receipt
@@ -1362,13 +1359,16 @@ contract ClearingHouse is
         private
         returns (Funding.Growth memory updatedGlobalFundingGrowth)
     {
-        updatedGlobalFundingGrowth = _getUpdatedGlobalFundingGrowth(baseToken);
+        uint256 markTwap;
+        uint256 indexTwap;
+        (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
+
         int256 fundingPayment =
             _getPendingFundingPaymentAndUpdateLastFundingGrowth(trader, baseToken, updatedGlobalFundingGrowth);
 
         if (fundingPayment != 0) {
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
-            emit FundingSettled(trader, baseToken, fundingPayment);
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
         // only update in the first tx of a block
@@ -1384,11 +1384,7 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
             );
 
-            emit GlobalFundingGrowthUpdated(
-                baseToken,
-                updatedGlobalFundingGrowth.twPremiumX96,
-                updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-            );
+            emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
     }
 
@@ -1483,17 +1479,24 @@ contract ClearingHouse is
     function _getUpdatedGlobalFundingGrowth(address baseToken)
         private
         view
-        returns (Funding.Growth memory updatedGlobalFundingGrowth)
+        returns (
+            Funding.Growth memory updatedGlobalFundingGrowth,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
     {
         Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
+            uint256 markTwapX96 = _getMarkTwapX96(baseToken);
+            markTwap = markTwapX96.formatX96ToX10_18();
+            indexTwap = _getIndexPrice(baseToken);
+
             int256 twPremiumDeltaX96 =
-                _getMarkTwapX96(baseToken).toInt256().sub(_getIndexPrice(baseToken).formatX10_18ToX96().toInt256()).mul(
+                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
                     _blockTimestamp().sub(lastSettledTimestamp).toInt256()
                 );
-
             updatedGlobalFundingGrowth.twPremiumX96 = outdatedGlobalFundingGrowth.twPremiumX96.add(twPremiumDeltaX96);
 
             // overflow inspection:
