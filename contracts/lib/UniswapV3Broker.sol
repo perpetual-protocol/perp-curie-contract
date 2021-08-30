@@ -74,31 +74,26 @@ library UniswapV3Broker {
         uint256 quote;
     }
 
-    function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
+    function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         // get the equivalent amount of liquidity from amount0 & amount1 with current price
-        response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            getSqrtMarkPriceX96(params.pool),
-            TickMath.getSqrtRatioAtTick(params.lowerTick),
-            TickMath.getSqrtRatioAtTick(params.upperTick),
-            params.base,
-            params.quote
-        );
+        uint128 liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(
+                getSqrtMarkPriceX96(params.pool),
+                TickMath.getSqrtRatioAtTick(params.lowerTick),
+                TickMath.getSqrtRatioAtTick(params.upperTick),
+                params.base,
+                params.quote
+            );
 
         // UB_ZL: zero liquidity
-        require(response.liquidity > 0, "UB_ZL");
+        require(liquidity > 0, "UB_ZL");
 
         // call mint()
         (uint256 addedAmount0, uint256 addedAmount1) =
-            IUniswapV3Pool(params.pool).mint(
-                address(this),
-                params.lowerTick,
-                params.upperTick,
-                response.liquidity,
-                params.data
-            );
+            IUniswapV3Pool(params.pool).mint(address(this), params.lowerTick, params.upperTick, liquidity, params.data);
 
         // fetch the fee growth state if this has liquidity
         uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
@@ -107,7 +102,8 @@ library UniswapV3Broker {
             AddLiquidityResponse({
                 base: addedAmount0,
                 quote: addedAmount1,
-                feeGrowthInsideQuoteX128: feeGrowthInsideQuoteX128
+                liquidity: liquidity,
+                feeGrowthInsideQuoteX128: feeGrowthInside1LastX128
             });
     }
 
