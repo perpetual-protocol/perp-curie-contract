@@ -93,16 +93,12 @@ contract ClearingHouse is
         uint256 liquidationFee,
         address liquidator
     );
-    event FundingSettled(
+    event FundingPaymentSettled(
         address indexed trader,
         address indexed baseToken,
         int256 amount // +: trader pays, -: trader receives
     );
-    event GlobalFundingGrowthUpdated(
-        address indexed baseToken,
-        int256 twPremiumGrowthX192,
-        int256 twPremiumDivBySqrtPriceX96
-    );
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event TwapIntervalChanged(uint256 twapInterval);
     event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint256 partialCloseRatio);
@@ -802,6 +798,7 @@ contract ClearingHouse is
         return quoteInPool.sub(openNotionalFraction);
     }
 
+    // TODO including funding payment
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
     }
@@ -847,7 +844,8 @@ contract ClearingHouse is
 
     /// @return fundingPayment; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        return _getPendingFundingPayment(trader, baseToken, _getUpdatedGlobalFundingGrowth(baseToken));
+        (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
+        return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
     /// @return fundingPayment; > 0 is payment and < 0 is receipt
@@ -871,31 +869,6 @@ contract ClearingHouse is
     // return decimals 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
         return _getTotalInitialMarginRequirement(trader);
-    }
-
-    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    // we will start with the conservative one, then gradually change it to more aggressive ones
-    // to increase capital efficiency.
-    function getFreeCollateralWithBalance(address trader, int256 balance) public view returns (int256) {
-        // accountValue = collateralValue + owedRealizedPnl - pendingFundingPayment + totalUnrealizedPnl
-        int256 pendingFundingPayment = _getAllPendingFundingPayment(trader);
-        int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
-        int256 collateralValue = balance.addS(owedRealizedPnl.sub(pendingFundingPayment), _settlementTokenDecimals);
-        int256 totalUnrealizedPnl = getTotalUnrealizedPnl(trader);
-        int256 accountValue = collateralValue.addS(totalUnrealizedPnl, _settlementTokenDecimals);
-        int256 totalImReq = _getTotalInitialMarginRequirement(trader).toInt256();
-
-        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-        return PerpMath.min(collateralValue, accountValue).subS(totalImReq, _settlementTokenDecimals);
-
-        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
-        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
-
-        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
-        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
-        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
-        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
-        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
     //
@@ -1368,13 +1341,16 @@ contract ClearingHouse is
         private
         returns (Funding.Growth memory updatedGlobalFundingGrowth)
     {
-        updatedGlobalFundingGrowth = _getUpdatedGlobalFundingGrowth(baseToken);
+        uint256 markTwap;
+        uint256 indexTwap;
+        (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
+
         int256 fundingPayment =
             _getPendingFundingPaymentAndUpdateLastFundingGrowth(trader, baseToken, updatedGlobalFundingGrowth);
 
         if (fundingPayment != 0) {
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
-            emit FundingSettled(trader, baseToken, fundingPayment);
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
         // only update in the first tx of a block
@@ -1390,11 +1366,7 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
             );
 
-            emit GlobalFundingGrowthUpdated(
-                baseToken,
-                updatedGlobalFundingGrowth.twPremiumX96,
-                updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-            );
+            emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
     }
 
@@ -1489,17 +1461,24 @@ contract ClearingHouse is
     function _getUpdatedGlobalFundingGrowth(address baseToken)
         private
         view
-        returns (Funding.Growth memory updatedGlobalFundingGrowth)
+        returns (
+            Funding.Growth memory updatedGlobalFundingGrowth,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
     {
         Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
+            uint256 markTwapX96 = _getMarkTwapX96(baseToken);
+            markTwap = markTwapX96.formatX96ToX10_18();
+            indexTwap = _getIndexPrice(baseToken);
+
             int256 twPremiumDeltaX96 =
-                _getMarkTwapX96(baseToken).toInt256().sub(_getIndexPrice(baseToken).formatX10_18ToX96().toInt256()).mul(
+                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
                     _blockTimestamp().sub(lastSettledTimestamp).toInt256()
                 );
-
             updatedGlobalFundingGrowth.twPremiumX96 = outdatedGlobalFundingGrowth.twPremiumX96.add(twPremiumDeltaX96);
 
             // overflow inspection:
@@ -1590,6 +1569,10 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
+    function _getOwedRealizedPnlWithPendingFundingPayment(address trader) internal view returns (int256) {
+        return _accountMap[trader].owedRealizedPnl.sub(_getAllPendingFundingPayment(trader));
+    }
+
     function _getIndexPrice(address token) internal view returns (uint256) {
         return IIndexPrice(token).getIndexPrice(twapInterval);
     }
@@ -1613,12 +1596,8 @@ contract ClearingHouse is
 
     // return in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl;
-        return
-            IVault(vault).balanceOf(trader).addS(
-                owedRealizedPnl.sub(_getAllPendingFundingPayment(trader)),
-                _settlementTokenDecimals
-            );
+        int256 owedRealizedPnl = _getOwedRealizedPnlWithPendingFundingPayment(trader);
+        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
@@ -1703,9 +1682,35 @@ contract ClearingHouse is
         require(_isPoolExistent(baseToken), "CH_BTNE");
     }
 
+    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    // we will start with the conservative one, then gradually change it to more aggressive ones
+    // to increase capital efficiency.
+    function _getFreeCollateral(address trader) private view returns (int256) {
+        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        int256 totalCollateralValue = _getTotalCollateralValue(trader);
+        int256 accountValue = totalCollateralValue.addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
+        uint256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(trader);
+        int256 freeCollateral =
+            PerpMath.min(totalCollateralValue, accountValue).subS(
+                totalInitialMarginRequirement.toInt256(),
+                _settlementTokenDecimals
+            );
+
+        return freeCollateral;
+
+        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
+        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+
+        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
+        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
+        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
+        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
+        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+    }
+
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
-        require(getFreeCollateralWithBalance(trader, IVault(vault).balanceOf(trader)) >= 0, "CH_NEAV");
+        require(_getFreeCollateral(trader) >= 0, "CH_NEAV");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal view {

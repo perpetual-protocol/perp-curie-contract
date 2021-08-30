@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { BaseToken, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -9,7 +9,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
-    let baseToken: VirtualToken
+    let baseToken: BaseToken
     let quoteToken: VirtualToken
     let uniswapV3Broker: TestUniswapV3Broker
 

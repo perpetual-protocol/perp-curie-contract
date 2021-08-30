@@ -2,34 +2,16 @@
 pragma solidity 0.7.6;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { IPriceFeed } from "./interface/IPriceFeed.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 
-contract VirtualToken is IIndexPrice, SafeOwnable, ERC20 {
-    using SafeMath for uint256;
-
+contract VirtualToken is SafeOwnable, ERC20 {
     event WhitelistAdded(address account);
     event WhitelistRemoved(address account);
 
-    address public priceFeed;
     address public minter;
+    mapping(address => bool) internal _whitelistMap;
 
-    mapping(address => bool) private _whitelistMap;
-
-    constructor(
-        string memory nameArg,
-        string memory symbolArg,
-        address priceFeedArg
-    ) ERC20(nameArg, symbolArg) {
-        // invalid address
-        require(priceFeedArg != address(0), "VT_IA");
-
-        // invalid price feed decimals
-        require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "VT_IPFD");
-        priceFeed = priceFeedArg;
-
+    constructor(string memory nameArg, string memory symbolArg) ERC20(nameArg, symbolArg) {
         // transfer to 0 = burn
         _whitelistMap[address(0)] = true;
     }
@@ -61,16 +43,6 @@ contract VirtualToken is IIndexPrice, SafeOwnable, ERC20 {
     function removeWhitelist(address account) external onlyOwner {
         _whitelistMap[account] = false;
         emit WhitelistRemoved(account);
-    }
-
-    /// @inheritdoc IIndexPrice
-    function getIndexPrice(uint256 interval) external view override returns (uint256) {
-        return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
-    }
-
-    function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        uint8 priceFeedDecimals = IPriceFeed(priceFeed).decimals();
-        return _price.mul(10**uint256(decimals())).div(10**uint256(priceFeedDecimals));
     }
 
     /// @inheritdoc ERC20

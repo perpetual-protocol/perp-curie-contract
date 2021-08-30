@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { VirtualToken } from "../../typechain/VirtualToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -15,7 +15,7 @@ describe("ClearingHouse.getPositionValue", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let baseToken: VirtualToken
+    let baseToken: BaseToken
     let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let collateralDecimals: number

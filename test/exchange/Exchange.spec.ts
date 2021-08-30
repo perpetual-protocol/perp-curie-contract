@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
 import { Exchange, UniswapV3Pool } from "../../typechain"
-import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedTokenTo } from "../clearingHouse/fixtures"
+import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { mockedExchangeFixture } from "./fixtures"
 
 describe("Exchange Spec", () => {
@@ -65,7 +65,7 @@ describe("Exchange Spec", () => {
                 await exchange.addPool(baseToken.address, DEFAULT_FEE)
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
 
-                const baseToken2 = await mockedTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
                 const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
                 const mockedPool2 = await smockit(pool2)
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
@@ -97,7 +97,7 @@ describe("Exchange Spec", () => {
             })
 
             it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
-                const tokenWithLongerAddr = await mockedTokenTo(ADDR_GREATER_THAN, quoteToken.address)
+                const tokenWithLongerAddr = await mockedBaseTokenTo(ADDR_GREATER_THAN, quoteToken.address)
                 await expect(exchange.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("EX_IB")
             })
         })

@@ -9,6 +9,7 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
 library PerpMath {
+    using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
     using SignedSafeMath for int256;
     using SafeMath for uint256;
@@ -19,6 +20,10 @@ library PerpMath {
 
     function formatX10_18ToX96(uint256 valueX10_18) internal pure returns (uint256) {
         return FullMath.mulDiv(valueX10_18, FixedPoint96.Q96, 1 ether);
+    }
+
+    function formatX96ToX10_18(uint256 valueX96) internal pure returns (uint256) {
+        return FullMath.mulDiv(valueX96, 1 ether, FixedPoint96.Q96);
     }
 
     function max(int256 a, int256 b) internal pure returns (int256) {
