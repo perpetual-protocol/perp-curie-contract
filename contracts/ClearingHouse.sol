@@ -272,9 +272,9 @@ contract ClearingHouse is
     // key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
-    // key: accountBaseTokenKey
+    // key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
-    mapping(bytes32 => uint256) internal _lastOverPriceLimitTimestampMap;
+    mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
     // key: base token
     mapping(address => uint256) internal _firstTradedTimestampMap;
@@ -1230,12 +1230,8 @@ contract ClearingHouse is
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         if (partialCloseRatio > 0 && Exchange(exchange).isOverPriceLimit(params)) {
             // CH_AOPLO: already over price limit once
-            require(
-                _blockTimestamp() != _lastOverPriceLimitTimestampMap[_getAccountBaseTokenKey(trader, baseToken)],
-                "CH_AOPLO"
-            );
-
-            _lastOverPriceLimitTimestampMap[_getAccountBaseTokenKey(trader, baseToken)] = _blockTimestamp();
+            require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[trader][baseToken], "CH_AOPLO");
+            _lastOverPriceLimitTimestampMap[trader][baseToken] = _blockTimestamp();
             params.amount = params.amount.mulRatio(partialCloseRatio);
         }
 
