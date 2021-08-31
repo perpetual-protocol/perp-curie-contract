@@ -144,6 +144,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     struct SwapCallbackData {
         address trader;
         address baseToken;
+        address pool;
         uint24 uniswapFeeRatio;
         uint256 fee;
     }
@@ -388,12 +389,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     scaledAmountForUniswapV3PoolSwap,
                     params.sqrtPriceLimitX96,
                     abi.encode(
-                        SwapCallbackData(
-                            params.trader,
-                            params.baseToken,
-                            _uniswapFeeRatioMap[pool],
-                            internalSwapState.fee
-                        )
+                        SwapCallbackData({
+                            trader: params.trader,
+                            baseToken: params.baseToken,
+                            pool: pool,
+                            fee: internalSwapState.fee,
+                            uniswapFeeRatio: _uniswapFeeRatioMap[pool]
+                        })
                     )
                 )
             );
