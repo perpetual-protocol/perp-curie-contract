@@ -564,7 +564,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return _removeLiquidity(params);
     }
 
-    function updateLiquidityCoefficientInFundingPayment(
+    /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
+    function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
@@ -738,7 +739,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
     }
 
-    // similar to updateLiquidityCoefficientInFundingPayment but need to expose a view function
+    /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
