@@ -85,6 +85,9 @@ library AccountMarket {
         return fundingPayment;
     }
 
+    //
+    // VIEW
+    //
     function getPendingFundingPayment(
         mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
@@ -121,7 +124,7 @@ library AccountMarket {
         return self[trader][token].tokenInfo.debt;
     }
 
-    function getTokenInfo(
+    function getTokenBalance(
         mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
         address token

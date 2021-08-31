@@ -53,6 +53,7 @@ contract ClearingHouse is
     using PerpMath for uint160;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
+    using TokenBalance for TokenBalance.Info;
     using AccountMarket for mapping(address => mapping(address => AccountMarket.Info));
 
     //
@@ -660,23 +661,19 @@ contract ClearingHouse is
         }
 
         // settle quote if all position are closed
-        uint256 quoteAvailable = _accountMarketMap.getAvailable(account, quoteToken);
-        uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
-        if (quoteAvailable >= quoteDebt) {
+        int256 quotePnl = _accountMarketMap.getTokenBalance(account, quoteToken).getNet();
+        if (quotePnl > 0) {
             // profit
-            uint256 profit = quoteAvailable.sub(quoteDebt);
-            _accountMarketMap.addAvailable(account, quoteToken, -(profit.toInt256()));
-            pnl = pnl.add(profit.toInt256());
+            _accountMarketMap.addAvailable(account, quoteToken, -quotePnl);
 
             // burn profit in quote and add to collateral
-            IMintableERC20(quoteToken).burn(profit);
+            IMintableERC20(quoteToken).burn(quotePnl.toUint256());
         } else {
             // loss
-            uint256 loss = quoteDebt.sub(quoteAvailable);
-            _accountMarketMap.addDebt(account, quoteToken, -(loss.toInt256()));
-            pnl = pnl.sub(loss.toInt256());
+            _accountMarketMap.addDebt(account, quoteToken, -quotePnl);
         }
-        return pnl;
+
+        return pnl.add(quotePnl);
     }
 
     //
@@ -737,9 +734,7 @@ contract ClearingHouse is
         uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
 
         int256 netQuoteBalance =
-            _accountMarketMap.getAvailable(trader, quoteToken).toInt256().add(totalQuoteInPools.toInt256()).sub(
-                _accountMarketMap.getDebt(trader, quoteToken).toInt256()
-            );
+            _accountMarketMap.getTokenBalance(trader, quoteToken).getNet().add(totalQuoteInPools.toInt256());
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
@@ -825,11 +820,7 @@ contract ClearingHouse is
 
         // CH_IBTB: insufficient balance to burn
         // can only burn the amount of debt that can be pay back with available
-        require(
-            amount <=
-                Math.min(_accountMarketMap.getDebt(account, token), _accountMarketMap.getAvailable(account, token)),
-            "CH_IBTB"
-        );
+        require(amount <= _accountMarketMap.getTokenBalance(account, token).getBurnable(), "CH_IBTB");
 
         // pay back debt
         _accountMarketMap.addAvailable(account, token, -(amount.toInt256()));
@@ -845,8 +836,7 @@ contract ClearingHouse is
     }
 
     function _burnMax(address account, address token) internal {
-        uint256 burnedAmount =
-            Math.min(_accountMarketMap.getAvailable(account, token), _accountMarketMap.getDebt(account, token));
+        uint256 burnedAmount = _accountMarketMap.getTokenBalance(account, token).getBurnable();
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
         }
@@ -912,7 +902,7 @@ contract ClearingHouse is
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        if (_accountMarketMap.getAvailable(trader, baseToken) > 0 || _accountMarketMap.getDebt(trader, baseToken) > 0) {
+        if (_accountMarketMap.getTokenBalance(trader, baseToken).isZero()) {
             return;
         }
 
@@ -945,7 +935,7 @@ contract ClearingHouse is
         }
 
         // if both available and debt == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (_accountMarketMap.getAvailable(trader, token) == 0 && _accountMarketMap.getDebt(trader, token) == 0) {
+        if (_accountMarketMap.getTokenBalance(trader, token).isZero()) {
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == token) {
@@ -1069,7 +1059,6 @@ contract ClearingHouse is
         // TODO refactor with settle()
         _accountMap[account].owedRealizedPnl = _accountMap[account].owedRealizedPnl.add(deltaPnl);
 
-        uint256 quoteAvailable = _accountMarketMap.getAvailable(account, quoteToken);
         uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
         uint256 deltaPnlAbs = deltaPnl.abs();
         // has profit
@@ -1185,12 +1174,7 @@ contract ClearingHouse is
         // if this is the last position being closed, settle the remaining quote
         // must after burnMax(quote)
         if (_accountMap[params.trader].tokens.length == 0) {
-            _realizePnl(
-                params.trader,
-                _accountMarketMap.getAvailable(params.trader, quoteToken).toInt256().sub(
-                    _accountMarketMap.getDebt(params.trader, quoteToken).toInt256()
-                )
-            );
+            _realizePnl(params.trader, _accountMarketMap.getTokenBalance(params.trader, quoteToken).getNet());
         }
 
         if (!params.skipMarginRequirementCheck) {
