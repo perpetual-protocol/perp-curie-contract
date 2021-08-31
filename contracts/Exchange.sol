@@ -173,16 +173,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint128 liquidity;
     }
 
-    struct SwapState {
-        int24 tick;
-        uint160 sqrtPriceX96;
-        int256 amountSpecifiedRemaining;
-        uint256 feeGrowthGlobalX128;
-        uint128 liquidity;
-    }
-
     struct ReplaySwapParams {
-        SwapState state;
+        UniswapV3Broker.SwapState state;
         address baseToken;
         bool isBaseToQuote;
         bool shouldUpdateState;
@@ -359,18 +351,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     internalSwapState.clearingHouseFeeRatio,
                     internalSwapState.uniswapFeeRatio
                 );
-            SwapState memory state =
-                SwapState({
-                    tick: UniswapV3Broker.getTick(pool),
-                    sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                    amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
-                    feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                    liquidity: UniswapV3Broker.getLiquidity(pool)
-                });
             // simulate the swap to calculate the fees charged in clearing house
             (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
                 ReplaySwapParams({
-                    state: state,
+                    state: UniswapV3Broker.getSwapState(
+                        pool,
+                        signedScaledAmountForReplaySwap,
+                        _feeGrowthGlobalX128Map[params.baseToken]
+                    ),
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
@@ -624,20 +612,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 clearingHouseFeeRatio,
                 uniswapFeeRatio
             );
-        SwapState memory state =
-            SwapState({
-                tick: UniswapV3Broker.getTick(pool),
-                sqrtPriceX96: UniswapV3Broker.getSqrtMarkPriceX96(pool),
-                amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
-                feeGrowthGlobalX128: _feeGrowthGlobalX128Map[params.baseToken],
-                liquidity: UniswapV3Broker.getLiquidity(pool)
-            });
+        UniswapV3Broker.SwapState memory swapState =
+            UniswapV3Broker.getSwapState(
+                pool,
+                signedScaledAmountForReplaySwap,
+                _feeGrowthGlobalX128Map[params.baseToken]
+            );
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
         (, , int24 tickAfterSwap) =
             _replaySwap(
                 ReplaySwapParams({
-                    state: state,
+                    state: swapState,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
