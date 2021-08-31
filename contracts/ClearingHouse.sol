@@ -97,7 +97,6 @@ contract ClearingHouse is
     struct Account {
         // realized pnl but haven't settle to collateral, vToken decimals
         int256 owedRealizedPnl;
-        TokenBalance.Info quoteInfo;
         address[] tokens; // all tokens (base only) this account is in debt of
     }
 
@@ -713,9 +712,6 @@ contract ClearingHouse is
 
     // TODO remove
     function getTokenInfo(address trader, address token) public view returns (TokenBalance.Info memory) {
-        if (token == quoteToken) {
-            return _accountMap[trader].quoteInfo;
-        }
         return _accountMarketMap[trader][token].tokenInfo;
     }
 
@@ -1579,16 +1575,10 @@ contract ClearingHouse is
     // TODO REMOVE AFTER AVAI/DEBT IS MERGED
     // TEMP FUNC FOR BRIDGING THE INTERFACE
     function _getAvailable(address trader, address token) internal view returns (uint256) {
-        if (token == quoteToken) {
-            return _accountMap[trader].quoteInfo.available;
-        }
         return _accountMarketMap[trader][token].tokenInfo.available;
     }
 
     function _getDebt(address trader, address token) internal view returns (uint256) {
-        if (token == quoteToken) {
-            return _accountMap[trader].quoteInfo.debt;
-        }
         return _accountMarketMap[trader][token].tokenInfo.debt;
     }
 
@@ -1597,10 +1587,6 @@ contract ClearingHouse is
         address token,
         int256 delta
     ) internal {
-        if (token == quoteToken) {
-            _accountMap[trader].quoteInfo.available = _getAvailable(trader, token).toInt256().add(delta).toUint256();
-            return;
-        }
         _accountMarketMap.addAvailable(trader, token, delta);
     }
 
@@ -1609,10 +1595,6 @@ contract ClearingHouse is
         address token,
         int256 delta
     ) internal {
-        if (token == quoteToken) {
-            _accountMap[trader].quoteInfo.debt = _getDebt(trader, token).toInt256().add(delta).toUint256();
-            return;
-        }
         _accountMarketMap.addDebt(trader, token, delta);
     }
 }
