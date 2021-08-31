@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardBlock } from "../shared/time"
@@ -17,7 +17,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: VirtualToken
     let pool: UniswapV3Pool
     let mockedArbSys: MockContract
     let mockedBaseAggregator: MockContract
@@ -32,7 +31,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
@@ -106,7 +104,22 @@ describe("ClearingHouse partial close in xyk pool", () => {
             await forwardBlock(mockedArbSys)
         })
 
-        it("carol would be partially closed using closePosition", async () => {
+        it("carol reduces position with openPosition and it's not over price limit", async () => {
+            // carol longs 0.1 eth
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: ethers.constants.MaxUint256,
+                amount: parseEther("0.1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
+        })
+
+        it("carol's position is partially closed with closePosition when it's over price limit", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
@@ -122,7 +135,32 @@ describe("ClearingHouse partial close in xyk pool", () => {
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
-        it("carol cannot open reverse position, is over price limit", async () => {
+        // values are the same as the above one
+        it("force error, partially closing position/isOverPriceLimit can only happen once", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10000000", 6), 0, 0, 0]
+            })
+
+            await clearingHouse.connect(carol).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            await expect(
+                clearingHouse.connect(carol).closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("CH_AOPLO")
+        })
+
+        it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
             // carol longs 25 eth
             await expect(
                 clearingHouse.connect(carol).openPosition({
@@ -136,21 +174,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             ).to.revertedWith("CH_OPI")
-        })
-
-        it("carol can reduce position, is not over price limit", async () => {
-            // carol longs 0.1 eth
-            await clearingHouse.connect(carol).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                oppositeAmountBound: ethers.constants.MaxUint256,
-                amount: parseEther("0.1"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
         })
     })
 
@@ -170,11 +193,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
             })
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
-            // liquidation can't happen in the same block becuase it's based on the index price
+            // liquidation can't happen in the same block because it's based on the index price
             await forwardBlock(mockedArbSys)
         })
 
-        it("taker should be partially liquidated", async () => {
+        it("taker's position is partially liquidated", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
@@ -183,6 +206,18 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
+        })
+
+        // values are the same as the above one
+        it("force error, partial liquidation/isOverPriceLimit can only happen once", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10000000", 6), 0, 0, 0]
+            })
+            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+
+            await expect(
+                clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
+            ).to.be.revertedWith("CH_AOPLO")
         })
     })
 })

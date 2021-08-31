@@ -82,8 +82,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     struct TickStatus {
-        int24 finalTickFromLastBlock;
-        uint256 lastUpdatedBlock;
+        int24 lastUpdatedTick;
+        uint256 lastUpdatedTimestamp;
     }
 
     struct PriceLimitParams {
@@ -326,15 +326,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     function saveTickBeforeFirstSwapThisBlock(address baseToken) external onlyClearingHouse {
         // only do this when it's the first swap in this block
-        uint256 blockNumber = _blockNumber();
-        if (blockNumber == _tickStatusMap[baseToken].lastUpdatedBlock) {
+        uint256 timestamp = _blockTimestamp();
+        if (timestamp == _tickStatusMap[baseToken].lastUpdatedTimestamp) {
             return;
         }
 
         // the current tick before swap = final tick last block
         _tickStatusMap[baseToken] = TickStatus({
-            lastUpdatedBlock: blockNumber,
-            finalTickFromLastBlock: UniswapV3Broker.getTick(_poolMap[baseToken])
+            lastUpdatedTick: UniswapV3Broker.getTick(_poolMap[baseToken]),
+            lastUpdatedTimestamp: timestamp
         });
     }
 
@@ -607,9 +607,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             return false;
         }
 
-        int24 tickLastBlock = _tickStatusMap[params.baseToken].finalTickFromLastBlock;
-        int24 upperTickBound = int256(tickLastBlock).add(maxTickDelta).toInt24();
-        int24 lowerTickBound = int256(tickLastBlock).sub(maxTickDelta).toInt24();
+        int24 lastUpdatedTick = _tickStatusMap[params.baseToken].lastUpdatedTick;
+        int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
+        int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
 
         address pool = _poolMap[params.baseToken];
         uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
