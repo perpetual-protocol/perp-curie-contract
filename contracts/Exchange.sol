@@ -564,16 +564,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return _removeLiquidity(params);
     }
 
-    // TODO rename to updateLastFundingGrowth
-    function getPendingFundingPaymentAndUpdateLastFundingGrowth(
+    function updateLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external onlyClearingHouse returns (int256) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
 
         // update funding of liquidity
+        int256 liquidityCoefficientInFundingPayment;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
@@ -596,6 +596,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             order.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
         }
+
+        return liquidityCoefficientInFundingPayment;
     }
 
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
@@ -736,7 +738,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return UniswapV3Broker.getSqrtMarkTwapX96(_poolMap[baseToken], twapInterval);
     }
 
-    // similar to getPendingFundingPaymentAndUpdateLastFundingGrowth but need to expose a view function
+    // similar to updateLiquidityCoefficientInFundingPayment but need to expose a view function
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,

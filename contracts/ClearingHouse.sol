@@ -1312,11 +1312,11 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) internal returns (int256 fundingPayment) {
+    ) internal returns (int256) {
         _requireHasBaseToken(baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
+            Exchange(exchange).updateLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 updatedGlobalFundingGrowth
@@ -1330,12 +1330,13 @@ contract ClearingHouse is
                 account.lastTwPremiumGrowthGlobalX96Map[baseToken]
             );
 
-        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
-            1 days
-        );
+        int256 fundingPayment =
+            liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
 
         // update fundingGrowth of funding payment coefficient from available and debt
         account.lastTwPremiumGrowthGlobalX96Map[baseToken] = updatedGlobalFundingGrowth.twPremiumX96;
+
+        return fundingPayment;
     }
 
     //
