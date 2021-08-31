@@ -119,7 +119,7 @@ describe("ClearingHouse liquidate", () => {
     describe("adjustable parameter", () => {
         it.skip("setLiquidationDiscount")
         it("setLiquidationPenaltyRatio", async () => {
-            await clearingHouse.setLiquidationPenaltyRatio("30000")
+            await clearingHouse.setLiquidationPenaltyRatio("30000") // 3%
             expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(30000)
         })
         it("force error, only admin", async () => {

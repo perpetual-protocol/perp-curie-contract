@@ -36,18 +36,18 @@ describe("ClearingHouse Spec", () => {
     describe("onlyOwner setters", () => {
         it("setLiquidationPenaltyRatio", async () => {
             await expect(clearingHouse.setLiquidationPenaltyRatio(2e6)).to.be.revertedWith("CH_RO")
-            await expect(clearingHouse.setLiquidationPenaltyRatio("5000"))
+            await expect(clearingHouse.setLiquidationPenaltyRatio("500000")) // 50%
                 .to.emit(clearingHouse, "LiquidationPenaltyRatioChanged")
-                .withArgs(5000)
-            expect(await clearingHouse.liquidationPenaltyRatio()).eq(5000)
+                .withArgs(500000)
+            expect(await clearingHouse.liquidationPenaltyRatio()).eq(500000)
         })
 
         it("setPartialCloseRatio", async () => {
             await expect(clearingHouse.setPartialCloseRatio(2e6)).to.be.revertedWith("CH_RO")
-            await expect(clearingHouse.setPartialCloseRatio("5000"))
+            await expect(clearingHouse.setPartialCloseRatio("500000")) // 50%
                 .to.emit(clearingHouse, "PartialCloseRatioChanged")
-                .withArgs(5000)
-            expect(await clearingHouse.partialCloseRatio()).eq(5000)
+                .withArgs(500000)
+            expect(await clearingHouse.partialCloseRatio()).eq(500000)
         })
 
         it("setTwapInterval", async () => {
