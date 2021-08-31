@@ -215,8 +215,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // value: the accumulator of **Tick.GrowthInfo** outside each tick of each pool
     mapping(address => mapping(int24 => Tick.GrowthInfo)) internal _growthOutsideTickMap;
 
+    // key: base token
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
-    // key: base token, value: pool
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     // key: base token. a threshold to limit the price impact per block when reducing or closing the position
@@ -226,14 +226,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
     mapping(address => TickStatus) internal _tickStatusMap;
 
-    // _uniswapFeeRatioMap cache only
+    // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
+    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
+
+    // key: pool, _uniswapFeeRatioMap cache only
     mapping(address => uint24) internal _uniswapFeeRatioMap;
 
-    // uniswap fee will be ignored and use the exchangeFeeRatio instead
+    // key: pool , uniswap fee will be ignored and use the exchangeFeeRatio instead
     mapping(address => uint24) internal _exchangeFeeRatioMap;
-
-    // what insurance fund get = exchangeFee * insuranceFundFeeRatio
-    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
     constructor(
         address clearingHouseArg,
