@@ -1,5 +1,6 @@
 import { waffle } from "hardhat"
 import { MockContract } from "@eth-optimism/smock"
+import { TestClearingHouse } from "../../typechain"
 
 export async function forward(seconds: number) {
     const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
@@ -12,4 +13,9 @@ export async function forwardBlock(mockedArbSys: MockContract, blockSteps: numbe
     mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
         return currentBlock + blockSteps
     })
+}
+
+export async function forwardTimestamp(clearingHouse: TestClearingHouse, step: number = 1) {
+    const now = await clearingHouse.getBlockTimestamp()
+    await clearingHouse.setBlockTimestamp(now.add(step))
 }

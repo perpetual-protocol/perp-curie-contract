@@ -20,6 +20,10 @@ contract TestClearingHouse is ClearingHouse {
         _testBlockTimestamp = blockTimestamp;
     }
 
+    function getBlockTimestamp() external view returns (uint256) {
+        return _testBlockTimestamp;
+    }
+
     function _blockTimestamp() internal view override returns (uint256) {
         return _testBlockTimestamp;
     }
