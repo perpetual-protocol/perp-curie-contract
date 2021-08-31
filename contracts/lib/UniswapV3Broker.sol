@@ -74,41 +74,37 @@ library UniswapV3Broker {
         uint256 quote;
     }
 
-    function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory response) {
+    function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
-        {
-            // get the equivalent amount of liquidity from amount0 & amount1 with current price
-            response.liquidity = LiquidityAmounts.getLiquidityForAmounts(
+        // get the equivalent amount of liquidity from amount0 & amount1 with current price
+        uint128 liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(
                 getSqrtMarkPriceX96(params.pool),
                 TickMath.getSqrtRatioAtTick(params.lowerTick),
                 TickMath.getSqrtRatioAtTick(params.upperTick),
                 params.base,
                 params.quote
             );
-            // UB_ZL: zero liquidity
-            require(response.liquidity > 0, "UB_ZL");
-        }
 
-        {
-            // call mint()
-            (uint256 addedAmount0, uint256 addedAmount1) =
-                IUniswapV3Pool(params.pool).mint(
-                    address(this),
-                    params.lowerTick,
-                    params.upperTick,
-                    response.liquidity,
-                    params.data
-                );
+        // UB_ZL: zero liquidity
+        require(liquidity > 0, "UB_ZL");
 
-            // fetch the fee growth state if this has liquidity
-            uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
+        // call mint()
+        (uint256 addedAmount0, uint256 addedAmount1) =
+            IUniswapV3Pool(params.pool).mint(address(this), params.lowerTick, params.upperTick, liquidity, params.data);
 
-            response.base = addedAmount0;
-            response.quote = addedAmount1;
-            response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
-        }
+        // fetch the fee growth state if this has liquidity
+        uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
+
+        return
+            AddLiquidityResponse({
+                base: addedAmount0,
+                quote: addedAmount1,
+                liquidity: liquidity,
+                feeGrowthInsideQuoteX128: feeGrowthInside1LastX128
+            });
     }
 
     function removeLiquidity(RemoveLiquidityParams memory params)
@@ -224,43 +220,6 @@ library UniswapV3Broker {
 
         // tick(imprecise as it's an integer) to price
         return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
-    }
-
-    /// copied from UniswapV3-periphery
-    /// @notice Computes the amount of token0 for a given amount of liquidity and a price range
-    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
-    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
-    /// @param liquidity The liquidity being valued
-    /// @return amount0 The amount of token0
-    function getAmount0ForLiquidity(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity
-    ) internal pure returns (uint256 amount0) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
-
-        return
-            FullMath.mulDiv(
-                uint256(liquidity) << FixedPoint96.RESOLUTION,
-                sqrtRatioBX96 - sqrtRatioAX96,
-                sqrtRatioBX96
-            ) / sqrtRatioAX96;
-    }
-
-    /// copied from UniswapV3-periphery
-    /// @notice Computes the amount of token1 for a given amount of liquidity and a price range
-    /// @param sqrtRatioAX96 A sqrt price representing the first tick boundary
-    /// @param sqrtRatioBX96 A sqrt price representing the second tick boundary
-    /// @param liquidity The liquidity being valued
-    /// @return amount1 The amount of token1
-    function getAmount1ForLiquidity(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint128 liquidity
-    ) internal pure returns (uint256 amount1) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
-
-        return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
     }
 
     function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {

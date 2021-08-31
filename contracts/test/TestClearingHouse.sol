@@ -12,7 +12,7 @@ contract TestClearingHouse is ClearingHouse {
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) ClearingHouse(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg) {
+    ) public ClearingHouse(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg) {
         _testBlockTimestamp = block.timestamp;
     }
 

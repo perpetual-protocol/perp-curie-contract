@@ -7,29 +7,29 @@ import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
+import { Funding } from "./lib/Funding.sol";
+import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import { Validation } from "./base/Validation.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { Validation } from "./base/Validation.sol";
-import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import { Funding } from "./lib/Funding.sol";
-import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { TokenBalance } from "./lib/TokenBalance.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 
@@ -89,7 +89,8 @@ contract ClearingHouse is
     event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
-    event ExchangeUpdated(address exchange);
+    event ExchangeChanged(address exchange);
+    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
     //
     // Struct
@@ -281,7 +282,7 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) {
+    ) public {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
         // InsuranceFund is 0
@@ -319,7 +320,7 @@ contract ClearingHouse is
         // exchange is 0
         require(exchangeArg != address(0), "CH_EI0");
         exchange = exchangeArg;
-        emit ExchangeUpdated(exchange);
+        emit ExchangeChanged(exchange);
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
@@ -531,10 +532,11 @@ contract ClearingHouse is
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
+        emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        trustedForwarder = trustedForwarderArg;
+        _setTrustedForwarder(trustedForwarderArg);
     }
 
     function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
@@ -545,14 +547,8 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        address[] memory tokens = _accountMap[trader].tokens;
-
-        // TODO merge into 1 exchange function, or just call cancelAllExcessOrders
-        for (uint256 i = 0; i < tokens.length; i++) {
-            bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(trader, tokens[i]);
-            // CH_NEO: not empty order
-            require(orderIds.length == 0, "CH_NEO");
-        }
+        // CH_NEO: not empty order
+        require(!Exchange(exchange).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
 
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 

@@ -5,8 +5,6 @@ pragma abicoder v2;
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 
 contract TestAggregatorV3 is AggregatorV3Interface {
-    constructor() {}
-
     function decimals() external view override returns (uint8) {
         revert();
     }

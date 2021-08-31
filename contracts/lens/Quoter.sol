@@ -40,7 +40,7 @@ contract Quoter is IUniswapV3SwapCallback {
         int256 exchangedPositionNotional;
     }
 
-    constructor(address exchangeArg) {
+    constructor(address exchangeArg) public {
         // Q_EX0: exchange is 0
         require(exchangeArg != address(0), "Q_EX0");
         exchange = exchangeArg;

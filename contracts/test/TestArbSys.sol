@@ -3,8 +3,6 @@ pragma solidity 0.7.6;
 import "../arbitrum/ArbSys.sol";
 
 contract TestArbSys is ArbSys {
-    constructor() {}
-
     /**
      * @notice Get internal version number identifying an ArbOS build
      * @return version number as int
