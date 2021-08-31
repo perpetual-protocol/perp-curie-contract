@@ -550,6 +550,16 @@ contract ClearingHouse is
 
     function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
+        // per liquidation specs:
+        //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
+        //
+        // liquidation trigger:
+        //   accountMarginRatio < accountMaintenanceMarginRatio
+        //   => accountValue / sum(abs(positionValue_market)) <
+        //        sum(mmRatio * abs(positionValue_market)) / sum(abs(positionValue_market))
+        //   => accountValue < sum(mmRatio * abs(positionValue_market))
+        //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
+        //
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
