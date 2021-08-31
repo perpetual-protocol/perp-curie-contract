@@ -709,7 +709,7 @@ contract ClearingHouse is
 
     // TODO remove
     function getTokenInfo(address trader, address token) public view returns (TokenBalance.Info memory) {
-        return _accountMarketMap[trader][token].tokenInfo;
+        return _accountMarketMap.getTokenBalance(trader, token);
     }
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
@@ -902,7 +902,7 @@ contract ClearingHouse is
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        if (_accountMarketMap.getTokenBalance(trader, baseToken).isZero()) {
+        if (!_accountMarketMap.getTokenBalance(trader, baseToken).isZero()) {
             return;
         }
 
