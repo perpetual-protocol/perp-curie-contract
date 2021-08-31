@@ -111,13 +111,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint128 liquidity;
     }
 
-    struct InternalSwapState {
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        uint256 fee;
-        uint256 insuranceFundFee;
-    }
-
     struct SwapParams {
         address trader;
         address baseToken;
@@ -173,6 +166,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint128 liquidity;
     }
 
+    struct SwapStep {
+        uint160 initialSqrtPriceX96;
+        int24 nextTick;
+        bool isNextTickInitialized;
+        uint160 nextSqrtPriceX96;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 feeAmount;
+    }
+
     struct ReplaySwapParams {
         UniswapV3Broker.SwapState state;
         address baseToken;
@@ -184,14 +187,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         Funding.Growth globalFundingGrowth;
     }
 
-    struct SwapStep {
-        uint160 initialSqrtPriceX96;
-        int24 nextTick;
-        bool isNextTickInitialized;
-        uint160 nextSqrtPriceX96;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
+    struct ReplaySwapResponse {
+        uint256 fee; // exchangeFeeRatio
+        uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+        uint160 sqrtPriceX96;
+        int24 tick;
     }
 
     address public immutable quoteToken;
@@ -333,26 +333,20 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         address pool = _poolMap[params.baseToken];
-        UniswapV3Broker.SwapResponse memory response;
-        // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
-        InternalSwapState memory internalSwapState =
-            InternalSwapState({
-                exchangeFeeRatio: _exchangeFeeRatioMap[pool],
-                uniswapFeeRatio: _uniswapFeeRatioMap[pool],
-                fee: 0,
-                insuranceFundFee: 0
-            });
-        {
-            (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
-                _getScaledAmountForSwaps(
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    params.amount,
-                    internalSwapState.exchangeFeeRatio,
-                    internalSwapState.uniswapFeeRatio
-                );
-            // simulate the swap to calculate the fees charged in clearing house
-            (internalSwapState.fee, internalSwapState.insuranceFundFee, ) = _replaySwap(
+        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
+
+        (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                _exchangeFeeRatioMap[pool],
+                uniswapFeeRatio
+            );
+
+        // simulate the swap to calculate the fees charged in exchange
+        ReplaySwapResponse memory replayResponse =
+            _replaySwap(
                 ReplaySwapParams({
                     state: UniswapV3Broker.getSwapState(
                         pool,
@@ -363,12 +357,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    exchangeFeeRatio: internalSwapState.exchangeFeeRatio,
-                    uniswapFeeRatio: internalSwapState.uniswapFeeRatio,
+                    exchangeFeeRatio: _exchangeFeeRatioMap[pool],
+                    uniswapFeeRatio: uniswapFeeRatio,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
-            response = UniswapV3Broker.swap(
+        UniswapV3Broker.SwapResponse memory response =
+            UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
                     params.isBaseToQuote,
@@ -381,18 +376,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                             trader: params.trader,
                             baseToken: params.baseToken,
                             pool: pool,
-                            fee: internalSwapState.fee,
+                            fee: replayResponse.fee,
                             uniswapFeeRatio: _uniswapFeeRatioMap[pool]
                         })
                     )
                 )
             );
 
-            // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
-            address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
-            uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
-            TransferHelper.safeTransfer(outputToken, clearingHouse, outputAmount);
-        }
+        // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
+        address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
+        uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
+        TransferHelper.safeTransfer(outputToken, clearingHouse, outputAmount);
 
         // because we charge fee in CH instead of uniswap pool,
         // we need to scale up base or quote amount to get exact exchanged position size and notional
@@ -401,7 +395,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
             exchangedPositionSize = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.base, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.base, uniswapFeeRatio, false).toInt256()
             );
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional
@@ -410,7 +404,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
             exchangedPositionNotional = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.quote, internalSwapState.uniswapFeeRatio, false).toInt256()
+                FeeMath.calcAmountScaledByFeeRatio(response.quote, uniswapFeeRatio, false).toInt256()
             );
         }
 
@@ -418,8 +412,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             SwapResponse({
                 exchangedPositionSize: exchangedPositionSize,
                 exchangedPositionNotional: exchangedPositionNotional,
-                fee: internalSwapState.fee,
-                insuranceFundFee: internalSwapState.insuranceFundFee
+                fee: replayResponse.fee,
+                insuranceFundFee: replayResponse.insuranceFundFee
             });
     }
 
@@ -620,7 +614,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             );
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
-        (, , int24 tickAfterSwap) =
+        ReplaySwapResponse memory response =
             _replaySwap(
                 ReplaySwapParams({
                     state: swapState,
@@ -634,7 +628,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 })
             );
 
-        return (tickAfterSwap < lowerTickBound || tickAfterSwap > upperTickBound);
+        return (response.tick < lowerTickBound || response.tick > upperTickBound);
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -914,14 +908,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return fee;
     }
 
-    function _replaySwap(ReplaySwapParams memory params)
-        internal
-        returns (
-            uint256 fee, // exchangeFeeRatio
-            uint256 insuranceFundFee, // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
-            int24 tick
-        )
-    {
+    function _replaySwap(ReplaySwapParams memory params) internal returns (ReplaySwapResponse memory response) {
         address pool = _poolMap[params.baseToken];
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
         uint24 insuranceFundFeeRatio = _insuranceFundFeeRatioMap[params.baseToken];
@@ -990,9 +977,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
                 }
 
-                fee += step.feeAmount;
+                response.fee += step.feeAmount;
                 uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
-                insuranceFundFee += stepInsuranceFundFee;
+                response.insuranceFundFee += stepInsuranceFundFee;
                 uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
                     stepMakerFee,
@@ -1035,7 +1022,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
         }
 
-        return (fee, insuranceFundFee, params.state.tick);
+        response.sqrtPriceX96 = params.state.sqrtPriceX96;
+        response.tick = params.state.tick;
+        return response;
     }
 
     //
