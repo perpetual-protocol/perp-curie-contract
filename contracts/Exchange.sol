@@ -705,6 +705,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         }
     }
 
+    /// @dev note the return value includes maker fee.
+    ///      For more details please refer to _getTotalTokenAmountInPool() docstring
     function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
         uint256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -715,7 +717,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return totalQuoteAmountInPools;
     }
 
-    /// @dev funding payment belongs to realizedPnl, not token amount
+    /// @dev the returned quote amount does not include funding payment because
+    ///      the latter is counted directly toward realizedPnl.
+    ///      please refer to _getTotalTokenAmountInPool() docstring for specs
     function getTotalTokenAmountInPool(
         address trader,
         address baseToken,
@@ -1047,9 +1051,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // INTERNAL VIEW
     //
 
+    /// @dev Get total amount of the specified tokens in the specified pool.
+    ///      Note:
+    ///        1. when querying quote amount, it includes ClearingHouse fees, i.e.:
+    ///           quote amount = quote liquidity + fees
+    ///           base amount = base liquidity
+    ///        2. quote/base liquidity does NOT include Uniswap pool fees since
+    ///           they do not have any impact to our margin system
     function _getTotalTokenAmountInPool(
         address trader,
-        address baseToken,
+        address baseToken, // this argument is only for specifying which pool to get base or quote amounts
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) internal view returns (uint256 tokenAmount) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];

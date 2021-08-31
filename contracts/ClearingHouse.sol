@@ -82,8 +82,8 @@ contract ClearingHouse is
     );
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint256 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint256 partialCloseRatio);
+    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
+    event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeChanged(address exchange);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
@@ -258,8 +258,12 @@ contract ClearingHouse is
     address public insuranceFund;
     address public exchange;
 
-    uint256 public imRatio = 0.1 ether; // initial-margin ratio, 10%
-    uint256 public mmRatio = 0.0625 ether; // minimum-margin ratio, 6.25%
+    uint24 public imRatio = 10e4; // initial-margin ratio, 10%
+    uint24 public mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
+
+    uint24 public liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
+    uint24 public partialCloseRatio = 25e4; // partial close ratio, 25%
+    uint8 public maxMarketsPerAccount;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
@@ -278,10 +282,6 @@ contract ClearingHouse is
     mapping(address => uint256) internal _firstTradedTimestampMap;
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-
-    uint256 public liquidationPenaltyRatio = 0.025 ether; // initial penalty ratio, 2.5%
-    uint256 public partialCloseRatio = 0.25 ether; // partial close ratio, 25%
-    uint8 public maxMarketsPerAccount;
 
     constructor(
         address vaultArg,
@@ -313,9 +313,9 @@ contract ClearingHouse is
     //
     // MODIFIER
     //
-    modifier checkRatio(uint256 ratio) {
+    modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
-        require(ratio <= 1 ether, "CH_RO");
+        require(ratio <= 1e6, "CH_RO");
         _;
     }
 
@@ -525,7 +525,7 @@ contract ClearingHouse is
         emit TwapIntervalChanged(twapIntervalArg);
     }
 
-    function setLiquidationPenaltyRatio(uint256 liquidationPenaltyRatioArg)
+    function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
         external
         checkRatio(liquidationPenaltyRatioArg)
         onlyOwner
@@ -534,7 +534,7 @@ contract ClearingHouse is
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
-    function setPartialCloseRatio(uint256 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
         partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
@@ -562,7 +562,7 @@ contract ClearingHouse is
         SwapResponse memory response = _closePosition(trader, baseToken, 0);
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.abs().mul(liquidationPenaltyRatio).divideBy10_18();
+        uint256 liquidationFee = response.exchangedPositionNotional.abs().mulRatio(liquidationPenaltyRatio);
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
@@ -697,7 +697,7 @@ contract ClearingHouse is
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
-        return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
+        return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mulRatio(imRatio);
     }
 
     /// @dev a negative returned value is only be used when calculating pnl
@@ -1239,7 +1239,7 @@ contract ClearingHouse is
 
         // simulate the tx to see if it isOverPriceLimit; if true, partially close the position
         if (partialCloseRatio > 0 && Exchange(exchange).isOverPriceLimit(params)) {
-            params.amount = params.amount.mul(partialCloseRatio).divideBy10_18();
+            params.amount = params.amount.mulRatio(partialCloseRatio);
         }
 
         return
@@ -1453,11 +1453,11 @@ contract ClearingHouse is
         uint256 quoteDebtValue = _accountMap[trader].tokenInfoMap[quoteToken].debt;
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
         uint256 totalBaseDebtValue = _getTotalBaseDebtValue(trader);
-        return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mul(imRatio).divideBy10_18();
+        return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mulRatio(imRatio);
     }
 
     function _getTotalMinimumMarginRequirement(address trader) internal view returns (uint256) {
-        return _getTotalAbsPositionValue(trader).mul(mmRatio).divideBy10_18();
+        return _getTotalAbsPositionValue(trader).mulRatio(mmRatio);
     }
 
     function _getDebtValue(address token, uint256 amount) internal view returns (uint256) {
