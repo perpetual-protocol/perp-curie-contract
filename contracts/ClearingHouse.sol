@@ -7,29 +7,29 @@ import { Math } from "@openzeppelin/contracts/math/Math.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
+import { Funding } from "./lib/Funding.sol";
+import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import { Validation } from "./base/Validation.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { Validation } from "./base/Validation.sol";
-import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IVault } from "./interface/IVault.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { Exchange } from "./Exchange.sol";
-import { Funding } from "./lib/Funding.sol";
-import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
