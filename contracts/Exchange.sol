@@ -86,6 +86,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 lastUpdatedTimestamp;
     }
 
+    // TODO rename to ReplaySwapParams
     struct PriceLimitParams {
         address baseToken;
         bool isBaseToQuote;
@@ -176,7 +177,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 feeAmount;
     }
 
-    struct ReplaySwapParams {
+    struct InternalReplaySwapParams {
         UniswapV3Broker.SwapState state;
         address baseToken;
         bool isBaseToQuote;
@@ -347,7 +348,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // simulate the swap to calculate the fees charged in exchange
         ReplaySwapResponse memory replayResponse =
             _replaySwap(
-                ReplaySwapParams({
+                InternalReplaySwapParams({
                     state: UniswapV3Broker.getSwapState(
                         pool,
                         signedScaledAmountForReplaySwap,
@@ -585,6 +586,41 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return liquidityCoefficientInFundingPayment;
     }
 
+    function replaySwap(PriceLimitParams memory params) external returns (ReplaySwapResponse memory) {
+        address pool = _poolMap[params.baseToken];
+        uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
+        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
+        (, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                exchangeFeeRatio,
+                uniswapFeeRatio
+            );
+        UniswapV3Broker.SwapState memory swapState =
+            UniswapV3Broker.getSwapState(
+                pool,
+                signedScaledAmountForReplaySwap,
+                _feeGrowthGlobalX128Map[params.baseToken]
+            );
+
+        // globalFundingGrowth can be empty if shouldUpdateState is false
+        return
+            _replaySwap(
+                InternalReplaySwapParams({
+                    state: swapState,
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    exchangeFeeRatio: exchangeFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    shouldUpdateState: false,
+                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                })
+            );
+    }
+
     function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
@@ -616,7 +652,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // globalFundingGrowth can be empty if shouldUpdateState is false
         ReplaySwapResponse memory response =
             _replaySwap(
-                ReplaySwapParams({
+                InternalReplaySwapParams({
                     state: swapState,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
@@ -908,7 +944,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return fee;
     }
 
-    function _replaySwap(ReplaySwapParams memory params) internal returns (ReplaySwapResponse memory response) {
+    function _replaySwap(InternalReplaySwapParams memory params) internal returns (ReplaySwapResponse memory response) {
         address pool = _poolMap[params.baseToken];
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
         uint24 insuranceFundFeeRatio = _insuranceFundFeeRatioMap[params.baseToken];
