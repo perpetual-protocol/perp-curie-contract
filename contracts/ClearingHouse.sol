@@ -30,6 +30,8 @@ import { Exchange } from "./Exchange.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { TokenBalance } from "./lib/TokenBalance.sol";
+import { AccountMarket } from "./lib/AccountMarket.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -51,6 +53,7 @@ contract ClearingHouse is
     using PerpMath for uint160;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
+    using AccountMarket for mapping(address => mapping(address => AccountMarket.Info));
 
     //
     // events
@@ -94,20 +97,8 @@ contract ClearingHouse is
     struct Account {
         // realized pnl but haven't settle to collateral, vToken decimals
         int256 owedRealizedPnl;
-        TokenInfo quoteInfo;
+        TokenBalance.Info quoteInfo;
         address[] tokens; // all tokens (base only) this account is in debt of
-    }
-
-    struct AccountMarket {
-        // balance & debt info of each token
-        TokenInfo tokenInfo;
-        // the last time weighted PremiumGrowthGlobalX96
-        int256 lastTwPremiumGrowthGlobalX96;
-    }
-
-    struct TokenInfo {
-        uint256 available; // amount available in CH
-        uint256 debt;
     }
 
     struct AddLiquidityParams {
@@ -274,7 +265,7 @@ contract ClearingHouse is
     mapping(address => Account) internal _accountMap;
 
     // key: trader, second key: baseToken
-    mapping(address => mapping(address => AccountMarket)) internal _accountMarketMap;
+    mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
     // key: accountBaseTokenKey, which is a hash of account and baseToken
     // value: fraction of open notional that can unify the openNotional for both maker and taker
@@ -725,7 +716,7 @@ contract ClearingHouse is
     }
 
     // TODO remove
-    function getTokenInfo(address trader, address token) public view returns (TokenInfo memory) {
+    function getTokenInfo(address trader, address token) public view returns (TokenBalance.Info memory) {
         if (token == quoteToken) {
             return _accountMap[trader].quoteInfo;
         }
@@ -762,6 +753,7 @@ contract ClearingHouse is
 
     /// @return fundingPayment > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
+        _requireHasBaseToken(baseToken);
         (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
         return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
@@ -933,7 +925,7 @@ contract ClearingHouse is
             return;
         }
 
-        delete _accountMarketMap[trader][baseToken];
+        _accountMarketMap.clear(trader, baseToken);
 
         uint256 length = _accountMap[trader].tokens.length;
         for (uint256 i; i < length; i++) {
@@ -1303,30 +1295,21 @@ contract ClearingHouse is
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) internal returns (int256 fundingPayment) {
-        _requireHasBaseToken(baseToken);
-
+    ) internal returns (int256) {
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
                 trader,
                 baseToken,
                 updatedGlobalFundingGrowth
             );
-
-        AccountMarket storage accountMarket = _accountMarketMap[trader][baseToken];
-        int256 availableAndDebtCoefficientInFundingPayment =
-            _getAvailableAndDebtCoefficientInFundingPayment(
-                accountMarket.tokenInfo,
-                updatedGlobalFundingGrowth.twPremiumX96,
-                accountMarket.lastTwPremiumGrowthGlobalX96
+        int256 fundingPayment =
+            _accountMarketMap.updateLastFundingGrowth(
+                trader,
+                baseToken,
+                liquidityCoefficientInFundingPayment,
+                updatedGlobalFundingGrowth.twPremiumX96
             );
-
-        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
-            1 days
-        );
-
-        // update fundingGrowth of funding payment coefficient from available and debt
-        accountMarket.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowth.twPremiumX96;
+        return fundingPayment;
     }
 
     //
@@ -1341,23 +1324,17 @@ contract ClearingHouse is
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) internal view returns (int256 fundingPayment) {
-        _requireHasBaseToken(baseToken);
-        AccountMarket memory accountMarket = _accountMarketMap[trader][baseToken];
-
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
+
         // funding of liquidity
-
-        int256 availableAndDebtCoefficientInFundingPayment =
-            _getAvailableAndDebtCoefficientInFundingPayment(
-                accountMarket.tokenInfo,
-                updatedGlobalFundingGrowth.twPremiumX96,
-                accountMarket.lastTwPremiumGrowthGlobalX96
+        return
+            _accountMarketMap.getPendingFundingPayment(
+                trader,
+                baseToken,
+                liquidityCoefficientInFundingPayment,
+                updatedGlobalFundingGrowth.twPremiumX96
             );
-
-        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
-            1 days
-        );
     }
 
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
@@ -1409,7 +1386,7 @@ contract ClearingHouse is
     }
 
     function _getAvailableAndDebtCoefficientInFundingPayment(
-        TokenInfo memory tokenInfo,
+        TokenBalance.Info memory tokenInfo,
         int256 twPremiumGrowthGlobalX96,
         int256 lastTwPremiumGrowthGlobalX96
     ) internal pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
@@ -1637,10 +1614,7 @@ contract ClearingHouse is
             _accountMap[trader].quoteInfo.available = _getAvailable(trader, token).toInt256().add(delta).toUint256();
             return;
         }
-        _accountMarketMap[trader][token].tokenInfo.available = _getAvailable(trader, token)
-            .toInt256()
-            .add(delta)
-            .toUint256();
+        _accountMarketMap.addAvailable(trader, token, delta);
     }
 
     function _updateDebt(
@@ -1652,6 +1626,6 @@ contract ClearingHouse is
             _accountMap[trader].quoteInfo.debt = _getDebt(trader, token).toInt256().add(delta).toUint256();
             return;
         }
-        _accountMarketMap[trader][token].tokenInfo.debt = _getDebt(trader, token).toInt256().add(delta).toUint256();
+        _accountMarketMap.updateDebt(trader, token, delta);
     }
 }
