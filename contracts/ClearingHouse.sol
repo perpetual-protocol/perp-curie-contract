@@ -541,6 +541,16 @@ contract ClearingHouse is
 
     function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
+        // per liquidation specs:
+        //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
+        //
+        // liquidation trigger:
+        //   accountMarginRatio < accountMaintenanceMarginRatio
+        //   => accountValue / sum(abs(positionValue_market)) <
+        //        sum(mmRatio * abs(positionValue_market)) / sum(abs(positionValue_market))
+        //   => accountValue < sum(mmRatio * abs(positionValue_market))
+        //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
+        //
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
@@ -1244,8 +1254,7 @@ contract ClearingHouse is
         uint256 indexTwap;
         (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
 
-        int256 fundingPayment =
-            _getPendingFundingPaymentAndUpdateLastFundingGrowth(trader, baseToken, updatedGlobalFundingGrowth);
+        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
 
         if (fundingPayment != 0) {
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
@@ -1269,13 +1278,14 @@ contract ClearingHouse is
         }
     }
 
-    function _getPendingFundingPaymentAndUpdateLastFundingGrowth(
+    /// @dev this is the non-view version of _getPendingFundingPayment()
+    function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
     ) internal returns (int256) {
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
+            Exchange(exchange).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 updatedGlobalFundingGrowth
@@ -1297,6 +1307,7 @@ contract ClearingHouse is
     // -------------------------------
     // --- funding related getters ---
 
+    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
