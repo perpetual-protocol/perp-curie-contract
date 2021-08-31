@@ -695,7 +695,7 @@ contract ClearingHouse is
     function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
         // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
         uint256 quoteDebtValue = _accountMarketMap.getDebt(trader, quoteToken);
-        return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio).divideBy10_18();
+        return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio);
     }
 
     /// @dev a negative returned value is only be used when calculating pnl
@@ -788,8 +788,8 @@ contract ClearingHouse is
         }
 
         // update internal states
-        _accountMarketMap.addAvailable(account, token, amount.toInt256());
-        _accountMarketMap.addDebt(account, token, amount.toInt256());
+        _accountMarketMap.addAvailable(account, token, amount);
+        _accountMarketMap.addDebt(account, token, amount);
 
         // check margin ratio must after minted
         if (checkMarginRatio) {
@@ -894,8 +894,8 @@ contract ClearingHouse is
             quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
         );
         uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
-        _accountMarketMap.addAvailable(params.maker, quoteToken, removedQuoteAmount.toInt256());
-        _accountMarketMap.addAvailable(params.maker, params.baseToken, params.removedBase.toInt256());
+        _accountMarketMap.addAvailable(params.maker, quoteToken, removedQuoteAmount);
+        _accountMarketMap.addAvailable(params.maker, params.baseToken, params.removedBase);
         _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement

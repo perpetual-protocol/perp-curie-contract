@@ -17,8 +17,16 @@ library TokenBalance {
         uint256 debt;
     }
 
+    function addAvailable(TokenBalance.Info storage self, uint256 delta) internal {
+        self.available = self.available.add(delta);
+    }
+
     function addAvailable(TokenBalance.Info storage self, int256 delta) internal {
         self.available = self.available.toInt256().add(delta).toUint256();
+    }
+
+    function addDebt(TokenBalance.Info storage self, uint256 delta) internal {
+        self.debt = self.debt.add(delta);
     }
 
     function addDebt(TokenBalance.Info storage self, int256 delta) internal {

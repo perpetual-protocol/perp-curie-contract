@@ -37,10 +37,30 @@ library AccountMarket {
         mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
         address token,
+        uint256 delta
+    ) internal {
+        AccountMarket.Info storage accountMarket = self[trader][token];
+        accountMarket.tokenInfo.addAvailable(delta);
+    }
+
+    function addAvailable(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
+        address trader,
+        address token,
         int256 delta
     ) internal {
         AccountMarket.Info storage accountMarket = self[trader][token];
         accountMarket.tokenInfo.addAvailable(delta);
+    }
+
+    function addDebt(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
+        address trader,
+        address token,
+        uint256 delta
+    ) internal {
+        AccountMarket.Info storage accountMarket = self[trader][token];
+        accountMarket.tokenInfo.addDebt(delta);
     }
 
     function addDebt(
