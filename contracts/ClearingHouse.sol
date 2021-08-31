@@ -707,14 +707,8 @@ contract ClearingHouse is
         address trader,
         address token,
         uint256 twapIntervalArg
-    ) public view returns (int256) {
-        int256 positionSize = _getPositionSize(trader, token);
-        if (positionSize == 0) return 0;
-
-        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
-
-        // both positionSize & indexTwap are in 10^18 already
-        return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
+    ) external view returns (int256) {
+        return _getPositionValue(trader, token, twapIntervalArg);
     }
 
     // TODO remove
@@ -765,7 +759,7 @@ contract ClearingHouse is
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_isPoolExistent(baseToken)) {
-                totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken, 0));
+                totalPositionValue = totalPositionValue.add(_getPositionValueInTwap(trader, baseToken));
             }
         }
 
@@ -1440,6 +1434,24 @@ contract ClearingHouse is
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
+    function _getPositionValueInTwap(address trader, address token) internal view returns (int256) {
+        return _getPositionValue(trader, token, twapInterval);
+    }
+
+    function _getPositionValue(
+        address trader,
+        address token,
+        uint256 twapIntervalArg
+    ) internal view returns (int256) {
+        int256 positionSize = _getPositionSize(trader, token);
+        if (positionSize == 0) return 0;
+
+        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
+
+        // both positionSize & indexTwap are in 10^18 already
+        return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
+    }
+
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
     function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
         address[] memory tokens = _accountMap[trader].tokens;
@@ -1449,7 +1461,7 @@ contract ClearingHouse is
             address baseToken = tokens[i];
             if (_isPoolExistent(baseToken)) {
                 // will not use negative value in this case
-                uint256 positionValue = getPositionValue(trader, baseToken, 0).abs();
+                uint256 positionValue = _getPositionValueInTwap(trader, baseToken).abs();
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
         }
