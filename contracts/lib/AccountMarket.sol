@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
@@ -9,14 +10,18 @@ import { TokenBalance } from "./TokenBalance.sol";
 import { Funding } from "./Funding.sol";
 
 library AccountMarket {
-    using SignedSafeMath for int256;
+    using SafeMath for uint256;
     using PerpSafeCast for uint256;
+    using PerpSafeCast for int256;
+    using SignedSafeMath for int256;
 
     struct Info {
-        // balance & debt info of each token
+        // balance & debt info of each base token
         TokenBalance.Info tokenInfo;
         // the last time weighted PremiumGrowthGlobalX96
         int256 lastTwPremiumGrowthGlobalX96;
+        // fraction of open notional that can unify the openNotional for both maker and taker
+        int256 openNotionalFraction;
     }
 
     function clear(
@@ -30,20 +35,31 @@ library AccountMarket {
     function addAvailable(
         mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
-        address token,
+        address baseToken,
         int256 delta
     ) internal {
         AccountMarket.Info storage accountMarket = self[trader][baseToken];
-        accountMarket.available = accountMarket.available.add(delta);
+        accountMarket.tokenInfo.available = accountMarket.tokenInfo.available.toInt256().add(delta).toUint256();
     }
 
     function addDebt(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
-        address token,
+        address baseToken,
         int256 delta
     ) internal {
         AccountMarket.Info storage accountMarket = self[trader][baseToken];
-        accountMarket.debt = accountMarket.debt.add(delta);
+        accountMarket.tokenInfo.debt = accountMarket.tokenInfo.debt.toInt256().add(delta).toUint256();
+    }
+
+    function addOpenNotionalFraction(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
+        address trader,
+        address baseToken,
+        int256 delta
+    ) internal {
+        AccountMarket.Info storage accountMarket = self[trader][baseToken];
+        accountMarket.openNotionalFraction = accountMarket.openNotionalFraction.add(delta);
     }
 
     function updateLastFundingGrowth(
@@ -69,7 +85,7 @@ library AccountMarket {
     }
 
     function getPendingFundingPayment(
-        mapping(address => mapping(address => AccountMarket.Info)) memory self,
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
         address trader,
         address baseToken,
         int256 liquidityCoefficientInFundingPayment,

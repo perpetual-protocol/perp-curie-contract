@@ -267,10 +267,6 @@ contract ClearingHouse is
     // key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
-    // key: accountBaseTokenKey, which is a hash of account and baseToken
-    // value: fraction of open notional that can unify the openNotional for both maker and taker
-    mapping(bytes32 => int256) internal _openNotionalFractionMap;
-
     // key: base token
     mapping(address => uint256) internal _firstTradedTimestampMap;
     mapping(address => uint256) internal _lastSettledTimestampMap;
@@ -363,9 +359,9 @@ contract ClearingHouse is
         // update token info
         // TODO should burn base fee received instead of adding it to available amount
 
-        _updateAvailable(trader, params.baseToken, -(response.base.toInt256()));
         _updateAvailable(trader, quoteToken, response.fee.toInt256().sub(response.quote.toInt256()));
-        _addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
+        _updateAvailable(trader, params.baseToken, -(response.base.toInt256()));
+        _accountMarketMap.addOpenNotionalFraction(trader, params.baseToken, response.quote.toInt256());
 
         // must after token info is updated to ensure free collateral is positive after updated
         _requireEnoughFreeCollateral(trader);
@@ -726,7 +722,7 @@ contract ClearingHouse is
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
         int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
-        int256 openNotionalFraction = _openNotionalFractionMap[_getAccountBaseTokenKey(trader, baseToken)];
+        int256 openNotionalFraction = _accountMarketMap[trader][baseToken].openNotionalFraction;
         return quoteInPool.sub(openNotionalFraction);
     }
 
@@ -901,9 +897,9 @@ contract ClearingHouse is
             quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
         );
         uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
-        _updateAvailable(params.maker, params.baseToken, params.removedBase.toInt256());
         _updateAvailable(params.maker, quoteToken, removedQuoteAmount.toInt256());
-        _addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
+        _updateAvailable(params.maker, params.baseToken, params.removedBase.toInt256());
+        _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
         _burnMax(params.maker, params.baseToken);
@@ -988,7 +984,7 @@ contract ClearingHouse is
             // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
             //                      = 0 - (-252.53) + 0 = 252.53
             // openNotional = -openNotionalFraction = -252.53
-            _addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
+            _accountMarketMap.addOpenNotionalFraction(params.trader, params.baseToken, -deltaAvailableQuote);
             response.openNotional = getOpenNotional(params.trader, params.baseToken);
 
             // there is no realizedPnl when increasing position
@@ -1046,7 +1042,11 @@ contract ClearingHouse is
             realizedPnl = oldOpenNotional.add(closedPositionNotional);
         }
 
-        _addOpenNotionalFraction(params.trader, params.baseToken, realizedPnl.sub(deltaAvailableQuote));
+        _accountMarketMap.addOpenNotionalFraction(
+            params.trader,
+            params.baseToken,
+            realizedPnl.sub(deltaAvailableQuote)
+        );
         _realizePnl(params.trader, realizedPnl);
         response.openNotional = getOpenNotional(params.trader, params.baseToken);
         response.realizedPnl = realizedPnl;
@@ -1247,15 +1247,6 @@ contract ClearingHouse is
                     skipMarginRequirementCheck: true
                 })
             );
-    }
-
-    function _addOpenNotionalFraction(
-        address account,
-        address baseToken,
-        int256 delta
-    ) internal {
-        bytes32 accountBaseTokenId = _getAccountBaseTokenKey(account, baseToken);
-        _openNotionalFractionMap[accountBaseTokenId] = _openNotionalFractionMap[accountBaseTokenId].add(delta);
     }
 
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
@@ -1515,10 +1506,6 @@ contract ClearingHouse is
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
-    function _getAccountBaseTokenKey(address account, address baseToken) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(account, baseToken));
-    }
-
     /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
         return super._msgSender();
@@ -1626,6 +1613,6 @@ contract ClearingHouse is
             _accountMap[trader].quoteInfo.debt = _getDebt(trader, token).toInt256().add(delta).toUint256();
             return;
         }
-        _accountMarketMap.updateDebt(trader, token, delta);
+        _accountMarketMap.addDebt(trader, token, delta);
     }
 }
