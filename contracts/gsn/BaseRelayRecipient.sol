@@ -14,8 +14,17 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      */
     address public trustedForwarder;
 
+    event TrustedForwarderUpdated(address trustedForwarder);
+
     function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return forwarder == trustedForwarder;
+    }
+
+    function _setTrustedForwarder(address trustedForwarderArg) internal {
+        // invalid trusted forwarder address
+        require(trustedForwarderArg != address(0), "BRC_ITFA");
+        trustedForwarder = trustedForwarderArg;
+        emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 
     /**

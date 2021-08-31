@@ -29,7 +29,6 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
     event ClearingHouseUpdated(address clearingHouse);
-    event TrustedForwarderUpdated(address trustedForwarder);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -50,7 +49,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
 
-    constructor(address settlementTokenArg) {
+    constructor(address settlementTokenArg) public {
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
 
@@ -71,10 +70,7 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        // invalid trusted forwarder address
-        require(trustedForwarderArg != address(0), "V_ITFA");
-        trustedForwarder = trustedForwarderArg;
-        emit TrustedForwarderUpdated(trustedForwarderArg);
+        _setTrustedForwarder(trustedForwarderArg);
     }
 
     //
@@ -155,14 +151,6 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
         uint256 amount
     ) internal {
         _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
-    }
-
-    function _liquidate(
-        address trader,
-        address collateralToken,
-        uint256 amount
-    ) internal {
-        revert("TBD");
     }
 
     function _getBalance(address trader, address token) internal view returns (int256) {

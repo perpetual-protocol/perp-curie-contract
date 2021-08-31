@@ -16,7 +16,7 @@ contract BaseToken is IIndexPrice, VirtualToken {
         string memory nameArg,
         string memory symbolArg,
         address priceFeedArg
-    ) VirtualToken(nameArg, symbolArg) {
+    ) public VirtualToken(nameArg, symbolArg) {
         // invalid address
         require(priceFeedArg != address(0), "BT_IA");
 

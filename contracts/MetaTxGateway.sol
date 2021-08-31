@@ -67,7 +67,7 @@ contract MetaTxGateway is SafeOwnable, LowLevelErrorMessage {
         string memory name,
         string memory version,
         uint256 chainIdL1
-    ) {
+    ) public {
         _domainSeparatorL1 = keccak256(
             abi.encode(
                 _EIP712_DOMAIN_TYPEHASH,

@@ -5,7 +5,7 @@
     "prettier/prettier": "error",
     "max-line-length": "error",
     "compiler-version": "off",
-    "func-order": "warn",
+    "ordering": "warn",
     "reason-string": ["warn", { "maxLength": 48 }],
     "func-name-mixedcase": "off",
     "private-vars-leading-underscore": "warn",
