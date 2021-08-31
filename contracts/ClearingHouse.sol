@@ -870,13 +870,9 @@ contract ClearingHouse is
     ) internal {
         _requireHasBaseToken(baseToken);
 
-        // TODO refactor with liquidate and fix the formula with collateral
         // CH_EAV: enough account value
-        // shouldn't cancel open orders
-        require(
-            getAccountValue(maker).lt(_getTotalInitialMarginRequirement(maker).toInt256(), _settlementTokenDecimals),
-            "CH_EAV"
-        );
+        // only cancel open orders if there are not enough free collateral
+        require(_getFreeCollateral(trader) < 0, "CH_EAV");
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
