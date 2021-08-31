@@ -112,7 +112,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     struct InternalSwapState {
-        uint24 clearingHouseFeeRatio;
+        uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
         uint256 fee;
         uint256 insuranceFundFee;
@@ -179,7 +179,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bool isBaseToQuote;
         bool shouldUpdateState;
         uint160 sqrtPriceLimitX96;
-        uint24 clearingHouseFeeRatio;
+        uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
         Funding.Growth globalFundingGrowth;
     }
@@ -337,7 +337,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // InternalSwapState is simply a container of local variables to solve Stack Too Deep error
         InternalSwapState memory internalSwapState =
             InternalSwapState({
-                clearingHouseFeeRatio: _exchangeFeeRatioMap[pool],
+                exchangeFeeRatio: _exchangeFeeRatioMap[pool],
                 uniswapFeeRatio: _uniswapFeeRatioMap[pool],
                 fee: 0,
                 insuranceFundFee: 0
@@ -348,7 +348,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     params.isBaseToQuote,
                     params.isExactInput,
                     params.amount,
-                    internalSwapState.clearingHouseFeeRatio,
+                    internalSwapState.exchangeFeeRatio,
                     internalSwapState.uniswapFeeRatio
                 );
             // simulate the swap to calculate the fees charged in clearing house
@@ -363,7 +363,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio: internalSwapState.clearingHouseFeeRatio,
+                    exchangeFeeRatio: internalSwapState.exchangeFeeRatio,
                     uniswapFeeRatio: internalSwapState.uniswapFeeRatio,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
@@ -602,14 +602,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
 
         address pool = _poolMap[params.baseToken];
-        uint24 clearingHouseFeeRatio = _exchangeFeeRatioMap[pool];
+        uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
         (, int256 signedScaledAmountForReplaySwap) =
             _getScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
-                clearingHouseFeeRatio,
+                exchangeFeeRatio,
                 uniswapFeeRatio
             );
         UniswapV3Broker.SwapState memory swapState =
@@ -627,7 +627,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    clearingHouseFeeRatio: clearingHouseFeeRatio,
+                    exchangeFeeRatio: exchangeFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
                     shouldUpdateState: false,
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
@@ -917,8 +917,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     function _replaySwap(ReplaySwapParams memory params)
         internal
         returns (
-            uint256 fee, // clearingHouseFee
-            uint256 insuranceFundFee, // insuranceFundFee = clearingHouseFee * insuranceFundFeeRatio
+            uint256 fee, // exchangeFeeRatio
+            uint256 insuranceFundFee, // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
             int24 tick
         )
     {
@@ -970,8 +970,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 params.state.liquidity,
                 params.state.amountSpecifiedRemaining,
                 // isBaseToQuote: fee is charged in base token in uniswap pool; thus, use uniswapFeeRatio to replay
-                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use clearingHouseFeeRatio
-                params.isBaseToQuote ? params.uniswapFeeRatio : params.clearingHouseFeeRatio
+                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use exchangeFeeRatioRatio
+                params.isBaseToQuote ? params.uniswapFeeRatio : params.exchangeFeeRatio
             );
 
             // user input 1 quote:
@@ -987,7 +987,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             // note CH only collects quote fee when swapping base -> quote
             if (params.state.liquidity > 0) {
                 if (params.isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.clearingHouseFeeRatio, 1e6);
+                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
                 }
 
                 fee += step.feeAmount;
@@ -1169,27 +1169,27 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
     /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()
     /// @dev for UniswapV3Pool.swap(), scaling the amount is necessary to achieve the custom fee effect
-    /// @dev for _replaySwap(), however, as we can input ClearingHouseFeeRatio directly in SwapMath.computeSwapStep(),
+    /// @dev for _replaySwap(), however, as we can input ExchangeFeeRatioRatio directly in SwapMath.computeSwapStep(),
     ///      there is no need to stick to the scaled amount
     function _getScaledAmountForSwaps(
         bool isBaseToQuote,
         bool isExactInput,
         uint256 amount,
-        uint24 clearingHouseFeeRatio,
+        uint24 exchangeFeeRatio,
         uint24 uniswapFeeRatio
     ) internal pure returns (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) {
         scaledAmountForUniswapV3PoolSwap = FeeMath.calcScaledAmountForUniswapV3PoolSwap(
             isBaseToQuote,
             isExactInput,
             amount,
-            clearingHouseFeeRatio,
+            exchangeFeeRatio,
             uniswapFeeRatio
         );
 
-        // x : uniswapFeeRatio, y : clearingHouseFeeRatio
-        // since we can input ClearingHouseFeeRatio directly in SwapMath.computeSwapStep() in _replaySwap(),
+        // x : uniswapFeeRatio, y : exchangeFeeRatioRatio
+        // since we can input ExchangeFeeRatioRatio directly in SwapMath.computeSwapStep() in _replaySwap(),
         // when !isBaseToQuote, we can use the original amount directly
-        // ex: when x(uniswapFeeRatio) = 1%, y(clearingHouseFeeRatio) = 3%, input == 1 quote
+        // ex: when x(uniswapFeeRatio) = 1%, y(exchangeFeeRatioRatio) = 3%, input == 1 quote
         // our target is to get fee == 0.03 quote
         // if scaling the input as 1 * 0.97 / 0.99, the fee calculated in `_replaySwap()` won't be 0.03
         signedScaledAmountForReplaySwap = isBaseToQuote
