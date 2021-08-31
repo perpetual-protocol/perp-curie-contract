@@ -277,6 +277,10 @@ contract ClearingHouse is
     // value: fraction of open notional that can unify the openNotional for both maker and taker
     mapping(bytes32 => int256) internal _openNotionalFractionMap;
 
+    // key: accountBaseTokenKey
+    // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
+    mapping(bytes32 => uint256) internal _lastOverPriceLimitTimestampMap;
+
     // key: base token
     mapping(address => uint256) internal _firstTradedTimestampMap;
     mapping(address => uint256) internal _lastSettledTimestampMap;
@@ -1241,8 +1245,15 @@ contract ClearingHouse is
                 sqrtPriceLimitX96: sqrtPriceLimitX96
             });
 
-        // simulate the tx to see if it isOverPriceLimit; if true, partially close the position
+        // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         if (partialCloseRatio > 0 && Exchange(exchange).isOverPriceLimit(params)) {
+            // CH_AOPLO: already over price limit once
+            require(
+                _blockTimestamp() != _lastOverPriceLimitTimestampMap[_getAccountBaseTokenKey(trader, baseToken)],
+                "CH_AOPLO"
+            );
+
+            _lastOverPriceLimitTimestampMap[_getAccountBaseTokenKey(trader, baseToken)] = _blockTimestamp();
             params.amount = params.amount.mulRatio(partialCloseRatio);
         }
 
