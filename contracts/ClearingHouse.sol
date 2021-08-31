@@ -1283,8 +1283,7 @@ contract ClearingHouse is
         uint256 indexTwap;
         (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
 
-        int256 fundingPayment =
-            _getPendingFundingPaymentAndUpdateLastFundingGrowth(trader, baseToken, updatedGlobalFundingGrowth);
+        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
 
         if (fundingPayment != 0) {
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
@@ -1308,15 +1307,16 @@ contract ClearingHouse is
         }
     }
 
-    function _getPendingFundingPaymentAndUpdateLastFundingGrowth(
+    /// @dev this is the non-view version of _getPendingFundingPayment()
+    function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) internal returns (int256 fundingPayment) {
+    ) internal returns (int256) {
         _requireHasBaseToken(baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).getPendingFundingPaymentAndUpdateLastFundingGrowth(
+            Exchange(exchange).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 updatedGlobalFundingGrowth
@@ -1330,12 +1330,13 @@ contract ClearingHouse is
                 account.lastTwPremiumGrowthGlobalX96Map[baseToken]
             );
 
-        fundingPayment = liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(
-            1 days
-        );
+        int256 fundingPayment =
+            liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
 
         // update fundingGrowth of funding payment coefficient from available and debt
         account.lastTwPremiumGrowthGlobalX96Map[baseToken] = updatedGlobalFundingGrowth.twPremiumX96;
+
+        return fundingPayment;
     }
 
     //
@@ -1345,6 +1346,7 @@ contract ClearingHouse is
     // -------------------------------
     // --- funding related getters ---
 
+    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
@@ -1355,7 +1357,6 @@ contract ClearingHouse is
 
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
-        // funding of liquidity
 
         int256 availableAndDebtCoefficientInFundingPayment =
             _getAvailableAndDebtCoefficientInFundingPayment(
