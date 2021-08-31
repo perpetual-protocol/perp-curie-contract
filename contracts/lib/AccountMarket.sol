@@ -89,7 +89,7 @@ library AccountMarket {
         address token,
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
-    ) internal returns (int256 fundingPayment) {
+    ) internal returns (int256) {
         AccountMarket.Info storage accountMarket = self[trader][token];
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
