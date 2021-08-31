@@ -14,6 +14,7 @@ library AccountMarket {
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
     using SignedSafeMath for int256;
+    using TokenBalance for TokenBalance.Info;
 
     struct Info {
         // balance & debt info of each base token
@@ -39,7 +40,7 @@ library AccountMarket {
         int256 delta
     ) internal {
         AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.available = accountMarket.tokenInfo.available.toInt256().add(delta).toUint256();
+        accountMarket.tokenInfo.addAvailable(delta);
     }
 
     function addDebt(
@@ -49,7 +50,7 @@ library AccountMarket {
         int256 delta
     ) internal {
         AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.debt = accountMarket.tokenInfo.debt.toInt256().add(delta).toUint256();
+        accountMarket.tokenInfo.addDebt(delta);
     }
 
     function addOpenNotionalFraction(
@@ -102,6 +103,22 @@ library AccountMarket {
             );
 
         return liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
+    }
+
+    function getAvailable(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
+        address trader,
+        address token
+    ) internal view returns (uint256) {
+        return self[trader][token].tokenInfo.available;
+    }
+
+    function getDebt(
+        mapping(address => mapping(address => AccountMarket.Info)) storage self,
+        address trader,
+        address token
+    ) internal view returns (uint256) {
+        return self[trader][token].tokenInfo.debt;
     }
 
     function getTokenInfo(
