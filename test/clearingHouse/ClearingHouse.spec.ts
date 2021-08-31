@@ -1,15 +1,16 @@
-import { MockContract } from "@eth-optimism/smock"
+import { MockContract, smockit } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
-import { waffle } from "hardhat"
-import { ClearingHouse } from "../../typechain"
+import { ethers, waffle } from "hardhat"
+import { ClearingHouse, UniswapV3Pool } from "../../typechain"
 import { mockedClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
+    const DEFAULT_FEE = 3000
 
     let clearingHouse: ClearingHouse
     let baseToken: MockContract
@@ -56,6 +57,37 @@ describe("ClearingHouse Spec", () => {
                 .to.emit(clearingHouse, "TwapIntervalChanged")
                 .withArgs(3600)
             expect(await clearingHouse.twapInterval()).eq(3600)
+        })
+        it("setMaxTickCrossedWithinBlock", async () => {
+            await expect(exchange.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith("EX_BTNE")
+
+            // add pool
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            const mockedPool = await smockit(pool)
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
+
+            await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
+            expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
+        })
+
+        it("setMaxTickCrossedWithinBlock", async () => {
+            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
+                "EX_BTNE",
+            )
+
+            // add pool
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            const mockedPool = await smockit(pool)
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
+
+            await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
+            expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
         })
     })
 

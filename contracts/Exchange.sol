@@ -81,13 +81,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
-    struct TickStatus {
-        int24 lastUpdatedTick;
-        uint256 lastUpdatedTimestamp;
-    }
-
-    // TODO rename to ReplaySwapParams
-    struct PriceLimitParams {
+    struct ReplaySwapParams {
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
@@ -220,13 +214,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
-    // key: base token. a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-
-    // key: base token. tracking the final tick from last block
-    // will be used for comparing if it exceeds maxTickCrossedWithinBlock
-    mapping(address => TickStatus) internal _tickStatusMap;
-
     // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
     mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
@@ -277,12 +264,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // EX_BTNE: base token not exists
-        require(_poolMap[baseToken] != address(0), "EX_BTNE");
-        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-    }
-
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner checkRatio(feeRatio) {
         _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
@@ -316,20 +297,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
-    }
-
-    function saveTickBeforeFirstSwapThisBlock(address baseToken) external onlyClearingHouse {
-        // only do this when it's the first swap in this block
-        uint256 timestamp = _blockTimestamp();
-        if (timestamp == _tickStatusMap[baseToken].lastUpdatedTimestamp) {
-            return;
-        }
-
-        // the current tick before swap = final tick last block
-        _tickStatusMap[baseToken] = TickStatus({
-            lastUpdatedTick: UniswapV3Broker.getTick(_poolMap[baseToken]),
-            lastUpdatedTimestamp: timestamp
-        });
     }
 
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
@@ -586,7 +553,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return liquidityCoefficientInFundingPayment;
     }
 
-    function replaySwap(PriceLimitParams memory params) external returns (ReplaySwapResponse memory) {
+    function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory) {
         address pool = _poolMap[params.baseToken];
         uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
@@ -619,52 +586,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
-    }
-
-    function isOverPriceLimit(PriceLimitParams memory params) external returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-
-        int24 lastUpdatedTick = _tickStatusMap[params.baseToken].lastUpdatedTick;
-        int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
-        int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
-
-        address pool = _poolMap[params.baseToken];
-        uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
-        uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
-        (, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.amount,
-                exchangeFeeRatio,
-                uniswapFeeRatio
-            );
-        UniswapV3Broker.SwapState memory swapState =
-            UniswapV3Broker.getSwapState(
-                pool,
-                signedScaledAmountForReplaySwap,
-                _feeGrowthGlobalX128Map[params.baseToken]
-            );
-
-        // globalFundingGrowth can be empty if shouldUpdateState is false
-        ReplaySwapResponse memory response =
-            _replaySwap(
-                InternalReplaySwapParams({
-                    state: swapState,
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    exchangeFeeRatio: exchangeFeeRatio,
-                    uniswapFeeRatio: uniswapFeeRatio,
-                    shouldUpdateState: false,
-                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
-                })
-            );
-
-        return (response.tick < lowerTickBound || response.tick > upperTickBound);
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -718,6 +639,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
+    function getTick(address baseToken) external view returns (int24) {
+        return UniswapV3Broker.getTick(_poolMap[baseToken]);
+    }
+
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
             if (_openOrderIdsMap[trader][tokens[i]].length > 0) {
@@ -747,10 +672,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bool fetchBase // true: fetch base amount, false: fetch quote amount
     ) external view returns (uint256 tokenAmount) {
         return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
-    }
-
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {

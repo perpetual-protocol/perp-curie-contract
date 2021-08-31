@@ -239,6 +239,11 @@ contract ClearingHouse is
         uint256 oppositeAmountBound;
     }
 
+    struct TickStatus {
+        int24 lastUpdatedTick;
+        uint256 lastUpdatedTimestamp;
+    }
+
     // not used in CH, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
     // 10 wei
@@ -280,6 +285,13 @@ contract ClearingHouse is
     mapping(address => uint256) internal _firstTradedTimestampMap;
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
+
+    // key: base token. a threshold to limit the price impact per block when reducing or closing the position
+    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
+
+    // key: base token. tracking the final tick from last block
+    // will be used for comparing if it exceeds maxTickCrossedWithinBlock
+    mapping(address => TickStatus) internal _tickStatusMap;
 
     constructor(
         address vaultArg,
@@ -325,6 +337,12 @@ contract ClearingHouse is
         require(exchangeArg != address(0), "CH_EI0");
         exchange = exchangeArg;
         emit ExchangeChanged(exchange);
+    }
+
+    // TODO change to withinTimestamp
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
+        _requireHasBaseToken(baseToken);
+        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
@@ -442,15 +460,15 @@ contract ClearingHouse is
         _registerBaseToken(_msgSender(), params.baseToken);
 
         // must before price impact check
-        Exchange(exchange).saveTickBeforeFirstSwapThisBlock(params.baseToken);
+        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
 
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPI: over price impact
             require(
-                !Exchange(exchange).isOverPriceLimit(
-                    Exchange.PriceLimitParams({
+                !_isOverPriceLimit(
+                    Exchange.ReplaySwapParams({
                         baseToken: params.baseToken,
                         isBaseToQuote: params.isBaseToQuote,
                         isExactInput: params.isExactInput,
@@ -689,6 +707,9 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
+    }
 
     // return in settlement token decimals
     function getAccountValue(address account) public view returns (int256) {
@@ -897,6 +918,20 @@ contract ClearingHouse is
 
         // burn maker's quote to reduce maker's init margin requirement
         _burnMax(params.maker, quoteToken);
+    }
+
+    function _saveTickBeforeFirstSwapThisBlock(address baseToken) internal {
+        // only do this when it's the first swap in this block
+        uint256 timestamp = _blockTimestamp();
+        if (timestamp == _tickStatusMap[baseToken].lastUpdatedTimestamp) {
+            return;
+        }
+
+        // the current tick before swap = final tick last block
+        _tickStatusMap[baseToken] = TickStatus({
+            lastUpdatedTick: Exchange(exchange).getTick(baseToken),
+            lastUpdatedTimestamp: timestamp
+        });
     }
 
     // expensive
@@ -1206,14 +1241,14 @@ contract ClearingHouse is
         require(positionSize != 0, "CH_PSZ");
 
         // must before price impact check
-        Exchange(exchange).saveTickBeforeFirstSwapThisBlock(baseToken);
+        _saveTickBeforeFirstSwapThisBlock(baseToken);
 
         // if trader is on long side, baseToQuote: true, exactInput: true
         // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
 
-        Exchange.PriceLimitParams memory params =
-            Exchange.PriceLimitParams({
+        Exchange.ReplaySwapParams memory params =
+            Exchange.ReplaySwapParams({
                 baseToken: baseToken,
                 isBaseToQuote: isLong,
                 isExactInput: isLong,
@@ -1222,7 +1257,7 @@ contract ClearingHouse is
             });
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        if (partialCloseRatio > 0 && Exchange(exchange).isOverPriceLimit(params)) {
+        if (partialCloseRatio > 0 && _isOverPriceLimit(params)) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[trader][baseToken], "CH_AOPLO");
             _lastOverPriceLimitTimestampMap[trader][baseToken] = _blockTimestamp();
@@ -1295,6 +1330,19 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth.twPremiumX96
             );
         return fundingPayment;
+    }
+
+    function _isOverPriceLimit(Exchange.ReplaySwapParams memory params) internal returns (bool) {
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+
+        int24 lastUpdatedTick = _tickStatusMap[params.baseToken].lastUpdatedTick;
+        int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
+        int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
+        Exchange.ReplaySwapResponse memory response = Exchange(exchange).replaySwap(params);
+        return (response.tick < lowerTickBound || response.tick > upperTickBound);
     }
 
     //
