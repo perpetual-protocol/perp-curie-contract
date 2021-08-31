@@ -330,7 +330,7 @@ contract ClearingHouse is
     }
 
     //
-    // EXTERNAL FUNCTIONS
+    // EXTERNAL ADMIN FUNCTIONS
     //
     function setExchange(address exchangeArg) external onlyOwner {
         // exchange is 0
@@ -345,6 +345,40 @@ contract ClearingHouse is
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
+    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+        // CH_ITI: invalid twapInterval
+        require(twapIntervalArg != 0, "CH_ITI");
+
+        twapInterval = twapIntervalArg;
+        emit TwapIntervalChanged(twapIntervalArg);
+    }
+
+    function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
+        external
+        checkRatio(liquidationPenaltyRatioArg)
+        onlyOwner
+    {
+        liquidationPenaltyRatio = liquidationPenaltyRatioArg;
+        emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
+    }
+
+    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+        partialCloseRatio = partialCloseRatioArg;
+        emit PartialCloseRatioChanged(partialCloseRatioArg);
+    }
+
+    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
+        maxMarketsPerAccount = maxMarketsPerAccountArg;
+        emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
+    }
+
+    function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        _setTrustedForwarder(trustedForwarderArg);
+    }
+
+    //
+    // EXTERNAL FUNCTIONS
+    //
     function addLiquidity(AddLiquidityParams calldata params)
         external
         whenNotPaused
@@ -507,60 +541,6 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data // contains baseToken
-    ) external override {
-        // CH_FMV: failed mintCallback verification
-        require(_msgSender() == exchange, "CH_FMV");
-
-        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
-
-        if (amount0Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token0();
-            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
-            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
-        }
-        if (amount1Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token1();
-            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
-            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
-        }
-    }
-
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
-        // CH_ITI: invalid twapInterval
-        require(twapIntervalArg != 0, "CH_ITI");
-
-        twapInterval = twapIntervalArg;
-        emit TwapIntervalChanged(twapIntervalArg);
-    }
-
-    function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
-        external
-        checkRatio(liquidationPenaltyRatioArg)
-        onlyOwner
-    {
-        liquidationPenaltyRatio = liquidationPenaltyRatioArg;
-        emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
-    }
-
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
-        partialCloseRatio = partialCloseRatioArg;
-        emit PartialCloseRatioChanged(partialCloseRatioArg);
-    }
-
-    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
-        maxMarketsPerAccount = maxMarketsPerAccountArg;
-        emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
-    }
-
-    function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        _setTrustedForwarder(trustedForwarderArg);
-    }
-
     function liquidate(address trader, address baseToken) external whenNotPaused nonReentrant {
         _requireHasBaseToken(baseToken);
         // per liquidation specs:
@@ -604,6 +584,72 @@ contract ClearingHouse is
         );
     }
 
+    function cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
+    ) external whenNotPaused nonReentrant {
+        _cancelExcessOrders(maker, baseToken, orderIds);
+    }
+
+    function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
+        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
+        _cancelExcessOrders(maker, baseToken, orderIds);
+    }
+
+    function settle(address account) external override returns (int256) {
+        // only vault
+        require(_msgSender() == vault, "CH_OV");
+
+        Account storage accountStorage = _accountMap[account];
+        int256 pnl = accountStorage.owedRealizedPnl;
+        accountStorage.owedRealizedPnl = 0;
+
+        // TODO should check quote in pool as well
+        if (accountStorage.tokens.length > 0) {
+            return pnl;
+        }
+
+        // settle quote if all position are closed
+        int256 quotePnl = _accountMarketMap.getTokenBalance(account, quoteToken).getNet();
+        if (quotePnl > 0) {
+            // profit
+            _accountMarketMap.addAvailable(account, quoteToken, -quotePnl);
+
+            // burn profit in quote and add to collateral
+            IMintableERC20(quoteToken).burn(quotePnl.toUint256());
+        } else {
+            // loss
+            _accountMarketMap.addDebt(account, quoteToken, -quotePnl);
+        }
+
+        return pnl.add(quotePnl);
+    }
+
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data // contains baseToken
+    ) external override {
+        // CH_FMV: failed mintCallback verification
+        require(_msgSender() == exchange, "CH_FMV");
+
+        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
+
+        if (amount0Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token0();
+            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
+        }
+        if (amount1Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token1();
+            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
+        }
+    }
+
+    /// @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -660,48 +706,6 @@ contract ClearingHouse is
 
         // swap
         TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
-    }
-
-    function cancelExcessOrders(
-        address maker,
-        address baseToken,
-        bytes32[] calldata orderIds
-    ) external whenNotPaused nonReentrant {
-        _cancelExcessOrders(maker, baseToken, orderIds);
-    }
-
-    function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
-        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
-        _cancelExcessOrders(maker, baseToken, orderIds);
-    }
-
-    function settle(address account) external override returns (int256) {
-        // only vault
-        require(_msgSender() == vault, "CH_OV");
-
-        Account storage accountStorage = _accountMap[account];
-        int256 pnl = accountStorage.owedRealizedPnl;
-        accountStorage.owedRealizedPnl = 0;
-
-        // TODO should check quote in pool as well
-        if (accountStorage.tokens.length > 0) {
-            return pnl;
-        }
-
-        // settle quote if all position are closed
-        int256 quotePnl = _accountMarketMap.getTokenBalance(account, quoteToken).getNet();
-        if (quotePnl > 0) {
-            // profit
-            _accountMarketMap.addAvailable(account, quoteToken, -quotePnl);
-
-            // burn profit in quote and add to collateral
-            IMintableERC20(quoteToken).burn(quotePnl.toUint256());
-        } else {
-            // loss
-            _accountMarketMap.addDebt(account, quoteToken, -quotePnl);
-        }
-
-        return pnl.add(quotePnl);
     }
 
     //

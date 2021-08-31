@@ -257,7 +257,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     //
-    // EXTERNAL FUNCTIONS
+    // EXTERNAL ADMIN FUNCTIONS
     //
 
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
@@ -299,6 +299,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return pool;
     }
 
+    //
+    // EXTERNAL FUNCTIONS
+    //
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         address pool = _poolMap[params.baseToken];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
