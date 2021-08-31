@@ -119,13 +119,11 @@ describe("ClearingHouse liquidate", () => {
     describe("adjustable parameter", () => {
         it.skip("setLiquidationDiscount")
         it("setLiquidationPenaltyRatio", async () => {
-            await clearingHouse.setLiquidationPenaltyRatio(parseEther("0.03"))
-            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(parseEther("0.03"))
+            await clearingHouse.setLiquidationPenaltyRatio("30000") // 3%
+            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(30000)
         })
         it("force error, only admin", async () => {
-            await expect(
-                clearingHouse.connect(alice).setLiquidationPenaltyRatio(parseEther("0.03")),
-            ).to.be.revertedWith("SO_CNO")
+            await expect(clearingHouse.connect(alice).setLiquidationPenaltyRatio("30000")).to.be.revertedWith("SO_CNO")
         })
     })
 
