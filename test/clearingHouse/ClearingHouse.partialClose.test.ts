@@ -25,7 +25,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(
+            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
+        )
         clearingHouse = _clearingHouseFixture.clearingHouse
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
