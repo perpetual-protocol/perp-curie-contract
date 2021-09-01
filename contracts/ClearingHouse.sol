@@ -12,8 +12,6 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
