@@ -346,8 +346,8 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
 
         // CH_MTO: max tick crossed limit out of range
-        // tick range is [-MAX_TICK, MAX_TICK], so maxTickCrossedWithinBlock should be in [0, 2 * MAX_TICK]
-        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK * 2), "CH_MTCLOOR");
+        // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
+        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "CH_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
