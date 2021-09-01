@@ -162,6 +162,7 @@ contract ClearingHouse is
         uint256 fee;
         int256 openNotional;
         int256 realizedPnl;
+        int24 tick;
     }
 
     struct OpenPositionParams {
@@ -499,24 +500,8 @@ contract ClearingHouse is
         Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
-        // !isIncreasePosition() == reduce or close position
-        if (!_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote)) {
-            // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
-            // CH_OPI: over price impact
-            require(
-                !_isOverPriceLimit(
-                    Exchange.ReplaySwapParams({
-                        baseToken: params.baseToken,
-                        isBaseToQuote: params.isBaseToQuote,
-                        isExactInput: params.isExactInput,
-                        amount: params.amount,
-                        sqrtPriceLimitX96: params.sqrtPriceLimitX96
-                    })
-                ),
-                "CH_OPI"
-            );
-        }
-
+        // cache before actual swap
+        bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
         SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
@@ -530,6 +515,15 @@ contract ClearingHouse is
                     updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
+
+        if (isReducePosition) {
+            // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
+            // CH_OPI: over price impact
+            require(
+                !_isOverPriceLimit(params.baseToken, _maxTickCrossedWithinBlockMap[params.baseToken], response.tick),
+                "CH_OPI"
+            );
+        }
 
         _checkSlippage(
             CheckSlippageParams({
@@ -1175,15 +1169,16 @@ contract ClearingHouse is
         }
 
         return
-            SwapResponse(
-                response.exchangedPositionSize.abs(), // deltaAvailableBase
-                response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(), // deltaAvailableQuote
-                response.exchangedPositionSize, // exchangedPositionSize
-                response.exchangedPositionNotional, // exchangedPositionNotional
-                response.fee, // fee
-                0, // openNotional
-                0 // realizedPnl
-            );
+            SwapResponse({
+                deltaAvailableBase: response.exchangedPositionSize.abs(),
+                deltaAvailableQuote: response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(),
+                exchangedPositionSize: response.exchangedPositionSize,
+                exchangedPositionNotional: response.exchangedPositionNotional,
+                fee: response.fee,
+                openNotional: 0,
+                realizedPnl: 0,
+                tick: response.tick
+            });
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
@@ -1278,7 +1273,7 @@ contract ClearingHouse is
             });
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        if (partialCloseRatio > 0 && _isOverPriceLimit(replaySwapParams)) {
+        if (partialCloseRatio > 0 && _isOverPriceLimitByReplaySwap(replaySwapParams)) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
             _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
@@ -1358,23 +1353,34 @@ contract ClearingHouse is
         return fundingPayment;
     }
 
-    function _isOverPriceLimit(Exchange.ReplaySwapParams memory params) internal returns (bool) {
+    function _isOverPriceLimitByReplaySwap(Exchange.ReplaySwapParams memory params) internal returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
             return false;
         }
 
-        int24 lastUpdatedTick = _lastUpdatedTickMap[params.baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
         int24 finalTick = Exchange(exchange).replaySwap(params);
-        return (finalTick < lowerTickBound || finalTick > upperTickBound);
+        return _isOverPriceLimit(params.baseToken, maxTickDelta, finalTick);
     }
 
     //
     // INTERNAL VIEW FUNCTIONS
     //
+
+    function _isOverPriceLimit(
+        address baseToken,
+        uint24 maxTickDelta,
+        int24 tick
+    ) internal view returns (bool) {
+        if (maxTickDelta == 0) {
+            return false;
+        }
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
+        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
+        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        return (tick < lowerTickBound || tick > upperTickBound);
+    }
 
     // -------------------------------
     // --- funding related getters ---

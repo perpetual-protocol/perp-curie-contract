@@ -121,6 +121,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int256 exchangedPositionNotional;
         uint256 fee;
         uint256 insuranceFundFee;
+        int24 tick;
     }
 
     struct MintCallbackData {
@@ -381,7 +382,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 exchangedPositionSize: exchangedPositionSize,
                 exchangedPositionNotional: exchangedPositionNotional,
                 fee: replayResponse.fee,
-                insuranceFundFee: replayResponse.insuranceFundFee
+                insuranceFundFee: replayResponse.insuranceFundFee,
+                tick: replayResponse.tick
             });
     }
 
