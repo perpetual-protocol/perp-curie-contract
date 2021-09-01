@@ -313,7 +313,7 @@ contract ClearingHouse is
     //
     modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
-        require(ratio <= 1e6, "CH_RO");
+        require(ratio <= FeeMath._ONE_HUNDRED_PERCENT, "CH_RO");
         _;
     }
 
