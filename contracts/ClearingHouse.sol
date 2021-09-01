@@ -670,8 +670,15 @@ contract ClearingHouse is
         // call Vault.withdraw(token, amount)
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader
+        for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
+            address baseToken = _accountMap[trader].tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+            }
+        }
+
         Account storage accountStorage = _accountMap[trader];
-        int256 pnl = _getOwedRealizedPnlWithPendingFundingPayment(trader);
+        int256 pnl = _accountMap[trader].owedRealizedPnl;
         accountStorage.owedRealizedPnl = 0;
 
         if (accountStorage.tokens.length > 0) {
