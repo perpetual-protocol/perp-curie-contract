@@ -11,7 +11,6 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
-import { FeeMath } from "../lib/FeeMath.sol";
 import { Exchange } from "../Exchange.sol";
 
 /// @title Provides quotes for swaps
