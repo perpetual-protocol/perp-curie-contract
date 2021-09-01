@@ -8,6 +8,7 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
@@ -558,7 +559,10 @@ contract ClearingHouse is
         //
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(_getTotalMinimumMarginRequirement(trader).toInt256(), _settlementTokenDecimals),
+            getAccountValue(trader).lt(
+                _getTotalAbsPositionValue(trader).mulRatio(mmRatio).toInt256(),
+                _settlementTokenDecimals
+            ),
             "CH_EAV"
         );
 
@@ -708,7 +712,7 @@ contract ClearingHouse is
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 _settleFundingAndUpdateFundingGrowth(trader, baseToken);
             }
         }
@@ -777,13 +781,8 @@ contract ClearingHouse is
         return quoteInPool.sub(openNotionalFraction);
     }
 
-    // TODO including funding payment
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
-    }
-
-    function getOwedRealizedPnlWithPendingFundingPayment(address trader) external view returns (int256) {
-        return _getOwedRealizedPnlWithPendingFundingPayment(trader);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
@@ -1421,7 +1420,19 @@ contract ClearingHouse is
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
-            uint256 markTwapX96 = _getMarkTwapX96(baseToken);
+            // get mark twap
+            uint32 twapIntervalArg = twapInterval;
+            // shorten twapInterval if prior observations are not enough for twapInterval
+            if (_firstTradedTimestampMap[baseToken] == 0) {
+                twapIntervalArg = 0;
+            } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+                // overflow inspection:
+                // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+                twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+            }
+            uint256 markTwapX96 =
+                Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+
             markTwap = markTwapX96.formatX96ToX10_18();
             indexTwap = _getIndexPrice(baseToken);
 
@@ -1447,27 +1458,8 @@ contract ClearingHouse is
         }
     }
 
-    function _getMarkTwapX96(address token) internal view returns (uint256) {
-        uint32 twapIntervalArg = twapInterval;
-
-        // shorten twapInterval if prior observations are not enough for twapInterval
-        if (_firstTradedTimestampMap[token] == 0) {
-            twapIntervalArg = 0;
-        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[token])) {
-            // overflow inspection:
-            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[token]));
-        }
-
-        return Exchange(exchange).getSqrtMarkTwapX96(token, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
-    }
-
     // --- funding related getters ---
     // -------------------------------
-
-    function _getOwedRealizedPnlWithPendingFundingPayment(address trader) internal view returns (int256) {
-        return _accountMap[trader].owedRealizedPnl.sub(_getAllPendingFundingPayment(trader));
-    }
 
     function _getIndexPrice(address token) internal view returns (uint256) {
         return IIndexPrice(token).getIndexPrice(twapInterval);
@@ -1482,17 +1474,9 @@ contract ClearingHouse is
         return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mulRatio(imRatio);
     }
 
-    function _getTotalMinimumMarginRequirement(address trader) internal view returns (uint256) {
-        return _getTotalAbsPositionValue(trader).mulRatio(mmRatio);
-    }
-
-    function _getDebtValue(address token, uint256 amount) internal view returns (uint256) {
-        return amount.mul(_getIndexPrice(token)).divBy10_18();
-    }
-
     // return in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = _getOwedRealizedPnlWithPendingFundingPayment(trader);
+        int256 owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(_getAllPendingFundingPayment(trader));
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
@@ -1537,7 +1521,8 @@ contract ClearingHouse is
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_hasPool(baseToken)) {
-                uint256 baseDebtValue = _getDebtValue(baseToken, _accountMarketMap.getDebt(trader, baseToken));
+                uint256 baseDebtValue =
+                    _accountMarketMap.getDebt(trader, baseToken).mul(_getIndexPrice(baseToken)).divBy10_18();
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
         }
