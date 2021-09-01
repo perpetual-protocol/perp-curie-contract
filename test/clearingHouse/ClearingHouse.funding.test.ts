@@ -558,12 +558,26 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
+                    .to.emit(exchange, "LiquidityChanged")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50000,
+                        50400,
+                        "-272977241071563599",
+                        "-8536030653991754908",
+                        "-203202869155103601574",
+                        parseEther("0.829279386920164902"),
+                    )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
+                let collectedFee = parseEther("0.829279386920164902")
+                let fundingPayment = parseEther("0.078257551883207429")
                 let owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(alice.address)
-                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.078257551883207429"))
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.add(fundingPayment))
                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
 
                 await forward(3600)
@@ -590,6 +604,18 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
+                    .to.emit(exchange, "LiquidityChanged")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50000,
+                        50400,
+                        "-272977241071563599",
+                        "-8536030653991754908",
+                        "-203202869155103601574",
+                        "0",
+                    )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
@@ -622,12 +648,26 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
+                    .to.emit(exchange, "LiquidityChanged")
+                    .withArgs(
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50200,
+                        50400,
+                        "-654045517856872800",
+                        "0",
+                        "-808767873126541797029",
+                        parseEther("1"),
+                    )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
+                collectedFee = parseEther("1")
+                fundingPayment = parseEther("0.078257551883207429")
                 owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(alice.address)
-                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.078257551883207429"))
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.add(fundingPayment))
                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
             })
 
