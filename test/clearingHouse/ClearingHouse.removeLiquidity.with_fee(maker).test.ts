@@ -133,7 +133,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "615133417572502",
                     )
 
-                // collect fee to ownedRealizedPnl
+                // alice received 0.0006151334175725025 quote tokens as fee
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
 
                 // no base fee, and excess vTokens should be auto-burnt
@@ -378,11 +378,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("0"), // available
                         parseEther("0.000816820841"), // debt
                     ])
+
                     // alice received 0.002259647935 quote tokens as fee
-                    expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                        parseEther("0.002259647935249999"), // available
-                        parseEther("0"), // debt
-                    ])
+                    expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
+                        parseEther("0.002259647935249999"),
+                    )
 
                     // feeGrowthInsideClearingHouseLastX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
                     const openOrder = await exchange.getOpenOrder(
