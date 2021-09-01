@@ -12,8 +12,6 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
@@ -145,14 +143,6 @@ contract ClearingHouse is
         uint256 liquidity;
     }
 
-    struct SwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
-    }
-
     struct InternalSwapParams {
         address trader;
         address baseToken;
@@ -171,16 +161,6 @@ contract ClearingHouse is
         uint256 fee;
         int256 openNotional;
         int256 realizedPnl;
-    }
-
-    struct SwapStep {
-        uint160 initialSqrtPriceX96;
-        int24 nextTick;
-        bool isNextTickInitialized;
-        uint160 nextSqrtPriceX96;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
     }
 
     struct OpenPositionParams {
@@ -836,7 +816,7 @@ contract ClearingHouse is
         int256 totalPositionValue;
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 totalPositionValue = totalPositionValue.add(_getPositionValueInTwap(trader, baseToken));
             }
         }
@@ -917,7 +897,7 @@ contract ClearingHouse is
         emit Burned(account, token, amount);
     }
 
-    function _burnMax(address account, address token) internal {
+    function _burnDebtOrAvailableToZero(address account, address token) internal {
         uint256 burnedAmount = _accountMarketMap.getTokenBalance(account, token).getBurnable();
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
@@ -978,10 +958,10 @@ contract ClearingHouse is
         _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(params.removedQuote.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
-        _burnMax(params.maker, params.baseToken);
+        _burnDebtOrAvailableToZero(params.maker, params.baseToken);
 
         // burn maker's quote to reduce maker's init margin requirement
-        _burnMax(params.maker, quoteToken);
+        _burnDebtOrAvailableToZero(params.maker, quoteToken);
     }
 
     // expensive
@@ -1128,8 +1108,8 @@ contract ClearingHouse is
         response.realizedPnl = realizedPnl;
 
         // burn excess tokens
-        _burnMax(params.trader, params.baseToken);
-        _burnMax(params.trader, quoteToken);
+        _burnDebtOrAvailableToZero(params.trader, params.baseToken);
+        _burnDebtOrAvailableToZero(params.trader, quoteToken);
         _deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
@@ -1422,7 +1402,7 @@ contract ClearingHouse is
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
             }
         }
@@ -1465,20 +1445,6 @@ contract ClearingHouse is
             // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
             updatedGlobalFundingGrowth = outdatedGlobalFundingGrowth;
         }
-    }
-
-    function _getAvailableAndDebtCoefficientInFundingPayment(
-        TokenBalance.Info memory tokenInfo,
-        int256 twPremiumGrowthGlobalX96,
-        int256 lastTwPremiumGrowthGlobalX96
-    ) internal pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
-        return
-            tokenInfo
-                .available
-                .toInt256()
-                .sub(tokenInfo.debt.toInt256())
-                .mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96))
-                .div(PerpFixedPoint96.IQ96);
     }
 
     function _getMarkTwapX96(address token) internal view returns (uint256) {
@@ -1555,7 +1521,7 @@ contract ClearingHouse is
         uint256 tokenLen = tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 // will not use negative value in this case
                 uint256 positionValue = _getPositionValueInTwap(trader, baseToken).abs();
                 totalPositionValue = totalPositionValue.add(positionValue);
@@ -1570,7 +1536,7 @@ contract ClearingHouse is
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, _accountMarketMap.getDebt(trader, baseToken));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
@@ -1600,7 +1566,7 @@ contract ClearingHouse is
         quote = IERC20Metadata(quoteToken).balanceOf(address(this));
     }
 
-    function _isPoolExistent(address baseToken) internal view returns (bool) {
+    function _hasPool(address baseToken) internal view returns (bool) {
         return Exchange(exchange).getPool(baseToken) != address(0);
     }
 
@@ -1627,7 +1593,7 @@ contract ClearingHouse is
 
     function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
-        require(_isPoolExistent(baseToken), "CH_BTNE");
+        require(_hasPool(baseToken), "CH_BTNE");
     }
 
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
