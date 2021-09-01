@@ -652,6 +652,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 return true;
             }
         }
+        return false;
     }
 
     /// @dev note the return value includes maker fee.
