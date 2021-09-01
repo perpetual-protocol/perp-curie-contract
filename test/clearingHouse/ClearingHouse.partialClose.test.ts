@@ -2,17 +2,17 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardBlock } from "../shared/time"
+import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
@@ -26,7 +26,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
-        clearingHouse = _clearingHouseFixture.clearingHouse
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -78,7 +78,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         // price delta for every tick is 0.01%
         // if we want to limit price impact to 1%, and 1% / 0.01% = 100
         // so limiting price impact to 1% means tick should not cross 100 ticks
-        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+        await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         await clearingHouse.connect(admin).setPartialCloseRatio(250000) // 25%
     })
 
@@ -101,7 +101,8 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             // move to next block to simplify test case
             // otherwise we need to bring another trader to move the price further away
-            await forwardBlock(mockedArbSys)
+
+            await forwardTimestamp(clearingHouse)
         })
 
         it("carol reduces position with openPosition and it's not over price limit", async () => {
@@ -194,7 +195,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
             // liquidation can't happen in the same block because it's based on the index price
-            await forwardBlock(mockedArbSys)
+            await forwardTimestamp(clearingHouse)
         })
 
         it("taker's position is partially liquidated", async () => {

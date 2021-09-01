@@ -60,6 +60,14 @@ library UniswapV3Broker {
         uint256 feeGrowthInsideQuoteX128;
     }
 
+    struct SwapState {
+        int24 tick;
+        uint160 sqrtPriceX96;
+        int256 amountSpecifiedRemaining;
+        uint256 feeGrowthGlobalX128;
+        uint128 liquidity;
+    }
+
     struct SwapParams {
         address pool;
         bool isBaseToQuote;
@@ -263,6 +271,22 @@ library UniswapV3Broker {
                 ? (compressed + 1 + int24(BitMath.leastSignificantBit(masked) - bitPos)) * tickSpacing
                 : (compressed + 1 + int24(type(uint8).max - bitPos)) * tickSpacing;
         }
+    }
+
+    function getSwapState(
+        address pool,
+        int256 signedScaledAmountForReplaySwap,
+        uint256 feeGrowthGlobalX128
+    ) internal view returns (SwapState memory) {
+        (uint160 sqrtMarkPrice, int24 getTick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        return
+            SwapState({
+                tick: getTick,
+                sqrtPriceX96: sqrtMarkPrice,
+                amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
+                feeGrowthGlobalX128: feeGrowthGlobalX128,
+                liquidity: getLiquidity(pool)
+            });
     }
 
     function _getFeeGrowthInsideLast(
