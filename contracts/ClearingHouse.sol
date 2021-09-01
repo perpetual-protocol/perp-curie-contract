@@ -278,10 +278,10 @@ contract ClearingHouse is
     // key: trader
     mapping(address => Account) internal _accountMap;
 
-    // key: trader, second key: baseToken
+    // first key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
-    // key: trader, second key: baseToken
+    // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
@@ -290,11 +290,10 @@ contract ClearingHouse is
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
 
-    // key: base token. a threshold to limit the price impact per block when reducing or closing the position
+    // key: base token
+    // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-
-    // key: base token. tracking the final tick from last block
-    // will be used for comparing if it exceeds maxTickCrossedWithinBlock
+    // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
     mapping(address => int24) internal _lastUpdatedTickMap;
 
     constructor(
@@ -343,7 +342,6 @@ contract ClearingHouse is
         emit ExchangeChanged(exchange);
     }
 
-    // TODO change to withinTimestamp
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
@@ -535,7 +533,7 @@ contract ClearingHouse is
         SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
-                    trader: _msgSender(),
+                    trader: trader,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
