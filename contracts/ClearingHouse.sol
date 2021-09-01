@@ -656,30 +656,48 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function settle(address account) external override returns (int256) {
+    /// @dev settle() would be called by Vault.withdraw()
+    function settle(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == vault, "CH_OV");
 
-        Account storage accountStorage = _accountMap[account];
-        int256 pnl = accountStorage.owedRealizedPnl;
+        // the full process of a trader's withdrawal:
+        // for loop of each order:
+        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
+        //         settle funding payment to owedRealizedPnl
+        //         collect fee to owedRealizedPnl
+        // call Vault.withdraw(token, amount)
+        //     settle pnl to trader balance in Vault
+        //     transfer amount to trader
+
+        // make sure funding payments are always settled,
+        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
+        for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
+            address baseToken = _accountMap[trader].tokens[i];
+            if (_isPoolExistent(baseToken)) {
+                _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+            }
+        }
+
+        Account storage accountStorage = _accountMap[trader];
+        int256 pnl = _accountMap[trader].owedRealizedPnl;
         accountStorage.owedRealizedPnl = 0;
 
-        // TODO should check quote in pool as well
         if (accountStorage.tokens.length > 0) {
             return pnl;
         }
 
-        // settle quote if all position are closed
-        int256 quotePnl = _accountMarketMap.getTokenBalance(account, quoteToken).getNet();
+        // settle quote when all positions are closed (accountStorage.tokens.length == 0)
+        int256 quotePnl = _accountMarketMap.getTokenBalance(trader, quoteToken).getNet();
         if (quotePnl > 0) {
             // profit
-            _accountMarketMap.addAvailable(account, quoteToken, -quotePnl);
+            _accountMarketMap.addAvailable(trader, quoteToken, -quotePnl);
 
             // burn profit in quote and add to collateral
             IMintableERC20(quoteToken).burn(quotePnl.toUint256());
         } else {
             // loss
-            _accountMarketMap.addDebt(account, quoteToken, -quotePnl);
+            _accountMarketMap.addDebt(trader, quoteToken, -quotePnl);
         }
 
         return pnl.add(quotePnl);
@@ -725,6 +743,10 @@ contract ClearingHouse is
     // TODO including funding payment
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
+    }
+
+    function getOwedRealizedPnlWithPendingFundingPayment(address trader) external view returns (int256) {
+        return _getOwedRealizedPnlWithPendingFundingPayment(trader);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
@@ -877,19 +899,26 @@ contract ClearingHouse is
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         (uint256 baseBalanceAfter, uint256 quoteBalanceAfter) = _getBaseQuoteTokenBalance(params.baseToken);
 
-        // burn base/quote fee
+        // collect fee to owedRealizedPnl
+        _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
+            params.collectedFee.toInt256()
+        );
+
+        // burn base/quote uniswap fee, and exchange's quote fee because it's being moved to owedRealizedPnl
         // base/quote fee of all makers in the range of lowerTick and upperTick should be
         // balanceAfter - balanceBefore - response.base / response.quote
         IMintableERC20(params.baseToken).burn(
             baseBalanceAfter.sub(params.baseBalanceBeforeRemoveLiquidity).sub(params.removedBase)
         );
         IMintableERC20(quoteToken).burn(
-            quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
+            params.collectedFee.add(quoteBalanceAfter).sub(params.quoteBalanceBeforeRemoveLiquidity).sub(
+                params.removedQuote
+            )
         );
-        uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
-        _accountMarketMap.addAvailable(params.maker, quoteToken, removedQuoteAmount);
+
+        _accountMarketMap.addAvailable(params.maker, quoteToken, params.removedQuote);
         _accountMarketMap.addAvailable(params.maker, params.baseToken, params.removedBase);
-        _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
+        _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(params.removedQuote.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
         _burnMax(params.maker, params.baseToken);
@@ -1058,7 +1087,6 @@ contract ClearingHouse is
         // TODO refactor with settle()
         _accountMap[account].owedRealizedPnl = _accountMap[account].owedRealizedPnl.add(deltaPnl);
 
-        uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
         uint256 deltaPnlAbs = deltaPnl.abs();
         // has profit
         if (deltaPnl > 0) {
@@ -1068,6 +1096,7 @@ contract ClearingHouse is
         }
 
         // deltaPnl < 0 (has loss)
+        uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
         if (deltaPnlAbs > quoteDebt) {
             // increase quote.debt enough so that subtraction wil not underflow
             _mint(account, quoteToken, deltaPnlAbs.sub(quoteDebt), false);

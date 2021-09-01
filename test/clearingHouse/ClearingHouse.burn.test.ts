@@ -105,13 +105,9 @@ describe("ClearingHouse.burn", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            const { available: aliceQuoteAvailableAfter } = await clearingHouse.getTokenInfo(
-                alice.address,
-                quoteToken.address,
-            )
-
             // alice got extra quote from fee
-            expect(aliceQuoteAvailableAfter.gt(parseEther("0"))).to.be.true
+            const aliceOwedRealizedPnl = await clearingHouse.getOwedRealizedPnl(alice.address)
+            expect(aliceOwedRealizedPnl.gt(parseEther("0"))).to.be.true
 
             // TODO: move to closePosition's tests
             // await expect(clearingHouse.connect(alice).burn(quoteToken.address, aliceQuoteAvailableAfter))

@@ -173,8 +173,9 @@ describe("ClearingHouse maker close position", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            // include pnl, collectedFee and fundingPayment
             expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(
-                parseEther("-3.311153358681875803"),
+                parseEther("-3.186153358681875804"),
                 1,
             )
         }

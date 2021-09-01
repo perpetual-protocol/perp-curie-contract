@@ -115,19 +115,19 @@ describe("ClearingHouse withdraw", () => {
             })
 
             // verify maker's free collateral
-            // collateral = 100, base debt = 0, quote debt = 0.122414646 - 0.0006151334176 = 0.1217995126
+            // collateral = 100 + 0.0006151334176 = 100.0006151334176, base debt = 0, quote debt = 0.122414646
             // maker.quoteInPool -= 0.06151334176
             // maker.baseInPool += 0.0004084104205
             // maker.unrealizedPnl = positionValue + openNotional
-            //                     = 0.0004084104205 * 100 + (0.0006151334176 - 0.06151334176)
-            //                     = -0.02005716629
+            //                     = 0.0004084104205 * 100 + (-0.06151334176)
+            //                     = -0.02067229971
             //
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
             //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
-            //                  = max(min(100, 100 - 0.02005716629) - max(0.0004084104205 * 100, 0.1217995126) * 0.1, 0)
-            //                  = 99.9677628825
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967762", collateralDecimals))
+            //                  = max(min(100.0006151334176, 100.0006151334176 - 0.02067229971) - max(0.0004084104205 * 100, 0.122414646) * 0.1, 0)
+            //                  = 99.9677005354
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
         })
     })
 
