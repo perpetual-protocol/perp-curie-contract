@@ -1550,6 +1550,11 @@ contract ClearingHouse is
 
         return freeCollateral;
 
+        // TODO checklist before enabling more aggressive configs:
+        // - protect the system against index price spread attack
+        //   https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
+        // - protect against index price anomaly (see the TODO for aggressive model below)
+
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
         // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
 
