@@ -58,7 +58,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     //
     // STRUCT
     //
-    struct AddLiquidityToOrderParams {
+    struct InternalAddLiquidityToOrderParams {
         address maker;
         address baseToken;
         address pool;
@@ -151,7 +151,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 fee;
     }
 
-    struct RemoveLiquidityFromOrderParams {
+    struct InternalRemoveLiquidityFromOrderParams {
         address maker;
         address baseToken;
         address pool;
@@ -443,7 +443,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // mutate states
         uint256 fee =
             _addLiquidityToOrder(
-                AddLiquidityToOrderParams({
+                InternalAddLiquidityToOrderParams({
                     maker: params.trader,
                     baseToken: params.baseToken,
                     pool: pool,
@@ -524,6 +524,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     ) external onlyClearingHouse returns (int256) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        address pool = _poolMap[baseToken];
 
         // update funding of liquidity
         int256 liquidityCoefficientInFundingPayment;
@@ -533,7 +534,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    UniswapV3Broker.getTick(pool),
                     updatedGlobalFundingGrowth.twPremiumX96,
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
@@ -687,15 +688,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         Funding.Growth memory updatedGlobalFundingGrowth
     ) external view returns (int256) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        address pool = _poolMap[baseToken];
+
         int256 liquidityCoefficientInFundingPayment;
 
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
-                _growthOutsideTickMap[baseToken].getAllFundingGrowth(
+                tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(_poolMap[baseToken]),
+                    UniswapV3Broker.getTick(pool),
                     updatedGlobalFundingGrowth.twPremiumX96,
                     updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
@@ -730,7 +734,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // update token info based on existing open order
         uint256 fee =
             _removeLiquidityFromOrder(
-                RemoveLiquidityFromOrderParams({
+                InternalRemoveLiquidityFromOrderParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
                     pool: pool,
@@ -767,7 +771,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
     }
 
-    function _removeLiquidityFromOrder(RemoveLiquidityFromOrderParams memory params) internal returns (uint256) {
+    function _removeLiquidityFromOrder(InternalRemoveLiquidityFromOrderParams memory params)
+        internal
+        returns (uint256)
+    {
         // update token info based on existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
@@ -816,7 +823,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         delete _openOrderMap[orderId];
     }
 
-    function _addLiquidityToOrder(AddLiquidityToOrderParams memory params) internal returns (uint256) {
+    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];

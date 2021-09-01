@@ -76,6 +76,11 @@ describe("ClearingHouse Spec", () => {
 
             await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
             expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
+
+            // out of range [0, 887272*2]
+            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 2e6)).to.be.revertedWith(
+                "CH_MTCLOOR",
+            )
         })
     })
 

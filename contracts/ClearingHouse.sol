@@ -344,6 +344,11 @@ contract ClearingHouse is
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
+
+        // CH_MTO: max tick crossed limit out of range
+        // tick range is [-MAX_TICK, MAX_TICK], so maxTickCrossedWithinBlock should be in [0, 2 * MAX_TICK]
+        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK * 2), "CH_MTCLOOR");
+
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
@@ -504,16 +509,17 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
-        _requireHasBaseToken(params.baseToken);
-        _registerBaseToken(_msgSender(), params.baseToken);
-
         address trader = _msgSender();
+
+        _requireHasBaseToken(params.baseToken);
+        _registerBaseToken(trader, params.baseToken);
+
         // must before price impact check
         Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // !isIncreasePosition() == reduce or close position
-        if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
+        if (!_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote)) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPI: over price impact
             require(
@@ -736,7 +742,7 @@ contract ClearingHouse is
     //
     // EXTERNAL VIEW FUNCTIONS
     //
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint256) {
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
@@ -1349,8 +1355,9 @@ contract ClearingHouse is
         }
 
         int24 lastUpdatedTick = _lastUpdatedTickMap[params.baseToken];
-        int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
-        int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
+        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
+        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
+        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
         int24 finalTick = Exchange(exchange).replaySwap(params);
         return (finalTick < lowerTickBound || finalTick > upperTickBound);
     }
