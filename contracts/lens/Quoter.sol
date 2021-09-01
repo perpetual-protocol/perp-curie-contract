@@ -23,8 +23,6 @@ contract Quoter is IUniswapV3SwapCallback {
     using SignedSafeMath for int256;
     using PerpMath for int256;
 
-    address public exchange;
-
     struct SwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -39,6 +37,8 @@ contract Quoter is IUniswapV3SwapCallback {
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
     }
+
+    address public exchange;
 
     constructor(address exchangeArg) public {
         // Q_EX0: exchange is 0
@@ -86,7 +86,7 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint256 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
+            uint256 fee;
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
