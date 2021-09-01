@@ -160,6 +160,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
+        Funding.Growth updatedGlobalFundingGrowth;
     }
 
     struct SwapResponse {
@@ -211,6 +212,7 @@ contract ClearingHouse is
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         bool skipMarginRequirementCheck;
+        Funding.Growth updatedGlobalFundingGrowth;
     }
 
     struct AfterRemoveLiquidityParams {
@@ -231,17 +233,19 @@ contract ClearingHouse is
         bytes32 referralCode;
     }
 
+    struct InternalClosePositionParams {
+        address trader;
+        address baseToken;
+        uint160 sqrtPriceLimitX96;
+        Funding.Growth updatedGlobalFundingGrowth;
+    }
+
     struct CheckSlippageParams {
         bool isBaseToQuote;
         bool isExactInput;
         uint256 deltaAvailableQuote;
         uint256 deltaAvailableBase;
         uint256 oppositeAmountBound;
-    }
-
-    struct TickStatus {
-        int24 lastUpdatedTick;
-        uint256 lastUpdatedTimestamp;
     }
 
     // not used in CH, due to inherit from BaseRelayRecipient
@@ -291,7 +295,7 @@ contract ClearingHouse is
 
     // key: base token. tracking the final tick from last block
     // will be used for comparing if it exceeds maxTickCrossedWithinBlock
-    mapping(address => TickStatus) internal _tickStatusMap;
+    mapping(address => int24) internal _lastUpdatedTickMap;
 
     constructor(
         address vaultArg,
@@ -462,8 +466,20 @@ contract ClearingHouse is
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
         _requireHasBaseToken(params.baseToken);
+
         address trader = _msgSender();
-        SwapResponse memory response = _closePosition(trader, params.baseToken, params.sqrtPriceLimitX96);
+        Funding.Growth memory updatedGlobalFundingGrowth =
+            _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+
+        SwapResponse memory response =
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: params.baseToken,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                })
+            );
 
         // TODO scale up or down the opposite amount bound if it's a partial close
         // if oldPositionSize is long, close a long position is short, B2Q
@@ -493,8 +509,10 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
 
+        address trader = _msgSender();
         // must before price impact check
-        _saveTickBeforeFirstSwapThisBlock(params.baseToken);
+        Funding.Growth memory updatedGlobalFundingGrowth =
+            _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // !isIncreasePosition() == reduce or close position
         if (!_isIncreasePosition(_msgSender(), params.baseToken, params.isBaseToQuote)) {
@@ -523,7 +541,8 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: false
+                    skipMarginRequirementCheck: false,
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
 
@@ -562,7 +581,16 @@ contract ClearingHouse is
         // CH_NEO: not empty order
         require(!Exchange(exchange).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
 
-        SwapResponse memory response = _closePosition(trader, baseToken, 0);
+        Funding.Growth memory updatedGlobalFundingGrowth = _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+        SwapResponse memory response =
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    sqrtPriceLimitX96: 0,
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                })
+            );
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee = response.exchangedPositionNotional.abs().mulRatio(liquidationPenaltyRatio);
@@ -924,20 +952,6 @@ contract ClearingHouse is
         _burnMax(params.maker, quoteToken);
     }
 
-    function _saveTickBeforeFirstSwapThisBlock(address baseToken) internal {
-        // only do this when it's the first swap in this block
-        uint256 timestamp = _blockTimestamp();
-        if (timestamp == _tickStatusMap[baseToken].lastUpdatedTimestamp) {
-            return;
-        }
-
-        // the current tick before swap = final tick last block
-        _tickStatusMap[baseToken] = TickStatus({
-            lastUpdatedTick: Exchange(exchange).getTick(baseToken),
-            lastUpdatedTimestamp: timestamp
-        });
-    }
-
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
@@ -1119,9 +1133,6 @@ contract ClearingHouse is
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        Funding.Growth memory updatedGlobalFundingGrowth =
-            _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
-
         Exchange.SwapResponse memory response =
             Exchange(exchange).swap(
                 Exchange.SwapParams({
@@ -1131,7 +1142,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
 
@@ -1206,7 +1217,8 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
 
@@ -1234,50 +1246,44 @@ contract ClearingHouse is
         return swapResponse;
     }
 
-    function _closePosition(
-        address trader,
-        address baseToken,
-        uint160 sqrtPriceLimitX96
-    ) internal returns (SwapResponse memory) {
-        int256 positionSize = getPositionSize(trader, baseToken);
+    function _closePosition(InternalClosePositionParams memory params) internal returns (SwapResponse memory) {
+        int256 positionSize = getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
-
-        // must before price impact check
-        _saveTickBeforeFirstSwapThisBlock(baseToken);
 
         // if trader is on long side, baseToQuote: true, exactInput: true
         // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
 
-        Exchange.ReplaySwapParams memory params =
+        Exchange.ReplaySwapParams memory replaySwapParams =
             Exchange.ReplaySwapParams({
-                baseToken: baseToken,
+                baseToken: params.baseToken,
                 isBaseToQuote: isLong,
                 isExactInput: isLong,
                 amount: positionSize.abs(),
-                sqrtPriceLimitX96: sqrtPriceLimitX96
+                sqrtPriceLimitX96: params.sqrtPriceLimitX96
             });
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        if (partialCloseRatio > 0 && _isOverPriceLimit(params)) {
+        if (partialCloseRatio > 0 && _isOverPriceLimit(replaySwapParams)) {
             // CH_AOPLO: already over price limit once
-            require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[trader][baseToken], "CH_AOPLO");
-            _lastOverPriceLimitTimestampMap[trader][baseToken] = _blockTimestamp();
-            params.amount = params.amount.mulRatio(partialCloseRatio);
+            require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
+            _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
+            replaySwapParams.amount = replaySwapParams.amount.mulRatio(partialCloseRatio);
         }
 
         return
             _openPosition(
                 InternalOpenPositionParams({
-                    trader: trader,
+                    trader: params.trader,
                     baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    isExactInput: params.isExactInput,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: true
+                    isBaseToQuote: replaySwapParams.isBaseToQuote,
+                    isExactInput: replaySwapParams.isExactInput,
+                    amount: replaySwapParams.amount,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    skipMarginRequirementCheck: true,
+                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
     }
@@ -1297,8 +1303,9 @@ contract ClearingHouse is
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
-        // only update in the first tx of a block
+        // update states of the last tx before further actions in this block; once per block
         if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
+            // update fundingGrowth
             Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
             (
                 _lastSettledTimestampMap[baseToken],
@@ -1309,6 +1316,9 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth.twPremiumX96,
                 updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
             );
+
+            // update tick
+            _lastUpdatedTickMap[baseToken] = Exchange(exchange).getTick(baseToken);
 
             emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
@@ -1342,7 +1352,7 @@ contract ClearingHouse is
             return false;
         }
 
-        int24 lastUpdatedTick = _tickStatusMap[params.baseToken].lastUpdatedTick;
+        int24 lastUpdatedTick = _lastUpdatedTickMap[params.baseToken];
         int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
         int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
         int24 finalTick = Exchange(exchange).replaySwap(params);
@@ -1385,7 +1395,7 @@ contract ClearingHouse is
     }
 
     function _getUpdatedGlobalFundingGrowth(address baseToken)
-        private
+        internal
         view
         returns (
             Funding.Growth memory updatedGlobalFundingGrowth,

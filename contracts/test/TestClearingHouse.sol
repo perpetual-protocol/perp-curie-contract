@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { ClearingHouse } from "../ClearingHouse.sol";
+import { Funding } from "../lib/Funding.sol";
 
 contract TestClearingHouse is ClearingHouse {
     uint256 private _testBlockTimestamp = 1;
@@ -34,6 +35,7 @@ contract TestClearingHouse is ClearingHouse {
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
+        (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(params.baseToken);
 
         return
             _swapAndCalculateOpenNotional(
@@ -43,7 +45,8 @@ contract TestClearingHouse is ClearingHouse {
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
     }
