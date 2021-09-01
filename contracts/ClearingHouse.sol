@@ -1158,6 +1158,8 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
+    ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (SwapResponse memory) {
         SwapResponse memory swapResponse =
             _swapAndCalculateOpenNotional(
