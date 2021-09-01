@@ -131,7 +131,7 @@ describe("ClearingHouse maker close position", () => {
         expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(parseEther("-7.069408740359897192"), 1)
     })
 
-    it("bob long, maker remove, reduce half then close", async () => {
+    it.only("bob long, maker remove, reduce half then close", async () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
         await deposit(bob, vault, 250, collateral)
@@ -173,8 +173,9 @@ describe("ClearingHouse maker close position", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            // include pnl, collectedFee and fundingPayment
             expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.closeTo(
-                parseEther("-3.311153358681875803"),
+                parseEther("-3.186153358681875804"),
                 1,
             )
         }
