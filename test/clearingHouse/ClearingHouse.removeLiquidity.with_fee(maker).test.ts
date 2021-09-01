@@ -253,12 +253,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                             parseEther("0.001135501474999999"),
                         )
 
-                    // 10000 + 0.001135501474999999 = 10000.001135501474999999
+                    // 10000 +  = 10000.001135501474999999
                     // atm alice's quote tokens should've been burnt and only the fees are left
-                    expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                        parseEther("0.001135501474999999"), // available
-                        parseEther("0"), // debt
-                    ])
+                    expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
+                        parseEther("0.001135501474999999"),
+                    )
 
                     // 0.001135501474999999 * 2 ^ 128 = 3.863911296E35
                     const openOrder = await exchange.getOpenOrder(
