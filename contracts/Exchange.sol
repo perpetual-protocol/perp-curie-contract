@@ -1188,6 +1188,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     /// @dev for UniswapV3Pool.swap(), scaling the amount is necessary to achieve the custom fee effect
     /// @dev for _replaySwap(), however, as we can input ClearingHouseFeeRatio directly in SwapMath.computeSwapStep(),
     ///      there is no need to stick to the scaled amount
+    /// @dev refer to CH._openPosition() docstring for explainer diagram
     function _getScaledAmountForSwaps(
         bool isBaseToQuote,
         bool isExactInput,
