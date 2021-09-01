@@ -599,13 +599,13 @@ contract ClearingHouse is
         require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
 
         Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
-
-        // TODO won't need this external call once moved to Exchange
-        IUniswapV3Pool pool = IUniswapV3Pool(Exchange(exchange).getPool(callbackData.baseToken));
+        IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
-            amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
+            amount0Delta > 0
+                ? (uniswapV3Pool.token0(), uint256(amount0Delta))
+                : (uniswapV3Pool.token1(), uint256(amount1Delta));
 
         // we know the exact amount of a token needed for swap in the swap callback
         // we separate into two part
@@ -641,7 +641,7 @@ contract ClearingHouse is
         }
 
         // swap
-        TransferHelper.safeTransfer(token, address(pool), amountToPay);
+        TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
     }
 
     function cancelExcessOrders(
