@@ -59,7 +59,7 @@ library FeeMath {
     ) internal pure returns (uint256 scaledAmount) {
         // let x : uniswapFeeRatio, y : clearingHouseFeeRatio
         // 1. isBaseToQuote && isExactInput   --> input base / (1 - x)
-        // 2. isBaseToQuote && !isExactInput  --> output base / (1 - y)
+        // 2. isBaseToQuote && !isExactInput  --> output quote / (1 - y)
         // 3. !isBaseToQuote && isExactInput  --> input quote * (1 - y) / (1 - x)
         // 4. !isBaseToQuote && !isExactInput --> output base
         if (isBaseToQuote) {
