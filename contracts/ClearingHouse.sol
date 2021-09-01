@@ -145,14 +145,6 @@ contract ClearingHouse is
         uint256 liquidity;
     }
 
-    struct SwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
-    }
-
     struct InternalSwapParams {
         address trader;
         address baseToken;
@@ -170,16 +162,6 @@ contract ClearingHouse is
         uint256 fee;
         int256 openNotional;
         int256 realizedPnl;
-    }
-
-    struct SwapStep {
-        uint160 initialSqrtPriceX96;
-        int24 nextTick;
-        bool isNextTickInitialized;
-        uint160 nextSqrtPriceX96;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
     }
 
     struct OpenPositionParams {
