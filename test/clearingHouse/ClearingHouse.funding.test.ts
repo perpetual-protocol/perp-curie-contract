@@ -672,7 +672,7 @@ describe("ClearingHouse funding", () => {
             })
 
             describe("two makers with one order each", () => {
-                it.only("one taker swaps, one maker reduces liquidity and then the taker swaps again in different direction", async () => {
+                it("one taker swaps, one maker reduces liquidity and then the taker swaps again in different direction", async () => {
                     //           |-----| alice range
                     //      |----------| carol range
                     //   -----------------------------> p
@@ -893,12 +893,26 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
+                        .to.emit(exchange, "LiquidityChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            quoteToken.address,
+                            50000,
+                            50200,
+                            "-545954482143127198",
+                            "-18031070591189734109",
+                            "-816895716963038010374",
+                            parseEther("0.819689294088102658"),
+                        )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
 
+                    let collectedFee = parseEther("0.819689294088102658")
+                    let fundingPayment = parseEther("0.055663051642020131")
                     // verify owedRealizedPnl
                     const owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(carol.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("-0.055663051642020131"))
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
                     expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
 
                     // alice's funding payment shouldn't be affected by carol's liquidity removal
