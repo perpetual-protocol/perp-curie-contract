@@ -900,20 +900,21 @@ contract ClearingHouse is
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         (uint256 baseBalanceAfter, uint256 quoteBalanceAfter) = _getBaseQuoteTokenBalance(params.baseToken);
 
-        // burn base/quote fee
+        // collect fee to owedRealizedPnl
+        _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
+            params.collectedFee.toInt256()
+        );
+
+        // burn base/quote uniswap fee, and exchange's quote fee because it's being moved to owedRealizedPnl
         // base/quote fee of all makers in the range of lowerTick and upperTick should be
         // balanceAfter - balanceBefore - response.base / response.quote
         IMintableERC20(params.baseToken).burn(
             baseBalanceAfter.sub(params.baseBalanceBeforeRemoveLiquidity).sub(params.removedBase)
         );
         IMintableERC20(quoteToken).burn(
-            quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
-        );
-
-        // TODO should burn collected fee?
-        // collect fee to owedRealizedPnl
-        _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
-            params.collectedFee.toInt256()
+            params.collectedFee.add(quoteBalanceAfter).sub(params.quoteBalanceBeforeRemoveLiquidity).sub(
+                params.removedQuote
+            )
         );
 
         _accountMarketMap.addAvailable(params.maker, quoteToken, params.removedQuote);
@@ -1087,7 +1088,6 @@ contract ClearingHouse is
         // TODO refactor with settle()
         _accountMap[account].owedRealizedPnl = _accountMap[account].owedRealizedPnl.add(deltaPnl);
 
-        uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
         uint256 deltaPnlAbs = deltaPnl.abs();
         // has profit
         if (deltaPnl > 0) {
@@ -1097,6 +1097,7 @@ contract ClearingHouse is
         }
 
         // deltaPnl < 0 (has loss)
+        uint256 quoteDebt = _accountMarketMap.getDebt(account, quoteToken);
         if (deltaPnlAbs > quoteDebt) {
             // increase quote.debt enough so that subtraction wil not underflow
             _mint(account, quoteToken, deltaPnlAbs.sub(quoteDebt), false);
