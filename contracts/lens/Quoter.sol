@@ -11,6 +11,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
+import { FeeMath } from "../lib/FeeMath.sol";
 import { Exchange } from "../Exchange.sol";
 
 /// @title Provides quotes for swaps
@@ -22,8 +23,6 @@ contract Quoter is IUniswapV3SwapCallback {
     using PerpSafeCast for uint256;
     using SignedSafeMath for int256;
     using PerpMath for int256;
-
-    address public exchange;
 
     struct SwapParams {
         address baseToken;
@@ -39,6 +38,8 @@ contract Quoter is IUniswapV3SwapCallback {
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
     }
+
+    address public exchange;
 
     constructor(address exchangeArg) public {
         // Q_EX0: exchange is 0
@@ -86,12 +87,12 @@ contract Quoter is IUniswapV3SwapCallback {
         } catch (bytes memory reason) {
             (uint256 base, uint256 quote) = _parseRevertReason(reason);
 
-            uint256 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
+            uint256 fee;
             int256 exchangedPositionSize;
             int256 exchangedPositionNotional;
 
             if (params.isBaseToQuote) {
-                fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
+                fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, FeeMath._ONE_HUNDRED_PERCENT);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
                 exchangedPositionSize = -(FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).toInt256());
                 // due to base to quote fee, exchangedPositionNotional contains the fee
@@ -108,7 +109,7 @@ contract Quoter is IUniswapV3SwapCallback {
                     exchangeFeeRatio,
                     false
                 )
-                    .div(1e6);
+                    .div(FeeMath._ONE_HUNDRED_PERCENT);
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();

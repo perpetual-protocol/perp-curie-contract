@@ -194,8 +194,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     uint8 public maxOrdersPerMarket;
 
-    uint24 internal constant _ONE_HUNDRED_PERCENTAGE = 1e6; // 100%
-
     // key: base token, value: pool
     mapping(address => address) internal _poolMap;
 
@@ -251,7 +249,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
-        require(ratio <= _ONE_HUNDRED_PERCENTAGE, "EX_RO");
+        require(ratio <= FeeMath._ONE_HUNDRED_PERCENT, "EX_RO");
         _;
     }
 
@@ -937,11 +935,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             // note CH only collects quote fee when swapping base -> quote
             if (params.state.liquidity > 0) {
                 if (params.isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
+                    step.feeAmount = FullMath.mulDivRoundingUp(
+                        step.amountOut,
+                        params.exchangeFeeRatio,
+                        FeeMath._ONE_HUNDRED_PERCENT
+                    );
                 }
 
                 feeResult += step.feeAmount;
-                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
+                uint256 stepInsuranceFundFee =
+                    FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, FeeMath._ONE_HUNDRED_PERCENT);
                 insuranceFundFeeResult += stepInsuranceFundFee;
                 uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(

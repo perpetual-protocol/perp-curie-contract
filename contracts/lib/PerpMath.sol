@@ -7,6 +7,7 @@ import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { FeeMath } from "../lib/FeeMath.sol";
 
 library PerpMath {
     using PerpSafeCast for uint256;
@@ -38,15 +39,15 @@ library PerpMath {
         return value > 0 ? value.toUint256() : (-value).toUint256();
     }
 
-    function divideBy10_18(int256 value) internal pure returns (int256) {
+    function divBy10_18(int256 value) internal pure returns (int256) {
         return value.div(1 ether);
     }
 
-    function divideBy10_18(uint256 value) internal pure returns (uint256) {
+    function divBy10_18(uint256 value) internal pure returns (uint256) {
         return value.div(1 ether);
     }
 
     function mulRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
-        return FullMath.mulDiv(value, ratio, 1e6);
+        return FullMath.mulDiv(value, ratio, FeeMath._ONE_HUNDRED_PERCENT);
     }
 }

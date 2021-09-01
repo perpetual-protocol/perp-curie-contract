@@ -9,6 +9,8 @@ import { UniswapV3Broker } from "./UniswapV3Broker.sol";
 library FeeMath {
     using SafeMath for uint256;
 
+    uint256 internal constant _ONE_HUNDRED_PERCENT = 1e6; // 100%
+
     function calcAmountScaledByFeeRatio(
         uint256 amount,
         uint24 feeRatio,
@@ -17,8 +19,8 @@ library FeeMath {
         // when scaling up, round up to avoid imprecision; it's okay as long as we round down later
         return
             isScaledUp
-                ? FullMath.mulDivRoundingUp(amount, 1e6, uint256(1e6).sub(feeRatio))
-                : FullMath.mulDiv(amount, uint256(1e6).sub(feeRatio), 1e6);
+                ? FullMath.mulDivRoundingUp(amount, _ONE_HUNDRED_PERCENT, uint256(_ONE_HUNDRED_PERCENT).sub(feeRatio))
+                : FullMath.mulDiv(amount, uint256(_ONE_HUNDRED_PERCENT).sub(feeRatio), _ONE_HUNDRED_PERCENT);
     }
 
     /// @param isReplacingUniswapFeeRatio is to replace uniswapFeeRatio or clearingHouseFeeRatio
@@ -38,7 +40,12 @@ library FeeMath {
                 ? (clearingHouseFeeRatio, uniswapFeeRatio)
                 : (uniswapFeeRatio, clearingHouseFeeRatio);
 
-        return FullMath.mulDivRoundingUp(amount, uint256(1e6).sub(newFee), uint256(1e6).sub(replacedFee));
+        return
+            FullMath.mulDivRoundingUp(
+                amount,
+                uint256(_ONE_HUNDRED_PERCENT).sub(newFee),
+                uint256(_ONE_HUNDRED_PERCENT).sub(replacedFee)
+            );
     }
 
     /// @param amount depending on isBaseToQuote & isExactInput, either input or output amount needs to be scaled
