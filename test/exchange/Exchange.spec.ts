@@ -61,9 +61,7 @@ describe("Exchange Spec", () => {
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
             })
 
-            it("add multiple UniswapV3 pools", async function () {
-                this.timeout(60000)
-
+            it("add multiple UniswapV3 pools", async () => {
                 await exchange.addPool(baseToken.address, DEFAULT_FEE)
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
 

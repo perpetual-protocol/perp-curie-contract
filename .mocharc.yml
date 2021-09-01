@@ -1,5 +1,5 @@
 require: 'ts-node/register/files'
-timeout: 5000
+timeout: 60000
 extension: ['ts']
 spec:
   - 'test/**/*.ts'
