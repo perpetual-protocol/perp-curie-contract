@@ -10,6 +10,8 @@ jobs:
               with:
                 persist-credentials: false
 
+            # fix SSH error: git@github.com: Permission denied (publickey).
+            # copy from https://github.com/actions/setup-node/issues/214#issuecomment-810829250
             - name: Reconfigure git to use HTTP authentication
               run: >
                 git config --global url."https://github.com/".insteadOf
@@ -45,11 +47,19 @@ jobs:
                 # to solve problem of memory leak https://stackoverflow.com/a/59572966
                 NODE_OPTIONS: "--max-old-space-size=4096"
 
-
     lint:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
+              with:
+                persist-credentials: false
+
+            # fix SSH error: git@github.com: Permission denied (publickey).
+            # copy from https://github.com/actions/setup-node/issues/214#issuecomment-810829250
+            - name: Reconfigure git to use HTTP authentication
+              run: >
+                git config --global url."https://github.com/".insteadOf
+                ssh://git@github.com/
 
             - name: Get npm cache directory
               id: npm-cache
