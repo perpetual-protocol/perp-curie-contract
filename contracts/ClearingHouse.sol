@@ -821,7 +821,7 @@ contract ClearingHouse is
         emit Burned(account, token, amount);
     }
 
-    function _burnMax(address account, address token) internal {
+    function _burnDebtOrAvailableToZero(address account, address token) internal {
         uint256 burnedAmount = _accountMarketMap.getTokenBalance(account, token).getBurnable();
         if (burnedAmount > 0) {
             _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
@@ -875,10 +875,10 @@ contract ClearingHouse is
         _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
-        _burnMax(params.maker, params.baseToken);
+        _burnDebtOrAvailableToZero(params.maker, params.baseToken);
 
         // burn maker's quote to reduce maker's init margin requirement
-        _burnMax(params.maker, quoteToken);
+        _burnDebtOrAvailableToZero(params.maker, quoteToken);
     }
 
     // expensive
@@ -1025,8 +1025,8 @@ contract ClearingHouse is
         response.realizedPnl = realizedPnl;
 
         // burn excess tokens
-        _burnMax(params.trader, params.baseToken);
-        _burnMax(params.trader, quoteToken);
+        _burnDebtOrAvailableToZero(params.trader, params.baseToken);
+        _burnDebtOrAvailableToZero(params.trader, quoteToken);
         _deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
@@ -1351,20 +1351,6 @@ contract ClearingHouse is
             // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
             updatedGlobalFundingGrowth = outdatedGlobalFundingGrowth;
         }
-    }
-
-    function _getAvailableAndDebtCoefficientInFundingPayment(
-        TokenBalance.Info memory tokenInfo,
-        int256 twPremiumGrowthGlobalX96,
-        int256 lastTwPremiumGrowthGlobalX96
-    ) internal pure returns (int256 availableAndDebtCoefficientInFundingPayment) {
-        return
-            tokenInfo
-                .available
-                .toInt256()
-                .sub(tokenInfo.debt.toInt256())
-                .mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96))
-                .div(PerpFixedPoint96.IQ96);
     }
 
     function _getMarkTwapX96(address token) internal view returns (uint256) {
