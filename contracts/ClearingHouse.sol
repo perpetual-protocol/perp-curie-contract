@@ -1345,8 +1345,8 @@ contract ClearingHouse is
         int24 lastUpdatedTick = _tickStatusMap[params.baseToken].lastUpdatedTick;
         int24 upperTickBound = int256(lastUpdatedTick).add(maxTickDelta).toInt24();
         int24 lowerTickBound = int256(lastUpdatedTick).sub(maxTickDelta).toInt24();
-        Exchange.ReplaySwapResponse memory response = Exchange(exchange).replaySwap(params);
-        return (response.tick < lowerTickBound || response.tick > upperTickBound);
+        int24 finalTick = Exchange(exchange).replaySwap(params);
+        return (finalTick < lowerTickBound || finalTick > upperTickBound);
     }
 
     //

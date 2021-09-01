@@ -555,7 +555,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return liquidityCoefficientInFundingPayment;
     }
 
-    function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory) {
+    // return the price after replay swap (final tick)
+    function replaySwap(ReplaySwapParams memory params) external returns (int24) {
         address pool = _poolMap[params.baseToken];
         uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
@@ -575,7 +576,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             );
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
-        return
+        ReplaySwapResponse memory response =
             _replaySwap(
                 InternalReplaySwapParams({
                     state: swapState,
@@ -588,6 +589,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
+        return response.tick;
     }
 
     /// @inheritdoc IUniswapV3MintCallback
