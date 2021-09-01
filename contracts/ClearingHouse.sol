@@ -666,7 +666,7 @@ contract ClearingHouse is
         // for loop of each order:
         //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
         //         settle funding payment to owedRealizedPnl
-        //         collect fee to quoteToken.available
+        //         collect fee to owedRealizedPnl
         // call Vault.withdraw(token, amount)
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader
@@ -674,12 +674,11 @@ contract ClearingHouse is
         int256 pnl = _getOwedRealizedPnlWithPendingFundingPayment(trader);
         accountStorage.owedRealizedPnl = 0;
 
-        // TODO should check quote in pool as well
         if (accountStorage.tokens.length > 0) {
             return pnl;
         }
 
-        // settle quote when all positions are closed (accountStorage.tokens is empty)
+        // settle quote when all positions are closed (accountStorage.tokens.length == 0)
         int256 quotePnl = _accountMarketMap.getTokenBalance(trader, quoteToken).getNet();
         if (quotePnl > 0) {
             // profit
@@ -735,6 +734,10 @@ contract ClearingHouse is
     // TODO including funding payment
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
+    }
+
+    function getOwedRealizedPnlWithPendingFundingPayment(address trader) external view returns (int256) {
+        return _getOwedRealizedPnlWithPendingFundingPayment(trader);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
@@ -896,10 +899,16 @@ contract ClearingHouse is
         IMintableERC20(quoteToken).burn(
             quoteBalanceAfter.sub(params.quoteBalanceBeforeRemoveLiquidity).sub(params.removedQuote)
         );
-        uint256 removedQuoteAmount = params.removedQuote.add(params.collectedFee);
-        _accountMarketMap.addAvailable(params.maker, quoteToken, removedQuoteAmount);
+
+        // TODO should burn collected fee?
+        // collect fee to owedRealizedPnl
+        _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
+            params.collectedFee.toInt256()
+        );
+
+        _accountMarketMap.addAvailable(params.maker, quoteToken, params.removedQuote);
         _accountMarketMap.addAvailable(params.maker, params.baseToken, params.removedBase);
-        _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(removedQuoteAmount.toInt256()));
+        _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(params.removedQuote.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
         _burnMax(params.maker, params.baseToken);
