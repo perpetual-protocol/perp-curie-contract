@@ -657,12 +657,21 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    function settle(address account) external override returns (int256) {
+    /// @dev settle() would be called by Vault.withdraw()
+    function settle(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == vault, "CH_OV");
 
-        Account storage accountStorage = _accountMap[account];
-        int256 pnl = accountStorage.owedRealizedPnl;
+        // the full process of a trader's withdrawal:
+        // for loop of each order:
+        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
+        //         settle funding payment to owedRealizedPnl
+        //         collect fee to quoteToken.available
+        // call Vault.withdraw(token, amount)
+        //     settle pnl to trader balance in Vault
+        //     transfer amount to trader
+        Account storage accountStorage = _accountMap[trader];
+        int256 pnl = _getOwedRealizedPnlWithPendingFundingPayment(trader);
         accountStorage.owedRealizedPnl = 0;
 
         // TODO should check quote in pool as well
@@ -670,17 +679,17 @@ contract ClearingHouse is
             return pnl;
         }
 
-        // settle quote if all position are closed
-        int256 quotePnl = _accountMarketMap.getTokenBalance(account, quoteToken).getNet();
+        // settle quote when all positions are closed (accountStorage.tokens is empty)
+        int256 quotePnl = _accountMarketMap.getTokenBalance(trader, quoteToken).getNet();
         if (quotePnl > 0) {
             // profit
-            _accountMarketMap.addAvailable(account, quoteToken, -quotePnl);
+            _accountMarketMap.addAvailable(trader, quoteToken, -quotePnl);
 
             // burn profit in quote and add to collateral
             IMintableERC20(quoteToken).burn(quotePnl.toUint256());
         } else {
             // loss
-            _accountMarketMap.addDebt(account, quoteToken, -quotePnl);
+            _accountMarketMap.addDebt(trader, quoteToken, -quotePnl);
         }
 
         return pnl.add(quotePnl);
