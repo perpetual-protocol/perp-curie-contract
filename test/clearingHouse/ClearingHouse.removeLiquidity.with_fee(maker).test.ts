@@ -133,18 +133,21 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "615133417572502",
                     )
 
+                // collect fee to ownedRealizedPnl
+                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
+
                 // no base fee, and excess vTokens should be auto-burnt
                 expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
                     parseEther("0"), // available
                     parseEther("0"), // debt
                 ])
-                // 10000 - 0.122414646(added liquidity) + 0.000615133417572501(fee) = 9999.8782004874
+                // 10000 - 0.122414646 (added liquidity) = 9999.877585354
                 // auto-burnt:
-                //   available = 9999.8782004874 -> 0
-                //   debt = 10000 -> 10000 - 9999.8782004874 = 0.1217995126
+                //   available = 9999.877585354 -> 0
+                //   debt = 10000 -> 10000 - 9999.877585354 = 0.122414646
                 expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
                     parseEther("0"), // available
-                    parseEther("0.121799512582427498"), // debt
+                    parseEther("0.122414646"), // debt
                 ])
                 // note skipping Bob's/ taker's balance
 
@@ -171,7 +174,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(await baseToken.balanceOf(clearingHouse.address)).to.eq("0")
                 // alice should've burnt all the quote tokens (liquidity + fees) she received from the removing liquidity,
                 // so the remaining quote tokens are all bob's
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(parseEther("0.060898208339677747"))
+                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(parseEther("0.061513341757250249"))
             })
 
             describe("initialized price = 148.3760629", () => {
