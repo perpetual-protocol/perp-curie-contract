@@ -1,0 +1,7 @@
+require: 'ts-node/register/files'
+timeout: 20000
+extension: ['ts']
+spec:
+  - 'test/**/*.ts'
+parallel: true
+jobs: 4
