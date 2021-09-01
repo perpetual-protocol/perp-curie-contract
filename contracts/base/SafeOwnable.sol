@@ -52,6 +52,7 @@ abstract contract SafeOwnable is Context {
         // emitting event first to avoid caching values
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
+        _candidate = address(0);
     }
 
     /**
