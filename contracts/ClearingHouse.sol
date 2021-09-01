@@ -313,7 +313,7 @@ contract ClearingHouse is
     //
     modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
-        require(ratio <= 1e6, "CH_RO");
+        require(ratio <= FeeMath._ONE_HUNDRED_PERCENT, "CH_RO");
         _;
     }
 
@@ -612,9 +612,8 @@ contract ClearingHouse is
         // 1. extra minted tokens because the fee is charged by CH now
         // 2. tokens that a trader needs when openPosition
         //
-        // check here for the design of custom fee ,
+        // check here for the design of custom fee
         // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-        // y = clearingHouseFeeRatio, x = uniswapFeeRatio
 
         // 1. fee charged by CH
         // because the amountToPay is scaled up,
@@ -1010,7 +1009,7 @@ contract ClearingHouse is
             // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
             //                      = 252.53 - 137.5 + 11.235 = 126.265
             // openNotional = -openNotionalFraction = 126.265
-            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divideBy10_18();
+            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
             realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             // else, open a larger reverse position
@@ -1078,7 +1077,6 @@ contract ClearingHouse is
 
     // check here for custom fee design,
     // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-    // y = clearingHouseFeeRatio, x = uniswapFeeRatio
     function _swap(InternalSwapParams memory params) internal returns (SwapResponse memory) {
         Funding.Growth memory updatedGlobalFundingGrowth =
             _settleFundingAndUpdateFundingGrowth(params.trader, params.baseToken);
@@ -1425,7 +1423,7 @@ contract ClearingHouse is
     }
 
     function _getDebtValue(address token, uint256 amount) internal view returns (uint256) {
-        return amount.mul(_getIndexPrice(token)).divideBy10_18();
+        return amount.mul(_getIndexPrice(token)).divBy10_18();
     }
 
     // return in settlement token decimals
@@ -1449,7 +1447,7 @@ contract ClearingHouse is
         uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
 
         // both positionSize & indexTwap are in 10^18 already
-        return positionSize.mul(indexTwap.toInt256()).divideBy10_18();
+        return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
