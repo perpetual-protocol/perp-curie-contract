@@ -4,4 +4,4 @@ extension: ['ts']
 spec:
   - 'test/**/*.ts'
 parallel: true
-jobs: 4
+jobs: 2
