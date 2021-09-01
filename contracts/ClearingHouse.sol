@@ -670,6 +670,9 @@ contract ClearingHouse is
         // call Vault.withdraw(token, amount)
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader
+
+        // make sure funding payments are always settled,
+        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_isPoolExistent(baseToken)) {
