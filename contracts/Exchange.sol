@@ -183,10 +183,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     struct ReplaySwapResponse {
+        int24 tick;
         uint256 fee; // exchangeFeeRatio
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
-        uint160 sqrtPriceX96;
-        int24 tick;
     }
 
     address public immutable quoteToken;
@@ -868,10 +867,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return fee;
     }
 
-    function _replaySwap(InternalReplaySwapParams memory params) internal returns (ReplaySwapResponse memory response) {
+    function _replaySwap(InternalReplaySwapParams memory params) internal returns (ReplaySwapResponse memory) {
         address pool = _poolMap[params.baseToken];
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
         uint24 insuranceFundFeeRatio = _insuranceFundFeeRatioMap[params.baseToken];
+        uint256 feeResult; // exchangeFeeRatio
+        uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 
         params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
             ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
@@ -937,9 +938,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
                 }
 
-                response.fee += step.feeAmount;
+                feeResult += step.feeAmount;
                 uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
-                response.insuranceFundFee += stepInsuranceFundFee;
+                insuranceFundFeeResult += stepInsuranceFundFee;
                 uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
                     stepMakerFee,
@@ -982,9 +983,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
         }
 
-        response.sqrtPriceX96 = params.state.sqrtPriceX96;
-        response.tick = params.state.tick;
-        return response;
+        return
+            ReplaySwapResponse({ tick: params.state.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
     }
 
     //
