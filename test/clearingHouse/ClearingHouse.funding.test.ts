@@ -575,9 +575,9 @@ describe("ClearingHouse funding", () => {
 
                 // verify owedRealizedPnl
                 let collectedFee = parseEther("0.829279386920164902")
-                let fundingPayment = parseEther("0.078257551883207429")
+                let fundingPayment = parseEther("-0.078257551883207429")
                 let owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(alice.address)
-                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.add(fundingPayment))
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
                 expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
 
                 await forward(3600)
@@ -672,7 +672,7 @@ describe("ClearingHouse funding", () => {
             })
 
             describe("two makers with one order each", () => {
-                it("one taker swaps, one maker reduces liquidity and then the taker swaps again in different direction", async () => {
+                it.only("one taker swaps, one maker reduces liquidity and then the taker swaps again in different direction", async () => {
                     //           |-----| alice range
                     //      |----------| carol range
                     //   -----------------------------> p
@@ -746,12 +746,26 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
+                        .to.emit(exchange, "LiquidityChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            quoteToken.address,
+                            50000,
+                            50400,
+                            "0",
+                            "0",
+                            "0",
+                            parseEther("0.829279386920164902"),
+                        )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("-0.035604217676821184"))
 
                     // verify owedRealizedPnl
+                    let collectedFee = parseEther("0.829279386920164902")
+                    let fundingPayment = parseEther("-0.035604217676821184")
                     let owedRealizedPnlAfter = await clearingHouse.getOwedRealizedPnl(carol.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.035604217676821184"))
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
                     expect(await clearingHouse.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
 
                     // alice's funding payment shouldn't be affected by carol's liquidity removal
