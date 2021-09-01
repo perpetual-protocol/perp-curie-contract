@@ -278,10 +278,10 @@ library UniswapV3Broker {
         int256 signedScaledAmountForReplaySwap,
         uint256 feeGrowthGlobalX128
     ) internal view returns (SwapState memory) {
-        (uint160 sqrtMarkPrice, int24 getTick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        (uint160 sqrtMarkPrice, int24 tick, , , , , ) = IUniswapV3Pool(pool).slot0();
         return
             SwapState({
-                tick: getTick,
+                tick: tick,
                 sqrtPriceX96: sqrtMarkPrice,
                 amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                 feeGrowthGlobalX128: feeGrowthGlobalX128,

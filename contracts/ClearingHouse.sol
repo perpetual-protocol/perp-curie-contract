@@ -769,8 +769,7 @@ contract ClearingHouse is
         return _getPositionValue(trader, token, twapIntervalArg);
     }
 
-    // TODO remove
-    function getTokenInfo(address trader, address token) public view returns (TokenBalance.Info memory) {
+    function getTokenInfo(address trader, address token) external view returns (TokenBalance.Info memory) {
         return _accountMarketMap.getTokenBalance(trader, token);
     }
 
