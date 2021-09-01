@@ -740,7 +740,7 @@ contract ClearingHouse is
         int256 totalPositionValue;
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 totalPositionValue = totalPositionValue.add(_getPositionValueInTwap(trader, baseToken));
             }
         }
@@ -1308,7 +1308,7 @@ contract ClearingHouse is
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
             }
         }
@@ -1441,7 +1441,7 @@ contract ClearingHouse is
         uint256 tokenLen = tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 // will not use negative value in this case
                 uint256 positionValue = _getPositionValueInTwap(trader, baseToken).abs();
                 totalPositionValue = totalPositionValue.add(positionValue);
@@ -1456,7 +1456,7 @@ contract ClearingHouse is
         uint256 tokenLen = account.tokens.length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
-            if (_isPoolExistent(baseToken)) {
+            if (_hasPool(baseToken)) {
                 uint256 baseDebtValue = _getDebtValue(baseToken, _accountMarketMap.getDebt(trader, baseToken));
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
             }
@@ -1486,7 +1486,7 @@ contract ClearingHouse is
         quote = IERC20Metadata(quoteToken).balanceOf(address(this));
     }
 
-    function _isPoolExistent(address baseToken) internal view returns (bool) {
+    function _hasPool(address baseToken) internal view returns (bool) {
         return Exchange(exchange).getPool(baseToken) != address(0);
     }
 
@@ -1513,7 +1513,7 @@ contract ClearingHouse is
 
     function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
-        require(_isPoolExistent(baseToken), "CH_BTNE");
+        require(_hasPool(baseToken), "CH_BTNE");
     }
 
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
