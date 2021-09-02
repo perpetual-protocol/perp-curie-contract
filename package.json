@@ -1,6 +1,6 @@
 {
   "name": "@perp/lushan",
-  "version": "0.4.2",
+  "version": "0.6.0",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
@@ -20,8 +20,10 @@
     "lint-tests": "if grep -qr 'test' -e '.only('; then echo 'found .only() in tests'; exit 1; else echo 'not found .only() in tests'; fi",
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
-    "deploy:staging": "hardhat deploy --network arbitrumRinkeby",
-    "clean-deploy:staging": "rm -rf deployments/ && hardhat deploy --network arbitrumRinkeby",
+    "deploy:rinkeby": "hardhat deploy --network rinkeby",
+    "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && hardhat deploy --network rinkeby",
+    "deploy:arbitrumRinkeby": "hardhat deploy --network arbitrumRinkeby",
+    "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && hardhat deploy --network arbitrumRinkeby",
     "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
