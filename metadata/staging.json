@@ -3,18 +3,18 @@
     "contracts": {
         "ClearingHouse": {
             "name": "contracts/ClearingHouse.sol:ClearingHouse",
-            "address": "0x78f438215354C05b669Ab9F1EF9C439951008dae",
-            "createdBlockNumber": 3034997
+            "address": "0x3e22e37Cb472c872B5dE121134cFD1B57Ef06560",
+            "createdBlockNumber": 3084414
         },
         "Exchange": {
             "name": "contracts/Exchange.sol:Exchange",
-            "address": "0x6be866b3E77634170B9a524A5469Ac2FA65BCe25",
-            "createdBlockNumber": 3035042
+            "address": "0x2DE84FeA02D162cB69e14aB6DB1638934D0dAdA2",
+            "createdBlockNumber": 3084467
         },
         "InsuranceFund": {
             "name": "contracts/InsuranceFund.sol:InsuranceFund",
-            "address": "0x0b997D89A0fb170f46BC2f0CA971B03f4a5d30A8",
-            "createdBlockNumber": 3034964
+            "address": "0x1C0D9fe8f0A73e753bcF690d68E030918043088f",
+            "createdBlockNumber": 3084367
         },
         "QuoteToken": {
             "name": "contracts/VirtualToken.sol:VirtualToken",
@@ -23,13 +23,13 @@
         },
         "Quoter": {
             "name": "contracts/lens/Quoter.sol:Quoter",
-            "address": "0xc39983F1Fa20316c3a48FD3fd3d0aCB278a2e5d2",
-            "createdBlockNumber": 3035055
+            "address": "0xd124b7cD3cA5c876Ab4ca0D90FA0abA4f6991A0d",
+            "createdBlockNumber": 3084494
         },
         "Vault": {
             "name": "contracts/Vault.sol:Vault",
-            "address": "0x017AE76e0646b52D27C2C1783C535036d1CD0593",
-            "createdBlockNumber": 3034954
+            "address": "0x6f9e99B7baEDC0BDEC82c9309965E31512BF822A",
+            "createdBlockNumber": 3084349
         },
         "btcChainlinkPriceFeed": {
             "name": "contracts/oracle/ChainlinkPriceFeed.sol:ChainlinkPriceFeed",
@@ -69,8 +69,8 @@
         }
     ],
     "externalContracts": {
-        "USDC": "0x515b7bCeA314A19939c159097f26EF848f40b1Ec",
-        "UniswapV3Broker": "0x4F5A7908139cB67bA1f435782445E60501c9f206",
+        "USDC": "0x229F1Ed858B5648bce8632123570e97000A8d2FA",
+        "UniswapV3Broker": "0x991A19b83c898c1e7c4C339B290d2e61b5AC6EDD",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         "vBTCvUSDUniswapV3Pool": "0x71c1d3155Af72944e38D78765678663e5546cC27",
         "vETHvUSDUniswapV3Pool": "0x3c1f060f34B123804BC1bC269732145D8c356A7A"
