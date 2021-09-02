@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2021-09-02
+
+### Added
+
+- added `Exchange` contract
+- added `BaseToken` contract
+- added `MetaTxGateway` contract
+
+### Changed
+
+- Set `ClearingHouse.setMaxMarketsPerAccount(10)`
+- Set `Exchange.setMaxOrdersPerMarket(100)`
+- Set `Exchange.setFeeRatio(baseToken, 1000)` (0.1%) for all BaseTokens
+- Set `Exchange.setInsuranceFundFeeRatio(baseToken, 100000)` (10%) for all BaseTokens
+- `PoolAdded` now emitted by `Exchange`
+- `LiquidityChanged` now emitted by Exchange
+- `Swapped` renamed to `PositionChanged` and still emitted by `ClearingHouse`
+    - event parameters also changed
+
+```solidity
+event PositionChanged(
+    address indexed trader,
+    address indexed baseToken,
+    int256 exchangedPositionSize,
+    int256 exchangedPositionNotional,
+    uint256 fee,
+    int256 openNotional,
+    int256 realizedPnl
+);
+```
+
+- `GlobalFundingGrowthUpdated` renamed to `FundingUpdated` and still emitted by `ClearingHouse`
+    - event parameters also changed
+
+```solidity
+event FundingUpdated(
+    address indexed baseToken,
+    uint256 markTwap,
+    uint256 indexTwap
+);
+```
+
+- `FundingSettled` renamed to `FundingPaymentSettled` and still emitted by `ClearingHouse`
+- QuoteToken inherits from `VirtualToken` contract
+- All BaseTokens inherit from `BaseToken` contract
 
 ## [0.4.2] - 2021-08-24
 
@@ -49,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add whitelist feature for `VirtualToken`
+- add `Quoter` contract
 
 ## [0.2.0] - 2021-08-04
 
