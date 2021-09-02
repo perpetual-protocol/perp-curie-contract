@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // @dev decimals of settlementToken token MUST be less than 18
 library SettlementTokenMath {

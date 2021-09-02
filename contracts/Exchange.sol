@@ -249,7 +249,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
-        require(ratio <= FeeMath._ONE_HUNDRED_PERCENT, "EX_RO");
+        require(ratio <= 1e6, "EX_RO");
         _;
     }
 
@@ -652,6 +652,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 return true;
             }
         }
+        return false;
     }
 
     /// @dev note the return value includes maker fee.
@@ -942,16 +943,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             // note CH only collects quote fee when swapping base -> quote
             if (params.state.liquidity > 0) {
                 if (params.isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(
-                        step.amountOut,
-                        params.exchangeFeeRatio,
-                        FeeMath._ONE_HUNDRED_PERCENT
-                    );
+                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
                 }
 
                 feeResult += step.feeAmount;
-                uint256 stepInsuranceFundFee =
-                    FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, FeeMath._ONE_HUNDRED_PERCENT);
+                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
                 insuranceFundFeeResult += stepInsuranceFundFee;
                 uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
                 params.state.feeGrowthGlobalX128 += FullMath.mulDiv(

@@ -8,8 +8,6 @@ import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -278,10 +276,10 @@ library UniswapV3Broker {
         int256 signedScaledAmountForReplaySwap,
         uint256 feeGrowthGlobalX128
     ) internal view returns (SwapState memory) {
-        (uint160 sqrtMarkPrice, int24 getTick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        (uint160 sqrtMarkPrice, int24 tick, , , , , ) = IUniswapV3Pool(pool).slot0();
         return
             SwapState({
-                tick: getTick,
+                tick: tick,
                 sqrtPriceX96: sqrtMarkPrice,
                 amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                 feeGrowthGlobalX128: feeGrowthGlobalX128,

@@ -13,7 +13,6 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -309,7 +308,7 @@ contract ClearingHouse is
     //
     modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
-        require(ratio <= FeeMath._ONE_HUNDRED_PERCENT, "CH_RO");
+        require(ratio <= 1e6, "CH_RO");
         _;
     }
 
@@ -769,8 +768,7 @@ contract ClearingHouse is
         return _getPositionValue(trader, token, twapIntervalArg);
     }
 
-    // TODO remove
-    function getTokenInfo(address trader, address token) public view returns (TokenBalance.Info memory) {
+    function getTokenInfo(address trader, address token) external view returns (TokenBalance.Info memory) {
         return _accountMarketMap.getTokenBalance(trader, token);
     }
 

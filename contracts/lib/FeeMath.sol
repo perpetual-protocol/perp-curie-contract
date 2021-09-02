@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { UniswapV3Broker } from "./UniswapV3Broker.sol";
 
 library FeeMath {
     using SafeMath for uint256;

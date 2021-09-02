@@ -7,7 +7,6 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
 import { TokenBalance } from "./TokenBalance.sol";
-import { Funding } from "./Funding.sol";
 
 library AccountMarket {
     using SafeMath for uint256;

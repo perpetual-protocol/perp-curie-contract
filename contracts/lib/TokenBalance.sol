@@ -36,15 +36,15 @@ library TokenBalance {
     //
     // VIEW
     //
-    function getNet(TokenBalance.Info memory self) internal view returns (int256) {
+    function getNet(TokenBalance.Info memory self) internal pure returns (int256) {
         return self.available.toInt256().sub(self.debt.toInt256());
     }
 
-    function getBurnable(TokenBalance.Info memory self) internal view returns (uint256) {
+    function getBurnable(TokenBalance.Info memory self) internal pure returns (uint256) {
         return Math.min(self.debt, self.available);
     }
 
-    function isZero(TokenBalance.Info memory self) internal view returns (bool) {
+    function isZero(TokenBalance.Info memory self) internal pure returns (bool) {
         return self.available == 0 && self.debt == 0;
     }
 }

@@ -7,7 +7,6 @@ import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import { FeeMath } from "../lib/FeeMath.sol";
 
 library PerpMath {
     using PerpSafeCast for uint256;
@@ -48,6 +47,6 @@ library PerpMath {
     }
 
     function mulRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
-        return FullMath.mulDiv(value, ratio, FeeMath._ONE_HUNDRED_PERCENT);
+        return FullMath.mulDiv(value, ratio, 1e6);
     }
 }
