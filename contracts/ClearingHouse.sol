@@ -910,9 +910,9 @@ contract ClearingHouse is
     ) internal {
         _requireHasBaseToken(baseToken);
 
-        // CH_EAV: enough account value
+        // CH_EFC: enough free collateral
         // only cancel open orders if there are not enough free collateral
-        require(_getFreeCollateral(maker) < 0, "CH_EAV");
+        require(_getFreeCollateral(maker) < 0, "CH_EFC");
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);

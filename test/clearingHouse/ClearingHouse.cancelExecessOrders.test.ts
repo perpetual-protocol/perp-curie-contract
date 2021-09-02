@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
 import { deposit } from "../helper/token"
@@ -8,7 +8,7 @@ import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
-    const [admin, alice, bob] = waffle.provider.getWallets()
+    const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let exchange: Exchange
@@ -145,7 +145,38 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
     })
 
-    it("force fail, alice has enough account value so shouldn't be canceled", async () => {
+    describe("conservative margin model specific", () => {
+        it("can cancel orders even when account value is higher due to positive unrealized PnL", async () => {
+            // carol to open a long position (so alice incurs a short position)
+            const amount = parseUnits("10", await collateral.decimals())
+            await collateral.transfer(carol.address, amount)
+            await deposit(carol, vault, 10, collateral)
+            // carol position size: 0 -> 0.000490465148677081
+            // alice position size: 0 -> -0.000490465148677081
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("5"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("101", 6), 0, 0, 0]
+            })
+            // alice unrealizedPnl = 5 + 101 * -0.000490465148677081 = 4.95046302
+
+            // freeCollateral = min(collateral, accountValue) - imReq
+            //                = min(10, 14.95) - 10.1 = -0.1 < 0
+            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+            expect(openOrderIds).to.deep.eq([])
+        })
+    })
+
+    it("force fail, alice has enough free collateral so shouldn't be canceled", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
@@ -154,7 +185,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
-        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EAV")
+        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EFC")
 
         const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
