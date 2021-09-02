@@ -754,12 +754,8 @@ contract ClearingHouse is
     }
 
     /// @dev a negative returned value is only be used when calculating pnl
-    function getPositionValue(
-        address trader,
-        address token,
-        uint256 twapIntervalArg
-    ) external view returns (int256) {
-        return _getPositionValue(trader, token, twapIntervalArg);
+    function getPositionValue(address trader, address token) external view returns (int256) {
+        return _getPositionValue(trader, token);
     }
 
     function getTokenInfo(address trader, address token) external view returns (TokenBalance.Info memory) {
@@ -808,7 +804,7 @@ contract ClearingHouse is
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
             if (_hasPool(baseToken)) {
-                totalPositionValue = totalPositionValue.add(_getPositionValueInTwap(trader, baseToken));
+                totalPositionValue = totalPositionValue.add(_getPositionValue(trader, baseToken));
             }
         }
 
@@ -1484,19 +1480,12 @@ contract ClearingHouse is
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
-    function _getPositionValueInTwap(address trader, address token) internal view returns (int256) {
-        return _getPositionValue(trader, token, twapInterval);
-    }
-
-    function _getPositionValue(
-        address trader,
-        address token,
-        uint256 twapIntervalArg
-    ) internal view returns (int256) {
+    /// @dev we use 15 mins twap to calc position value
+    function _getPositionValue(address trader, address token) internal view returns (int256) {
         int256 positionSize = _getPositionSize(trader, token);
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapIntervalArg);
+        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapInterval);
 
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
@@ -1511,7 +1500,7 @@ contract ClearingHouse is
             address baseToken = tokens[i];
             if (_hasPool(baseToken)) {
                 // will not use negative value in this case
-                uint256 positionValue = _getPositionValueInTwap(trader, baseToken).abs();
+                uint256 positionValue = _getPositionValue(trader, baseToken).abs();
                 totalPositionValue = totalPositionValue.add(positionValue);
             }
         }
@@ -1622,6 +1611,11 @@ contract ClearingHouse is
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {
+        // skip when params.oppositeAmountBound is zero
+        if (params.oppositeAmountBound == 0) {
+            return;
+        }
+
         // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
