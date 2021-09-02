@@ -2,10 +2,10 @@ import "@nomiclabs/hardhat-ethers"
 import "@nomiclabs/hardhat-waffle"
 import "@typechain/hardhat"
 import "hardhat-contract-sizer"
+import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import "hardhat-dependency-compiler"
 import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 import {
@@ -14,6 +14,7 @@ import {
     RINKEBY_DEPLOYER_MNEMONIC,
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
+import "./mocha-test"
 
 enum ChainId {
     ARBITRUM_RINKEBY_CHAIN_ID = 421611,
@@ -93,6 +94,12 @@ const config: HardhatUserConfig = {
     },
     gasReporter: {
         excludeContracts: ["test"],
+    },
+    mocha: {
+        require: ["ts-node/register/files"],
+        jobs: 4,
+        timeout: 60000,
+        color: true,
     },
 }
 
