@@ -12,10 +12,13 @@ TODO
 export ARBITRUM_RINKEBY_WEB3_ENDPOINT="YOUR_RPC_ENDPOINT"
 export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="YOUR_MNEMONIC"
 
-npm run clean-deploy:staging
+# deploy and WILL NOT reuse any existing contracts
+npm run clean-deploy:arbitrumRinkeby
+# deploy with reusing existing contracts
+npm run deploy:arbitrumRinkeby
 
 # only run the specific deployment script
-npm run deploy:staging -- --tags Pool-vETHvUSD
+npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
 ```
 
 2. Update CHANGELOG.md
