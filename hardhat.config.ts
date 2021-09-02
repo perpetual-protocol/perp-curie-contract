@@ -2,11 +2,13 @@ import "@nomiclabs/hardhat-ethers"
 import "@nomiclabs/hardhat-waffle"
 import "@typechain/hardhat"
 import "hardhat-contract-sizer"
+import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import "hardhat-dependency-compiler"
 import { HardhatUserConfig } from "hardhat/config"
+import { subtask } from "hardhat/internal/core/config/config-env"
+import Mocha from "mocha"
 import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
@@ -14,6 +16,21 @@ import {
     RINKEBY_DEPLOYER_MNEMONIC,
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
+
+// hardhat uses mocha version 7.1, which is too low to support parallel tests
+// override the built-in mocha test subtask here, so we can use our own version of mocha
+// copied from hardhat/builtin-tasks/test.ts
+const TASK_TEST_RUN_MOCHA_TESTS = "test:run-mocha-tests"
+subtask(TASK_TEST_RUN_MOCHA_TESTS).setAction(async ({ testFiles }: { testFiles: string[] }, { config }) => {
+    const mocha = new Mocha(config.mocha)
+    testFiles.forEach(file => mocha.addFile(file))
+
+    const testFailures = await new Promise<number>(resolve => {
+        mocha.run(resolve)
+    })
+
+    return testFailures
+})
 
 enum ChainId {
     ARBITRUM_RINKEBY_CHAIN_ID = 421611,
@@ -93,6 +110,13 @@ const config: HardhatUserConfig = {
     },
     gasReporter: {
         excludeContracts: ["test"],
+    },
+    mocha: {
+        require: ["ts-node/register/files"],
+        parallel: true,
+        jobs: 4,
+        timeout: 20000,
+        color: true,
     },
 }
 
