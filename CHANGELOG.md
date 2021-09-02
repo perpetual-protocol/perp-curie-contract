@@ -18,9 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Set `ClearingHouse.setMaxMarketsPerAccount(10)`
+- Set `Exchange.setMaxOrdersPerMarket(100)`
 - Set `Exchange.setFeeRatio(baseToken, 1000)` (0.1%) for all BaseTokens
 - Set `Exchange.setInsuranceFundFeeRatio(baseToken, 100000)` (10%) for all BaseTokens
-- Set `Exchange.setMaxOrdersPerMarket(100)` for all BaseTokens
 - `PoolAdded` now emitted by `Exchange`
 - `LiquidityChanged` now emitted by Exchange
 - `Swapped` renamed to `PositionChanged` and still emitted by `ClearingHouse`
