@@ -1,3 +1,5 @@
+// this file is copied from https://github.com/opengsn/forwarder/blob/master/contracts/BaseRelayRecipient.sol
+// just because solidity version inconsistent to our repo
 // SPDX-License-Identifier:MIT
 // solhint-disable no-inline-assembly
 pragma solidity 0.7.6;
