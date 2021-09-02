@@ -1618,6 +1618,11 @@ contract ClearingHouse is
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {
+        // skip when params.oppositeAmountBound is zero
+        if (params.oppositeAmountBound == 0) {
+            return;
+        }
+
         // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
