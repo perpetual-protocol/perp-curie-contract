@@ -522,7 +522,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             it("force error, non-registered pool calls mint callback", async () => {
                 const encodedData = defaultAbiCoder.encode(["address"], [baseToken.address])
-                await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_FMV")
+                await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_OE")
             })
 
             it("force error, orders number exceeded", async () => {

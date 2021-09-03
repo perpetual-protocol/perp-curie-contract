@@ -24,6 +24,7 @@ import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { ClearingHouse } from "./ClearingHouse.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMath for uint256;
@@ -263,6 +264,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner checkRatio(feeRatio) {
+        // EX_PNE: pool not exists
+        require(_poolMap[baseToken] != address(0), "EX_PNE");
         _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
     }
 
@@ -292,6 +295,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[pool] = feeRatio;
         _exchangeFeeRatioMap[pool] = feeRatio;
+
+        ClearingHouse(clearingHouse).mintTokenToMaximum(baseToken);
+        ClearingHouse(clearingHouse).mintTokenToMaximum(quoteToken);
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
