@@ -49,20 +49,6 @@ describe("ClearingHouse funding", () => {
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
 
-        // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
-        // because the very first funding settlement on the market only records the timestamp and
-        // does not calculate or change anything else
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("0"),
-            quote: parseEther("100"),
-            lowerTick: 50200,
-            upperTick: 50400,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
-
         await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
 
@@ -72,6 +58,20 @@ describe("ClearingHouse funding", () => {
 
     describe("# getPendingFundingPayment", () => {
         beforeEach(async () => {
+            // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+            // because the very first funding settlement on the market only records the timestamp and
+            // does not calculate or change anything else
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("100"),
+                lowerTick: 50200,
+                upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
             // bob short
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
@@ -116,7 +116,40 @@ describe("ClearingHouse funding", () => {
     })
 
     describe("# _settleFundingAndUpdateFundingGrowth", () => {
+        it("markTwap & indexTwap are not zero in the first tx of the market", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+            await expect(
+                clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(clearingHouse, "FundingUpdated")
+                .withArgs(baseToken.address, parseEther("154.431096099999999999"), parseEther("150.953124"))
+        })
+
         describe("one maker with one order, multiple takers", () => {
+            beforeEach(async () => {
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            })
+
             // placing this test here as it will be executed first due to the structure
             // twap is introduced by not always setting forward() with values > twapInterval = 900 (default)
             // can notice that markTwaps in this case are different from those in "two takers; first positive then negative funding"
@@ -491,6 +524,20 @@ describe("ClearingHouse funding", () => {
 
         describe("two orders with different ranges, one taker; positive funding", () => {
             beforeEach(async () => {
+                // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+                // because the very first funding settlement on the market only records the timestamp and
+                // does not calculate or change anything else
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
                 // set index price for a positive funding
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150.953124", 6), 0, 0, 0]
