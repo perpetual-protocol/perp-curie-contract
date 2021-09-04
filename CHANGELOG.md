@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2021-09-03
+
+### Removed
+
+- remove `twapIntervalArg` from `ClearinHouse.getPositionValue()`
+
 ## [0.5.2] - 2021-09-02
 
 ### Added
 
-- added `Exchange` contract
-- added `BaseToken` contract
-- added `MetaTxGateway` contract
+- add `Exchange` contract
+- add `BaseToken` contract
+- add `MetaTxGateway` contract
 
 ### Changed
 
@@ -23,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Set `Exchange.setInsuranceFundFeeRatio(baseToken, 100000)` (10%) for all BaseTokens
 - `PoolAdded` now emitted by `Exchange`
 - `LiquidityChanged` now emitted by Exchange
-- `Swapped` renamed to `PositionChanged` and still emitted by `ClearingHouse`
+- `Swapped` is renamed to `PositionChanged` and still emitted by `ClearingHouse`
     - event parameters also changed
 
 ```solidity
@@ -38,7 +44,7 @@ event PositionChanged(
 );
 ```
 
-- `GlobalFundingGrowthUpdated` renamed to `FundingUpdated` and still emitted by `ClearingHouse`
+- `GlobalFundingGrowthUpdated` is renamed to `FundingUpdated` and still emitted by `ClearingHouse`
     - event parameters also changed
 
 ```solidity
@@ -49,7 +55,7 @@ event FundingUpdated(
 );
 ```
 
-- `FundingSettled` renamed to `FundingPaymentSettled` and still emitted by `ClearingHouse`
+- `FundingSettled` is renamed to `FundingPaymentSettled` and still emitted by `ClearingHouse`
 - QuoteToken inherits from `VirtualToken` contract
 - All BaseTokens inherit from `BaseToken` contract
 
