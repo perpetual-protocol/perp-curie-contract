@@ -347,7 +347,8 @@ describe("ClearingHouse funding", () => {
                     })
 
                     // alice add arbitrarily more liquidity. This should not impact alice's position size
-                    // 0.099 * (153.9531248192 - 156.953124) * 1 / 86400 = -0.000003437499061
+                    // note that as the twapInterval/time span here is merely 1 second, markTwap is substituted by mark price
+                    // 0.099 * (153.9623330511 - 156.953124) * 1 / 86400 = -0.000003426947962
                     await expect(
                         clearingHouse.connect(alice).addLiquidity({
                             baseToken: baseToken.address,
@@ -361,13 +362,13 @@ describe("ClearingHouse funding", () => {
                         }),
                     )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(alice.address, baseToken.address, parseEther("-0.000003437499061335"))
+                        .withArgs(alice.address, baseToken.address, parseEther("-0.000003426947962258"))
 
                     await forward(3600)
 
-                    // bob's funding payment = -0.099 * (153.9531248192 - 156.953124) * 3601 / 86400 = 0.01237843412
+                    // bob's funding payment = -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3600) / 86400 = 0.01237842357
                     expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                        parseEther("0.012378434119868779"),
+                        parseEther("0.012378423568769702"),
                     )
                     // alice's funding payment = 0.099 * (153.9531248192 - 156.953124) * 3600 / 86400 = -0.01237499662
                     expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
@@ -376,7 +377,7 @@ describe("ClearingHouse funding", () => {
 
                     // bob's position -0.099 -> -0.2
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.099 * (153.9531248192 - 156.953124) * 3602 / 86400 = 0.01238187162
+                    // -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3601) / 86400 = 0.01238186107
                     await expect(
                         clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
@@ -390,7 +391,7 @@ describe("ClearingHouse funding", () => {
                         }),
                     )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("0.012381871618930114"))
+                        .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
                         .to.emit(clearingHouse, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
 

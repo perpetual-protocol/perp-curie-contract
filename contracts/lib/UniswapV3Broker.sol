@@ -213,8 +213,8 @@ library UniswapV3Broker {
     }
 
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
-        if (twapInterval == 0) {
-            // return the current price if twapInterval == 0
+        // return the current price if twapInterval is too short/ meaningless
+        if (twapInterval < 10) {
             return getSqrtMarkPriceX96(pool);
         }
         uint32[] memory secondsAgos = new uint32[](2);
