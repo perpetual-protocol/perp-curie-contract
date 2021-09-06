@@ -24,7 +24,6 @@ import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { ClearingHouse } from "./ClearingHouse.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMath for uint256;
@@ -280,6 +279,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
         // EX_BDN18: baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
+        // EX_CHBNE: clearingHouse base token balance not enough, should be maximum of uint256
+        require(IERC20Metadata(baseToken).balanceOf(clearingHouse) == type(uint256).max, "EX_CHBNE");
+        // EX_QTSNE: quote token total supply not enough, should be maximum of uint256
+        require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "EX_QTSNE");
         // to ensure the base is always token0 and quote is always token1
         // EX_IB: invalid baseToken
         require(baseToken < quoteToken, "EX_IB");
@@ -295,9 +298,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[pool] = feeRatio;
         _exchangeFeeRatioMap[pool] = feeRatio;
-
-        ClearingHouse(clearingHouse).mintTokenToMaximum(baseToken);
-        ClearingHouse(clearingHouse).mintTokenToMaximum(quoteToken);
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;

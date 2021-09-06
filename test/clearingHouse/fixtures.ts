@@ -97,8 +97,8 @@ export function createClearingHouseFixture(
 
         // set CH as the minter of all virtual tokens
         await vault.setClearingHouse(clearingHouse.address)
-        await baseToken.setMinter(clearingHouse.address)
-        await quoteToken.setMinter(clearingHouse.address)
+        await baseToken.mintMaximumTo(clearingHouse.address)
+        await quoteToken.mintMaximumTo(clearingHouse.address)
 
         // prepare uniswap factory
         const feeTier = 10000
@@ -126,7 +126,7 @@ export function createClearingHouseFixture(
         // deploy another pool
         const _token0Fixture = await token0Fixture(quoteToken.address)
         const baseToken2 = _token0Fixture.baseToken
-        await baseToken2.setMinter(clearingHouse.address)
+        await baseToken2.mintMaximumTo(clearingHouse.address)
         const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
         await uniV3Factory.createPool(baseToken2.address, quoteToken.address, feeTier)
         const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)

@@ -373,13 +373,6 @@ contract ClearingHouse is
     //
     // EXTERNAL ONLY EXCHANGE
     //
-    function mintTokenToMaximum(address token) external onlyExchange {
-        uint256 totalSupply = IMintableERC20(token).totalSupply();
-        if (totalSupply < type(uint256).max) {
-            IMintableERC20(token).mint(address(this), type(uint256).max - totalSupply);
-        }
-    }
-
     /// @inheritdoc IUniswapV3MintCallback
     function uniswapV3MintCallback(
         uint256 amount0Owed,
