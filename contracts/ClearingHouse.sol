@@ -52,6 +52,7 @@ contract ClearingHouse is
     using SettlementTokenMath for int256;
     using TokenBalance for TokenBalance.Info;
     using AccountMarket for mapping(address => mapping(address => AccountMarket.Info));
+    using AccountMarket for AccountMarket.Info;
 
     //
     // events
@@ -1295,9 +1296,7 @@ contract ClearingHouse is
                 updatedGlobalFundingGrowth
             );
         int256 fundingPayment =
-            _accountMarketMap.updateLastFundingGrowth(
-                trader,
-                baseToken,
+            _accountMarketMap[trader][baseToken].updateLastFundingGrowth(
                 liquidityCoefficientInFundingPayment,
                 updatedGlobalFundingGrowth.twPremiumX96
             );

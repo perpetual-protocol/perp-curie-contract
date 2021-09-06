@@ -83,24 +83,22 @@ library AccountMarket {
     }
 
     function updateLastFundingGrowth(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
+        Info storage self,
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
     ) internal returns (int256) {
-        AccountMarket.Info storage accountMarket = self[trader][token];
+        // AccountMarket.Info storage accountMarket = self[trader][token];
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
-                accountMarket.tokenInfo,
+                self.tokenInfo,
                 updatedGlobalFundingGrowthTwPremiumX96,
-                accountMarket.lastTwPremiumGrowthGlobalX96
+                self.lastTwPremiumGrowthGlobalX96
             );
         int256 fundingPayment =
             liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
 
         // update fundingGrowth of funding payment coefficient from available and debt
-        accountMarket.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowthTwPremiumX96;
+        self.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowthTwPremiumX96;
         return fundingPayment;
     }
 
