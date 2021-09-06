@@ -212,8 +212,10 @@ library UniswapV3Broker {
         (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
     }
 
+    /// @dev if twapInterval < 10 (should be less than 1 block), return mark price without twap directly,
+    ///      as twapInterval is too short and makes getting twap over such a short period meaningless
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
-        // return the current price if twapInterval is too short/ meaningless
+        // return the current price as twapInterval is too short/ meaningless
         if (twapInterval < 10) {
             return getSqrtMarkPriceX96(pool);
         }
