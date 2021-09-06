@@ -14,11 +14,13 @@ export ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC="YOUR_MNEMONIC"
 
 # deploy and WILL NOT reuse any existing contracts
 npm run clean-deploy:arbitrumRinkeby
-# deploy with reusing existing contracts
+# deploy and WILL reuse existing contracts
 npm run deploy:arbitrumRinkeby
 
 # only run the specific deployment script
+npm run deploy:arbitrumRinkeby -- --tags ClearingHouse
 npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
+npm run deploy:arbitrumRinkeby -- --tags status
 ```
 
 2. Update CHANGELOG.md
