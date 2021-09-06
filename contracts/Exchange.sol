@@ -87,6 +87,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
+        int24 tickLimit;
     }
 
     struct AddLiquidityParams {
@@ -180,6 +181,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint160 sqrtPriceLimitX96;
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
+        int24 tickLimit;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -340,6 +342,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: _exchangeFeeRatioMap[pool],
                     uniswapFeeRatio: uniswapFeeRatio,
+                    tickLimit: 0,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
@@ -599,6 +602,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     exchangeFeeRatio: exchangeFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
                     shouldUpdateState: false,
+                    tickLimit: params.tickLimit,
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
@@ -998,6 +1002,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             } else if (params.state.sqrtPriceX96 != step.initialSqrtPriceX96) {
                 // update state.tick corresponding to the current price if the price has changed in this step
                 params.state.tick = TickMath.getTickAtSqrtRatio(params.state.sqrtPriceX96);
+            }
+
+            if (params.tickLimit > 0 && params.state.tick >= params.tickLimit) {
+                break;
+            } else if (params.tickLimit < 0 && params.state.tick <= params.tickLimit) {
+                break;
             }
         }
         if (params.shouldUpdateState) {

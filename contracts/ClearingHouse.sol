@@ -1233,6 +1233,7 @@ contract ClearingHouse is
                 isBaseToQuote: isLong,
                 isExactInput: isLong,
                 amount: positionSize.abs(),
+                tickLimit: _getTickLimit(params.baseToken, !isLong),
                 sqrtPriceLimitX96: params.sqrtPriceLimitX96
             });
 
@@ -1322,6 +1323,12 @@ contract ClearingHouse is
             );
     }
 
+    function _getTickLimit(address baseToken, bool isLong) internal view returns (int24) {
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        return isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+    }
+
     function _isOverPriceLimitByReplaySwap(Exchange.ReplaySwapParams memory params) internal returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
         if (maxTickDelta == 0) {
@@ -1329,7 +1336,8 @@ contract ClearingHouse is
         }
 
         int24 finalTick = Exchange(exchange).replaySwap(params);
-        return _isOverPriceLimit(params.baseToken, maxTickDelta, finalTick);
+        return finalTick == params.tickLimit;
+        // return _isOverPriceLimit(params.baseToken, maxTickDelta, finalTick);
     }
 
     //
