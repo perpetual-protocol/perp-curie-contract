@@ -49,20 +49,6 @@ describe("ClearingHouse funding", () => {
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
 
-        // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
-        // because the very first funding settlement on the market only records the timestamp and
-        // does not calculate or change anything else
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("0"),
-            quote: parseEther("100"),
-            lowerTick: 50200,
-            upperTick: 50400,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
-
         await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
         await deposit(bob, vault, 1000, collateral)
 
@@ -72,6 +58,20 @@ describe("ClearingHouse funding", () => {
 
     describe("# getPendingFundingPayment", () => {
         beforeEach(async () => {
+            // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+            // because the very first funding settlement on the market only records the timestamp and
+            // does not calculate or change anything else
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("100"),
+                lowerTick: 50200,
+                upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
             // bob short
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
@@ -116,7 +116,40 @@ describe("ClearingHouse funding", () => {
     })
 
     describe("# _settleFundingAndUpdateFundingGrowth", () => {
+        it("markTwap & indexTwap are not zero in the first tx of the market", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("150.953124", 6), 0, 0, 0]
+            })
+            await expect(
+                clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(clearingHouse, "FundingUpdated")
+                .withArgs(baseToken.address, parseEther("154.431096099999999999"), parseEther("150.953124"))
+        })
+
         describe("one maker with one order, multiple takers", () => {
+            beforeEach(async () => {
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            })
+
             // placing this test here as it will be executed first due to the structure
             // twap is introduced by not always setting forward() with values > twapInterval = 900 (default)
             // can notice that markTwaps in this case are different from those in "two takers; first positive then negative funding"
@@ -314,7 +347,8 @@ describe("ClearingHouse funding", () => {
                     })
 
                     // alice add arbitrarily more liquidity. This should not impact alice's position size
-                    // 0.099 * (153.9531248192 - 156.953124) * 1 / 86400 = -0.000003437499061
+                    // note that as the twapInterval/time span here is merely 1 second, markTwap is substituted by mark price
+                    // 0.099 * (153.9623330511 - 156.953124) * 1 / 86400 = -0.000003426947962
                     await expect(
                         clearingHouse.connect(alice).addLiquidity({
                             baseToken: baseToken.address,
@@ -328,13 +362,13 @@ describe("ClearingHouse funding", () => {
                         }),
                     )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(alice.address, baseToken.address, parseEther("-0.000003437499061335"))
+                        .withArgs(alice.address, baseToken.address, parseEther("-0.000003426947962258"))
 
                     await forward(3600)
 
-                    // bob's funding payment = -0.099 * (153.9531248192 - 156.953124) * 3601 / 86400 = 0.01237843412
+                    // bob's funding payment = -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3600) / 86400 = 0.01237842357
                     expect(await clearingHouse.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                        parseEther("0.012378434119868779"),
+                        parseEther("0.012378423568769702"),
                     )
                     // alice's funding payment = 0.099 * (153.9531248192 - 156.953124) * 3600 / 86400 = -0.01237499662
                     expect(await clearingHouse.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
@@ -343,7 +377,7 @@ describe("ClearingHouse funding", () => {
 
                     // bob's position -0.099 -> -0.2
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.099 * (153.9531248192 - 156.953124) * 3602 / 86400 = 0.01238187162
+                    // -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3601) / 86400 = 0.01238186107
                     await expect(
                         clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
@@ -357,7 +391,7 @@ describe("ClearingHouse funding", () => {
                         }),
                     )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("0.012381871618930114"))
+                        .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
                         .to.emit(clearingHouse, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
 
@@ -491,6 +525,20 @@ describe("ClearingHouse funding", () => {
 
         describe("two orders with different ranges, one taker; positive funding", () => {
             beforeEach(async () => {
+                // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+                // because the very first funding settlement on the market only records the timestamp and
+                // does not calculate or change anything else
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
                 // set index price for a positive funding
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150.953124", 6), 0, 0, 0]

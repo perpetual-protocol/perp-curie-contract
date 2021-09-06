@@ -1418,24 +1418,24 @@ contract ClearingHouse is
     {
         Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
 
+        // get mark twap
+        uint32 twapIntervalArg = twapInterval;
+        // shorten twapInterval if prior observations are not enough for twapInterval
+        if (_firstTradedTimestampMap[baseToken] == 0) {
+            twapIntervalArg = 0;
+        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+        }
+
+        uint256 markTwapX96 =
+            Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        markTwap = markTwapX96.formatX96ToX10_18();
+        indexTwap = _getIndexPrice(baseToken);
+
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
-            // get mark twap
-            uint32 twapIntervalArg = twapInterval;
-            // shorten twapInterval if prior observations are not enough for twapInterval
-            if (_firstTradedTimestampMap[baseToken] == 0) {
-                twapIntervalArg = 0;
-            } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
-                // overflow inspection:
-                // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-                twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
-            }
-            uint256 markTwapX96 =
-                Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
-
-            markTwap = markTwapX96.formatX96ToX10_18();
-            indexTwap = _getIndexPrice(baseToken);
-
             int256 twPremiumDeltaX96 =
                 markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
                     _blockTimestamp().sub(lastSettledTimestamp).toInt256()
