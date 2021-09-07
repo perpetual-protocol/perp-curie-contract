@@ -124,12 +124,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                 openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
             ])
-
-            // // verify CH balance changes
-            // // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-            // //  however, the actual number of tokens sent/received are matched
-            // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
         })
 
         it("force error, pool does not exist", async () => {
@@ -218,12 +212,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // // verify CH balance changes
-                // // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-                // //  however, the actual number of tokens sent/received are matched
-                // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("at current price", async () => {
@@ -291,12 +279,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // // verify CH balance changes
-                // // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-                // //  however, the actual number of tokens sent/received are matched
-                // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("twice", async () => {
@@ -363,10 +345,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // // verify CH balance changes
-                // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
             })
 
             it("force error, remove too much liquidity", async () => {
@@ -485,11 +463,5 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
         ])
-
-        // // verify CH balance changes
-        // // CH should have burnt all base received from pool
-        // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(0)
-        // // CH should have burnt all quote received from pool
-        // expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(0)
     })
 })
