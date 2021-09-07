@@ -311,8 +311,6 @@ describe("ClearingHouse openPosition", () => {
             })
 
             it("increase ? position when exact input", async () => {
-                // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // taker swap 1 USD for ? ETH
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -569,7 +567,6 @@ describe("ClearingHouse openPosition", () => {
 
             it("mint missing amount of vETH for swapping", async () => {
                 await clearingHouse.connect(taker).mint(baseToken.address, parseEther("1"))
-                // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
                 // taker swap 2 ETH for ? USD
                 // it will mint 1 more ETH
@@ -838,7 +835,6 @@ describe("ClearingHouse openPosition", () => {
             // expect taker has 2 USD worth ETH
             const baseTokenInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const posSize = baseTokenInfo.available.sub(baseTokenInfo.debt)
-            // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
             // prepare collateral for carol
             const carolAmount = parseEther("1000")
@@ -860,7 +856,6 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // 0.0130787866
-            // expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(balanceBefore)
 
             // virtual base liquidity = 71.8931973198 + 7.3526936796 = 79.2458909994
             // virtual quote liquidity = 10886.6706588362 - 1010.101010101 = 9876.5696487352
