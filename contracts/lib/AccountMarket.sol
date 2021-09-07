@@ -24,62 +24,31 @@ library AccountMarket {
         int256 openNotionalFraction;
     }
 
-    function clear(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token
-    ) internal {
-        delete self[trader][token];
+    function clear(Info storage self) internal {
+        // TODO find a better way to clear data
+        self.tokenInfo = TokenBalance.Info(0, 0);
+        self.lastTwPremiumGrowthGlobalX96 = 0;
+        self.openNotionalFraction = 0;
     }
 
-    function addAvailable(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
-        uint256 delta
-    ) internal {
-        AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.addAvailable(delta);
+    function addAvailable(Info storage self, uint256 delta) internal {
+        self.tokenInfo.addAvailable(delta);
     }
 
-    function addAvailable(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
-        int256 delta
-    ) internal {
-        AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.addAvailable(delta);
+    function addAvailable(Info storage self, int256 delta) internal {
+        self.tokenInfo.addAvailable(delta);
     }
 
-    function addDebt(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
-        uint256 delta
-    ) internal {
-        AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.addDebt(delta);
+    function addDebt(Info storage self, uint256 delta) internal {
+        self.tokenInfo.addDebt(delta);
     }
 
-    function addDebt(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
-        int256 delta
-    ) internal {
-        AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.tokenInfo.addDebt(delta);
+    function addDebt(Info storage self, int256 delta) internal {
+        self.tokenInfo.addDebt(delta);
     }
 
-    function addOpenNotionalFraction(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
-        int256 delta
-    ) internal {
-        AccountMarket.Info storage accountMarket = self[trader][token];
-        accountMarket.openNotionalFraction = accountMarket.openNotionalFraction.add(delta);
+    function addOpenNotionalFraction(Info storage self, int256 delta) internal {
+        self.openNotionalFraction = self.openNotionalFraction.add(delta);
     }
 
     function updateLastFundingGrowth(
@@ -87,7 +56,6 @@ library AccountMarket {
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
     ) internal returns (int256) {
-        // AccountMarket.Info storage accountMarket = self[trader][token];
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
                 self.tokenInfo,
@@ -106,47 +74,31 @@ library AccountMarket {
     // VIEW
     //
     function getPendingFundingPayment(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token,
+        Info storage self,
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
     ) internal view returns (int256 fundingPayment) {
-        AccountMarket.Info memory accountMarket = self[trader][token];
-
         // funding of liquidity
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
-                accountMarket.tokenInfo,
+                self.tokenInfo,
                 updatedGlobalFundingGrowthTwPremiumX96,
-                accountMarket.lastTwPremiumGrowthGlobalX96
+                self.lastTwPremiumGrowthGlobalX96
             );
 
         return liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
     }
 
-    function getAvailable(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token
-    ) internal view returns (uint256) {
-        return self[trader][token].tokenInfo.available;
+    function getAvailable(Info storage self) internal view returns (uint256) {
+        return self.tokenInfo.available;
     }
 
-    function getDebt(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token
-    ) internal view returns (uint256) {
-        return self[trader][token].tokenInfo.debt;
+    function getDebt(Info storage self) internal view returns (uint256) {
+        return self.tokenInfo.debt;
     }
 
-    function getTokenBalance(
-        mapping(address => mapping(address => AccountMarket.Info)) storage self,
-        address trader,
-        address token
-    ) internal view returns (TokenBalance.Info memory) {
-        return self[trader][token].tokenInfo;
+    function getTokenBalance(Info storage self) internal view returns (TokenBalance.Info memory) {
+        return self.tokenInfo;
     }
 
     function getAvailableAndDebtCoefficientInFundingPayment(
