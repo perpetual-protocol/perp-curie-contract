@@ -2,11 +2,11 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
-import { Math } from "@openzeppelin/contracts/math/Math.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -34,16 +34,16 @@ contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     ISettlement,
-    ReentrancyGuard,
+    ReentrancyGuardUpgradeable,
     Validation,
     OwnerPausable,
     BaseRelayRecipient
 {
-    using SafeMath for uint256;
-    using SafeMath for uint160;
+    using SafeMathUpgradeable for uint256;
+    using SafeMathUpgradeable for uint160;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
-    using SignedSafeMath for int256;
+    using SignedSafeMathUpgradeable for int256;
     using PerpSafeCast for int256;
     using PerpMath for uint256;
     using PerpMath for int256;
@@ -234,24 +234,28 @@ contract ClearingHouse is
     //
     // state variables
     //
-    address public immutable quoteToken;
-    address public immutable uniswapV3Factory;
+
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    address public quoteToken;
+    address public uniswapV3Factory;
+
     address public vault;
     address public insuranceFund;
     address public exchange;
 
-    uint24 public imRatio = 10e4; // initial-margin ratio, 10%
-    uint24 public mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
+    uint24 public imRatio;
+    uint24 public mmRatio;
 
-    uint24 public liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
-    uint24 public partialCloseRatio = 25e4; // partial close ratio, 25%
+    uint24 public liquidationPenaltyRatio;
+    uint24 public partialCloseRatio;
     uint8 public maxMarketsPerAccount;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
-    uint8 internal immutable _settlementTokenDecimals;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    uint8 internal _settlementTokenDecimals;
 
-    uint32 public twapInterval = 15 minutes;
+    uint32 public twapInterval;
 
     // key: trader
     mapping(address => Account) internal _accountMap;
@@ -274,12 +278,12 @@ contract ClearingHouse is
     // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
     mapping(address => int24) internal _lastUpdatedTickMap;
 
-    constructor(
+    function initialize(
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) public {
+    ) public initializer {
         // vault is 0
         require(vaultArg != address(0), "CH_VI0");
         // InsuranceFund is 0
@@ -290,9 +294,11 @@ contract ClearingHouse is
         require(quoteTokenArg != address(0), "CH_QI0");
         // CH_QDN18: quoteToken decimals is not 18
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
-
         // uniV3Factory is 0
         require(uniV3FactoryArg != address(0), "CH_U10");
+
+        __ReentrancyGuard_init();
+        __OwnerPausable_init();
 
         vault = vaultArg;
         insuranceFund = insuranceFundArg;
@@ -300,6 +306,14 @@ contract ClearingHouse is
         uniswapV3Factory = uniV3FactoryArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
+
+        imRatio = 10e4; // initial-margin ratio, 10%
+        mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
+        liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
+        partialCloseRatio = 25e4; // partial close ratio, 25%
+        twapInterval = 15 minutes;
+        // we don't use this var
+        versionRecipient = "2.0.0";
     }
 
     //
@@ -1435,7 +1449,7 @@ contract ClearingHouse is
         uint256 quoteDebtValue = _accountMarketMap[trader][quoteToken].getDebt();
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
         uint256 totalBaseDebtValue = _getTotalBaseDebtValue(trader);
-        return Math.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mulRatio(imRatio);
+        return MathUpgradeable.max(totalPositionValue, totalBaseDebtValue.add(quoteDebtValue)).mulRatio(imRatio);
     }
 
     // return in settlement token decimals
@@ -1519,12 +1533,12 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc BaseRelayRecipient
-    function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
+    function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
         return super._msgSender();
     }
 
     /// @inheritdoc BaseRelayRecipient
-    function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
+    function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
         return super._msgData();
     }
 

@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import { IPriceFeed } from "../interface/IPriceFeed.sol";
 import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
 
-contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext {
-    using SafeMath for uint256;
+contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
+    using SafeMathUpgradeable for uint256;
 
-    AggregatorV3Interface private immutable _aggregator;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    AggregatorV3Interface private _aggregator;
 
-    constructor(AggregatorV3Interface aggregator) public {
+    function initialize(AggregatorV3Interface aggregator) external initializer {
         // BT_IA: invalid address
         require(address(aggregator) != address(0), "BT_IA");
 

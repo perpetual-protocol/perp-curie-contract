@@ -2,17 +2,17 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
 import { TokenBalance } from "./TokenBalance.sol";
 
 library AccountMarket {
-    using SafeMath for uint256;
+    using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
-    using SignedSafeMath for int256;
+    using SignedSafeMathUpgradeable for int256;
     using TokenBalance for TokenBalance.Info;
 
     struct Info {

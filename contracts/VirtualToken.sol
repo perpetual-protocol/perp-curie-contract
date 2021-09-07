@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 
-contract VirtualToken is SafeOwnable, ERC20 {
+contract VirtualToken is SafeOwnable, ERC20Upgradeable {
     mapping(address => bool) internal _whitelistMap;
 
     event WhitelistAdded(address account);
     event WhitelistRemoved(address account);
 
-    constructor(string memory nameArg, string memory symbolArg) public ERC20(nameArg, symbolArg) {
+    function initialize(string memory nameArg, string memory symbolArg) external initializer {
+        __VirtualToken_init(nameArg, symbolArg);
+    }
+
+    function __VirtualToken_init(string memory nameArg, string memory symbolArg) internal {
+        __SafeOwnable_init();
+        __ERC20_init(nameArg, symbolArg);
         // transfer to 0 = burn
         _whitelistMap[address(0)] = true;
     }
@@ -33,7 +39,7 @@ contract VirtualToken is SafeOwnable, ERC20 {
         return _whitelistMap[account];
     }
 
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function _beforeTokenTransfer(
         address from,
         address to,
