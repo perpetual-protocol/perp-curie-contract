@@ -160,7 +160,7 @@ contract ClearingHouse is
         uint256 fee;
         int256 openNotional;
         int256 realizedPnl;
-        int24 tick;
+        uint160 sqrtPriceX96;
     }
 
     struct OpenPositionParams {
@@ -612,10 +612,8 @@ contract ClearingHouse is
         if (isReducePosition) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPI: over price impact
-            require(
-                !_isOverPriceLimit(params.baseToken, _maxTickCrossedWithinBlockMap[params.baseToken], response.tick),
-                "CH_OPI"
-            );
+            uint160 sqrtPriceLimitX96 = _getSqrtPriceLimit(params.baseToken, params.isBaseToQuote ? false : true);
+            require(response.sqrtPriceX96 < sqrtPriceLimitX96, "CH_OPI");
         }
 
         _checkSlippage(
@@ -1144,7 +1142,7 @@ contract ClearingHouse is
                 fee: response.fee,
                 openNotional: 0,
                 realizedPnl: 0,
-                tick: response.tick
+                sqrtPriceX96: response.sqrtPriceX96
             });
     }
 
@@ -1233,8 +1231,7 @@ contract ClearingHouse is
                 isBaseToQuote: isLong,
                 isExactInput: isLong,
                 amount: positionSize.abs(),
-                tickLimit: _getTickLimit(params.baseToken, !isLong),
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                sqrtPriceLimitX96: _getSqrtPriceLimit(params.baseToken, !isLong)
             });
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
@@ -1323,10 +1320,12 @@ contract ClearingHouse is
             );
     }
 
-    function _getTickLimit(address baseToken, bool isLong) internal view returns (int24) {
+    function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        return isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+        int24 tickBoundary =
+            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+        return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
     function _isOverPriceLimitByReplaySwap(Exchange.ReplaySwapParams memory params) internal returns (bool) {
@@ -1335,29 +1334,12 @@ contract ClearingHouse is
             return false;
         }
 
-        int24 finalTick = Exchange(exchange).replaySwap(params);
-        return finalTick == params.tickLimit;
-        // return _isOverPriceLimit(params.baseToken, maxTickDelta, finalTick);
+        return Exchange(exchange).replaySwap(params) >= params.sqrtPriceLimitX96;
     }
 
     //
     // INTERNAL VIEW FUNCTIONS
     //
-
-    function _isOverPriceLimit(
-        address baseToken,
-        uint24 maxTickDelta,
-        int24 tick
-    ) internal view returns (bool) {
-        if (maxTickDelta == 0) {
-            return false;
-        }
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
-        return (tick < lowerTickBound || tick > upperTickBound);
-    }
 
     // -------------------------------
     // --- funding related getters ---

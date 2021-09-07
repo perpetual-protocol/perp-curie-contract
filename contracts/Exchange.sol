@@ -87,7 +87,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
-        int24 tickLimit;
     }
 
     struct AddLiquidityParams {
@@ -122,7 +121,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int256 exchangedPositionNotional;
         uint256 fee;
         uint256 insuranceFundFee;
-        int24 tick;
+        uint160 sqrtPriceX96;
     }
 
     struct MintCallbackData {
@@ -181,12 +180,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint160 sqrtPriceLimitX96;
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
-        int24 tickLimit;
         Funding.Growth globalFundingGrowth;
     }
 
     struct ReplaySwapResponse {
-        int24 tick;
+        uint160 sqrtPriceX96;
         uint256 fee; // exchangeFeeRatio
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
     }
@@ -342,7 +340,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: _exchangeFeeRatioMap[pool],
                     uniswapFeeRatio: uniswapFeeRatio,
-                    tickLimit: 0,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
             );
@@ -398,7 +395,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 exchangedPositionNotional: exchangedPositionNotional,
                 fee: replayResponse.fee,
                 insuranceFundFee: replayResponse.insuranceFundFee,
-                tick: replayResponse.tick
+                sqrtPriceX96: replayResponse.sqrtPriceX96
             });
     }
 
@@ -572,7 +569,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     // return the price after replay swap (final tick)
-    function replaySwap(ReplaySwapParams memory params) external returns (int24) {
+    function replaySwap(ReplaySwapParams memory params) external returns (uint160) {
         address pool = _poolMap[params.baseToken];
         uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
@@ -602,11 +599,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     exchangeFeeRatio: exchangeFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
                     shouldUpdateState: false,
-                    tickLimit: params.tickLimit,
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
-        return response.tick;
+        return response.sqrtPriceX96;
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -1003,12 +999,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 // update state.tick corresponding to the current price if the price has changed in this step
                 params.state.tick = TickMath.getTickAtSqrtRatio(params.state.sqrtPriceX96);
             }
-
-            if (params.tickLimit > 0 && params.state.tick >= params.tickLimit) {
-                break;
-            } else if (params.tickLimit < 0 && params.state.tick <= params.tickLimit) {
-                break;
-            }
         }
         if (params.shouldUpdateState) {
             // update global states since swap state transitions are all done
@@ -1016,7 +1006,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         }
 
         return
-            ReplaySwapResponse({ tick: params.state.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
+            ReplaySwapResponse({
+                sqrtPriceX96: params.state.sqrtPriceX96,
+                fee: feeResult,
+                insuranceFundFee: insuranceFundFeeResult
+            });
     }
 
     //
