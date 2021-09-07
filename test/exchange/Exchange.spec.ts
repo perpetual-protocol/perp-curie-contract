@@ -66,6 +66,7 @@ describe("Exchange Spec", () => {
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
 
                 const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
                 const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
                 const mockedPool2 = await smockit(pool2)
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
@@ -98,7 +99,18 @@ describe("Exchange Spec", () => {
 
             it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
                 const tokenWithLongerAddr = await mockedBaseTokenTo(ADDR_GREATER_THAN, quoteToken.address)
+                tokenWithLongerAddr.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
                 await expect(exchange.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("EX_IB")
+            })
+
+            it("force error, base token balance in clearing house not enough", async () => {
+                const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
+                const mockedPool2 = await smockit(pool2)
+                uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
+                mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+
+                await expect(exchange.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("EX_CHBNE")
             })
         })
 
@@ -108,11 +120,28 @@ describe("Exchange Spec", () => {
     })
 
     describe("onlyOwner setters", () => {
+        beforeEach(async () => {
+            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
+            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
+            const mockedPool = await smockit(pool)
+            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+        })
+
         it("setFeeRatio", async () => {
-            const twoHundredPercent = 2000000 // 200% in uint24
-            await expect(exchange.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
             await exchange.setFeeRatio(baseToken.address, 10000) // 1%
             expect(await exchange.getFeeRatio(baseToken.address)).eq(10000)
+        })
+
+        it("force error, ratio overflow", async () => {
+            await exchange.addPool(baseToken.address, DEFAULT_FEE)
+            const twoHundredPercent = 2000000 // 200% in uint24
+            await expect(exchange.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
+        })
+
+        it("force error, pool not exists", async () => {
+            await expect(exchange.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("EX_PNE")
         })
     })
 })

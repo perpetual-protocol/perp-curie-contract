@@ -28,8 +28,8 @@ describe("UniswapV3Broker swap", () => {
         uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
 
         // broker has the only permission to mint vToken
-        await baseToken.setMinter(uniswapV3Broker.address)
-        await quoteToken.setMinter(uniswapV3Broker.address)
+        await baseToken.mintMaximumTo(uniswapV3Broker.address)
+        await quoteToken.mintMaximumTo(uniswapV3Broker.address)
         await baseToken.addWhitelist(uniswapV3Broker.address)
         await quoteToken.addWhitelist(uniswapV3Broker.address)
         await baseToken.addWhitelist(pool.address)

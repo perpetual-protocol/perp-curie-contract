@@ -5,7 +5,6 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 
 contract VirtualToken is SafeOwnable, ERC20 {
-    address public minter;
     mapping(address => bool) internal _whitelistMap;
 
     event WhitelistAdded(address account);
@@ -16,23 +15,8 @@ contract VirtualToken is SafeOwnable, ERC20 {
         _whitelistMap[address(0)] = true;
     }
 
-    /**
-     * @dev Destroys `amount` tokens from the caller.
-     *
-     * See {ERC20-_burn}.
-     */
-    function burn(uint256 amount) external {
-        _burn(_msgSender(), amount);
-    }
-
-    function mint(address to, uint256 amount) external {
-        // only minter
-        require(_msgSender() == minter, "VT_OM");
-        _mint(to, amount);
-    }
-
-    function setMinter(address minterArg) external onlyOwner {
-        minter = minterArg;
+    function mintMaximumTo(address recipient) external onlyOwner {
+        _mint(recipient, type(uint256).max);
     }
 
     function addWhitelist(address account) external onlyOwner {
@@ -43,6 +27,10 @@ contract VirtualToken is SafeOwnable, ERC20 {
     function removeWhitelist(address account) external onlyOwner {
         _whitelistMap[account] = false;
         emit WhitelistRemoved(account);
+    }
+
+    function isWhitelist(address account) external view returns (bool) {
+        return _whitelistMap[account];
     }
 
     /// @inheritdoc ERC20

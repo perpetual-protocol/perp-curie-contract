@@ -63,9 +63,6 @@ describe("ClearingHouse addLiquidity", () => {
 
             // @SAMPLE - addLiquidity
             it("add liquidity below price with only quote token", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 const result = await clearingHouse.connect(alice).callStatic.addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
@@ -133,18 +130,9 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await quoteToken.decimals()),
-                )
             })
 
             it("add liquidity below price with both tokens but expecting only quote token to be added", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
                 await expect(
@@ -197,18 +185,9 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(await baseToken.balanceOf(clearingHouse.address)).to.eq(baseBefore)
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await quoteToken.decimals()),
-                )
             })
 
             it("add liquidity with both tokens, over commit base", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 const result = await clearingHouse.connect(alice).callStatic.addLiquidity({
                     baseToken: baseToken.address,
                     base: parseUnits("100", await baseToken.decimals()),
@@ -276,20 +255,9 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await baseToken.decimals()),
-                )
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await quoteToken.decimals()),
-                )
             })
 
             it("add liquidity with both tokens, over commit quote", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 50 base and 10000 quote
                 await expect(
@@ -342,18 +310,9 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await baseToken.decimals()),
-                )
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq("0")
             })
 
             it("add liquidity twice", async () => {
-                let baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                let quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 66.06184541 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
@@ -403,14 +362,6 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await baseToken.decimals()),
-                )
-                expect(quoteBefore.sub(await quoteToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await quoteToken.decimals()),
-                )
             })
 
             // TODO add test case with fees
@@ -522,7 +473,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             it("force error, non-registered pool calls mint callback", async () => {
                 const encodedData = defaultAbiCoder.encode(["address"], [baseToken.address])
-                await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_FMV")
+                await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_OE")
             })
 
             it("force error, orders number exceeded", async () => {
@@ -600,9 +551,6 @@ describe("ClearingHouse addLiquidity", () => {
 
             // @SAMPLE - addLiquidity
             it("add liquidity above price with only base token", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
                 await expect(
@@ -655,18 +603,9 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await baseToken.decimals()),
-                )
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
             })
 
             it("add liquidity above price with both tokens but expecting only base token to be added", async () => {
-                const baseBefore = await baseToken.balanceOf(clearingHouse.address)
-                const quoteBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
                 await expect(
@@ -719,12 +658,6 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
-
-                // verify CH balance changes
-                expect(baseBefore.sub(await baseToken.balanceOf(clearingHouse.address))).to.eq(
-                    parseUnits("0", await baseToken.decimals()),
-                )
-                expect(await quoteToken.balanceOf(clearingHouse.address)).to.eq(quoteBefore)
             })
         })
     })

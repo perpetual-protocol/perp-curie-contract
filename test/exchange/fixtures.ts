@@ -26,6 +26,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
         return 18
     })
+    mockedQuoteToken.smocked.totalSupply.will.return.with(async () => {
+        return ethers.constants.MaxUint256
+    })
 
     const mockedVault = await smockit(vault)
     const mockedInsuranceFund = await smockit(insuranceFund)
@@ -43,6 +46,7 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
     )) as ClearingHouse
+    await token1.mintMaximumTo(clearingHouse.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy(
@@ -55,6 +59,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
     mockedBaseToken.smocked.decimals.will.return.with(async () => {
         return 18
+    })
+    mockedBaseToken.smocked.balanceOf.will.return.with(async () => {
+        return ethers.constants.MaxUint256
     })
 
     return {

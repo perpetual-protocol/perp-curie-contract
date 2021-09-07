@@ -22,7 +22,6 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
@@ -288,6 +287,7 @@ contract ClearingHouse is
         // InsuranceFund is 0
         require(insuranceFundArg != address(0), "CH_IFI0");
 
+        // TODO check quoteToken's balance once this is upgradable
         // quoteToken is 0
         require(quoteTokenArg != address(0), "CH_QI0");
         // CH_QDN18: quoteToken decimals is not 18
@@ -310,6 +310,12 @@ contract ClearingHouse is
     modifier checkRatio(uint24 ratio) {
         // CH_RL1: ratio overflow
         require(ratio <= 1e6, "CH_RO");
+        _;
+    }
+
+    modifier onlyExchange() {
+        // only exchange
+        require(_msgSender() == exchange, "CH_OE");
         _;
     }
 
@@ -362,6 +368,82 @@ contract ClearingHouse is
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         _setTrustedForwarder(trustedForwarderArg);
+    }
+
+    //
+    // EXTERNAL ONLY EXCHANGE
+    //
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data // contains baseToken
+    ) external override onlyExchange {
+        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
+
+        if (amount0Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token0();
+            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
+        }
+        if (amount1Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token1();
+            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
+            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
+        }
+    }
+
+    /// @inheritdoc IUniswapV3SwapCallback
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external override onlyExchange {
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // CH_F0S: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
+
+        Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
+        IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
+
+        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
+        (address token, uint256 amountToPay) =
+            amount0Delta > 0
+                ? (uniswapV3Pool.token0(), uint256(amount0Delta))
+                : (uniswapV3Pool.token1(), uint256(amount1Delta));
+
+        // we know the exact amount of a token needed for swap in the swap callback
+        // we separate into two part
+        // 1. extra minted tokens because the fee is charged by CH now
+        // 2. tokens that a trader needs when openPosition
+        //
+        // check here for the design of custom fee
+        // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+
+        // 1. fee charged by CH
+        // because the amountToPay is scaled up,
+        // we need to scale down the amount to get the exact user's input amount
+        // the difference of these two values is minted for compensate the base/quote fee
+        // here is an example for custom fee
+        //  - clearing house fee: 2%, uniswap fee: 1%, use input with exact input: 1 quote
+        //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
+        //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
+        //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
+        uint256 exactSwappedAmount =
+            FeeMath.calcAmountScaledByFeeRatio(amountToPay, callbackData.uniswapFeeRatio, false);
+
+        // 2. openPosition
+        uint256 availableBefore = _accountMarketMap.getAvailable(callbackData.trader, token);
+        // if quote to base, need to mint clearing house quote fee for trader
+        uint256 amount =
+            token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
+
+        if (availableBefore < amount) {
+            _mint(callbackData.trader, token, amount.sub(availableBefore), false);
+        }
+
+        // swap
+        TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
     }
 
     //
@@ -593,87 +675,6 @@ contract ClearingHouse is
         );
     }
 
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data // contains baseToken
-    ) external override {
-        // CH_FMV: failed mintCallback verification
-        require(_msgSender() == exchange, "CH_FMV");
-
-        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
-
-        if (amount0Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token0();
-            _mintIfNotEnough(callbackData.trader, token, amount0Owed);
-            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
-        }
-        if (amount1Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token1();
-            _mintIfNotEnough(callbackData.trader, token, amount1Owed);
-            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
-        }
-    }
-
-    /// @inheritdoc IUniswapV3SwapCallback
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override {
-        // CH_FMV: failed mintCallback verification
-        require(_msgSender() == exchange, "CH_FMV");
-
-        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
-        // CH_F0S: forbidden 0 swap
-        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
-
-        Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
-        IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
-
-        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
-        (address token, uint256 amountToPay) =
-            amount0Delta > 0
-                ? (uniswapV3Pool.token0(), uint256(amount0Delta))
-                : (uniswapV3Pool.token1(), uint256(amount1Delta));
-
-        // we know the exact amount of a token needed for swap in the swap callback
-        // we separate into two part
-        // 1. extra minted tokens because the fee is charged by CH now
-        // 2. tokens that a trader needs when openPosition
-        //
-        // check here for the design of custom fee
-        // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-
-        // 1. fee charged by CH
-        // because the amountToPay is scaled up,
-        // we need to scale down the amount to get the exact user's input amount
-        // the difference of these two values is minted for compensate the base/quote fee
-        // here is an example for custom fee
-        //  - clearing house fee: 2%, uniswap fee: 1%, use input with exact input: 1 quote
-        //    our input to uniswap pool will be 1 * 0.98 / 0.99, and amountToPay is the same
-        //    the `exactSwappedAmount` is (1 * 0.98 / 0.99) * 0.99 = 0.98
-        //    the fee for uniswap pool is (1 * 0.98 / 0.99) * 0.01  <-- we need to mint
-        uint256 exactSwappedAmount =
-            FeeMath.calcAmountScaledByFeeRatio(amountToPay, callbackData.uniswapFeeRatio, false);
-        // not use _mint() here since it will change trader's baseToken available/debt
-        IMintableERC20(token).mint(address(this), amountToPay.sub(exactSwappedAmount));
-
-        // 2. openPosition
-        uint256 availableBefore = _accountMarketMap.getAvailable(callbackData.trader, token);
-        // if quote to base, need to mint clearing house quote fee for trader
-        uint256 amount =
-            token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
-
-        if (availableBefore < amount) {
-            _mint(callbackData.trader, token, amount.sub(availableBefore), false);
-        }
-
-        // swap
-        TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
-    }
-
     function cancelExcessOrders(
         address maker,
         address baseToken,
@@ -723,9 +724,6 @@ contract ClearingHouse is
         if (quotePnl > 0) {
             // profit
             _accountMarketMap.addAvailable(trader, quoteToken, -quotePnl);
-
-            // burn profit in quote and add to collateral
-            IMintableERC20(quoteToken).burn(quotePnl.toUint256());
         } else {
             // loss
             _accountMarketMap.addDebt(trader, quoteToken, -quotePnl);
@@ -839,8 +837,6 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(account);
         }
 
-        IMintableERC20(token).mint(address(this), amount);
-
         emit Minted(account, token, amount);
         return amount;
     }
@@ -878,8 +874,6 @@ contract ClearingHouse is
         if (token != quoteToken) {
             _deregisterBaseToken(account, token);
         }
-
-        IMintableERC20(token).burn(amount);
 
         emit Burned(account, token, amount);
     }
@@ -926,18 +920,6 @@ contract ClearingHouse is
         // collect fee to owedRealizedPnl
         _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
             params.collectedFee.toInt256()
-        );
-
-        // burn base/quote uniswap fee, and exchange's quote fee because it's being moved to owedRealizedPnl
-        // base/quote fee of all makers in the range of lowerTick and upperTick should be
-        // balanceAfter - balanceBefore - response.base / response.quote
-        IMintableERC20(params.baseToken).burn(
-            baseBalanceAfter.sub(params.baseBalanceBeforeRemoveLiquidity).sub(params.removedBase)
-        );
-        IMintableERC20(quoteToken).burn(
-            params.collectedFee.add(quoteBalanceAfter).sub(params.quoteBalanceBeforeRemoveLiquidity).sub(
-                params.removedQuote
-            )
         );
 
         _accountMarketMap.addAvailable(params.maker, quoteToken, params.removedQuote);
@@ -1115,7 +1097,6 @@ contract ClearingHouse is
         // has profit
         if (deltaPnl > 0) {
             _accountMarketMap.addAvailable(account, quoteToken, -(deltaPnlAbs.toInt256()));
-            IMintableERC20(quoteToken).burn(deltaPnlAbs);
             return;
         }
 
