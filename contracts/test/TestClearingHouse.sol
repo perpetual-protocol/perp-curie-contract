@@ -69,13 +69,10 @@ contract TestClearingHouse is ClearingHouse {
         _mint(_msgSender(), token, amount, true);
     }
 
-    /**
-     * @param amount the amount of debt to burn
-     */
-    function burn(address token, uint256 amount) external nonReentrant() {
+    function burn(address token) external nonReentrant() {
         if (token != quoteToken) {
             _requireHasBaseToken(token);
         }
-        _burn(_msgSender(), token, amount);
+        _burn(_msgSender(), token);
     }
 }
