@@ -281,6 +281,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
         // EX_CHBNE: clearingHouse base token balance not enough, should be maximum of uint256
         require(IERC20Metadata(baseToken).balanceOf(clearingHouse) == type(uint256).max, "EX_CHBNE");
+
+        // TODO remove this once quotToken's balance is checked in CH's initializer
         // EX_QTSNE: quote token total supply not enough, should be maximum of uint256
         require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "EX_QTSNE");
         // to ensure the base is always token0 and quote is always token1

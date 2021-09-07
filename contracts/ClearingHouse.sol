@@ -22,7 +22,6 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { IMintableERC20 } from "./interface/IMintableERC20.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
@@ -288,6 +287,7 @@ contract ClearingHouse is
         // InsuranceFund is 0
         require(insuranceFundArg != address(0), "CH_IFI0");
 
+        // TODO check quoteToken's balance once this is upgradable
         // quoteToken is 0
         require(quoteTokenArg != address(0), "CH_QI0");
         // CH_QDN18: quoteToken decimals is not 18
