@@ -15,8 +15,8 @@ contract VirtualToken is SafeOwnable, ERC20 {
         _whitelistMap[address(0)] = true;
     }
 
-    function mintMaximumTo(address clearingHouseAddr) external onlyOwner {
-        _mint(clearingHouseAddr, type(uint256).max);
+    function mintMaximumTo(address recipient) external onlyOwner {
+        _mint(recipient, type(uint256).max);
     }
 
     function addWhitelist(address account) external onlyOwner {
@@ -27,6 +27,10 @@ contract VirtualToken is SafeOwnable, ERC20 {
     function removeWhitelist(address account) external onlyOwner {
         _whitelistMap[account] = false;
         emit WhitelistRemoved(account);
+    }
+
+    function isWhitelist(address account) external view returns (bool) {
+        return _whitelistMap[account];
     }
 
     /// @inheritdoc ERC20
