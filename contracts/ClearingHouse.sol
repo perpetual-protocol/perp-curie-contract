@@ -431,7 +431,7 @@ contract ClearingHouse is
             FeeMath.calcAmountScaledByFeeRatio(amountToPay, callbackData.uniswapFeeRatio, false);
 
         // 2. openPosition
-        uint256 availableBefore = _accountMarketMap.getAvailable(callbackData.trader, token);
+        uint256 availableBefore = _accountMarketMap[callbackData.trader][token].getAvailable();
         // if quote to base, need to mint clearing house quote fee for trader
         uint256 amount =
             token == callbackData.baseToken ? exactSwappedAmount : exactSwappedAmount.add(callbackData.fee);
@@ -854,7 +854,7 @@ contract ClearingHouse is
 
     // caller must ensure the token exists, burn the debt or available of trader to zero
     function _burn(address trader, address token) internal {
-        uint256 amount = _accountMarketMap.getTokenBalance(trader, token).getBurnable();
+        uint256 amount = _accountMarketMap[trader][token].getTokenBalance().getBurnable();
 
         if (amount == 0) {
             return;
@@ -927,7 +927,7 @@ contract ClearingHouse is
             return;
         }
 
-        _accountMarketMap[trader][baseToken].clear();
+        delete _accountMarketMap[trader][baseToken];
 
         uint256 length = _accountMap[trader].tokens.length;
         for (uint256 i; i < length; i++) {

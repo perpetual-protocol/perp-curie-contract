@@ -24,13 +24,6 @@ library AccountMarket {
         int256 openNotionalFraction;
     }
 
-    function clear(Info storage self) internal {
-        // TODO find a better way to clear data
-        self.tokenInfo = TokenBalance.Info(0, 0);
-        self.lastTwPremiumGrowthGlobalX96 = 0;
-        self.openNotionalFraction = 0;
-    }
-
     function addAvailable(Info storage self, uint256 delta) internal {
         self.tokenInfo.addAvailable(delta);
     }
