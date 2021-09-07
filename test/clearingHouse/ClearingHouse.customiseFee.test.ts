@@ -77,6 +77,7 @@ describe("ClearingHouse customized fee", () => {
         await collateral.mint(taker2.address, takerCollateral)
         await collateral.connect(taker2).approve(clearingHouse.address, takerCollateral)
     })
+
     describe("CH fee ratio(2%) > uniswap pool fee ratio(1%)", async () => {
         beforeEach(async () => {
             // set fee ratio to 2%
@@ -89,8 +90,6 @@ describe("ClearingHouse customized fee", () => {
             })
 
             it("long and exact in", async () => {
-                // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 // taker swap 1 USD for ? ETH
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -129,10 +128,6 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("0.02"), 1)
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-                //     balanceBefore.add(parseEther("0.02")),
-                //     1,
-                // )
             })
 
             it("long and exact out", async () => {
@@ -140,8 +135,6 @@ describe("ClearingHouse customized fee", () => {
                 // exchanged notional = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
                 // (qr * (1 - x)) * y / (1 - y)
                 //   taker fee = 153.508143394 / 0.98 * 0.02 = 3.13281925
-                // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
                 await expect(
                     clearingHouse.connect(taker).openPosition({
                         baseToken: baseToken.address,
@@ -178,18 +171,12 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("3.132819252941863777"), 1)
-
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-                //     balanceBefore.add(parseEther("3.132819252941863777")),
-                //     1,
-                // )
             })
 
             it("short and exact in", async () => {
                 // taker swap ? USD for 1 ETH -> base to quote -> fee is included in exchangedNotional
                 //   taker exchangedNotional = 10884.6906588362 - 71.9062751863 * 10884.6906588362 / (71.9062751863 + 1) = 149.2970341856
                 //   taker fee = 149.2970341856 * 0.02 = 2.98594068371
-                // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
                 // taker swap 1 ETH for ? USD
                 await expect(
@@ -228,12 +215,9 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("2.985940683714657555"), 2)
-
-                // expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
             })
 
             it("short and exact out", async () => {
-                // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
                 // taker swap ? ETH for 1 USD
                 await expect(
                     clearingHouse.connect(taker).openPosition({
@@ -273,8 +257,6 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("0.020408163265306123"), 1)
-
-                // expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
             })
         })
 
@@ -301,7 +283,6 @@ describe("ClearingHouse customized fee", () => {
             })
 
             it("increase position and exact in", async () => {
-                // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
                 // taker swap 1 USD for ? ETH again
 
                 await clearingHouse.connect(taker).openPosition({
@@ -329,11 +310,6 @@ describe("ClearingHouse customized fee", () => {
                 expect(fee).to.be.closeTo(parseEther("0.06"), 1)
 
                 expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19416937961245645")
-
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).to.closeTo(
-                //     balanceBefore.add(parseEther("0.02")),
-                //     1,
-                // )
             })
 
             it("increase position and exact out", async () => {
@@ -348,8 +324,6 @@ describe("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-
-                // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
                 const feeBeforeSwap = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -386,10 +360,6 @@ describe("ClearingHouse customized fee", () => {
                     })
                 ).fee
                 expect(feeAfterSwap.sub(feeBeforeSwap)).to.be.closeTo(parseEther("3.132819252941863777"), 1)
-                // expect(await quoteToken.balanceOf(clearingHouse.address)).to.closeTo(
-                //     balanceBefore.add(parseEther("3.132819252941863777")),
-                //     1,
-                // )
             })
         })
     })
@@ -402,8 +372,6 @@ describe("ClearingHouse customized fee", () => {
         })
 
         it("long and exact in", async () => {
-            // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
-
             // taker swap 1 USD for ? ETH
             await expect(
                 clearingHouse.connect(taker).openPosition({
@@ -442,10 +410,6 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.005"), 1)
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-            //     balanceBefore.add(parseEther("0.005")),
-            //     1,
-            // )
         })
 
         it("long and exact out", async () => {
@@ -453,7 +417,6 @@ describe("ClearingHouse customized fee", () => {
             // exchanged notional = 71.9062751863 * 10884.6906588362 / (71.9062751863 - 1) - 10884.6906588362 = 153.508143394
             // (qr * (1 - x)) * y / (1 - y)
             //   taker fee = 153.508143394 / 0.995 * 0.005 = 0.77139771
-            // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
 
             await expect(
                 clearingHouse.connect(taker).openPosition({
@@ -491,18 +454,12 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.771397705498247865"), 1)
-
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-            //     balanceBefore.add(parseEther("0.771397705498247865")),
-            //     1,
-            // )
         })
 
         it("short and exact in", async () => {
             // taker swap ? USD for 1 ETH -> base to quote -> fee is included in exchangedNotional
             //   taker exchangedNotional = 10884.6906588362 - 71.9062751863 * 10884.6906588362 / (71.9062751863 + 1) = 149.2970341856
             //   taker fee = 149.2970341856 * 0.005 = 0.74648517
-            // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
 
             // taker swap 1 ETH for ? USD
             await expect(
@@ -541,12 +498,9 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.746485170928664389"), 2)
-
-            // expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
         })
 
         it("short and exact out", async () => {
-            // const balanceBefore = await baseToken.balanceOf(clearingHouse.address)
             // taker swap 1 ETH for ? USD
             await expect(
                 clearingHouse.connect(taker).openPosition({
@@ -586,19 +540,15 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.005025125628140704"), 2)
-
-            // expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(balanceBefore)
         })
     })
 
     describe("change CH fee ratio", async () => {
-        let balanceBefore: BigNumber
         beforeEach(async () => {
             // set fee ratio to 0.5%
             await exchange.setFeeRatio(baseToken.address, 20000)
             await deposit(taker, vault, 1000, collateral)
 
-            // balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -652,10 +602,6 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.05"), 1)
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-            //     balanceBefore.add(parseEther("0.05")),
-            //     2,
-            // )
         })
 
         it("change from 2% to 1%", async () => {
@@ -699,10 +645,6 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.03"), 1)
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-            //     balanceBefore.add(parseEther("0.03")),
-            //     1,
-            // )
         })
 
         it("change from 2% to 3% and then to 5%", async () => {
@@ -760,10 +702,6 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
             expect(fee).to.be.closeTo(parseEther("0.1"), 1)
-            // expect(await quoteToken.balanceOf(clearingHouse.address)).be.closeTo(
-            //     balanceBefore.add(parseEther("0.1")),
-            //     3,
-            // )
         })
     })
 
@@ -779,7 +717,6 @@ describe("ClearingHouse customized fee", () => {
         })
 
         it("Q2B and exact in", async () => {
-            // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -802,13 +739,11 @@ describe("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-
-            // const after = await quoteToken.balanceOf(clearingHouse.address)
-            // expect(after.sub(balanceBefore).sub(fee)).gte(0)
+            // 8000 * 2% = 160
+            expect(fee).to.be.eq(parseEther("160"))
         })
 
         it("Q2B and exact out", async () => {
-            // const balanceBefore = await quoteToken.balanceOf(clearingHouse.address)
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -831,8 +766,9 @@ describe("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // const after = await quoteToken.balanceOf(clearingHouse.address)
-            // expect(after.sub(balanceBefore).sub(fee)).gte(0)
+
+            // TODO need spreadsheet
+            expect(fee).is.gt(0)
         })
     })
 })
