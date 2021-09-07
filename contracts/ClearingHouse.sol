@@ -198,8 +198,6 @@ contract ClearingHouse is
     struct AfterRemoveLiquidityParams {
         address maker;
         address baseToken;
-        uint256 baseBalanceBeforeRemoveLiquidity;
-        uint256 quoteBalanceBeforeRemoveLiquidity;
         uint256 removedBase;
         uint256 removedQuote;
         uint256 collectedFee;
@@ -853,36 +851,22 @@ contract ClearingHouse is
         }
     }
 
-    // caller must ensure the token exists
-    function _burn(
-        address account,
-        address token,
-        uint256 amount
-    ) internal {
+    // caller must ensure the token exists, burn the debt or available of trader to zero
+    function _burn(address trader, address token) internal {
+        uint256 amount = _accountMarketMap.getTokenBalance(trader, token).getBurnable();
         if (amount == 0) {
             return;
         }
 
-        // CH_IBTB: insufficient balance to burn
-        // can only burn the amount of debt that can be pay back with available
-        require(amount <= _accountMarketMap.getTokenBalance(account, token).getBurnable(), "CH_IBTB");
-
         // pay back debt
-        _accountMarketMap.addAvailable(account, token, -(amount.toInt256()));
-        _accountMarketMap.addDebt(account, token, -(amount.toInt256()));
+        _accountMarketMap.addAvailable(trader, token, -(amount.toInt256()));
+        _accountMarketMap.addDebt(trader, token, -(amount.toInt256()));
 
         if (token != quoteToken) {
-            _deregisterBaseToken(account, token);
+            _deregisterBaseToken(trader, token);
         }
 
-        emit Burned(account, token, amount);
-    }
-
-    function _burnDebtOrAvailableToZero(address account, address token) internal {
-        uint256 burnedAmount = _accountMarketMap.getTokenBalance(account, token).getBurnable();
-        if (burnedAmount > 0) {
-            _burn(account, token, Math.min(burnedAmount, IERC20Metadata(token).balanceOf(address(this))));
-        }
+        emit Burned(trader, token, amount);
     }
 
     function _cancelExcessOrders(
@@ -898,15 +882,12 @@ contract ClearingHouse is
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
-        (uint256 baseBalanceBefore, uint256 quoteBalanceBefore) = _getBaseQuoteTokenBalance(baseToken);
         Exchange.RemoveLiquidityResponse memory response =
             Exchange(exchange).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
             AfterRemoveLiquidityParams({
                 maker: maker,
                 baseToken: baseToken,
-                baseBalanceBeforeRemoveLiquidity: baseBalanceBefore,
-                quoteBalanceBeforeRemoveLiquidity: quoteBalanceBefore,
                 removedBase: response.base,
                 removedQuote: response.quote,
                 collectedFee: response.fee
@@ -915,8 +896,6 @@ contract ClearingHouse is
     }
 
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
-        (uint256 baseBalanceAfter, uint256 quoteBalanceAfter) = _getBaseQuoteTokenBalance(params.baseToken);
-
         // collect fee to owedRealizedPnl
         _accountMap[params.maker].owedRealizedPnl = _accountMap[params.maker].owedRealizedPnl.add(
             params.collectedFee.toInt256()
@@ -927,10 +906,10 @@ contract ClearingHouse is
         _accountMarketMap.addOpenNotionalFraction(params.maker, params.baseToken, -(params.removedQuote.toInt256()));
 
         // burn maker's debt to reduce maker's init margin requirement
-        _burnDebtOrAvailableToZero(params.maker, params.baseToken);
+        _burn(params.maker, params.baseToken);
 
         // burn maker's quote to reduce maker's init margin requirement
-        _burnDebtOrAvailableToZero(params.maker, quoteToken);
+        _burn(params.maker, quoteToken);
     }
 
     // expensive
@@ -1077,8 +1056,8 @@ contract ClearingHouse is
         response.realizedPnl = realizedPnl;
 
         // burn excess tokens
-        _burnDebtOrAvailableToZero(params.trader, params.baseToken);
-        _burnDebtOrAvailableToZero(params.trader, quoteToken);
+        _burn(params.trader, params.baseToken);
+        _burn(params.trader, quoteToken);
         _deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
@@ -1162,7 +1141,6 @@ contract ClearingHouse is
     {
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
-        (uint256 baseBalanceBefore, uint256 quoteBalanceBefore) = _getBaseQuoteTokenBalance(params.baseToken);
         Exchange.RemoveLiquidityResponse memory response =
             Exchange(exchange).removeLiquidity(
                 Exchange.RemoveLiquidityParams({
@@ -1178,8 +1156,6 @@ contract ClearingHouse is
             AfterRemoveLiquidityParams({
                 maker: params.maker,
                 baseToken: params.baseToken,
-                baseBalanceBeforeRemoveLiquidity: baseBalanceBefore,
-                quoteBalanceBeforeRemoveLiquidity: quoteBalanceBefore,
                 removedBase: response.base,
                 removedQuote: response.quote,
                 collectedFee: response.fee
@@ -1518,11 +1494,6 @@ contract ClearingHouse is
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize = vBaseAmount.toInt256().sub(_accountMarketMap.getDebt(trader, baseToken).toInt256());
         return positionSize.abs() < _DUST ? 0 : positionSize;
-    }
-
-    function _getBaseQuoteTokenBalance(address baseToken) internal view returns (uint256 base, uint256 quote) {
-        base = IERC20Metadata(baseToken).balanceOf(address(this));
-        quote = IERC20Metadata(quoteToken).balanceOf(address(this));
     }
 
     function _hasPool(address baseToken) internal view returns (bool) {
