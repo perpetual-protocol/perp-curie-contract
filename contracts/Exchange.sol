@@ -527,17 +527,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
+    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) external onlyClearingHouse returns (int256) {
+    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = _poolMap[baseToken];
 
-        // update funding of liquidity
-        int256 liquidityCoefficientInFundingPayment;
+        // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
@@ -551,7 +551,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
 
             // thus, state updates have to come after
@@ -693,17 +693,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
+    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) external view returns (int256) {
+    ) external view returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = _poolMap[baseToken];
 
-        int256 liquidityCoefficientInFundingPayment;
-
+        // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
@@ -717,7 +717,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPayment(order, fundingGrowthRangeInfo)
+                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
         }
 
@@ -1083,7 +1083,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         }
     }
 
-    function _getLiquidityCoefficientInFundingPayment(
+    /// @dev the funding payment of an order/liquidity is composed of
+    ///      1. funding accrued inside the range 2. funding accrued below the range
+    ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
+    /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
+    function _getLiquidityCoefficientInFundingPaymentByOrder(
         OpenOrder memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
@@ -1096,6 +1100,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 sqrtPriceX96AtUpperTick,
                 order.liquidity
             );
+        // funding below the range
         int256 fundingBelowX96 =
             baseAmountBelow.toInt256().mul(
                 fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)

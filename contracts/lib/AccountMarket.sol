@@ -44,34 +44,39 @@ library AccountMarket {
         self.openNotionalFraction = self.openNotionalFraction.add(delta);
     }
 
-    function updateLastFundingGrowth(
+    /// @dev this is the non-view version of getPendingFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
+    function updateFundingGrowthAngFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
-    ) internal returns (int256) {
+    ) internal returns (int256 fundingPayment) {
+        // funding of available and debt coefficient
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
                 self.tokenInfo,
                 updatedGlobalFundingGrowthTwPremiumX96,
                 self.lastTwPremiumGrowthGlobalX96
             );
-        int256 fundingPayment =
-            liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
 
-        // update fundingGrowth of funding payment coefficient from available and debt
+        // update fundingGrowth of funding payment coefficient of available and debt
         self.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowthTwPremiumX96;
-        return fundingPayment;
+
+        return liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
     }
 
     //
     // VIEW
     //
+
+    /// @dev this is the view version of updateFundingGrowthAngFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function getPendingFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
         int256 updatedGlobalFundingGrowthTwPremiumX96
     ) internal view returns (int256 fundingPayment) {
-        // funding of liquidity
+        // funding of available and debt coefficient
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
                 self.tokenInfo,

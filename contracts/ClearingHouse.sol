@@ -783,14 +783,14 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    /// @return fundingPayment > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         _requireHasBaseToken(baseToken);
         (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
         return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
-    /// @return fundingPayment > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
     function getAllPendingFundingPayment(address trader) external view returns (int256) {
         return _getAllPendingFundingPayment(trader);
     }
@@ -1245,6 +1245,11 @@ contract ClearingHouse is
             );
     }
 
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
+    /// @dev personal funding payment is settled whenever there is pending funding payment
+    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return updatedGlobalFundingGrowth the up-to-date globalFundingGrowth, usually used for later calculations
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         private
         returns (Funding.Growth memory updatedGlobalFundingGrowth)
@@ -1253,6 +1258,7 @@ contract ClearingHouse is
         uint256 indexTwap;
         (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
 
+        // pass updatedGlobalFundingGrowth in for states mutation
         int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
 
         if (fundingPayment != 0) {
@@ -1282,23 +1288,24 @@ contract ClearingHouse is
     }
 
     /// @dev this is the non-view version of _getPendingFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory updatedGlobalFundingGrowth
-    ) internal returns (int256) {
+    ) internal returns (int256 fundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 updatedGlobalFundingGrowth
             );
-        int256 fundingPayment =
-            _accountMarketMap[trader][baseToken].updateLastFundingGrowth(
+
+        return
+            _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
                 liquidityCoefficientInFundingPayment,
                 updatedGlobalFundingGrowth.twPremiumX96
             );
-        return fundingPayment;
     }
 
     function _isOverPriceLimitByReplaySwap(Exchange.ReplaySwapParams memory params) internal returns (bool) {
@@ -1334,6 +1341,7 @@ contract ClearingHouse is
     // --- funding related getters ---
 
     /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
@@ -1342,7 +1350,6 @@ contract ClearingHouse is
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
 
-        // funding of liquidity
         return
             _accountMarketMap[trader][baseToken].getPendingFundingPayment(
                 liquidityCoefficientInFundingPayment,
@@ -1350,6 +1357,7 @@ contract ClearingHouse is
             );
     }
 
+    /// @return fundingPayment the funding payment of all markets of a trader
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];
@@ -1359,6 +1367,10 @@ contract ClearingHouse is
         }
     }
 
+    /// @dev this function calculates the up-to-date globalFundingGrowth and pass it out
+    /// @return updatedGlobalFundingGrowth the up-to-date globalFundingGrowth
+    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
+    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
     function _getUpdatedGlobalFundingGrowth(address baseToken)
         internal
         view
