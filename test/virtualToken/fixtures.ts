@@ -1,6 +1,6 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { BaseToken } from "../../typechain"
+import { BaseToken, ChainlinkPriceFeed } from "../../typechain"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
@@ -17,14 +17,12 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
     })
 
     const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-    const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
+    const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy()) as ChainlinkPriceFeed
+    await chainlinkPriceFeed.initialize(mockedAggregator.address)
 
     const baseTokenFactory = await ethers.getContractFactory("BaseToken")
-    const baseToken = (await baseTokenFactory.deploy(
-        "RandomTestToken0",
-        "RandomTestToken0",
-        chainlinkPriceFeed.address,
-    )) as BaseToken
+    const baseToken = (await baseTokenFactory.deploy()) as BaseToken
+    await baseToken.initialize("RandomTestToken0", "RandomTestToken0", chainlinkPriceFeed.address)
 
     return { baseToken, mockedAggregator }
 }

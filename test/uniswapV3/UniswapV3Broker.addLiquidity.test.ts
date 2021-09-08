@@ -26,7 +26,8 @@ describe("UniswapV3Broker addLiquidity", () => {
         quoteToken = _quoteToken
 
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
-        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy()) as TestUniswapV3Broker
+        await uniswapV3Broker.initialize(factory.address)
 
         // broker has the only permission to mint vToken
         await baseToken.mintMaximumTo(uniswapV3Broker.address)

@@ -1,7 +1,13 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { BaseToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } from "../../typechain"
-import { QuoteToken } from "../../typechain/QuoteToken"
+import {
+    BaseToken,
+    ChainlinkPriceFeed,
+    QuoteToken,
+    UniswapV3Factory,
+    UniswapV3Pool,
+    VirtualToken,
+} from "../../typechain"
 import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
@@ -26,7 +32,9 @@ interface BaseTokenFixture {
 export function createQuoteTokenFixture(name: string, symbol: string): () => Promise<QuoteToken> {
     return async (): Promise<QuoteToken> => {
         const quoteTokenFactory = await ethers.getContractFactory("QuoteToken")
-        return (await quoteTokenFactory.deploy(name, symbol)) as QuoteToken
+        const quoteToken = (await quoteTokenFactory.deploy()) as QuoteToken
+        await quoteToken.initialize(name, symbol)
+        return quoteToken
     }
 }
 
@@ -41,10 +49,12 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
         })
 
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
+        const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy()) as ChainlinkPriceFeed
+        await chainlinkPriceFeed.initialize(mockedAggregator.address)
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
-        const baseToken = (await baseTokenFactory.deploy(name, symbol, chainlinkPriceFeed.address)) as BaseToken
+        const baseToken = (await baseTokenFactory.deploy()) as BaseToken
+        await baseToken.initialize(name, symbol, chainlinkPriceFeed.address)
 
         return { baseToken, mockedAggregator }
     }

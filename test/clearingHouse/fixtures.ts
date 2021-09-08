@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     BaseToken,
+    ChainlinkPriceFeed,
     ClearingHouse,
     Exchange,
     InsuranceFund,
@@ -49,7 +50,8 @@ export function createClearingHouseFixture(
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
-        const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
+        const USDC = (await tokenFactory.deploy()) as TestERC20
+        await USDC.initialize("TestUSDC", "USDC")
         await USDC.setupDecimals(6)
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
@@ -68,29 +70,33 @@ export function createClearingHouseFixture(
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
         const vaultFactory = await ethers.getContractFactory("Vault")
-        const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+        const vault = (await vaultFactory.deploy()) as Vault
+        await vault.initialize(USDC.address)
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-        const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
+        const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+        await insuranceFund.initialize(vault.address)
 
         // deploy clearingHouse
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
             const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
-            clearingHouse = (await clearingHouseFactory.deploy(
+            clearingHouse = (await clearingHouseFactory.deploy()) as TestClearingHouse
+            await clearingHouse.initialize(
                 vault.address,
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-            )) as TestClearingHouse
+            )
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-            clearingHouse = (await clearingHouseFactory.deploy(
+            clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+            await clearingHouse.initialize(
                 vault.address,
                 insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
-            )) as ClearingHouse
+            )
         }
 
         await quoteToken.addWhitelist(clearingHouse.address)
@@ -107,11 +113,8 @@ export function createClearingHouseFixture(
 
         // deploy exchange
         const exchangeFactory = await ethers.getContractFactory("Exchange")
-        const exchange = (await exchangeFactory.deploy(
-            clearingHouse.address,
-            uniV3Factory.address,
-            quoteToken.address,
-        )) as Exchange
+        const exchange = (await exchangeFactory.deploy()) as Exchange
+        await exchange.initialize(clearingHouse.address, uniV3Factory.address, quoteToken.address)
         await clearingHouse.setExchange(exchange.address)
         await quoteToken.addWhitelist(exchange.address)
 
@@ -161,7 +164,8 @@ export function createClearingHouseFixture(
 export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> {
     const factory = await uniswapV3FactoryFixture()
     const uniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
-    const uniswapV3Broker = (await uniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+    const uniswapV3Broker = (await uniswapV3BrokerFactory.deploy()) as TestUniswapV3Broker
+    await uniswapV3Broker.initialize(factory.address)
     return { uniswapV3Broker }
 }
 
@@ -191,10 +195,12 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const mockedAggregator = await smockit(aggregator)
 
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        const chainlinkPriceFeed = await chainlinkPriceFeedFactory.deploy(mockedAggregator.address)
+        const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy()) as ChainlinkPriceFeed
+        await chainlinkPriceFeed.initialize(mockedAggregator.address)
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
-        const token = (await baseTokenFactory.deploy("Test", "Test", chainlinkPriceFeed.address)) as BaseToken
+        const token = (await baseTokenFactory.deploy()) as BaseToken
+        await token.initialize("Test", "Test", chainlinkPriceFeed.address)
         mockedToken = await smockit(token)
         mockedToken.smocked.decimals.will.return.with(async () => {
             return 18
@@ -218,11 +224,14 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
+    const USDC = (await tokenFactory.deploy()) as TestERC20
+    await USDC.initialize("TestUSDC", "USDC")
     const vaultFactory = await ethers.getContractFactory("Vault")
-    const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+    const vault = (await vaultFactory.deploy()) as Vault
+    await vault.initialize(USDC.address)
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-    const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
+    const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+    await insuranceFund.initialize(vault.address)
 
     const mockedUSDC = await smockit(USDC)
     const mockedQuoteToken = await smockit(token1)
@@ -240,19 +249,17 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = (await clearingHouseFactory.deploy(
+    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+    await clearingHouse.initialize(
         mockedVault.address,
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
-    )) as ClearingHouse
+    )
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
-    const exchange = (await exchangeFactory.deploy(
-        clearingHouse.address,
-        mockedUniV3Factory.address,
-        mockedQuoteToken.address,
-    )) as Exchange
+    const exchange = (await exchangeFactory.deploy()) as Exchange
+    await exchange.initialize(clearingHouse.address, mockedUniV3Factory.address, mockedQuoteToken.address)
     const mockedExchange = await smockit(exchange)
     await clearingHouse.setExchange(mockedExchange.address)
 

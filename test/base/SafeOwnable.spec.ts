@@ -11,6 +11,7 @@ describe("SafeOwnable spec", () => {
         // deploy TestSafeOwnable
         const ownableFactory = await ethers.getContractFactory("TestSafeOwnable")
         const ownable = (await ownableFactory.deploy()) as TestSafeOwnable
+        await ownable.initialize()
         return ownable
     }
 
