@@ -783,14 +783,14 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    /// @return fundingPayment total funding payment of a market of a trader; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         _requireHasBaseToken(baseToken);
         (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
         return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
     }
 
-    /// @return fundingPayment funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
     function getAllPendingFundingPayment(address trader) external view returns (int256) {
         return _getAllPendingFundingPayment(trader);
     }
@@ -1248,7 +1248,7 @@ contract ClearingHouse is
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
     /// @dev this function 1. settles personal funding payment 2. updates global funding growth
     /// @dev personal funding payment is settled whenever there is pending funding payment
-    /// @dev the global funding growth update only happens once per block
+    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
     /// @return updatedGlobalFundingGrowth the up-to-date globalFundingGrowth, usually used for later calculations
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         private
@@ -1288,7 +1288,7 @@ contract ClearingHouse is
     }
 
     /// @dev this is the non-view version of _getPendingFundingPayment()
-    /// @return fundingPayment total funding payment of a market, including liquidity & availableAndDebt coefficients
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
@@ -1341,7 +1341,7 @@ contract ClearingHouse is
     // --- funding related getters ---
 
     /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
-    /// @return fundingPayment total funding payment of a market, including liquidity & availableAndDebt coefficients
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
@@ -1357,7 +1357,7 @@ contract ClearingHouse is
             );
     }
 
-    /// @return fundingPayment funding payment of all markets of a trader
+    /// @return fundingPayment the funding payment of all markets of a trader
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _accountMap[trader].tokens.length; i++) {
             address baseToken = _accountMap[trader].tokens[i];

@@ -1085,6 +1085,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     /// @dev the funding payment of an order/liquidity is composed of
     ///      1. funding accrued inside the range 2. funding accrued below the range
+    ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
     /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
     function _getLiquidityCoefficientInFundingPaymentByOrder(
         OpenOrder memory order,

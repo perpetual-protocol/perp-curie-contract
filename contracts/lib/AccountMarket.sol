@@ -45,7 +45,7 @@ library AccountMarket {
     }
 
     /// @dev this is the non-view version of getPendingFundingPayment()
-    /// @return fundingPayment total funding payment of a market, including liquidity & availableAndDebt coefficients
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function updateFundingGrowthAngFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
@@ -70,7 +70,7 @@ library AccountMarket {
     //
 
     /// @dev this is the view version of updateFundingGrowthAngFundingPayment()
-    /// @return fundingPayment total funding payment of a market, including liquidity & availableAndDebt coefficients
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function getPendingFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
