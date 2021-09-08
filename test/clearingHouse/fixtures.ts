@@ -12,8 +12,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { VirtualToken } from "../../typechain/VirtualToken"
-import { createVirtualTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import { QuoteToken } from "../../typechain/QuoteToken"
+import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
@@ -24,7 +24,7 @@ interface ClearingHouseFixture {
     pool: UniswapV3Pool
     feeTier: number
     USDC: TestERC20
-    quoteToken: VirtualToken
+    quoteToken: QuoteToken
     baseToken: BaseToken
     mockedBaseAggregator: MockContract
     baseToken2: BaseToken
@@ -52,12 +52,12 @@ export function createClearingHouseFixture(
         const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
         await USDC.setupDecimals(6)
 
-        let baseToken: BaseToken, quoteToken: VirtualToken, mockedBaseAggregator: MockContract
+        let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
 
         if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
             baseToken = token0
-            quoteToken = token1 as VirtualToken
+            quoteToken = token1
             mockedBaseAggregator = mockedAggregator0
         } else {
             throw new Error("!B1Q0")
@@ -214,7 +214,7 @@ async function getMockedArbSys(): Promise<MockContract> {
 }
 
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
-    const token1 = await createVirtualTokenFixture("RandomVirtualToken", "RVT")()
+    const token1 = await createQuoteTokenFixture("RandomVirtualToken", "RVT")()
 
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")

@@ -1,12 +1,12 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { BaseToken, UniswapV3Factory, UniswapV3Pool } from "../../typechain"
-import { VirtualToken } from "../../typechain/VirtualToken"
+import { BaseToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { QuoteToken } from "../../typechain/QuoteToken"
 import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
     token0: BaseToken
-    token1: BaseToken
+    token1: QuoteToken
     mockedAggregator0: MockContract
     mockedAggregator1: MockContract
 }
@@ -15,7 +15,7 @@ interface PoolFixture {
     factory: UniswapV3Factory
     pool: UniswapV3Pool
     baseToken: BaseToken
-    quoteToken: VirtualToken
+    quoteToken: QuoteToken
 }
 
 interface BaseTokenFixture {
@@ -23,10 +23,10 @@ interface BaseTokenFixture {
     mockedAggregator: MockContract
 }
 
-export function createVirtualTokenFixture(name: string, symbol: string): () => Promise<VirtualToken> {
-    return async (): Promise<VirtualToken> => {
-        const virtualTokenFactory = await ethers.getContractFactory("VirtualToken")
-        return (await virtualTokenFactory.deploy(name, symbol)) as VirtualToken
+export function createQuoteTokenFixture(name: string, symbol: string): () => Promise<QuoteToken> {
+    return async (): Promise<QuoteToken> => {
+        const quoteTokenFactory = await ethers.getContractFactory("QuoteToken")
+        return (await quoteTokenFactory.deploy(name, symbol)) as QuoteToken
     }
 }
 
@@ -67,18 +67,18 @@ export async function tokensFixture(): Promise<TokensFixture> {
     )()
 
     let token0: BaseToken
-    let token1: BaseToken
+    let token1: QuoteToken
     let mockedAggregator0: MockContract
     let mockedAggregator1: MockContract
     if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0
         mockedAggregator0 = randomMockedAggregator0
-        token1 = randomToken1
+        token1 = randomToken1 as VirtualToken as QuoteToken
         mockedAggregator1 = randomMockedAggregator1
     } else {
         token0 = randomToken1
         mockedAggregator0 = randomMockedAggregator1
-        token1 = randomToken0
+        token1 = randomToken0 as VirtualToken as QuoteToken
         mockedAggregator1 = randomMockedAggregator0
     }
     return {

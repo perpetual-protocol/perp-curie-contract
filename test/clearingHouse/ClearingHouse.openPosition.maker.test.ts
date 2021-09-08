@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -16,7 +16,7 @@ describe("ClearingHouse maker close position", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool

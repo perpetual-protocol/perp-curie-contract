@@ -7,10 +7,10 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
+    QuoteToken,
     TestERC20,
     UniswapV3Pool,
     Vault,
-    VirtualToken,
 } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -26,7 +26,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number

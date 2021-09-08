@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { VirtualToken } from "../../typechain/VirtualToken"
+import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -16,7 +16,7 @@ describe("ClearingHouse.getPositionSize", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
 

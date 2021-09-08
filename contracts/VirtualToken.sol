@@ -10,11 +10,7 @@ contract VirtualToken is SafeOwnable, ERC20Upgradeable {
     event WhitelistAdded(address account);
     event WhitelistRemoved(address account);
 
-    function initialize(string memory nameArg, string memory symbolArg) external initializer {
-        __VirtualToken_init(nameArg, symbolArg);
-    }
-
-    function __VirtualToken_init(string memory nameArg, string memory symbolArg) internal {
+    function __VirtualToken_init(string memory nameArg, string memory symbolArg) internal initializer {
         __SafeOwnable_init();
         __ERC20_init(nameArg, symbolArg);
         // transfer to 0 = burn

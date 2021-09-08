@@ -1,8 +1,8 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -16,7 +16,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let baseToken2: BaseToken
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract

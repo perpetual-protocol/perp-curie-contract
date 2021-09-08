@@ -1,6 +1,6 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { BaseToken, VirtualToken } from "../../typechain"
+import { BaseToken } from "../../typechain"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
