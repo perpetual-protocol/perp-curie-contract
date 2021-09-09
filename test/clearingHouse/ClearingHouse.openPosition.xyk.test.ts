@@ -73,12 +73,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         await deposit(taker, vault, 1000, collateral)
 
         // expect all available and debt are zero
-        const baseInfo = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-        const quoteInfo = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
-        expect(baseInfo.available.eq(0)).to.be.true
-        expect(baseInfo.debt.eq(0)).to.be.true
-        expect(quoteInfo.available.eq(0)).to.be.true
-        expect(quoteInfo.debt.eq(0)).to.be.true
+        const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+        const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, quoteToken.address)
+        expect(baseTokenInfo.balance).be.deep.eq(parseEther("0"))
+        expect(quoteTokenInfo.balance).be.deep.eq(parseEther("0"))
     })
 
     // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=238402888
