@@ -381,16 +381,28 @@ describe("ClearingHouse openPosition", () => {
 
                 it("mint more USD to buy exact 1 ETH, when it has not enough available before", async () => {
                     // taker swap ? USD for 1 ETH
-                    await clearingHouse.connect(taker).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: false,
-                        isExactInput: false,
-                        oppositeAmountBound: 0,
-                        amount: parseEther("1"),
-                        sqrtPriceLimitX96: 0,
-                        deadline: ethers.constants.MaxUint256,
-                        referralCode: ethers.constants.HashZero,
-                    })
+                    await expect(
+                        clearingHouse.connect(taker).openPosition({
+                            baseToken: baseToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: false,
+                            oppositeAmountBound: 0,
+                            amount: parseEther("1"),
+                            sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
+                        }),
+                    )
+                        .to.emit(clearingHouse, "PositionChanged")
+                        .withArgs(
+                            taker.address, // trader
+                            baseToken.address, // baseToken
+                            parseEther("1"), // exchangedPositionSize
+                            "-153508143394151325059", // exchangedPositionNotional
+                            "1550587307011629547", // fee
+                            "-155058730701162954606", // openNotional
+                            parseEther("0"), // realizedPnl
+                        )
                     const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     expect(baseTokenInfo.balance).be.deep.eq(parseEther("1"))
@@ -413,6 +425,16 @@ describe("ClearingHouse openPosition", () => {
                             referralCode: ethers.constants.HashZero,
                         }),
                     )
+                        .to.emit(clearingHouse, "PositionChanged")
+                        .withArgs(
+                            taker.address, // trader
+                            baseToken.address, // baseToken
+                            parseEther("1"), // exchangedPositionSize
+                            "-153508143394151325059", // exchangedPositionNotional
+                            "1550587307011629547", // fee
+                            "-155058730701162954606", // openNotional
+                            parseEther("0"), // realizedPnl
+                        )
 
                     const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                     const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -525,26 +547,22 @@ describe("ClearingHouse openPosition", () => {
             const [, quoteTokenInfoBefore] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
 
             // taker swap 1 USD for ? ETH again
-            await expect(
-                clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: false,
-                    isExactInput: true,
-                    oppositeAmountBound: 0,
-                    amount: parseEther("1"),
-                    sqrtPriceLimitX96: 0,
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                }),
-            )
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
 
             // increase ? USD debt, increase 1 ETH available, the rest remains the same
             const [baseTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const [, quoteTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
             const baseBalanceDelta = baseTokenInfoAfter.balance.sub(baseTokenInfoBefore.balance)
             const quoteBalanceDelta = quoteTokenInfoAfter.balance.sub(quoteTokenInfoBefore.balance)
-            console.log(baseTokenInfoBefore, baseTokenInfoAfter)
-            console.log(quoteTokenInfoBefore, quoteTokenInfoAfter)
             expect(baseBalanceDelta).be.gt(parseEther("0"))
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
@@ -563,18 +581,16 @@ describe("ClearingHouse openPosition", () => {
             // reduced base = 0.006538933220746360
             const reducedBase = baseTokenInfoBefore.balance.div(2)
             // taker reduce 50% ETH position for ? USD
-            await expect(
-                clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    oppositeAmountBound: 0,
-                    amount: reducedBase,
-                    sqrtPriceLimitX96: 0,
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                }),
-            )
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: reducedBase,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
 
             // increase ? USD available, reduce 1 ETH available, the rest remains the same
             const [baseTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
@@ -601,20 +617,18 @@ describe("ClearingHouse openPosition", () => {
             //   amount out would be:
             //     10886.6706588362 - 884.6906588359 ^ 2 / (71.8931973198 + 0.013077866441492721) = 1.98000000000026751159
             // taker gets 1.98000000000026751159 * 0.99 = 1.9602000000002648364741
-            await expect(
-                clearingHouse.connect(taker).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    oppositeAmountBound: 0,
-                    amount: posSize,
-                    sqrtPriceLimitX96: 0,
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                }),
-            )
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: posSize,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
 
-            // base debt and available will be 0
+            // base balance will be 0
             {
                 const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
                 const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)

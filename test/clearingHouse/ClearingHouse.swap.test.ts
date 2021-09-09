@@ -60,14 +60,12 @@ describe("ClearingHouse.swap", () => {
 
     // https://docs.google.com/spreadsheets/d/1fqUUUOofl2ovpW1Du5expYPc_aDI43lyGw50_55oE7k/edit#gid=879273398
     describe("increase short position (B2Q)", () => {
-        let bobQuoteAvailableBefore
+        let bobQuoteBalanceBefore
         let initOpenNotional
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
-
-            await clearingHouse.connect(bob).mint(baseToken.address, parseEther("1"))
-            bobQuoteAvailableBefore = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
+            ;[, { balance: bobQuoteBalanceBefore }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
             await clearingHouse.connect(bob).swap({
                 // sell 1 base
                 baseToken: baseToken.address,
@@ -80,21 +78,22 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("openNotional++", async () => {
-            const bobQuoteAvailableAfter = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
-            const bobQuoteSpent = bobQuoteAvailableAfter.sub(bobQuoteAvailableBefore)
+            const [, { balance: bobQuoteBalanceAfter }] = await clearingHouse.getTokenInfo(
+                bob.address,
+                baseToken.address,
+            )
+            const bobQuoteSpent = bobQuoteBalanceAfter.sub(bobQuoteBalanceBefore)
             expect(initOpenNotional).to.deep.eq(bobQuoteSpent)
         })
 
-        it("base available--", async () => {
-            expect(await clearingHouse.getTokenInfo(bob.address, baseToken.address)).to.deep.eq([
-                parseEther("0"), // available
-                parseEther("1"), // debt
-            ])
+        it("base balance--", async () => {
+            const [{ balance: bobBaseBalance }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            expect(bobBaseBalance).to.deep.eq(parseEther("-1"))
         })
 
-        it("quote available++", async () => {
-            const { available: bobQuoteAvailable } = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-            expect(bobQuoteAvailable.gt(0)).to.be.true
+        it("quote balance++", async () => {
+            const [, { balance: bobQuoteBalance }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            expect(bobQuoteBalance.gt(0)).to.be.true
         })
 
         it("realizedPnl remains", async () => {
@@ -107,7 +106,6 @@ describe("ClearingHouse.swap", () => {
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("100", collateralDecimals))
                 await deposit(carol, vault, 100, collateral)
-                await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10"))
                 await clearingHouse.connect(carol).swap({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
@@ -176,14 +174,13 @@ describe("ClearingHouse.swap", () => {
     })
 
     describe("increase long position (Q2B)", () => {
-        let bobQuoteAvailableBefore
+        let bobQuoteBalanceBefore
         let initOpenNotional
         let posSizeBefore
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
             await deposit(bob, vault, 25, collateral)
-
-            bobQuoteAvailableBefore = (await clearingHouse.getTokenInfo(bob.address, quoteToken.address)).available
+            ;[, { balance: bobQuoteBalanceBefore }] = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -200,16 +197,14 @@ describe("ClearingHouse.swap", () => {
             expect(initOpenNotional).to.deep.eq(parseEther("-250"))
         })
 
-        it("base available++", async () => {
-            const baseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-            expect(baseTokenInfo.available.gt(0)).be.true
-            expect(baseTokenInfo.debt).to.deep.eq(parseEther("0"))
+        it("base balance++", async () => {
+            const [baseTokenInfo] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            expect(baseTokenInfo.balance).be.gt(0)
         })
 
-        it("quote available--", async () => {
-            const quoteTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-            expect(quoteTokenInfo.available).to.deep.eq(parseEther("0"))
-            expect(quoteTokenInfo.debt).to.deep.eq(parseEther("250"))
+        it("quote balance--", async () => {
+            const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            expect(quoteTokenInfo.balance).to.deep.eq(parseEther("-250"))
         })
 
         it("realizedPnl remains", async () => {
@@ -222,7 +217,6 @@ describe("ClearingHouse.swap", () => {
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
                 await deposit(carol, vault, 10000, collateral)
-                await clearingHouse.connect(carol).mint(baseToken.address, parseEther("10000"))
                 await clearingHouse.connect(carol).swap({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
@@ -262,7 +256,6 @@ describe("ClearingHouse.swap", () => {
                 // bob opens a larger reverse position (short)
                 await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
                 await deposit(bob, vault, 1000, collateral)
-                await clearingHouse.connect(bob).mint(baseToken.address, parseEther("20"))
                 await clearingHouse.connect(bob).swap({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
