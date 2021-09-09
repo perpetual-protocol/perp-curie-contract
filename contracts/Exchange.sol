@@ -66,7 +66,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int24 lowerTick;
         int24 upperTick;
         uint256 feeGrowthGlobalClearingHouseX128;
-        uint256 feeGrowthInsideQuoteX128;
         uint128 liquidity;
         Funding.Growth globalFundingGrowth;
     }
@@ -159,7 +158,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address pool;
         int24 lowerTick;
         int24 upperTick;
-        uint256 feeGrowthInsideQuoteX128;
         uint128 liquidity;
     }
 
@@ -481,7 +479,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
                     feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
                     liquidity: response.liquidity,
                     globalFundingGrowth: params.updatedGlobalFundingGrowth
                 })
@@ -772,7 +769,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     pool: pool,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    feeGrowthInsideQuoteX128: response.feeGrowthInsideQuoteX128,
                     liquidity: params.liquidity
                 })
             );
@@ -812,7 +808,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         OpenOrder storage openOrder = _openOrderMap[orderId];
         uint256 feeGrowthInsideClearingHouseX128 =
-            tickMap.getFeeGrowthInside(
+            tickMap.getFeeGrowthInsideX128(
                 params.lowerTick,
                 params.upperTick,
                 UniswapV3Broker.getTick(params.pool),
@@ -886,7 +882,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
         } else {
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInside(
+            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInsideX128(
                 params.lowerTick,
                 params.upperTick,
                 UniswapV3Broker.getTick(params.pool),
@@ -1086,7 +1082,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
                 uint256 feeGrowthInsideClearingHouseX128 =
-                    tickMap.getFeeGrowthInside(
+                    tickMap.getFeeGrowthInsideX128(
                         order.lowerTick,
                         order.upperTick,
                         TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96),
