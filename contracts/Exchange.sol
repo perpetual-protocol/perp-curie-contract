@@ -121,7 +121,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int256 exchangedPositionNotional;
         uint256 fee;
         uint256 insuranceFundFee;
-        uint160 sqrtPriceX96;
+        int24 tick;
     }
 
     struct MintCallbackData {
@@ -184,7 +184,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     struct ReplaySwapResponse {
-        uint160 sqrtPriceX96;
+        int24 tick;
         uint256 fee; // exchangeFeeRatio
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
     }
@@ -395,7 +395,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 exchangedPositionNotional: exchangedPositionNotional,
                 fee: replayResponse.fee,
                 insuranceFundFee: replayResponse.insuranceFundFee,
-                sqrtPriceX96: replayResponse.sqrtPriceX96
+                tick: replayResponse.tick
             });
     }
 
@@ -569,7 +569,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     }
 
     // return the price after replay swap (final tick)
-    function replaySwap(ReplaySwapParams memory params) external returns (uint160) {
+    function replaySwap(ReplaySwapParams memory params) external returns (int24) {
         address pool = _poolMap[params.baseToken];
         uint24 exchangeFeeRatio = _exchangeFeeRatioMap[pool];
         uint24 uniswapFeeRatio = _uniswapFeeRatioMap[pool];
@@ -602,7 +602,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
-        return response.sqrtPriceX96;
+        return response.tick;
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -1006,11 +1006,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         }
 
         return
-            ReplaySwapResponse({
-                sqrtPriceX96: params.state.sqrtPriceX96,
-                fee: feeResult,
-                insuranceFundFee: insuranceFundFeeResult
-            });
+            ReplaySwapResponse({ tick: params.state.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
     }
 
     //
