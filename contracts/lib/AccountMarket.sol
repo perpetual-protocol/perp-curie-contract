@@ -49,18 +49,18 @@ library AccountMarket {
     function updateFundingGrowthAngFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
-        int256 updatedGlobalFundingGrowthTwPremiumX96
+        int256 fundingGrowthGlobalTwPremiumX96
     ) internal returns (int256 fundingPayment) {
         // funding of available and debt coefficient
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
                 self.tokenInfo,
-                updatedGlobalFundingGrowthTwPremiumX96,
+                fundingGrowthGlobalTwPremiumX96,
                 self.lastTwPremiumGrowthGlobalX96
             );
 
         // update fundingGrowth of funding payment coefficient of available and debt
-        self.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowthTwPremiumX96;
+        self.lastTwPremiumGrowthGlobalX96 = fundingGrowthGlobalTwPremiumX96;
 
         return liquidityCoefficientInFundingPayment.add(availableAndDebtCoefficientInFundingPayment).div(1 days);
     }
@@ -74,13 +74,13 @@ library AccountMarket {
     function getPendingFundingPayment(
         Info storage self,
         int256 liquidityCoefficientInFundingPayment,
-        int256 updatedGlobalFundingGrowthTwPremiumX96
+        int256 fundingGrowthGlobalTwPremiumX96
     ) internal view returns (int256 fundingPayment) {
         // funding of available and debt coefficient
         int256 availableAndDebtCoefficientInFundingPayment =
             getAvailableAndDebtCoefficientInFundingPayment(
                 self.tokenInfo,
-                updatedGlobalFundingGrowthTwPremiumX96,
+                fundingGrowthGlobalTwPremiumX96,
                 self.lastTwPremiumGrowthGlobalX96
             );
 

@@ -149,7 +149,7 @@ contract ClearingHouse is
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
-        Funding.Growth updatedGlobalFundingGrowth;
+        Funding.Growth fundingGrowthGlobal;
     }
 
     struct SwapResponse {
@@ -192,7 +192,7 @@ contract ClearingHouse is
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         bool skipMarginRequirementCheck;
-        Funding.Growth updatedGlobalFundingGrowth;
+        Funding.Growth fundingGrowthGlobal;
     }
 
     struct AfterRemoveLiquidityParams {
@@ -215,7 +215,7 @@ contract ClearingHouse is
         address trader;
         address baseToken;
         uint160 sqrtPriceLimitX96;
-        Funding.Growth updatedGlobalFundingGrowth;
+        Funding.Growth fundingGrowthGlobal;
     }
 
     struct CheckSlippageParams {
@@ -474,8 +474,7 @@ contract ClearingHouse is
         // register token if it's the first time
         _registerBaseToken(trader, params.baseToken);
 
-        Funding.Growth memory updatedGlobalFundingGrowth =
-            _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
@@ -488,7 +487,7 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
 
@@ -546,8 +545,7 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
-        Funding.Growth memory updatedGlobalFundingGrowth =
-            _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         SwapResponse memory response =
             _closePosition(
@@ -555,7 +553,7 @@ contract ClearingHouse is
                     trader: trader,
                     baseToken: params.baseToken,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
 
@@ -590,8 +588,7 @@ contract ClearingHouse is
         _registerBaseToken(trader, params.baseToken);
 
         // must before price impact check
-        Funding.Growth memory updatedGlobalFundingGrowth =
-            _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // cache before actual swap
         bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
@@ -605,7 +602,7 @@ contract ClearingHouse is
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: false,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
 
@@ -656,14 +653,14 @@ contract ClearingHouse is
         // CH_NEO: not empty order
         require(!Exchange(exchange).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
 
-        Funding.Growth memory updatedGlobalFundingGrowth = _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, baseToken);
         SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
                     trader: trader,
                     baseToken: baseToken,
                     sqrtPriceLimitX96: 0,
-                    updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
 
@@ -800,8 +797,8 @@ contract ClearingHouse is
     /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         _requireHasBaseToken(baseToken);
-        (Funding.Growth memory updatedGlobalFundingGrowth, , ) = _getUpdatedGlobalFundingGrowth(baseToken);
-        return _getPendingFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
+        return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
     }
 
     /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
@@ -1115,7 +1112,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: params.fundingGrowthGlobal
                 })
             );
 
@@ -1189,7 +1186,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: params.fundingGrowthGlobal
                 })
             );
 
@@ -1254,7 +1251,7 @@ contract ClearingHouse is
                     amount: replaySwapParams.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: true,
-                    updatedGlobalFundingGrowth: params.updatedGlobalFundingGrowth
+                    fundingGrowthGlobal: params.fundingGrowthGlobal
                 })
             );
     }
@@ -1263,42 +1260,40 @@ contract ClearingHouse is
     /// @dev this function 1. settles personal funding payment 2. updates global funding growth
     /// @dev personal funding payment is settled whenever there is pending funding payment
     /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return updatedGlobalFundingGrowth the up-to-date globalFundingGrowth, usually used for later calculations
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         private
-        returns (Funding.Growth memory updatedGlobalFundingGrowth)
+        returns (Funding.Growth memory fundingGrowthGlobal)
     {
         uint256 markTwap;
         uint256 indexTwap;
-        (updatedGlobalFundingGrowth, markTwap, indexTwap) = _getUpdatedGlobalFundingGrowth(baseToken);
+        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
-        // pass updatedGlobalFundingGrowth in for states mutation
-        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
+        // pass fundingGrowthGlobal in for states mutation
+        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         if (fundingPayment != 0) {
             _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.sub(fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
-        // update states of the last tx before further actions in this block; once per block
+        // update states before further actions in this block; once per block
         if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
-            // update fundingGrowth
-            Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
+            // update fundingGrowthGlobal
+            Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
             (
                 _lastSettledTimestampMap[baseToken],
-                outdatedGlobalFundingGrowth.twPremiumX96,
-                outdatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-            ) = (
-                _blockTimestamp(),
-                updatedGlobalFundingGrowth.twPremiumX96,
-                updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96
-            );
+                lastFundingGrowthGlobal.twPremiumX96,
+                lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
+            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
             // update tick
             _lastUpdatedTickMap[baseToken] = Exchange(exchange).getTick(baseToken);
 
             emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
+
+        return fundingGrowthGlobal;
     }
 
     /// @dev this is the non-view version of _getPendingFundingPayment()
@@ -1306,19 +1301,19 @@ contract ClearingHouse is
     function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
-        Funding.Growth memory updatedGlobalFundingGrowth
+        Funding.Growth memory fundingGrowthGlobal
     ) internal returns (int256 fundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
             Exchange(exchange).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
-                updatedGlobalFundingGrowth
+                fundingGrowthGlobal
             );
 
         return
             _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
                 liquidityCoefficientInFundingPayment,
-                updatedGlobalFundingGrowth.twPremiumX96
+                fundingGrowthGlobal.twPremiumX96
             );
     }
 
@@ -1359,15 +1354,15 @@ contract ClearingHouse is
     function _getPendingFundingPayment(
         address trader,
         address baseToken,
-        Funding.Growth memory updatedGlobalFundingGrowth
+        Funding.Growth memory fundingGrowthGlobal
     ) internal view returns (int256 fundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, updatedGlobalFundingGrowth);
+            Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _accountMarketMap[trader][baseToken].getPendingFundingPayment(
                 liquidityCoefficientInFundingPayment,
-                updatedGlobalFundingGrowth.twPremiumX96
+                fundingGrowthGlobal.twPremiumX96
             );
     }
 
@@ -1381,20 +1376,20 @@ contract ClearingHouse is
         }
     }
 
-    /// @dev this function calculates the up-to-date globalFundingGrowth and pass it out
-    /// @return updatedGlobalFundingGrowth the up-to-date globalFundingGrowth
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
     /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
     /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
-    function _getUpdatedGlobalFundingGrowth(address baseToken)
+    function _getFundingGrowthGlobalAndTwaps(address baseToken)
         internal
         view
         returns (
-            Funding.Growth memory updatedGlobalFundingGrowth,
+            Funding.Growth memory fundingGrowthGlobal,
             uint256 markTwap,
             uint256 indexTwap
         )
     {
-        Funding.Growth storage outdatedGlobalFundingGrowth = _globalFundingGrowthX96Map[baseToken];
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
         uint32 twapIntervalArg = twapInterval;
@@ -1418,22 +1413,22 @@ contract ClearingHouse is
                 markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
                     _blockTimestamp().sub(lastSettledTimestamp).toInt256()
                 );
-            updatedGlobalFundingGrowth.twPremiumX96 = outdatedGlobalFundingGrowth.twPremiumX96.add(twPremiumDeltaX96);
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
 
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            updatedGlobalFundingGrowth.twPremiumDivBySqrtPriceX96 = outdatedGlobalFundingGrowth
-                .twPremiumDivBySqrtPriceX96
-                .add(
+            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
                     uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
                 )
             );
         } else {
             // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-            updatedGlobalFundingGrowth = outdatedGlobalFundingGrowth;
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
         }
+
+        return (fundingGrowthGlobal, markTwap, indexTwap);
     }
 
     // --- funding related getters ---
