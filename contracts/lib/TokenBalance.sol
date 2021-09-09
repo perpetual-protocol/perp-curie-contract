@@ -13,38 +13,23 @@ library TokenBalance {
     using PerpSafeCast for int256;
 
     struct Info {
-        uint256 available;
-        uint256 debt;
+        int256 balance;
     }
 
-    function addAvailable(TokenBalance.Info storage self, uint256 delta) internal {
-        self.available = self.available.add(delta);
+    function addBalance(TokenBalance.Info storage self, uint256 delta) internal {
+        self.balance = self.balance.add(delta.toInt256());
     }
 
-    function addAvailable(TokenBalance.Info storage self, int256 delta) internal {
-        self.available = self.available.toInt256().add(delta).toUint256();
-    }
-
-    function addDebt(TokenBalance.Info storage self, uint256 delta) internal {
-        self.debt = self.debt.add(delta);
-    }
-
-    function addDebt(TokenBalance.Info storage self, int256 delta) internal {
-        self.debt = self.debt.toInt256().add(delta).toUint256();
+    function addBalance(TokenBalance.Info storage self, int256 delta) internal {
+        self.balance = self.balance.add(delta);
     }
 
     //
     // VIEW
     //
-    function getNet(TokenBalance.Info memory self) internal pure returns (int256) {
-        return self.available.toInt256().sub(self.debt.toInt256());
-    }
 
-    function getBurnable(TokenBalance.Info memory self) internal pure returns (uint256) {
-        return Math.min(self.debt, self.available);
-    }
-
-    function isZero(TokenBalance.Info memory self) internal pure returns (bool) {
-        return self.available == 0 && self.debt == 0;
-    }
+    // TODO : not sure remove or not
+    // function getBurnable(TokenBalance.Info memory self) internal pure returns (uint256) {
+    //     return Math.min(self.debt, self.available);
+    // }
 }

@@ -59,20 +59,4 @@ contract TestClearingHouse is ClearingHouse {
                 })
             );
     }
-
-    function mint(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-            _registerBaseToken(_msgSender(), token);
-        }
-        // always check margin ratio
-        _mint(_msgSender(), token, amount, true);
-    }
-
-    function burn(address token) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-        }
-        _burn(_msgSender(), token);
-    }
 }
