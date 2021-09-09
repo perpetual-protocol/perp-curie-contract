@@ -34,7 +34,7 @@ contract VirtualToken is SafeOwnable, ERC20Upgradeable {
         emit WhitelistRemoved(account);
     }
 
-    function isWhitelist(address account) external view returns (bool) {
+    function isInWhitelist(address account) external view returns (bool) {
         return _whitelistMap[account];
     }
 

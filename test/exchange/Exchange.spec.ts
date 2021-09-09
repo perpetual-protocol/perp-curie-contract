@@ -67,6 +67,7 @@ describe("Exchange Spec", () => {
 
                 const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
                 baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
+                baseToken2.smocked.isInWhitelist.will.return.with(true)
                 const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
                 const mockedPool2 = await smockit(pool2)
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
@@ -111,6 +112,35 @@ describe("Exchange Spec", () => {
                 mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
 
                 await expect(exchange.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("EX_CHBNE")
+            })
+
+            it("force error, exchange not in base token white list", async () => {
+                await exchange.addPool(baseToken.address, DEFAULT_FEE)
+                expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
+
+                const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
+                baseToken2.smocked.isInWhitelist.will.return.with(async address => {
+                    return address === exchange.address ? false : true
+                })
+                await expect(exchange.addPool(baseToken2.address, DEFAULT_FEE)).to.be.revertedWith("EX_NBWL")
+            })
+
+            it("force error, exchange not in quote token white list", async () => {
+                await exchange.addPool(baseToken.address, DEFAULT_FEE)
+                expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
+
+                const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
+                baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
+                baseToken2.smocked.isInWhitelist.will.return.with(async address => {
+                    return true
+                })
+                quoteToken.smocked.isInWhitelist.will.return.with(async address => {
+                    return address === exchange.address ? false : true
+                })
+                await expect(exchange.addPool(baseToken2.address, DEFAULT_FEE)).to.be.revertedWith("EX_NQWL")
+
+                quoteToken.smocked.isInWhitelist.will.return.with(true)
             })
         })
 

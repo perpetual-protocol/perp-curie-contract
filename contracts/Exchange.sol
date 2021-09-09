@@ -24,6 +24,7 @@ import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { VirtualToken } from "./VirtualToken.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMathUpgradeable for uint256;
@@ -289,6 +290,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         // TODO remove this once quotToken's balance is checked in CH's initializer
         // EX_QTSNE: quote token total supply not enough, should be maximum of uint256
         require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "EX_QTSNE");
+
         // to ensure the base is always token0 and quote is always token1
         // EX_IB: invalid baseToken
         require(baseToken < quoteToken, "EX_IB");
@@ -300,6 +302,21 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         require(_poolMap[baseToken] == address(0), "EX_EP");
         // EX_PNI: pool not (yet) initialized
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
+
+        // EX_CHNBWL: clearingHouse not in baseToken whitelist
+        require(VirtualToken(baseToken).isInWhitelist(clearingHouse), "EX_CHNBWL");
+        // EX_NBWL: exchange not in baseToken whitelist
+        require(VirtualToken(baseToken).isInWhitelist(address(this)), "EX_NBWL");
+        // EX_PNBWL: pool not in baseToken whitelist
+        require(VirtualToken(baseToken).isInWhitelist(pool), "EX_PNBWL");
+
+        // TODO: remove this once quotToken white list is checked in CH or Exchange's initializer
+        // EX_CHNQWL: clearingHouse not in quoteToken whitelist
+        require(VirtualToken(quoteToken).isInWhitelist(clearingHouse), "EX_CHNQWL");
+        // EX_NQWL: exchange not in quoteToken whitelist
+        require(VirtualToken(quoteToken).isInWhitelist(address(this)), "EX_NQWL");
+        // EX_PNQWL: pool not in quoteToken whitelist
+        require(VirtualToken(quoteToken).isInWhitelist(pool), "EX_PNQWL");
 
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[pool] = feeRatio;
