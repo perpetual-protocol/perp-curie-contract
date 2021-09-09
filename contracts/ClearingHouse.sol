@@ -612,8 +612,12 @@ contract ClearingHouse is
         if (isReducePosition) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPI: over price impact
-            uint160 sqrtPriceLimitX96 = _getSqrtPriceLimit(params.baseToken, params.isBaseToQuote ? false : true);
-            require(response.sqrtPriceX96 < sqrtPriceLimitX96, "CH_OPI");
+            bool isLong = !params.isBaseToQuote;
+            uint160 sqrtPriceLimitX96 = _getSqrtPriceLimit(params.baseToken, isLong);
+            require(
+                isLong ? response.sqrtPriceX96 < sqrtPriceLimitX96 : response.sqrtPriceX96 > sqrtPriceLimitX96,
+                "CH_OPI"
+            );
         }
 
         _checkSlippage(
@@ -1235,7 +1239,9 @@ contract ClearingHouse is
             });
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        if (partialCloseRatio > 0 && _isOverPriceLimitByReplaySwap(replaySwapParams)) {
+        // replaySwap: the given sqrtPriceLimitX96 is max + 1 or min - 1,
+        // if the return sqrtPrice is equal to the given value, it means it exceed the limit already
+        if (partialCloseRatio > 0 && Exchange(exchange).replaySwap(replaySwapParams) == params.sqrtPriceLimitX96) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
             _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
@@ -1326,15 +1332,6 @@ contract ClearingHouse is
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
-    }
-
-    function _isOverPriceLimitByReplaySwap(Exchange.ReplaySwapParams memory params) internal returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[params.baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-
-        return Exchange(exchange).replaySwap(params) >= params.sqrtPriceLimitX96;
     }
 
     //
