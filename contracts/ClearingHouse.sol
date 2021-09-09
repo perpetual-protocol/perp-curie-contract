@@ -710,14 +710,23 @@ contract ClearingHouse is
         return _getPositionValue(trader, token);
     }
 
-    function getTokenInfo(address trader, address token) external view returns (TokenBalance.Info memory) {
-        return _accountMarketMap[trader][token].baseTokenInfo;
+    function getTokenInfo(address trader, address token)
+        external
+        view
+        returns (TokenBalance.Info memory, TokenBalance.Info memory)
+    {
+        return (_accountMarketMap[trader][token].baseTokenInfo, _accountMarketMap[trader][token].quoteTokenInfo);
     }
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
-        return quoteInPool;
+        int256 openNotional;
+
+        openNotional = openNotional
+            .add(Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256())
+            .add(_accountMarketMap[trader][baseToken].quoteTokenInfo.balance);
+
+        return openNotional;
     }
 
     function getOwedRealizedPnl(address trader) external view returns (int256) {
