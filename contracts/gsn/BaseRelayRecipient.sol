@@ -16,6 +16,9 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      */
     address public trustedForwarder;
 
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     event TrustedForwarderUpdated(address trustedForwarder);
 
     function isTrustedForwarder(address forwarder) public view override returns (bool) {

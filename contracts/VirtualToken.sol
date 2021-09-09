@@ -7,6 +7,9 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 contract VirtualToken is SafeOwnable, ERC20Upgradeable {
     mapping(address => bool) internal _whitelistMap;
 
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     event WhitelistAdded(address account);
     event WhitelistRemoved(address account);
 

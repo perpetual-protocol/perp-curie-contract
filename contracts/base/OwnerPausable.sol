@@ -5,6 +5,9 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/P
 import { SafeOwnable } from "./SafeOwnable.sol";
 
 abstract contract OwnerPausable is SafeOwnable, PausableUpgradeable {
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     function __OwnerPausable_init() internal initializer {
         __SafeOwnable_init();
         __Pausable_init();

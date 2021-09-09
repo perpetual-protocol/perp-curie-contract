@@ -41,6 +41,9 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
 
     address public exchange;
 
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     function initialize(address exchangeArg) external initializer {
         // Q_EX0: exchange is 0
         require(exchangeArg != address(0), "Q_EX0");

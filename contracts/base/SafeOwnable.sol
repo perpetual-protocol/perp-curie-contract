@@ -7,6 +7,9 @@ abstract contract SafeOwnable is ContextUpgradeable {
     address private _owner;
     address private _candidate;
 
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**

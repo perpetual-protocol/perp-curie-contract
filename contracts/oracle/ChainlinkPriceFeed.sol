@@ -13,6 +13,9 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     AggregatorV3Interface private _aggregator;
 
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
     function initialize(AggregatorV3Interface aggregator) external initializer {
         // BT_IA: invalid address
         require(address(aggregator) != address(0), "BT_IA");
