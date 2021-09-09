@@ -869,12 +869,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 // console.log("----------------------")
 // console.log("feeGrowthInsideClearingHouseLastX128 carol 50000 - 50200")
 // console.log((await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[3].toString())
-// console.log("feeGrowthInsideUniswapLastX128 carol 50000 - 50200")
-// console.log((await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[4].toString())
 // console.log("feeGrowthInsideClearingHouseLastX128 alice 50000 - 50400")
 // console.log((await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[3].toString())
-// console.log("feeGrowthInsideUniswapLastX128 alice 50000 - 50400")
-// console.log((await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[4].toString())
 
 // console.log("----------------------")
 // console.log("base diff")
