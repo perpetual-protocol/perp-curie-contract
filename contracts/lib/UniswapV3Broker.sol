@@ -10,7 +10,7 @@ import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/Liqu
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 
 /**
@@ -21,7 +21,7 @@ import { PerpMath } from "../lib/PerpMath.sol";
  * Thus, we require that (base, quote) = (token0, token1) is always true for convenience
  */
 library UniswapV3Broker {
-    using SafeMath for uint256;
+    using SafeMathUpgradeable for uint256;
     using PerpMath for int256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;

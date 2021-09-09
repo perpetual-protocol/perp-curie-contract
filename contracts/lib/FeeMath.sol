@@ -3,10 +3,10 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 
 library FeeMath {
-    using SafeMath for uint256;
+    using SafeMathUpgradeable for uint256;
 
     uint256 internal constant _ONE_HUNDRED_PERCENT = 1e6; // 100%
 

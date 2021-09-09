@@ -1,27 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
 contract BaseToken is IIndexPrice, VirtualToken {
-    using SafeMath for uint256;
+    using SafeMathUpgradeable for uint256;
 
     address public priceFeed;
-    uint8 private immutable _priceFeedDecimals;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    uint8 private _priceFeedDecimals;
 
-    constructor(
+    function initialize(
         string memory nameArg,
         string memory symbolArg,
         address priceFeedArg
-    ) public VirtualToken(nameArg, symbolArg) {
+    ) external initializer {
+        __VirtualToken_init(nameArg, symbolArg);
+
         // invalid address
         require(priceFeedArg != address(0), "BT_IA");
-
         // invalid price feed decimals
         require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "BT_IPFD");
+
         priceFeed = priceFeedArg;
         _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
     }

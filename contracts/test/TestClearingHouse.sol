@@ -6,14 +6,15 @@ import { ClearingHouse } from "../ClearingHouse.sol";
 import { Funding } from "../lib/Funding.sol";
 
 contract TestClearingHouse is ClearingHouse {
-    uint256 private _testBlockTimestamp = 1;
+    uint256 private _testBlockTimestamp;
 
-    constructor(
+    function __TestClearingHouse_init(
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
-    ) public ClearingHouse(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg) {
+    ) external initializer {
+        ClearingHouse.initialize(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg);
         _testBlockTimestamp = block.timestamp;
     }
 

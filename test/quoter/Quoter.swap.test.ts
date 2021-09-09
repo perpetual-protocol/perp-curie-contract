@@ -5,11 +5,11 @@ import {
     BaseToken,
     Exchange,
     Quoter,
+    QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
     Vault,
-    VirtualToken,
 } from "../../typechain"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { deposit } from "../helper/token"
@@ -23,7 +23,7 @@ describe("Quoter.swap", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
     let quoter: Quoter
@@ -44,7 +44,8 @@ describe("Quoter.swap", () => {
         await exchange.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
-        quoter = (await quoterFactory.deploy(exchange.address)) as Quoter
+        quoter = (await quoterFactory.deploy()) as Quoter
+        await quoter.initialize(exchange.address)
 
         lowerTick = 49000
         upperTick = 51400

@@ -2,8 +2,8 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
@@ -26,9 +26,9 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
-    using SafeMath for uint256;
-    using SafeMath for uint128;
-    using SignedSafeMath for int256;
+    using SafeMathUpgradeable for uint256;
+    using SafeMathUpgradeable for uint128;
+    using SignedSafeMathUpgradeable for int256;
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
@@ -189,8 +189,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
     }
 
-    address public immutable quoteToken;
-    address public immutable uniswapV3Factory;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    address public quoteToken;
+    address public uniswapV3Factory;
+
     address public clearingHouse;
 
     uint8 public maxOrdersPerMarket;
@@ -221,11 +223,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // key: pool , uniswap fee will be ignored and use the exchangeFeeRatio instead
     mapping(address => uint24) internal _exchangeFeeRatioMap;
 
-    constructor(
+    function initialize(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
         address quoteTokenArg
-    ) public {
+    ) external initializer {
+        __SafeOwnable_init();
+
         // ClearingHouse is 0
         require(clearingHouseArg != address(0), "EX_CH0");
         // UnsiwapV3Factory is 0

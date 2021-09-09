@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
+import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
-abstract contract SafeOwnable is Context {
+abstract contract SafeOwnable is ContextUpgradeable {
     address private _owner;
     address private _candidate;
+
+    // __gap is reserved storage
+    uint256[50] private __gap;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor() {
+
+    function __SafeOwnable_init() internal initializer {
+        __Context_init();
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
