@@ -47,6 +47,7 @@ library UniswapV3Broker {
 
     struct RemoveLiquidityParams {
         address pool;
+        address recipient;
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
@@ -68,6 +69,7 @@ library UniswapV3Broker {
 
     struct SwapParams {
         address pool;
+        address recipient;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
@@ -126,7 +128,7 @@ library UniswapV3Broker {
         // 1. every maker's fee in the same range (ClearingHouse is the only maker in the pool's perspective)
         // 2. the amount of token equivalent to liquidity burned
         IUniswapV3Pool(params.pool).collect(
-            address(this),
+            params.recipient,
             params.lowerTick,
             params.upperTick,
             type(uint128).max,
@@ -154,7 +156,7 @@ library UniswapV3Broker {
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =
             IUniswapV3Pool(params.pool).swap(
-                address(this),
+                params.recipient,
                 params.isBaseToQuote,
                 specifiedAmount,
                 params.sqrtPriceLimitX96 == 0

@@ -58,6 +58,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             await expect(
                 uniswapV3Broker.removeLiquidity({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     lowerTick: "50000",
                     upperTick: "50200",
                     liquidity: "1000000000109464931", // around 1
@@ -93,6 +94,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             await expect(
                 uniswapV3Broker.removeLiquidity({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     lowerTick: "50000",
                     upperTick: "50200",
                     liquidity: "500000000054732465", // around 0.5
@@ -129,6 +131,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             await expect(
                 uniswapV3Broker.removeLiquidity({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     lowerTick: "50000",
                     upperTick: "50200",
                     liquidity: "999999999994411796", // around 1
@@ -162,6 +165,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             await expect(
                 uniswapV3Broker.removeLiquidity({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     lowerTick: "50000",
                     upperTick: "50400",
                     liquidity: "999999986406400213", // around 1
@@ -199,6 +203,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             const removeLiquidityParams = {
                 pool: pool.address,
+                recipient: uniswapV3Broker.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 liquidity: "0",
@@ -231,6 +236,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             // exact base -> quote
             await uniswapV3Broker.swap({
                 pool: pool.address,
+                recipient: uniswapV3Broker.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 amount: parseEther(base.toString()),
@@ -240,6 +246,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             const removeLiquidityParams = {
                 pool: pool.address,
+                recipient: uniswapV3Broker.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 liquidity: "0",
@@ -258,6 +265,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
             await expect(
                 uniswapV3Broker.removeLiquidity({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     lowerTick: 50000, // 148.3760629
                     upperTick: 50400, // 154.4310961
                     liquidity: parseEther("1"),

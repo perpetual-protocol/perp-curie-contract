@@ -48,6 +48,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,
@@ -83,6 +84,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,
@@ -125,6 +127,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: true,
                     isExactInput: true,
                     amount: base,
@@ -167,6 +170,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: false,
                     isExactInput: false,
                     amount: parseEther(base.toString()),
@@ -209,6 +213,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     amount: parseEther(quote.toString()),
@@ -255,6 +260,7 @@ describe("UniswapV3Broker swap", () => {
             await expect(
                 uniswapV3Broker.swap({
                     pool: pool.address,
+                    recipient: uniswapV3Broker.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     amount: quote,

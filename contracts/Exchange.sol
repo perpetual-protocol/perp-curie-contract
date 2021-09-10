@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
-import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
@@ -305,16 +304,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
         // EX_CHNBWL: clearingHouse not in baseToken whitelist
         require(VirtualToken(baseToken).isInWhitelist(clearingHouse), "EX_CHNBWL");
-        // EX_NBWL: exchange not in baseToken whitelist
-        require(VirtualToken(baseToken).isInWhitelist(address(this)), "EX_NBWL");
         // EX_PNBWL: pool not in baseToken whitelist
         require(VirtualToken(baseToken).isInWhitelist(pool), "EX_PNBWL");
 
         // TODO: remove this once quotToken white list is checked in CH or Exchange's initializer
         // EX_CHNQWL: clearingHouse not in quoteToken whitelist
         require(VirtualToken(quoteToken).isInWhitelist(clearingHouse), "EX_CHNQWL");
-        // EX_NQWL: exchange not in quoteToken whitelist
-        require(VirtualToken(quoteToken).isInWhitelist(address(this)), "EX_NQWL");
         // EX_PNQWL: pool not in quoteToken whitelist
         require(VirtualToken(quoteToken).isInWhitelist(pool), "EX_PNQWL");
 
@@ -364,6 +359,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     pool,
+                    clearingHouse,
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap
@@ -380,11 +376,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     )
                 )
             );
-
-        // 1. mint/burn in exchange (but swapCallback has some tokenInfo logic, need to update swap's return
-        address outputToken = params.isBaseToQuote ? quoteToken : params.baseToken;
-        uint256 outputAmount = params.isBaseToQuote ? response.quote : response.base;
-        TransferHelper.safeTransfer(outputToken, clearingHouse, outputAmount);
 
         // because we charge fee in CH instead of uniswap pool,
         // we need to scale up base or quote amount to get exact exchanged position size and notional
@@ -760,7 +751,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address pool = _poolMap[params.baseToken];
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
-                UniswapV3Broker.RemoveLiquidityParams(pool, params.lowerTick, params.upperTick, params.liquidity)
+                UniswapV3Broker.RemoveLiquidityParams(
+                    pool,
+                    clearingHouse,
+                    params.lowerTick,
+                    params.upperTick,
+                    params.liquidity
+                )
             );
 
         // update token info based on existing open order
@@ -784,9 +781,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
-
-        TransferHelper.safeTransfer(params.baseToken, clearingHouse, response.base);
-        TransferHelper.safeTransfer(quoteToken, clearingHouse, response.quote);
 
         emit LiquidityChanged(
             params.maker,
