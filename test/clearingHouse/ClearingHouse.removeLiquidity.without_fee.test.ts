@@ -119,7 +119,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
                 0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                 openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                 openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -207,7 +207,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -274,7 +274,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -340,7 +340,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -458,7 +458,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             liquidity,
             50000, // lowerTick
             50400, // upperTick
-            parseUnits("0", await baseToken.decimals()), // feeGrowthInsideClearingHouseLastX128
+            parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
             openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
             openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here

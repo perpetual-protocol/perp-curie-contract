@@ -15,7 +15,7 @@ interface IClearingHouse {
         uint128 liquidity;
         int24 lowerTick;
         int24 upperTick;
-        uint256 feeGrowthInsideClearingHouseLastX128;
+        uint256 lastFeeGrowthInsideX128;
         int256 lastTwPremiumGrowthInsideX96;
         int256 lastTwPremiumGrowthBelowX96;
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;

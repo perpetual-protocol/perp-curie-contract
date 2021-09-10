@@ -70,12 +70,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         Funding.Growth globalFundingGrowth;
     }
 
-    /// @param feeGrowthInsideClearingHouseLastX128 there is only quote fee in ClearingHouse
+    /// @param lastFeeGrowthInsideX128 fees in quote token recorded in ClearingHouse
+    ///        because of block-based funding, quote-only and customized fee, all fees are in quote token
     struct OpenOrder {
         uint128 liquidity;
         int24 lowerTick;
         int24 upperTick;
-        uint256 feeGrowthInsideClearingHouseLastX128;
+        uint256 lastFeeGrowthInsideX128;
         int256 lastTwPremiumGrowthInsideX96;
         int256 lastTwPremiumGrowthBelowX96;
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
@@ -815,18 +816,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
         uint256 fee =
-            _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
-            );
+            _calcOwedFee(openOrder.liquidity, feeGrowthInsideClearingHouseX128, openOrder.lastFeeGrowthInsideX128);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
-            openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+            openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideClearingHouseX128;
         }
 
         return fee;
@@ -891,13 +888,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             fee = _calcOwedFee(
                 openOrder.liquidity,
                 feeGrowthInsideClearingHouseX128,
-                openOrder.feeGrowthInsideClearingHouseLastX128
+                openOrder.lastFeeGrowthInsideX128
             );
         }
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
-        openOrder.feeGrowthInsideClearingHouseLastX128 = feeGrowthInsideClearingHouseX128;
+        openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideClearingHouseX128;
 
         return fee;
     }
@@ -1090,11 +1087,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     );
 
                 tokenAmount = tokenAmount.add(
-                    _calcOwedFee(
-                        order.liquidity,
-                        feeGrowthInsideClearingHouseX128,
-                        order.feeGrowthInsideClearingHouseLastX128
-                    )
+                    _calcOwedFee(order.liquidity, feeGrowthInsideClearingHouseX128, order.lastFeeGrowthInsideX128)
                 );
             }
         }
@@ -1145,14 +1138,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
     }
 
+    /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
+    /// @dev the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
     function _calcOwedFee(
         uint128 liquidity,
-        uint256 feeGrowthInsideNew,
-        uint256 feeGrowthInsideOld
+        uint256 newFeeGrowthInside,
+        uint256 oldFeeGrowthInside
     ) internal pure returns (uint256) {
-        // can NOT use safeMath, feeGrowthInside could be a very large value(a negative value)
-        // which causes underflow but what we want is the difference only
-        return FullMath.mulDiv(feeGrowthInsideNew - feeGrowthInsideOld, liquidity, FixedPoint128.Q128);
+        return FullMath.mulDiv(newFeeGrowthInside - oldFeeGrowthInside, liquidity, FixedPoint128.Q128);
     }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()

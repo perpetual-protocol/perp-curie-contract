@@ -164,7 +164,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // add the decimal point to prevent overflow, according to the following 10^18 comparison
                     // 209319055280823885560625816574200262
                     //                  1000000000000000000
-                    parseEther("209319055280824225.842992700263677914"), // feeGrowthInsideClearingHouseLastX128
+                    parseEther("209319055280824225.842992700263677914"), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -275,7 +275,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         // add the decimal point to prevent overflow, according to the following 10^18 comparison
                         // 386391129557376066102652522378417873
                         //                  1000000000000000000
-                        parseEther("386391129557376066.102652522378417873"), // feeGrowthInsideClearingHouseLastX128
+                        parseEther("386391129557376066.102652522378417873"), // lastFeeGrowthInsideX128
                         openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                         openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                         openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -395,7 +395,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("0.002259647935249999"),
                     )
 
-                    // feeGrowthInsideClearingHouseLastX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
+                    // lastFeeGrowthInsideX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
                     const openOrder = await exchange.getOpenOrder(
                         alice.address,
                         baseToken.address,
@@ -409,7 +409,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         // add the decimal point to prevent overflow, according to the following 10^18 comparison
                         // 768918347819178371544278519533051567
                         //                  1000000000000000000
-                        parseEther("768918347819178371.544278519533051567"), // feeGrowthInsideClearingHouseLastX128
+                        parseEther("768918347819178371.544278519533051567"), // lastFeeGrowthInsideX128
                         openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                         openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                         openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -574,17 +574,17 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // carol has 0.0005629889737 quote from fees
                 expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
 
-                // feeGrowthInsideClearingHouseLastX128: (0.001116454419 / 4) * 2 ^ 128 + (0.001135501474999999 / 4) * 2 ^ 128 = 1.9157522e35
+                // lastFeeGrowthInsideX128: (0.001116454419 / 4) * 2 ^ 128 + (0.001135501474999999 / 4) * 2 ^ 128 = 1.9157522e35
                 // 191575220500261126937834419214500538
                 //                  1000000000000000000
                 // add the decimal point to prevent overflow, according to the above 10^18 comparison
-                const feeGrowthInsideClearingHouseLastX128 = parseEther("191575220500261126.937834419214500538")
+                const lastFeeGrowthInsideX128 = parseEther("191575220500261126.937834419214500538")
                 let openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityAlice,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
-                    feeGrowthInsideClearingHouseLastX128,
+                    lastFeeGrowthInsideX128,
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -594,7 +594,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     liquidityCarol,
                     Number(lowerTick), // lowerTick
                     Number(upperTick), // upperTick
-                    feeGrowthInsideClearingHouseLastX128,
+                    lastFeeGrowthInsideX128,
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -793,9 +793,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
 
                 // when bob swap Q2B
-                //   feeGrowthInsideClearingHouseLastX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
+                //   lastFeeGrowthInsideX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
                 // when bob swap B2Q:
-                //   feeGrowthInsideClearingHouseLastX128 += (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 15.139051879E35
+                //   lastFeeGrowthInsideX128 += (0.0009891589745 + 0.00122414646) * 2 ^ 128 = 15.139051879E35
                 let openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
                     liquidityAlice,
@@ -808,9 +808,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 ])
 
                 // when bob swap Q2B
-                //   feeGrowthInsideClearingHouseLastX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
+                //   lastFeeGrowthInsideX128 += 0.001236511576 * 2 ^ 128 = 4.207630858E35
                 // when bob swap B2Q:
-                //   feeGrowthInsideClearingHouseLastX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
+                //   lastFeeGrowthInsideX128 += 0.00122414646 * 2 ^ 128 = 8.373185407E35
                 openOrder = await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick)
                 expect(openOrder).to.deep.eq([
                     liquidityCarol,
@@ -867,9 +867,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 // console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[1].toString())
 
 // console.log("----------------------")
-// console.log("feeGrowthInsideClearingHouseLastX128 carol 50000 - 50200")
+// console.log("lastFeeGrowthInsideX128 carol 50000 - 50200")
 // console.log((await exchange.getOpenOrder(carol.address, baseToken.address, lowerTick, middleTick))[3].toString())
-// console.log("feeGrowthInsideClearingHouseLastX128 alice 50000 - 50400")
+// console.log("lastFeeGrowthInsideX128 alice 50000 - 50400")
 // console.log((await exchange.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick))[3].toString())
 
 // console.log("----------------------")
