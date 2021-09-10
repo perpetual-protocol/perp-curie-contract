@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
@@ -16,11 +16,11 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 
-contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
-    using SafeMath for uint256;
+contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
+    using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
-    using SignedSafeMath for int256;
+    using SignedSafeMathUpgradeable for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
     using PerpMath for int256;
@@ -32,12 +32,15 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    address public immutable settlementToken;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    address public settlementToken;
+
     address public clearingHouse;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
-    uint8 public immutable override decimals;
+    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    uint8 public override decimals;
 
     address[] internal _collateralTokens;
 
@@ -48,7 +51,10 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
 
-    constructor(address settlementTokenArg) public {
+    function initialize(address settlementTokenArg) external initializer {
+        __ReentrancyGuard_init();
+        __OwnerPausable_init();
+
         // invalid settlementToken decimals
         require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
 
@@ -56,6 +62,9 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
         decimals = IERC20Metadata(settlementTokenArg).decimals();
         settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
+
+        // we don't use this var
+        versionRecipient = "2.0.0";
     }
 
     //
@@ -185,12 +194,12 @@ contract Vault is ReentrancyGuard, OwnerPausable, BaseRelayRecipient, IVault {
     }
 
     /// @inheritdoc BaseRelayRecipient
-    function _msgSender() internal view override(BaseRelayRecipient, Context) returns (address payable) {
+    function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
         return super._msgSender();
     }
 
     /// @inheritdoc BaseRelayRecipient
-    function _msgData() internal view override(BaseRelayRecipient, Context) returns (bytes memory) {
+    function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
         return super._msgData();
     }
 }

@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault, VirtualToken } from "../../typechain"
+import { BaseToken, ClearingHouse, Exchange, QuoteToken, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -17,7 +17,7 @@ describe("ClearingHouse liquidate maker", () => {
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool

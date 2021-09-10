@@ -2,12 +2,13 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
@@ -17,10 +18,10 @@ import { Exchange } from "../Exchange.sol";
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
 /// @dev These functions are not gas efficient and should _not_ be called on chain. Instead, optimistically execute
 /// the swap and check the amounts in the callback.
-contract Quoter is IUniswapV3SwapCallback {
-    using SafeMath for uint256;
+contract Quoter is IUniswapV3SwapCallback, Initializable {
+    using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
-    using SignedSafeMath for int256;
+    using SignedSafeMathUpgradeable for int256;
     using PerpMath for int256;
 
     struct SwapParams {
@@ -40,7 +41,10 @@ contract Quoter is IUniswapV3SwapCallback {
 
     address public exchange;
 
-    constructor(address exchangeArg) public {
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
+    function initialize(address exchangeArg) external initializer {
         // Q_EX0: exchange is 0
         require(exchangeArg != address(0), "Q_EX0");
         exchange = exchangeArg;

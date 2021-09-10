@@ -16,11 +16,14 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
 
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
-    const USDC = (await tokenFactory.deploy("TestUSDC", "USDC")) as TestERC20
+    const USDC = (await tokenFactory.deploy()) as TestERC20
+    await USDC.initialize("TestUSDC", "USDC")
     const vaultFactory = await ethers.getContractFactory("Vault")
-    const vault = (await vaultFactory.deploy(USDC.address)) as Vault
+    const vault = (await vaultFactory.deploy()) as Vault
+    await vault.initialize(USDC.address)
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-    const insuranceFund = (await insuranceFundFactory.deploy(vault.address)) as InsuranceFund
+    const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+    await insuranceFund.initialize(vault.address)
 
     const mockedQuoteToken = await smockit(token1)
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
@@ -28,6 +31,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     })
     mockedQuoteToken.smocked.totalSupply.will.return.with(async () => {
         return ethers.constants.MaxUint256
+    })
+    mockedQuoteToken.smocked.isInWhitelist.will.return.with(async () => {
+        return true
     })
 
     const mockedVault = await smockit(vault)
@@ -40,20 +46,18 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = (await clearingHouseFactory.deploy(
+    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+    await clearingHouse.initialize(
         mockedVault.address,
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
-    )) as ClearingHouse
+    )
     await token1.mintMaximumTo(clearingHouse.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
-    const exchange = (await exchangeFactory.deploy(
-        clearingHouse.address,
-        mockedUniV3Factory.address,
-        mockedQuoteToken.address,
-    )) as Exchange
+    const exchange = (await exchangeFactory.deploy()) as Exchange
+    await exchange.initialize(clearingHouse.address, mockedUniV3Factory.address, mockedQuoteToken.address)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
@@ -62,6 +66,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     })
     mockedBaseToken.smocked.balanceOf.will.return.with(async () => {
         return ethers.constants.MaxUint256
+    })
+    mockedBaseToken.smocked.isInWhitelist.will.return.with(async () => {
+        return true
     })
 
     return {

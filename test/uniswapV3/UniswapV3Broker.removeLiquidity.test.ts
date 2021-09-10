@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, TestUniswapV3Broker, UniswapV3Pool, VirtualToken } from "../../typechain"
+import { BaseToken, QuoteToken, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -10,7 +10,7 @@ describe("UniswapV3Broker removeLiquidity", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let quoteToken: VirtualToken
+    let quoteToken: QuoteToken
     let uniswapV3Broker: TestUniswapV3Broker
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=1867451918
@@ -26,7 +26,8 @@ describe("UniswapV3Broker removeLiquidity", () => {
         quoteToken = _quoteToken
 
         const UniswapV3BrokerFactory = await ethers.getContractFactory("TestUniswapV3Broker")
-        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy(factory.address)) as TestUniswapV3Broker
+        uniswapV3Broker = (await UniswapV3BrokerFactory.deploy()) as TestUniswapV3Broker
+        await uniswapV3Broker.initialize(factory.address)
 
         // broker has the only permission to mint vToken
         await baseToken.mintMaximumTo(uniswapV3Broker.address)
