@@ -12,11 +12,13 @@ interface IClearingHouse {
     }
 
     struct OpenOrder {
-        uint256 liquidity;
-        uint24 tickLower;
-        uint24 tickUpper;
-        uint128 feeGrowthInsideBaseX128;
-        uint128 feeGrowthInsideQuoteX128;
+        uint128 liquidity;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 lastFeeGrowthInsideX128;
+        int256 lastTwPremiumGrowthInsideX96;
+        int256 lastTwPremiumGrowthBelowX96;
+        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
     struct Account {
