@@ -1343,7 +1343,7 @@ contract ClearingHouse is
         uint256 totalDebtValue = _getTotalDebtValue(trader);
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
 
-        return Math.max(totalPositionValue, totalDebtValue).mulRatio(imRatio);
+        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(imRatio);
     }
 
     // return in settlement token decimals

@@ -85,13 +85,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
-
-            // need to discuss
-            // before baseTokenInfo.balance = -1 eth
-            // console.log('before', await clearingHouse.getTokenInfo(alice.address, baseToken.address))
             await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
-            // after baseTokenInfo.balance = -1 wei
-            // console.log('after', await clearingHouse.getTokenInfo(alice.address, baseToken.address))
         })
 
         it("has 0 open orders left", async () => {
@@ -133,11 +127,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
 
-            // before baseTokenInfo.balance = -2 eth
-            // console.log("before", await clearingHouse.getTokenInfo(alice.address, baseToken.address))
             await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
-            // after baseTokenInfo.balance = -2 wei
-            // console.log("after", await clearingHouse.getTokenInfo(alice.address, baseToken.address))
         })
 
         it("has 0 open orders left", async () => {

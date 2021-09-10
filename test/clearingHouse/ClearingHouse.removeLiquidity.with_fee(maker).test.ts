@@ -137,7 +137,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // alice received 0.0006151334175725025 quote tokens as fee
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
 
-                // no base fee, and excess vTokens should be auto-burnt
+                // no base fee
                 const [{ balance: baseTokenBalance }] = await clearingHouse.getTokenInfo(
                     alice.address,
                     baseToken.address,
@@ -148,6 +148,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // auto-burnt:
                 //   available = 9999.877585354 -> 0
                 //   debt = 10000 -> 10000 - 9999.877585354 = 0.122414646
+                //   balance = available - debt = -0.122414646
                 const [, { balance: quoteTokenBalance }] = await clearingHouse.getTokenInfo(
                     alice.address,
                     baseToken.address,
@@ -173,7 +174,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
-                // all base tokens should've been burnt by now
+                // all base tokens balance should've been zero by now
                 const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
                 expect(baseTokenInfo.balance).be.eq(0)
                 // alice should've burnt all the quote tokens (only liquidity, fee is being realized) she received
@@ -207,7 +208,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }
-                    // will mint 0.000816820841 base -> transfer to pool
+                    // 0.000816820841 base -> transfer to pool
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                     // liquidity ~= 1
@@ -226,7 +227,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
-                    // will mint 0.1135501475 quote (plus extra for offsetting Uniswap fee) -> transfer to pool
+                    // 0.1135501475 quote (plus extra for offsetting Uniswap fee) -> transfer to pool
                     await clearingHouse.connect(bob).swap(swapParams)
 
                     // alice remove liq 0, alice should collect fee
@@ -315,7 +316,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }
-                    // will mint 0.000816820841 base -> transfer to pool
+                    // 0.000816820841 base -> transfer to pool
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                     // liquidity ~= 1
@@ -335,7 +336,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
-                    // will mint 0.1135501475 quote -> transfer 0.112414646 to pool
+                    // 0.1135501475 quote -> transfer 0.112414646 to pool
                     // will transfer 0.0007507052579 base from pool to CH
                     await clearingHouse.connect(bob).swap(swapParams1)
 
@@ -387,7 +388,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // no base fee
                     // 100 - 0.000816820841 = 99.9991831792
-                    // alice haven't got back any of the 0.000816820841 she minted yet
+                    // alice haven't got back any of the 0.000816820841 base in pool
                     const [{ balance }] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
                     expect(balance).to.deep.eq(parseEther("-0.000816820841"))
 
@@ -452,7 +453,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
-                // will mint & transfer 0.002450462523 base to pool
+                // transfer 0.002450462523 base to pool
                 await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
                 // add base liquidity
@@ -466,7 +467,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
-                // will mint & transfer 0.000816820841 base to pool
+                // transfer 0.000816820841 base to pool
                 await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
                 // liquidity ~= 3
