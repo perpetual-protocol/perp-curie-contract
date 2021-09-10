@@ -65,7 +65,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address pool;
         int24 lowerTick;
         int24 upperTick;
-        uint256 feeGrowthGlobalClearingHouseX128;
+        uint256 feeGrowthGlobalX128;
         uint128 liquidity;
         Funding.Growth globalFundingGrowth;
     }
@@ -421,7 +421,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         returns (AddLiquidityResponse memory)
     {
         address pool = _poolMap[params.baseToken];
-        uint256 feeGrowthGlobalClearingHouseX128 = _feeGrowthGlobalX128Map[params.baseToken];
+        uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
 
@@ -451,7 +451,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     params.lowerTick,
                     currentTick,
                     Tick.GrowthInfo(
-                        feeGrowthGlobalClearingHouseX128,
+                        feeGrowthGlobalX128,
                         params.fundingGrowthGlobal.twPremiumX96,
                         params.fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                     )
@@ -462,7 +462,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     params.upperTick,
                     currentTick,
                     Tick.GrowthInfo(
-                        feeGrowthGlobalClearingHouseX128,
+                        feeGrowthGlobalX128,
                         params.fundingGrowthGlobal.twPremiumX96,
                         params.fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                     )
@@ -479,7 +479,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     pool: pool,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    feeGrowthGlobalClearingHouseX128: feeGrowthGlobalClearingHouseX128,
+                    feeGrowthGlobalX128: feeGrowthGlobalX128,
                     liquidity: response.liquidity,
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
@@ -808,22 +808,21 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         OpenOrder storage openOrder = _openOrderMap[orderId];
-        uint256 feeGrowthInsideClearingHouseX128 =
+        uint256 feeGrowthInsideX128 =
             tickMap.getFeeGrowthInsideX128(
                 params.lowerTick,
                 params.upperTick,
                 UniswapV3Broker.getTick(params.pool),
                 _feeGrowthGlobalX128Map[params.baseToken]
             );
-        uint256 fee =
-            _calcOwedFee(openOrder.liquidity, feeGrowthInsideClearingHouseX128, openOrder.lastFeeGrowthInsideX128);
+        uint256 fee = _calcOwedFee(openOrder.liquidity, feeGrowthInsideX128, openOrder.lastFeeGrowthInsideX128);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
-            openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideClearingHouseX128;
+            openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
         }
 
         return fee;
@@ -853,7 +852,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
 
-        uint256 feeGrowthInsideClearingHouseX128;
+        uint256 feeGrowthInsideX128;
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         uint256 fee;
         if (openOrder.liquidity == 0) {
@@ -879,22 +878,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
         } else {
-            feeGrowthInsideClearingHouseX128 = tickMap.getFeeGrowthInsideX128(
+            feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
                 params.lowerTick,
                 params.upperTick,
                 UniswapV3Broker.getTick(params.pool),
-                params.feeGrowthGlobalClearingHouseX128
+                params.feeGrowthGlobalX128
             );
-            fee = _calcOwedFee(
-                openOrder.liquidity,
-                feeGrowthInsideClearingHouseX128,
-                openOrder.lastFeeGrowthInsideX128
-            );
+            fee = _calcOwedFee(openOrder.liquidity, feeGrowthInsideX128, openOrder.lastFeeGrowthInsideX128);
         }
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
-        openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideClearingHouseX128;
+        openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
 
         return fee;
     }
@@ -1078,7 +1073,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
                 mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
                 uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
-                uint256 feeGrowthInsideClearingHouseX128 =
+                uint256 feeGrowthInsideX128 =
                     tickMap.getFeeGrowthInsideX128(
                         order.lowerTick,
                         order.upperTick,
@@ -1087,7 +1082,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
                     );
 
                 tokenAmount = tokenAmount.add(
-                    _calcOwedFee(order.liquidity, feeGrowthInsideClearingHouseX128, order.lastFeeGrowthInsideX128)
+                    _calcOwedFee(order.liquidity, feeGrowthInsideX128, order.lastFeeGrowthInsideX128)
                 );
             }
         }
