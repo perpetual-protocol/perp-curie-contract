@@ -99,9 +99,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             expect(openOrderIds).be.deep.eq([])
         })
 
-        it("base balance should return to zero", async () => {
+        // there will be 1 wei dust of base token due to _removeLiquidity
+        it("base balance should reduce", async () => {
             const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(baseTokenInfo.balance).be.deep.eq(parseUnits("0", await baseToken.decimals()))
+            expect(baseTokenInfo.balance).be.deep.eq("-1")
         })
 
         it("quote balance should return to zero", async () => {
@@ -145,9 +146,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             expect(openOrderIds).be.deep.eq([])
         })
 
-        it("base balance should return to zero", async () => {
+        // there will be 2 wei dust (2 orders) of base token due to _removeLiquidity
+        it("base balance should reduce", async () => {
             const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(baseTokenInfo.balance).deep.eq(parseUnits("0", await baseToken.decimals()))
+            expect(baseTokenInfo.balance).deep.eq("-2")
         })
 
         it("quote balance should return to zero", async () => {

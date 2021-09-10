@@ -443,7 +443,6 @@ contract ClearingHouse is
                     updatedGlobalFundingGrowth: updatedGlobalFundingGrowth
                 })
             );
-
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
@@ -453,8 +452,8 @@ contract ClearingHouse is
         // collect fee to owedRealizedPnl
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.add(response.fee.toInt256());
 
-        _accountMarketMap[trader][params.baseToken].quoteTokenInfo.addBalance(-(response.quote.toInt256()));
         _accountMarketMap[trader][params.baseToken].baseTokenInfo.addBalance(-(response.base.toInt256()));
+        _accountMarketMap[trader][params.baseToken].quoteTokenInfo.addBalance(-(response.quote.toInt256()));
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -710,16 +709,23 @@ contract ClearingHouse is
         return _getPositionValue(trader, token);
     }
 
-    function getTokenInfo(address trader, address token)
+    function getTokenInfo(address trader, address baseToken)
         external
         view
         returns (TokenBalance.Info memory, TokenBalance.Info memory)
     {
-        return (_accountMarketMap[trader][token].baseTokenInfo, _accountMarketMap[trader][token].quoteTokenInfo);
+        return (
+            _accountMarketMap[trader][baseToken].baseTokenInfo,
+            _accountMarketMap[trader][baseToken].quoteTokenInfo
+        );
+    }
+
+    function getQuoteTokenBalance(address trader, address baseToken) external view returns (int256) {
+        return _accountMarketMap[trader][baseToken].quoteTokenInfo.balance;
     }
 
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
+        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteTokenInfo.balance
         int256 openNotional;
 
         openNotional = openNotional
@@ -832,7 +838,10 @@ contract ClearingHouse is
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        if (_accountMarketMap[trader][baseToken].baseTokenInfo.balance != 0) {
+        if (
+            _accountMarketMap[trader][baseToken].baseTokenInfo.balance != 0 ||
+            _accountMarketMap[trader][baseToken].quoteTokenInfo.balance != 0
+        ) {
             return;
         }
 
@@ -1043,7 +1052,6 @@ contract ClearingHouse is
                     liquidity: params.liquidity
                 })
             );
-
         _afterRemoveLiquidity(
             AfterRemoveLiquidityParams({
                 maker: params.maker,
