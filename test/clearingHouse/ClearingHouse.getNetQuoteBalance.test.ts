@@ -47,7 +47,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
         await deposit(taker, vault, 10000, collateral)
     })
 
-    describe("no swaps, costBasis should be 0", async () => {
+    describe("no swaps, openNotional should be 0", async () => {
         describe("initialized price = 200", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("200", "1"))
