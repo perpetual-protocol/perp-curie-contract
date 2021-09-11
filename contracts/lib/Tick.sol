@@ -14,13 +14,14 @@ library Tick {
         int256 twPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
-    function getFeeGrowthInside(
+    /// @dev all values in this function are scaled by 2^128 (X128), thus adding the suffix to external params
+    function getFeeGrowthInsideX128(
         mapping(int24 => GrowthInfo) storage self,
         int24 lowerTick,
         int24 upperTick,
         int24 currentTick,
         uint256 feeGrowthGlobalX128
-    ) internal view returns (uint256 feeGrowthInsideQuote) {
+    ) internal view returns (uint256 feeGrowthInsideX128) {
         uint256 lowerFeeGrowthOutside = self[lowerTick].feeX128;
         uint256 upperFeeGrowthOutside = self[upperTick].feeX128;
 
@@ -29,7 +30,7 @@ library Tick {
         uint256 feeGrowthAbove =
             currentTick < upperTick ? upperFeeGrowthOutside : feeGrowthGlobalX128 - upperFeeGrowthOutside;
 
-        // this value can underflow per feeGrowthOutside specs
+        // this value can underflow per Tick.feeGrowthOutside specs
         return feeGrowthGlobalX128 - feeGrowthBelow - feeGrowthAbove;
     }
 
