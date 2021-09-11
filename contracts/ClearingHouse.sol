@@ -766,29 +766,18 @@ contract ClearingHouse is
         return _accountMarketMap[trader][token].getTokenBalance();
     }
 
-    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
-        int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
-        int256 openNotionalFraction = _accountMarketMap[trader][baseToken].openNotionalFraction;
-        return quoteInPool.sub(openNotionalFraction);
-    }
-
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _accountMap[trader].owedRealizedPnl;
     }
 
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        return _getPositionSize(trader, baseToken);
+    /// @dev the decimals of the return value is 18
+    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
+        return _getTotalInitialMarginRequirement(trader);
     }
 
-    // quote.available - quote.debt + totalQuoteInPools - pendingFundingPayment
-    function getNetQuoteBalance(address trader) public view returns (int256) {
-        // include pendingFundingPayment
-        uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
-
-        int256 netQuoteBalance =
-            _accountMarketMap[trader][quoteToken].getTokenBalance().getNet().add(totalQuoteInPools.toInt256());
-        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
+    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
+    function getAllPendingFundingPayment(address trader) external view returns (int256) {
+        return _getAllPendingFundingPayment(trader);
     }
 
     /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
@@ -798,9 +787,27 @@ contract ClearingHouse is
         return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
     }
 
-    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
-    function getAllPendingFundingPayment(address trader) external view returns (int256) {
-        return _getAllPendingFundingPayment(trader);
+    /// @dev the amount of quote token paid for a position when opening
+    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
+        // quote.pool[baseToken] + quote.owedFee[baseToken] - openNotionalFraction[baseToken]
+        int256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256();
+        int256 openNotionalFraction = _accountMarketMap[trader][baseToken].openNotionalFraction;
+        return quoteInPool.sub(openNotionalFraction);
+    }
+
+    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+        return _getPositionSize(trader, baseToken);
+    }
+
+    /// @return netQuoteBalance = quote.available - quote.debt + totalQuoteInPools
+    function getNetQuoteBalance(address trader) public view returns (int256 netQuoteBalance) {
+        // pendingFundingPayment is included
+        uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
+
+        netQuoteBalance = _accountMarketMap[trader][quoteToken].getTokenBalance().getNet().add(
+            totalQuoteInPools.toInt256()
+        );
+        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
@@ -813,11 +820,6 @@ contract ClearingHouse is
         }
 
         return getNetQuoteBalance(trader).add(totalPositionValue);
-    }
-
-    // return decimals 18
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalInitialMarginRequirement(trader);
     }
 
     //

@@ -88,7 +88,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             // price after swap: 101.855079
             // position size = 0.980943170969551031
             // position value = 0.980943170969551031 * 101.855079 = 99.9140441736
-            // cost basis = -100
+            // open notional = -100
             // pnl = -100 + 99.9140441736 = -0.0859558264
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
@@ -132,7 +132,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             // price after swap: 101.855079
             // position size = 0.980943170969551031
             // position value = 0.980943170969551031 * 101.855079 = 99.9140441736
-            // cost basis = -100
+            // open notional = -100
             // pnl = -100 + 99.9140441736 = -0.0859558264
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
@@ -225,7 +225,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             // price after swap: 98.143490
             // position size = -1.009413830572328542
             // position value = -1.009413830572328542 * 98.143490 = -99.0673961866
-            // cost basis = 99
+            // open notional = 99
             // pnl = 99 + -99.0673961866 = -0.0673961866
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
@@ -276,7 +276,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             // maker
             //  - position size = -0.980943170969551031
             //  - position value = -0.980943170969551031 * 101.855079 = -99.9140441736
-            //  - costBasis = 100 * (1 - 1%) + 1(fee) = 100
+            //  - open notional = 100 * (1 - 1%) + 1(fee) = 100
             //  - pnl = 100 + (-99.9140441736) = 0.0859558264
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("101.855079", 6), 0, 0, 0]
@@ -304,7 +304,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             // maker
             //  - position size = 1.009413830572328542
             //  - position value = 1.009413830572328542 * 98.143490 = 99.0673961866
-            //  - costBasis = -99
+            //  - open notional = -99
             //  - pnl = -99 + 99.0673961866 = 0.0673961866
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("98.143490", 6), 0, 0, 0]
@@ -334,7 +334,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             //   debt       10000   10000
             //
             //   position size = 100 + 9900 - 10000 = 0
-            //   cost basis = 10000 + 0 - 10000 = 0
+            //   open notional = 10000 + 0 - 10000 = 0
             //   pnl = 0 + 0 = 0
             //
             // maker after swap:
@@ -347,7 +347,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             //   debt       10000           10100
             //
             //   position size = 99.0099009901 + 9900.9900990099 - 10000 = 0
-            //   cost basis = 10099 + 1 - 10100 = 0
+            //   open notional = 10099 + 1 - 10100 = 0
             //   pnl = 0 + 0 = 0
             expect(await clearingHouse.getTotalUnrealizedPnl(maker.address)).to.eq("0")
         })
@@ -374,7 +374,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             //   debt       10000       10000
             //
             //   position size = 100 + 9900 - 10000 = 0
-            //   cost basis = 10000 + 0 - 10000 = 0
+            //   open notional = 10000 + 0 - 10000 = 0
             //   pnl = 0 + 0 = 0
             //
             // maker after swap:
@@ -386,7 +386,7 @@ describe("ClearingHouse getTotalUnrealizedPnl", () => {
             //   debt       10000           10000
             //
             //   position size = 101.0101010101 + 9898.9898989899 - 10000 = 0
-            //   cost basis = 9900 + 99 + 1 - 10000 = 0
+            //   open notional = 9900 + 99 + 1 - 10000 = 0
             //   pnl = 0 + 0 = 0
 
             expect(await clearingHouse.getTotalUnrealizedPnl(maker.address)).to.eq("0")
