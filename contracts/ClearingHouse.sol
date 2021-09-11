@@ -732,6 +732,7 @@ contract ClearingHouse is
         return _accountMarketMap[trader][baseToken].quoteTokenInfo.balance;
     }
 
+    /// @dev the amount of quote token paid for a position when opening
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteTokenInfo.balance
         int256 openNotional;
@@ -747,11 +748,13 @@ contract ClearingHouse is
         return _accountMap[trader].owedRealizedPnl;
     }
 
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        return _getPositionSize(trader, baseToken);
+    /// @dev the decimals of the return value is 18
+    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
+        return _getTotalInitialMarginRequirement(trader);
     }
 
-    // quote.available - quote.debt + totalQuoteInPools - pendingFundingPayment
+    /// @return netQuoteBalance = quote.available - quote.debt + totalQuoteInPools
+    // quote.balance + totalQuoteInPools - pendingFundingPayment
     function getNetQuoteBalance(address trader) public view returns (int256) {
         Account storage account = _accountMap[trader];
 
@@ -772,6 +775,11 @@ contract ClearingHouse is
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
+    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
+    function getAllPendingFundingPayment(address trader) external view returns (int256) {
+        return _getAllPendingFundingPayment(trader);
+    }
+
     /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         _requireHasBaseToken(baseToken);
@@ -779,9 +787,8 @@ contract ClearingHouse is
         return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
     }
 
-    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
-    function getAllPendingFundingPayment(address trader) external view returns (int256) {
-        return _getAllPendingFundingPayment(trader);
+    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+        return _getPositionSize(trader, baseToken);
     }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
@@ -794,11 +801,6 @@ contract ClearingHouse is
         }
 
         return getNetQuoteBalance(trader).add(totalPositionValue);
-    }
-
-    // return decimals 18
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalInitialMarginRequirement(trader);
     }
 
     //
