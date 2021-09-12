@@ -29,8 +29,6 @@ library UniswapV3Broker {
 
     struct AddLiquidityParams {
         address pool;
-        address baseToken;
-        address quoteToken;
         int24 lowerTick;
         int24 upperTick;
         uint256 base;

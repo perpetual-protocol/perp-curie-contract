@@ -395,8 +395,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
             response = UniswapV3Broker.addLiquidity(
                 UniswapV3Broker.AddLiquidityParams(
                     pool,
-                    params.baseToken,
-                    quoteToken,
                     params.lowerTick,
                     params.upperTick,
                     params.base,

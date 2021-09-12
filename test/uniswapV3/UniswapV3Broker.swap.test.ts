@@ -68,8 +68,6 @@ describe("UniswapV3Broker swap", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.000816820841"),
@@ -113,8 +111,6 @@ describe("UniswapV3Broker swap", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: "0",
@@ -157,8 +153,6 @@ describe("UniswapV3Broker swap", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.000816820841"),
@@ -200,8 +194,6 @@ describe("UniswapV3Broker swap", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: "0",
@@ -246,8 +238,6 @@ describe("UniswapV3Broker swap", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: parseEther("0.00816820841"),
