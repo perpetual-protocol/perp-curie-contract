@@ -28,6 +28,7 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { Exchange, ILiquidityAction } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
+import { OrderBook } from "./OrderBook.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -388,7 +389,7 @@ contract ClearingHouse is
         uint256 amount1Owed,
         bytes calldata data
     ) external override onlyExchange {
-        Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
+        OrderBook.MintCallbackData memory callbackData = abi.decode(data, (OrderBook.MintCallbackData));
 
         if (amount0Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token0();
