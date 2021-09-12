@@ -5,6 +5,7 @@ import {
     Exchange,
     InsuranceFund,
     ExchangeRegistry,
+    OrderBook,
     TestERC20,
     UniswapV3Factory,
     Vault,
@@ -67,15 +68,13 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
     const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
     await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
+    const orderBookFactory = await ethers.getContractFactory("OrderBook")
+    const orderBook = (await orderBookFactory.deploy()) as OrderBook
+    await orderBook.initialize(exchangeRegistry.address, mockedQuoteToken.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(
-        clearingHouse.address,
-        mockedUniV3Factory.address,
-        exchangeRegistry.address,
-        mockedQuoteToken.address,
-    )
+    await exchange.initialize(clearingHouse.address, exchangeRegistry.address, orderBook.address)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
