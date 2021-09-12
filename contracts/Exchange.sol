@@ -24,8 +24,9 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityAction, SafeOwnable, ArbBlockContext {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -89,23 +90,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint160 sqrtPriceLimitX96;
     }
 
-    struct AddLiquidityParams {
-        address trader;
-        address baseToken;
-        uint256 base;
-        uint256 quote;
-        int24 lowerTick;
-        int24 upperTick;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct AddLiquidityResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 fee;
-        uint128 liquidity;
-    }
-
     struct SwapParams {
         address trader;
         address baseToken;
@@ -135,20 +119,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken;
         address pool;
         uint24 uniswapFeeRatio;
-        uint256 fee;
-    }
-
-    struct RemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 liquidity;
-    }
-
-    struct RemoveLiquidityResponse {
-        uint256 base;
-        uint256 quote;
         uint256 fee;
     }
 
@@ -406,8 +376,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
+    /// @inheritdoc ILiquidityAction
     function addLiquidity(AddLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
@@ -497,11 +469,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
+    /// @inheritdoc ILiquidityAction
     function removeLiquidityByIds(
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
@@ -528,8 +501,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
     }
 
+    /// @inheritdoc ILiquidityAction
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
