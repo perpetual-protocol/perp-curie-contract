@@ -13,7 +13,7 @@ import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
-import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
+import { UniswapV3Broker, IUniswapV3Pool } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
@@ -110,7 +110,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
 
     struct MintCallbackData {
         address trader;
-        address baseToken;
         address pool;
     }
 
@@ -402,7 +401,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
                     params.upperTick,
                     params.base,
                     params.quote,
-                    abi.encode(MintCallbackData(params.trader, params.baseToken, pool))
+                    abi.encode(MintCallbackData(params.trader, pool))
                 )
             );
             // mint callback
@@ -594,7 +593,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     ) external override {
         MintCallbackData memory callbackData = abi.decode(data, (MintCallbackData));
         // EX_FMV: failed mintCallback verification
-        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FMV");
+        address sender = _msgSender();
+        address baseToken = IUniswapV3Pool(sender).token0();
+        require(sender == _poolMap[baseToken], "EX_FMV");
 
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }

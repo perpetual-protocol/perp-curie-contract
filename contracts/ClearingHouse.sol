@@ -389,7 +389,7 @@ contract ClearingHouse is
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
-        bytes calldata data // contains baseToken
+        bytes calldata data
     ) external override onlyExchange {
         Exchange.MintCallbackData memory callbackData = abi.decode(data, (Exchange.MintCallbackData));
 
