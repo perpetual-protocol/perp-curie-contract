@@ -1,6 +1,14 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Factory, Vault } from "../../typechain"
+import {
+    ClearingHouse,
+    Exchange,
+    InsuranceFund,
+    MarketRegistry,
+    TestERC20,
+    UniswapV3Factory,
+    Vault,
+} from "../../typechain"
 import { ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { tokensFixture } from "../shared/fixtures"
 
@@ -55,9 +63,19 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     )
     await token1.mintMaximumTo(clearingHouse.address)
 
+    // TODO change back to mock
+    const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
+    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
+
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(clearingHouse.address, mockedUniV3Factory.address, mockedQuoteToken.address)
+    await exchange.initialize(
+        clearingHouse.address,
+        mockedUniV3Factory.address,
+        marketRegistry.address,
+        mockedQuoteToken.address,
+    )
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)

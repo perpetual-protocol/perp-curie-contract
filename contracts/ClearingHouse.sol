@@ -272,6 +272,7 @@ contract ClearingHouse is
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
 
+    // TODO move to exchange
     // key: base token
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
@@ -1510,6 +1511,7 @@ contract ClearingHouse is
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
+    // TODO remove
     function _hasPool(address baseToken) internal view returns (bool) {
         return Exchange(exchange).getPool(baseToken) != address(0);
     }
@@ -1535,6 +1537,7 @@ contract ClearingHouse is
         return super._msgData();
     }
 
+    // TODO remove, should check in exchange
     function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
         require(_hasPool(baseToken), "CH_BTNE");
