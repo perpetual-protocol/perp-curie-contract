@@ -226,6 +226,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         _;
     }
 
+    modifier checkCallback() {
+        address sender = _msgSender();
+        address baseToken = IUniswapV3Pool(sender).token0();
+        // failed callback verification
+        require(sender == _poolMap[baseToken], "EX_FCV");
+        _;
+    }
+
     //
     // EXTERNAL ADMIN FUNCTIONS
     //
@@ -588,13 +596,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external override {
-        MintCallbackData memory callbackData = abi.decode(data, (MintCallbackData));
-        // EX_FMV: failed mintCallback verification
-        address sender = _msgSender();
-        address baseToken = IUniswapV3Pool(sender).token0();
-        require(sender == _poolMap[baseToken], "EX_FMV");
-
+    ) external override checkCallback {
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
@@ -603,11 +605,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         int256 amount0Delta,
         int256 amount1Delta,
         bytes calldata data
-    ) external override {
-        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
-        // EX_FSV: failed swapCallback verification
-        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FSV");
-
+    ) external override checkCallback {
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
