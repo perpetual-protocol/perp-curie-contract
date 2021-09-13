@@ -154,7 +154,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     // EXTERNAL FUNCTIONS
     //
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
-        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
+        ExchangeRegistry.MarketInfo memory marketInfo =
+            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             _getScaledAmountForSwaps(
@@ -277,7 +278,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
 
     // return the price after replay swap (final tick)
     function replaySwap(ReplaySwapParams memory params) external returns (int24) {
-        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
+        ExchangeRegistry.MarketInfo memory marketInfo =
+            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =

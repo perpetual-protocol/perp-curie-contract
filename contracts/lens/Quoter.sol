@@ -54,7 +54,8 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
-        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
+        ExchangeRegistry.MarketInfo memory marketInfo =
+            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken);
         address pool = marketInfo.pool;
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");

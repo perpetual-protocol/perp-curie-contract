@@ -392,7 +392,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
-            ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken).insuranceFundFeeRatio;
+            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 feeResult; // exchangeFeeRatio
         uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 

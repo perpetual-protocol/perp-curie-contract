@@ -2,23 +2,35 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-
-// TODO remove
+import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
 contract ExchangeRegistry is SafeOwnable {
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    //
+    // STRUCT
+    //
+    struct MarketInfo {
+        address pool;
+        uint24 exchangeFeeRatio;
+        uint24 uniswapFeeRatio;
+        uint24 insuranceFundFeeRatio;
+    }
+
+    //
+    // STATE
+    //
     address public uniswapV3Factory;
     address public quoteToken;
     address public clearingHouse;
-
     uint8 public maxOrdersPerMarket;
 
     // key: base token, value: pool
     mapping(address => address) internal _poolMap;
+
+    // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
+    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
     // key: pool , uniswap fee will be ignored and use the exchangeFeeRatio instead
     mapping(address => uint24) internal _exchangeFeeRatioMap;
@@ -26,12 +38,14 @@ contract ExchangeRegistry is SafeOwnable {
     // key: pool, _uniswapFeeRatioMap cache only
     mapping(address => uint24) internal _uniswapFeeRatioMap;
 
-    // TODO change to pool as key?
-    // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
-    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
-
+    //
+    // EVENT
+    //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
 
+    //
+    // CONSTRUCTOR
+    //
     function initialize(
         address uniswapV3FactoryArg,
         address quoteTokenArg,
@@ -138,17 +152,10 @@ contract ExchangeRegistry is SafeOwnable {
         return _exchangeFeeRatioMap[_poolMap[baseToken]];
     }
 
-    struct Info {
-        address pool;
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        uint24 insuranceFundFeeRatio;
-    }
-
-    function getInfo(address baseToken) external view returns (Info memory) {
+    function getMarketInfo(address baseToken) external view returns (MarketInfo memory) {
         address pool = _poolMap[baseToken];
         return
-            Info({
+            MarketInfo({
                 pool: pool,
                 exchangeFeeRatio: _exchangeFeeRatioMap[pool],
                 uniswapFeeRatio: _uniswapFeeRatioMap[pool],
