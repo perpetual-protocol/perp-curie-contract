@@ -52,16 +52,6 @@ describe("Exchange Spec", () => {
                 mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
             })
 
-            // @SAMPLE - addPool
-            it("add a UniswapV3 pool and send an event", async () => {
-                // check event has been sent
-                await expect(exchange.addPool(baseToken.address, DEFAULT_FEE))
-                    .to.emit(exchangeRegistry, "PoolAdded")
-                    .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
-
-                expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
-            })
-
             it("add multiple UniswapV3 pools", async () => {
                 await exchange.addPool(baseToken.address, DEFAULT_FEE)
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
