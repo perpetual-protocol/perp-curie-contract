@@ -603,7 +603,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+                let liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove half of the liquidity of the order (50000, 50400); all pending funding payment should be settled
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -649,7 +649,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+                liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove all the remaining liquidity of the order (50000, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -693,7 +693,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
+                liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
                 // remove all liquidity of the order (50200, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -790,7 +790,7 @@ describe("ClearingHouse funding", () => {
                     )
 
                     let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                    let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    let liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                         .liquidity
 
                     // carol removes half of her liquidity; all pending funding payment should be settled
@@ -937,7 +937,7 @@ describe("ClearingHouse funding", () => {
                     )
 
                     const owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(carol.address)
-                    let liquidity = (await exchange.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
+                    let liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
                         .liquidity
 
                     // carol removes all her liquidity; all pending funding payment should be settled

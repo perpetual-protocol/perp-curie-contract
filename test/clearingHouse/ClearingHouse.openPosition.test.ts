@@ -65,8 +65,8 @@ describe("ClearingHouse openPosition", () => {
         // add pool after it's initialized
         await exchangeRegistry.addPool(baseToken.address, 10000)
         await exchangeRegistry.addPool(baseToken2.address, 10000)
-        await exchange.setFeeRatio(baseToken.address, 10000)
-        await exchange.setFeeRatio(baseToken2.address, 10000)
+        await exchangeRegistry.setFeeRatio(baseToken.address, 10000)
+        await exchangeRegistry.setFeeRatio(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -166,7 +166,7 @@ describe("ClearingHouse openPosition", () => {
 
             it("force error due to not enough liquidity", async () => {
                 // empty the liquidity
-                const order = await exchange.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
+                const order = await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
                 await clearingHouse.connect(maker).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick,
@@ -207,7 +207,7 @@ describe("ClearingHouse openPosition", () => {
         }
         beforeEach(async () => {
             // set fee ratio to 0
-            await exchange.setFeeRatio(baseToken.address, 0)
+            await exchangeRegistry.setFeeRatio(baseToken.address, 0)
         })
         describe("market price lesser than index price", () => {
             beforeEach(async () => {

@@ -127,13 +127,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("0", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50200],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
@@ -181,13 +181,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("0", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50200],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("81689571696303801037492"), // liquidity
                     50000, // lowerTick
@@ -250,13 +250,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("-66.061845430469484023", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("81689571696303801018159"), // liquidity
                     50000, // lowerTick
@@ -304,13 +304,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("-50", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("-7568.665342936161336147", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("61828103017711334685748"), // liquidity
                     50000, // lowerTick
@@ -355,13 +355,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("-66.061845430469484024", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50000, 50400],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("81689571696303801018158"), // liquidity
                     50000, // lowerTick
@@ -607,13 +607,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("-100", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50200, 50400],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
@@ -661,13 +661,13 @@ describe("ClearingHouse addLiquidity", () => {
                 expect(baseBalance).be.deep.eq(parseUnits("-100", await baseToken.decimals()))
                 expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
                         ["address", "address", "int24", "int24"],
                         [alice.address, baseToken.address, 50200, 50400],
                     ),
                 ])
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
                 expect(openOrder).be.deep.eq([
                     BigNumber.from("123656206035422669342231"), // liquidity
                     50200, // lowerTick
