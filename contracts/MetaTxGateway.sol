@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { LowLevelErrorMessage } from "./base/LowLevelErrorMessage.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
@@ -9,6 +10,7 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 // https://github.com/bcnmy/metatx-standard/blob/master/src/contracts/EIP712MetaTransaction.sol
 // except it implements openzeppelin Initializable
 contract MetaTxGateway is SafeOwnable, LowLevelErrorMessage {
+    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
 
     //
@@ -98,6 +100,8 @@ contract MetaTxGateway is SafeOwnable, LowLevelErrorMessage {
      * @param addr an address
      */
     function addToWhitelists(address addr) external onlyOwner {
+        // MTG_ANC: address is not contract
+        require(addr.isContract(), "MTG_ANC");
         _whitelistMap[addr] = true;
     }
 

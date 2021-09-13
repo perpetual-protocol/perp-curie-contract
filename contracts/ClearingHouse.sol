@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
@@ -38,6 +39,7 @@ contract ClearingHouse is
     OwnerPausable,
     BaseRelayRecipient
 {
+    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint160;
     using PerpSafeCast for uint256;
@@ -280,18 +282,18 @@ contract ClearingHouse is
         address quoteTokenArg,
         address uniV3FactoryArg
     ) public initializer {
-        // vault is 0
-        require(vaultArg != address(0), "CH_VI0");
-        // InsuranceFund is 0
-        require(insuranceFundArg != address(0), "CH_IFI0");
+        // CH_VANC: Vault address is not contract
+        require(vaultArg.isContract(), "CH_VANC");
+        // CH_IFANC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "CH_IFANC");
 
-        // TODO check quoteToken's balance once this is upgradable
-        // quoteToken is 0
-        require(quoteTokenArg != address(0), "CH_QI0");
-        // CH_QDN18: quoteToken decimals is not 18
+        // TODO check QuoteToken's balance once this is upgradable
+        // CH_QANC: QuoteToken address is not contract
+        require(quoteTokenArg.isContract(), "CH_QANC");
+        // CH_QDN18: QuoteToken decimals is not 18
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
-        // uniV3Factory is 0
-        require(uniV3FactoryArg != address(0), "CH_U10");
+        // CH_UANC: UniV3Factory address is not contract
+        require(uniV3FactoryArg.isContract(), "CH_UANC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -331,13 +333,16 @@ contract ClearingHouse is
     // EXTERNAL ADMIN FUNCTIONS
     //
     function setExchange(address exchangeArg) external onlyOwner {
-        // exchange is 0
-        require(exchangeArg != address(0), "CH_EI0");
+        // CH_ANC: address is not contract
+        require(exchangeArg.isContract(), "CH_ANC");
         exchange = exchangeArg;
         emit ExchangeChanged(exchange);
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
+        // CH_ANC: address is not contract
+        require(baseToken.isContract(), "CH_ANC");
+
         _requireHasBaseToken(baseToken);
 
         // CH_MTO: max tick crossed limit out of range
@@ -375,6 +380,8 @@ contract ClearingHouse is
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        // CH_ANC: address is not contract
+        require(trustedForwarderArg.isContract(), "CH_ANC");
         _setTrustedForwarder(trustedForwarderArg);
     }
 
