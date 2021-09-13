@@ -152,10 +152,10 @@ describe("ClearingHouse withdraw", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+            const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
 
-            expect(baseTokenInfo.balance).to.eq(parseEther("-330.309218099849988845"))
-            expect(quoteTokenInfo.balance).to.eq(parseEther("-50000"))
+            expect(baseBalance).to.eq(parseEther("-330.309218099849988845"))
+            expect(quoteBalance).to.eq(parseEther("-50000"))
         })
 
         it("taker do nothing and then withdraw", async () => {

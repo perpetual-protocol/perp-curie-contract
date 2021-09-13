@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
-
+import "hardhat/console.sol";
 import { ClearingHouse } from "../ClearingHouse.sol";
 import { Funding } from "../lib/Funding.sol";
 
@@ -59,5 +59,9 @@ contract TestClearingHouse is ClearingHouse {
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
+    }
+
+    function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
+        return (_accountMarketMap[trader][baseToken].baseBalance, _accountMarketMap[trader][baseToken].quoteBalance);
     }
 }

@@ -6,18 +6,16 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
-import { TokenBalance } from "./TokenBalance.sol";
 
 library AccountMarket {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
     using SignedSafeMathUpgradeable for int256;
-    using TokenBalance for TokenBalance.Info;
 
     struct Info {
-        TokenBalance.Info baseTokenInfo;
-        TokenBalance.Info quoteTokenInfo;
+        int256 baseBalance;
+        int256 quoteBalance;
         // the last time weighted PremiumGrowthGlobalX96
         int256 lastTwPremiumGrowthGlobalX96;
     }
@@ -32,7 +30,7 @@ library AccountMarket {
         // funding of balance coefficient
         int256 balanceCoefficientInFundingPayment =
             getBalanceCoefficientInFundingPayment(
-                self.baseTokenInfo,
+                self.baseBalance,
                 updatedGlobalFundingGrowthTwPremiumX96,
                 self.lastTwPremiumGrowthGlobalX96
             );
@@ -57,7 +55,7 @@ library AccountMarket {
         // funding of balance coefficient
         int256 balanceCoefficientInFundingPayment =
             getBalanceCoefficientInFundingPayment(
-                self.baseTokenInfo,
+                self.baseBalance,
                 updatedGlobalFundingGrowthTwPremiumX96,
                 self.lastTwPremiumGrowthGlobalX96
             );
@@ -66,13 +64,10 @@ library AccountMarket {
     }
 
     function getBalanceCoefficientInFundingPayment(
-        TokenBalance.Info memory tokenInfo,
+        int256 baseBalance,
         int256 twPremiumGrowthGlobalX96,
         int256 lastTwPremiumGrowthGlobalX96
     ) internal pure returns (int256 balanceCoefficientInFundingPayment) {
-        return
-            tokenInfo.balance.mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96)).div(
-                PerpFixedPoint96.IQ96
-            );
+        return baseBalance.mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96)).div(PerpFixedPoint96.IQ96);
     }
 }

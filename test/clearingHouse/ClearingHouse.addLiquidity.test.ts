@@ -106,12 +106,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("0", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("-10000", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("0", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -160,12 +160,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("0", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("-10000", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("0", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -229,12 +229,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("-66.061845430469484023", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("-10000", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("-66.061845430469484023", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -283,12 +283,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("-50", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("-7568.665342936161336147", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("-50", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("-7568.665342936161336147", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -334,12 +334,12 @@ describe("ClearingHouse addLiquidity", () => {
                 })
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("-66.061845430469484024", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("-10000", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("-66.061845430469484024", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -583,12 +583,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("-100", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("0", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("-100", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(
@@ -637,12 +637,12 @@ describe("ClearingHouse addLiquidity", () => {
                     )
 
                 // verify account states
-                const [baseTokenInfo, quoteTokenInfo] = await clearingHouse.getTokenInfo(
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseTokenInfo).be.deep.eq([parseUnits("-100", await baseToken.decimals())])
-                expect(quoteTokenInfo).be.deep.eq([parseUnits("00", await quoteToken.decimals())])
+                expect(baseBalance).be.deep.eq(parseUnits("-100", await baseToken.decimals()))
+                expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).be.deep.eq([
                     keccak256(

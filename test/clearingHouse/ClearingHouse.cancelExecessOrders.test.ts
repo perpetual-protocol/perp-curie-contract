@@ -74,10 +74,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
+        const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
 
         // parseUnits("-1", await baseToken.decimals()) or -baseAmount
-        expect(baseTokenInfo).be.deep.eq([parseUnits("-1", await baseToken.decimals())])
+        expect(baseBalance).be.deep.eq(parseUnits("-1", await baseToken.decimals()))
     })
 
     describe("cancel alice's all open orders (single order)", () => {
@@ -95,13 +95,13 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         // there will be 1 wei dust of base token due to _removeLiquidity
         it("base balance should reduce", async () => {
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(baseTokenInfo.balance).be.deep.eq("-1")
+            const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(baseBalance).be.deep.eq("-1")
         })
 
         it("quote balance should return to zero", async () => {
-            const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(quoteTokenInfo.balance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
+            const [, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
         })
     })
 
@@ -138,13 +138,13 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         // there will be 2 wei dust (2 orders) of base token due to _removeLiquidity
         it("base balance should reduce", async () => {
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(baseTokenInfo.balance).deep.eq("-2")
+            const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(baseBalance).deep.eq("-2")
         })
 
         it("quote balance should return to zero", async () => {
-            const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(quoteTokenInfo.balance).deep.eq(parseUnits("0", await quoteToken.decimals()))
+            const [, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(quoteBalance).deep.eq(parseUnits("0", await quoteToken.decimals()))
         })
     })
 

@@ -65,7 +65,7 @@ describe("ClearingHouse.swap", () => {
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
-            ;[, { balance: bobQuoteBalanceBefore }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            ;[, bobQuoteBalanceBefore] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
             await clearingHouse.connect(bob).swap({
                 // sell 1 base
                 baseToken: baseToken.address,
@@ -78,21 +78,18 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("openNotional++", async () => {
-            const [, { balance: bobQuoteBalanceAfter }] = await clearingHouse.getTokenInfo(
-                bob.address,
-                baseToken.address,
-            )
+            const [, bobQuoteBalanceAfter] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
             const bobQuoteSpent = bobQuoteBalanceAfter.sub(bobQuoteBalanceBefore)
             expect(initOpenNotional).to.deep.eq(bobQuoteSpent)
         })
 
         it("base balance--", async () => {
-            const [{ balance: bobBaseBalance }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            const [bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
             expect(bobBaseBalance).to.deep.eq(parseEther("-1"))
         })
 
         it("quote balance++", async () => {
-            const [, { balance: bobQuoteBalance }] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
+            const [, bobQuoteBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
             expect(bobQuoteBalance.gt(0)).to.be.true
         })
 
@@ -180,7 +177,7 @@ describe("ClearingHouse.swap", () => {
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
             await deposit(bob, vault, 25, collateral)
-            ;[, { balance: bobQuoteBalanceBefore }] = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
+            ;[, bobQuoteBalanceBefore] = await clearingHouse.getTokenBalance(bob.address, quoteToken.address)
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -198,13 +195,13 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("base balance++", async () => {
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-            expect(baseTokenInfo.balance).be.gt(0)
+            const [baseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+            expect(baseBalance).be.gt(0)
         })
 
         it("quote balance--", async () => {
-            const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-            expect(quoteTokenInfo.balance).to.deep.eq(parseEther("-250"))
+            const [, quoteBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+            expect(quoteBalance).to.deep.eq(parseEther("-250"))
         })
 
         it("realizedPnl remains", async () => {

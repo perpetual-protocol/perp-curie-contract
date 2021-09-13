@@ -334,10 +334,12 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("-1"), // openNotional
                         parseEther("0"), // realizedPnl
                     )
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.gt(parseEther("0"))
-                expect(quoteTokenInfo.balance).be.deep.eq(parseEther("-1"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.gt(parseEther("0"))
+                expect(quoteBalance).be.deep.eq(parseEther("-1"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("0.01"), 1)
             })
@@ -370,10 +372,12 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0"), // realizedPnl
                     )
 
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.deep.eq(parseEther("1"))
-                expect(quoteTokenInfo.balance).be.lt(parseEther("0"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.deep.eq(parseEther("1"))
+                expect(quoteBalance).be.lt(parseEther("0"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("1.550587307011629547"), 1)
             })
@@ -407,11 +411,13 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("147.804063843875548949"), // openNotional
                         parseEther("0"), // realizedPnl
                     )
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
 
-                expect(baseTokenInfo.balance).be.deep.eq(parseEther("-1"))
-                expect(quoteTokenInfo.balance).be.gt(parseEther("0"))
+                expect(baseBalance).be.deep.eq(parseEther("-1"))
+                expect(quoteBalance).be.gt(parseEther("0"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("1.492970341857328777"), 1)
             })
@@ -446,10 +452,12 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0"), // realizedPnl
                     )
 
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.lt(parseEther("0"))
-                expect(quoteTokenInfo.balance).be.deep.eq(parseEther("1"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.lt(parseEther("0"))
+                expect(quoteBalance).be.deep.eq(parseEther("1"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("0.010101010101010102"), 1)
             })
@@ -477,8 +485,10 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("increase position", async () => {
-            const [baseTokenInfoBefore] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const [, quoteTokenInfoBefore] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const [baseBalanceBefore, quoteBalanceBefore] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
 
             // taker swap 1 USD for ? ETH again
             await clearingHouse.connect(taker).openPosition({
@@ -493,10 +503,12 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // increase ? USD debt, increase 1 ETH available, the rest remains the same
-            const [baseTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const [, quoteTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const baseBalanceDelta = baseTokenInfoAfter.balance.sub(baseTokenInfoBefore.balance)
-            const quoteBalanceDelta = quoteTokenInfoAfter.balance.sub(quoteTokenInfoBefore.balance)
+            const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+            const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
+            const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
             expect(baseBalanceDelta).be.gt(parseEther("0"))
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
@@ -509,11 +521,13 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("reduce position", async () => {
-            const [baseTokenInfoBefore] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const [, quoteTokenInfoBefore] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
+            const [baseBalanceBefore, quoteBalanceBefore] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
 
             // reduced base = 0.006538933220746360
-            const reducedBase = baseTokenInfoBefore.balance.div(2)
+            const reducedBase = baseBalanceBefore.div(2)
             // taker reduce 50% ETH position for ? USD
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
@@ -527,22 +541,24 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // increase ? USD available, reduce 1 ETH available, the rest remains the same
-            const [baseTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const [, quoteTokenInfoAfter] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const baseBalanceDelta = baseTokenInfoAfter.balance.sub(baseTokenInfoBefore.balance)
-            const quoteBalanceDelta = quoteTokenInfoAfter.balance.sub(quoteTokenInfoBefore.balance)
+            const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+            const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
+            const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
             expect(baseBalanceDelta).be.deep.eq(-reducedBase)
             expect(quoteBalanceDelta).be.gt(parseEther("0"))
 
             // pos size: 0.006538933220746361
             expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
-            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(quoteTokenInfoAfter.balance)
+            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
         })
 
         it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {
             // expect taker has 2 USD worth ETH
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const posSize = baseTokenInfo.balance
+            const [baseBalance] = await clearingHouse.getTokenBalance(taker.address, baseToken.address)
+            const posSize = baseBalance
             // posSize = 0.013077866441492721
 
             // taker sells 0.013077866441492721 ETH
@@ -564,10 +580,12 @@ describe("ClearingHouse openPosition", () => {
 
             // base balance will be 0
             {
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.deep.eq(parseEther("0"))
-                expect(quoteTokenInfo.balance).be.deep.eq(parseEther("0"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.deep.eq(parseEther("0"))
+                expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // 2 - 1.9602000000002648364741 = 0.0398000015
                 const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
@@ -584,8 +602,8 @@ describe("ClearingHouse openPosition", () => {
 
         it("close position with profit", async () => {
             // expect taker has 2 USD worth ETH
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const posSize = baseTokenInfo.balance
+            const [baseBalance] = await clearingHouse.getTokenBalance(taker.address, baseToken.address)
+            const posSize = baseBalance
             // posSize = 0.013077866441492721
 
             // prepare collateral for carol
@@ -631,10 +649,12 @@ describe("ClearingHouse openPosition", () => {
 
             // base debt and available will be 0
             {
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.deep.eq(parseEther("0"))
-                expect(quoteTokenInfo.balance).be.deep.eq(parseEther("0"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.deep.eq(parseEther("0"))
+                expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 2.3328803158 - 2 = 0.3328803158
                 const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
@@ -650,8 +670,8 @@ describe("ClearingHouse openPosition", () => {
 
         it("close position with loss", async () => {
             // expect taker has 2 USD worth ETH
-            const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-            const posSize = baseTokenInfo.balance
+            const [baseBalance] = await clearingHouse.getTokenBalance(taker.address, baseToken.address)
+            const posSize = baseBalance
 
             // prepare collateral for carol
             const carolAmount = parseEther("1000")
@@ -695,10 +715,12 @@ describe("ClearingHouse openPosition", () => {
 
             // base debt and available will be 0
             {
-                const [baseTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                const [, quoteTokenInfo] = await clearingHouse.getTokenInfo(taker.address, baseToken.address)
-                expect(baseTokenInfo.balance).be.deep.eq(parseEther("0"))
-                expect(quoteTokenInfo.balance).be.deep.eq(parseEther("0"))
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    taker.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).be.deep.eq(parseEther("0"))
+                expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 1.6133545031 -2 = -0.3866454969
                 const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)

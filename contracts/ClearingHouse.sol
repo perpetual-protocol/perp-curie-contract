@@ -27,7 +27,6 @@ import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { Exchange } from "./Exchange.sol";
-import { TokenBalance } from "./lib/TokenBalance.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 
 contract ClearingHouse is
@@ -50,7 +49,6 @@ contract ClearingHouse is
     using PerpMath for uint160;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
-    using TokenBalance for TokenBalance.Info;
     using AccountMarket for AccountMarket.Info;
 
     //
@@ -465,8 +463,12 @@ contract ClearingHouse is
         // collect fee to owedRealizedPnl
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.add(response.fee.toInt256());
 
-        _accountMarketMap[trader][params.baseToken].baseTokenInfo.addBalance(-(response.base.toInt256()));
-        _accountMarketMap[trader][params.baseToken].quoteTokenInfo.addBalance(-(response.quote.toInt256()));
+        _accountMarketMap[trader][params.baseToken].baseBalance = _accountMarketMap[trader][params.baseToken]
+            .baseBalance
+            .add(-(response.base.toInt256()));
+        _accountMarketMap[trader][params.baseToken].quoteBalance = _accountMarketMap[trader][params.baseToken]
+            .quoteBalance
+            .add(-(response.quote.toInt256()));
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -704,42 +706,20 @@ contract ClearingHouse is
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
     }
 
-    // TODO : do we still need this
-    // (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
-    // function getTotalOpenOrderMarginRequirement(address trader) external view returns (uint256) {
-    //     // right now we have only one quote token USDC, which is equivalent to our internal accounting unit.
-    //     uint256 quoteDebtValue = _accountMarketMap[trader][quoteToken].getDebt();
-    //     return _getTotalBaseDebtValue(trader).add(quoteDebtValue).mul(imRatio);
-    // }
-
     /// @dev a negative returned value is only be used when calculating pnl
     function getPositionValue(address trader, address token) external view returns (int256) {
         return _getPositionValue(trader, token);
     }
 
-    function getTokenInfo(address trader, address baseToken)
-        external
-        view
-        returns (TokenBalance.Info memory, TokenBalance.Info memory)
-    {
-        return (
-            _accountMarketMap[trader][baseToken].baseTokenInfo,
-            _accountMarketMap[trader][baseToken].quoteTokenInfo
-        );
-    }
-
-    function getQuoteTokenBalance(address trader, address baseToken) external view returns (int256) {
-        return _accountMarketMap[trader][baseToken].quoteTokenInfo.balance;
-    }
-
     /// @dev the amount of quote token paid for a position when opening
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteTokenInfo.balance
-        int256 openNotional;
+        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
+        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
 
-        openNotional = openNotional
-            .add(Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256())
-            .add(_accountMarketMap[trader][baseToken].quoteTokenInfo.balance);
+        int256 openNotional =
+            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+                _accountMarketMap[trader][baseToken].quoteBalance
+            );
 
         return openNotional;
     }
@@ -753,20 +733,19 @@ contract ClearingHouse is
         return _getTotalInitialMarginRequirement(trader);
     }
 
-    /// @return netQuoteBalance = quote.available - quote.debt + totalQuoteInPools
-    // quote.balance + totalQuoteInPools - pendingFundingPayment
+    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function getNetQuoteBalance(address trader) public view returns (int256) {
         Account storage account = _accountMap[trader];
 
         int256 totalQuoteBalance;
         uint256 tokenLen = account.tokens.length;
-        // include pendingFundingPayment
+        // include owedFee
         uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
 
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_hasPool(baseToken)) {
-                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteTokenInfo.balance;
+                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
 
                 totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
             }
@@ -839,8 +818,16 @@ contract ClearingHouse is
             params.collectedFee.toInt256()
         );
 
-        _accountMarketMap[params.maker][params.baseToken].quoteTokenInfo.addBalance(params.removedQuote);
-        _accountMarketMap[params.maker][params.baseToken].baseTokenInfo.addBalance(params.removedBase);
+        _accountMarketMap[params.maker][params.baseToken].quoteBalance = _accountMarketMap[params.maker][
+            params.baseToken
+        ]
+            .quoteBalance
+            .add(params.removedQuote.toInt256());
+        _accountMarketMap[params.maker][params.baseToken].baseBalance = _accountMarketMap[params.maker][
+            params.baseToken
+        ]
+            .baseBalance
+            .add(params.removedBase.toInt256());
 
         _deregisterBaseToken(params.maker, params.baseToken);
     }
@@ -849,8 +836,8 @@ contract ClearingHouse is
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
         if (
-            _accountMarketMap[trader][baseToken].baseTokenInfo.balance != 0 ||
-            _accountMarketMap[trader][baseToken].quoteTokenInfo.balance != 0
+            _accountMarketMap[trader][baseToken].baseBalance != 0 ||
+            _accountMarketMap[trader][baseToken].quoteBalance != 0
         ) {
             return;
         }
@@ -876,18 +863,18 @@ contract ClearingHouse is
         }
     }
 
-    function _registerBaseToken(address trader, address token) internal {
+    function _registerBaseToken(address trader, address baseToken) internal {
         address[] memory tokens = _accountMap[trader].tokens;
         if (tokens.length == 0) {
-            _accountMap[trader].tokens.push(token);
+            _accountMap[trader].tokens.push(baseToken);
             return;
         }
 
-        // if balance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (_accountMarketMap[trader][token].baseTokenInfo.balance == 0) {
+        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
+        if (_accountMarketMap[trader][baseToken].baseBalance == 0) {
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
-                if (tokens[i] == token) {
+                if (tokens[i] == baseToken) {
                     hit = true;
                     break;
                 }
@@ -895,20 +882,18 @@ contract ClearingHouse is
             if (!hit) {
                 // CH_MNE: markets number exceeded
                 require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
-                _accountMap[trader].tokens.push(token);
+                _accountMap[trader].tokens.push(baseToken);
             }
         }
     }
 
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        // TODO : WIP
         int256 positionSize = getPositionSize(params.trader, params.baseToken);
-
-        // TODO : WIP
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        SwapResponse memory response;
         int256 deltaAvailableQuote;
+
+        SwapResponse memory response;
 
         // if increase position (old / new position are in the same direction)
         if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
@@ -998,7 +983,9 @@ contract ClearingHouse is
 
         // TODO refactor with settle()
         _accountMap[trader].owedRealizedPnl = _accountMap[trader].owedRealizedPnl.add(deltaPnl);
-        _accountMarketMap[trader][baseToken].quoteTokenInfo.addBalance(-deltaPnl);
+        _accountMarketMap[trader][baseToken].quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance.add(
+            -deltaPnl
+        );
     }
 
     // check here for custom fee design,
@@ -1020,10 +1007,16 @@ contract ClearingHouse is
         // update internal states
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        _accountMarketMap[params.trader][params.baseToken].baseTokenInfo.addBalance(response.exchangedPositionSize);
-        _accountMarketMap[params.trader][params.baseToken].quoteTokenInfo.addBalance(
-            response.exchangedPositionNotional.sub(response.fee.toInt256())
-        );
+        _accountMarketMap[params.trader][params.baseToken].baseBalance = _accountMarketMap[params.trader][
+            params.baseToken
+        ]
+            .baseBalance
+            .add(response.exchangedPositionSize);
+        _accountMarketMap[params.trader][params.baseToken].quoteBalance = _accountMarketMap[params.trader][
+            params.baseToken
+        ]
+            .quoteBalance
+            .add(response.exchangedPositionNotional.sub(response.fee.toInt256()));
         _accountMap[insuranceFund].owedRealizedPnl = _accountMap[insuranceFund].owedRealizedPnl.add(
             response.insuranceFundFee.toInt256()
         );
@@ -1381,11 +1374,11 @@ contract ClearingHouse is
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
             if (_hasPool(baseToken)) {
-                int256 baseBalance = _accountMarketMap[trader][baseToken].baseTokenInfo.balance;
+                int256 baseBalance = _accountMarketMap[trader][baseToken].baseBalance;
                 uint256 baseDebt = baseBalance > 0 ? 0 : (-baseBalance).toUint256();
                 uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
                 // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
-                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteTokenInfo.balance;
+                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
 
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
@@ -1402,7 +1395,7 @@ contract ClearingHouse is
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize =
-            _accountMarketMap[trader][baseToken].baseTokenInfo.balance.add(
+            _accountMarketMap[trader][baseToken].baseBalance.add(
                 Exchange(exchange)
                     .getTotalTokenAmountInPool(
                     trader,
