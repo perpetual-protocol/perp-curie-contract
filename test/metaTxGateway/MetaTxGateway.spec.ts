@@ -349,4 +349,8 @@ describe("MetaTxGateway Spec", () => {
         // _msgSender() should fallback to msg.sender, which is the non-trusted forwarder
         expect(await metaTxGatewayRecipient.pokedBy()).to.eq(nonTrustedForwarder.address)
     })
+
+    it("force error, invalid address while adding white list", async () => {
+        await expect(metaTxGateway.addToWhitelists(alice.address)).to.be.revertedWith("MTG_ANC")
+    })
 })

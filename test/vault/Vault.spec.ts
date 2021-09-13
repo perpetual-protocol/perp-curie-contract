@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { TestERC20, Vault } from "../../typechain"
 import { createVaultFixture } from "./fixtures"
 
@@ -21,6 +21,14 @@ describe("Vault spec", () => {
         await usdc.connect(alice).approve(vault.address, amount)
     })
 
+    describe("# initialize", () => {
+        it("force error, invalid clearingHouse address", async () => {
+            const vaultFactory = await ethers.getContractFactory("Vault")
+            const vault = (await vaultFactory.deploy()) as Vault
+            await expect(vault.initialize(alice.address)).to.be.revertedWith("V_ANC")
+        })
+    })
+
     describe("decimals", () => {
         it("equals to settlement token's decimal")
     })
@@ -31,6 +39,13 @@ describe("Vault spec", () => {
         it("setLiquidationIncentive")
         it("setLiquidationOrder")
         it("force error by non-admin")
+        it("force error, invalid ClearingHouse address", async () => {
+            await expect(vault.setClearingHouse(alice.address)).to.be.revertedWith("V_ANC")
+        })
+
+        it("force error, invalid TrustedForwarder address", async () => {
+            await expect(vault.setTrustedForwarder(alice.address)).to.be.revertedWith("V_ANC")
+        })
     })
 
     describe.skip("setLiquidationOrder", () => {
