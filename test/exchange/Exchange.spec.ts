@@ -113,30 +113,4 @@ describe("Exchange Spec", () => {
             await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_PNI")
         })
     })
-
-    describe("onlyOwner setters", () => {
-        beforeEach(async () => {
-            const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
-            const pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
-            const mockedPool = await smockit(pool)
-            uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
-            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-        })
-
-        it("setFeeRatio", async () => {
-            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-            await exchange.setFeeRatio(baseToken.address, 10000) // 1%
-            expect(await exchange.getFeeRatio(baseToken.address)).eq(10000)
-        })
-
-        it("force error, ratio overflow", async () => {
-            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-            const twoHundredPercent = 2000000 // 200% in uint24
-            await expect(exchange.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
-        })
-
-        it("force error, pool not exists", async () => {
-            await expect(exchange.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("EX_PNE")
-        })
-    })
 })
