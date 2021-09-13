@@ -6,7 +6,7 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
-    MarketRegistry,
+    ExchangeRegistry,
     TestClearingHouse,
     TestERC20,
     TestUniswapV3Broker,
@@ -19,7 +19,7 @@ import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3Factory
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
-    marketRegistry: MarketRegistry
+    exchangeRegistry: ExchangeRegistry
     exchange: Exchange
     vault: Vault
     insuranceFund: InsuranceFund
@@ -113,9 +113,9 @@ export function createClearingHouseFixture(
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
 
-        const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
-        const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-        await marketRegistry.initialize(uniV3Factory.address, quoteToken.address, clearingHouse.address)
+        const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
+        const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+        await exchangeRegistry.initialize(uniV3Factory.address, quoteToken.address, clearingHouse.address)
 
         // deploy exchange
         const exchangeFactory = await ethers.getContractFactory("Exchange")
@@ -123,7 +123,7 @@ export function createClearingHouseFixture(
         await exchange.initialize(
             clearingHouse.address,
             uniV3Factory.address,
-            marketRegistry.address,
+            exchangeRegistry.address,
             quoteToken.address,
         )
         await clearingHouse.setExchange(exchange.address)
@@ -151,7 +151,7 @@ export function createClearingHouseFixture(
         const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
-            marketRegistry,
+            exchangeRegistry,
             exchange,
             vault,
             insuranceFund,
@@ -266,17 +266,17 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedUniV3Factory.address,
     )
 
-    const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
-    const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
-    const mockedMarketRegistry = await smockit(marketRegistry)
+    const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
+    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+    await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
+    const mockedExchangeRegistry = await smockit(exchangeRegistry)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
     await exchange.initialize(
         clearingHouse.address,
         mockedUniV3Factory.address,
-        mockedMarketRegistry.address,
+        mockedExchangeRegistry.address,
         mockedQuoteToken.address,
     )
     const mockedExchange = await smockit(exchange)

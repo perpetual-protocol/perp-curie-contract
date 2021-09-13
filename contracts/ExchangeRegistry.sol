@@ -9,7 +9,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
-contract MarketRegistry is SafeOwnable {
+contract ExchangeRegistry is SafeOwnable {
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     address public uniswapV3Factory;
     address public quoteToken;

@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
-import { Exchange, MarketRegistry, UniswapV3Pool } from "../../typechain"
+import { Exchange, ExchangeRegistry, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { mockedExchangeFixture } from "./fixtures"
 
@@ -16,7 +16,7 @@ describe("Exchange Spec", () => {
     const DEFAULT_FEE = 3000
 
     let exchange: Exchange
-    let marketRegistry: MarketRegistry
+    let exchangeRegistry: ExchangeRegistry
     let baseToken: MockContract
     let quoteToken: MockContract
     let uniV3Factory: MockContract
@@ -56,7 +56,7 @@ describe("Exchange Spec", () => {
             it("add a UniswapV3 pool and send an event", async () => {
                 // check event has been sent
                 await expect(exchange.addPool(baseToken.address, DEFAULT_FEE))
-                    .to.emit(marketRegistry, "PoolAdded")
+                    .to.emit(exchangeRegistry, "PoolAdded")
                     .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
 
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)

@@ -24,7 +24,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
-import { MarketRegistry } from "./MarketRegistry.sol";
+import { ExchangeRegistry } from "./ExchangeRegistry.sol";
 import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityAction, SafeOwnable, ArbBlockContext {
@@ -160,7 +160,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     address public quoteToken;
     address public uniswapV3Factory;
-    address public marketRegistry;
+    address public exchangeRegistry;
     address public clearingHouse;
 
     uint8 public maxOrdersPerMarket;
@@ -182,7 +182,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     function initialize(
         address clearingHouseArg,
         address uniswapV3FactoryArg,
-        address marketRegistryArg,
+        address exchangeRegistryArg,
         address quoteTokenArg
     ) external initializer {
         __SafeOwnable_init();
@@ -191,15 +191,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         require(clearingHouseArg != address(0), "EX_CH0");
         // UnsiwapV3Factory is 0
         require(uniswapV3FactoryArg != address(0), "EX_UF0");
-        // MarketRegistry is 0
-        require(marketRegistryArg != address(0), "EX_MR0");
+        // ExchangeRegistry is 0
+        require(exchangeRegistryArg != address(0), "EX_MR0");
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "EX_QT0");
 
         // update states
         clearingHouse = clearingHouseArg;
         uniswapV3Factory = uniswapV3FactoryArg;
-        marketRegistry = marketRegistryArg;
+        exchangeRegistry = exchangeRegistryArg;
         quoteToken = quoteTokenArg;
     }
 
@@ -222,7 +222,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         address sender = _msgSender();
         address baseToken = IUniswapV3Pool(sender).token0();
         // failed callback verification
-        require(sender == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
+        require(sender == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
         _;
     }
 
@@ -236,15 +236,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
 
     ////// TODO REMOVE LATER
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
-        MarketRegistry(marketRegistry).addPool(baseToken, feeRatio);
+        ExchangeRegistry(exchangeRegistry).addPool(baseToken, feeRatio);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        MarketRegistry(marketRegistry).setFeeRatio(baseToken, feeRatio);
+        ExchangeRegistry(exchangeRegistry).setFeeRatio(baseToken, feeRatio);
     }
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        MarketRegistry(marketRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
+        ExchangeRegistry(exchangeRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     //////
@@ -253,7 +253,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     // EXTERNAL FUNCTIONS
     //
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
-        MarketRegistry.Info memory marketInfo = MarketRegistry(marketRegistry).getInfo(params.baseToken);
+        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             _getScaledAmountForSwaps(
@@ -341,7 +341,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
-        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
@@ -476,7 +476,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = MarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -507,7 +507,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
 
     // return the price after replay swap (final tick)
     function replaySwap(ReplaySwapParams memory params) external returns (int24) {
-        MarketRegistry.Info memory marketInfo = MarketRegistry(marketRegistry).getInfo(params.baseToken);
+        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
@@ -566,12 +566,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
 
     // TODO remove
     function getPool(address baseToken) external view returns (address) {
-        return MarketRegistry(marketRegistry).getPool(baseToken);
+        return ExchangeRegistry(exchangeRegistry).getPool(baseToken);
     }
 
     // TODO remove
     function getFeeRatio(address baseToken) external view returns (uint24) {
-        return MarketRegistry(marketRegistry).getFeeRatio(baseToken);
+        return ExchangeRegistry(exchangeRegistry).getFeeRatio(baseToken);
     }
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
@@ -588,7 +588,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     }
 
     function getTick(address baseToken) external view returns (int24) {
-        return UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken));
+        return UniswapV3Broker.getTick(ExchangeRegistry(exchangeRegistry).getPool(baseToken));
     }
 
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool) {
@@ -624,7 +624,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
+        return UniswapV3Broker.getSqrtMarkTwapX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken), twapInterval);
     }
 
     /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
@@ -636,7 +636,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     ) external view returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = MarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -671,7 +671,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         // EX_NEL not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "EX_NEL");
 
-        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
@@ -814,9 +814,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     }
 
     function _replaySwap(InternalReplaySwapParams memory params) internal returns (ReplaySwapResponse memory) {
-        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
         bool isExactInput = params.state.amountSpecifiedRemaining > 0;
-        uint24 insuranceFundFeeRatio = MarketRegistry(marketRegistry).getInfo(params.baseToken).insuranceFundFeeRatio;
+        uint24 insuranceFundFeeRatio =
+            ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 feeResult; // exchangeFeeRatio
         uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 
@@ -964,7 +965,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(MarketRegistry(marketRegistry).getPool(baseToken));
+            UniswapV3Broker.getSqrtMarkPriceX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken));
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
 

@@ -4,7 +4,7 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
-    MarketRegistry,
+    ExchangeRegistry,
     TestERC20,
     UniswapV3Factory,
     Vault,
@@ -64,16 +64,16 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     await token1.mintMaximumTo(clearingHouse.address)
 
     // TODO change back to mock
-    const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
-    const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
+    const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
+    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+    await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
     await exchange.initialize(
         clearingHouse.address,
         mockedUniV3Factory.address,
-        marketRegistry.address,
+        exchangeRegistry.address,
         mockedQuoteToken.address,
     )
 
