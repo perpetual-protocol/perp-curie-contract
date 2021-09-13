@@ -121,13 +121,14 @@ export function createClearingHouseFixture(
 
         const orderBookFactory = await ethers.getContractFactory("OrderBook")
         const orderBook = (await orderBookFactory.deploy()) as OrderBook
-        await orderBook.initialize(exchangeRegistry.address, quoteToken.address)
+        await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, quoteToken.address)
 
         // deploy exchange
         const exchangeFactory = await ethers.getContractFactory("Exchange")
         const exchange = (await exchangeFactory.deploy()) as Exchange
         await exchange.initialize(clearingHouse.address, exchangeRegistry.address, orderBook.address)
         await clearingHouse.setExchange(exchange.address)
+        await clearingHouse.setOrderBook(orderBook.address)
         await orderBook.setExchange(exchange.address)
 
         // deploy a pool
@@ -275,7 +276,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const mockedExchangeRegistry = await smockit(exchangeRegistry)
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
-    await orderBook.initialize(exchangeRegistry.address, mockedQuoteToken.address)
+    await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, mockedQuoteToken.address)
     const mockedOrderBook = await smockit(orderBook)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")

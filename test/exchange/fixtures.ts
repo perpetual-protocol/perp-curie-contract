@@ -70,7 +70,7 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
-    await orderBook.initialize(exchangeRegistry.address, mockedQuoteToken.address)
+    await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, mockedQuoteToken.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange

@@ -115,6 +115,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     }
 
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    address public clearingHouse;
     address public quoteToken;
     address public exchange;
     address public exchangeRegistry;
@@ -133,15 +134,22 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
-    function initialize(address exchangeRegistryArg, address quoteTokenArg) external initializer {
+    function initialize(
+        address clearingHouseArg,
+        address exchangeRegistryArg,
+        address quoteTokenArg
+    ) external initializer {
         __SafeOwnable_init();
 
+        // ClearingHouse is 0
+        require(clearingHouseArg != address(0), "EX_CI0");
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "EX_QT0");
         // ExchangeRegistry is 0
         require(exchangeRegistryArg != address(0), "EX_MR0");
 
         // update states
+        clearingHouse = clearingHouseArg;
         quoteToken = quoteTokenArg;
         exchangeRegistry = exchangeRegistryArg;
     }
@@ -152,6 +160,12 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     modifier onlyExchange() {
         // only Exchange
         require(_msgSender() == exchange, "EX_OEX");
+        _;
+    }
+
+    modifier onlyClearingHouse() {
+        // only ClearingHouse
+        require(_msgSender() == clearingHouse, "OB_OCH");
         _;
     }
 
@@ -185,7 +199,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
-        onlyExchange
+        onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
         address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
@@ -275,7 +289,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
-        onlyExchange
+        onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
         return _removeLiquidity(params);
@@ -286,7 +300,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external override onlyExchange returns (RemoveLiquidityResponse memory) {
+    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
@@ -319,7 +333,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
-    ) external onlyExchange returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
@@ -357,7 +371,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         uint256 amount1Owed,
         bytes calldata data
     ) external override checkCallback {
-        IUniswapV3MintCallback(exchange).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
     //

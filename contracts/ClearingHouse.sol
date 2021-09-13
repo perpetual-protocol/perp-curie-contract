@@ -84,6 +84,7 @@ contract ClearingHouse is
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeChanged(address exchange);
+    event OrderBookChanged(address orderBook);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
     //
@@ -239,6 +240,7 @@ contract ClearingHouse is
     address public vault;
     address public insuranceFund;
     address public exchange;
+    address public orderBook;
 
     uint24 public imRatio;
     uint24 public mmRatio;
@@ -339,6 +341,13 @@ contract ClearingHouse is
         emit ExchangeChanged(exchange);
     }
 
+    function setOrderBook(address orderBookArg) external onlyOwner {
+        // orderbook is 0
+        require(orderBookArg != address(0), "CH_OI0");
+        orderBook = orderBookArg;
+        emit OrderBookChanged(orderBookArg);
+    }
+
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         _requireHasBaseToken(baseToken);
 
@@ -388,7 +397,10 @@ contract ClearingHouse is
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external override onlyExchange {
+    ) external override {
+        // not orderBook
+        require(_msgSender() == orderBook, "CH_NOB");
+
         OrderBook.MintCallbackData memory callbackData = abi.decode(data, (OrderBook.MintCallbackData));
 
         if (amount0Owed > 0) {
@@ -445,7 +457,7 @@ contract ClearingHouse is
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
         ILiquidityAction.AddLiquidityResponse memory response =
-            Exchange(exchange).addLiquidity(
+            OrderBook(orderBook).addLiquidity(
                 ILiquidityAction.AddLiquidityParams({
                     trader: trader,
                     baseToken: params.baseToken,
@@ -620,7 +632,7 @@ contract ClearingHouse is
         );
 
         // CH_NEO: not empty order
-        require(!Exchange(exchange).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
+        require(!OrderBook(orderBook).hasOrder(trader, _accountMap[trader].tokens), "CH_NEO");
 
         Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, baseToken);
         SwapResponse memory response =
@@ -662,7 +674,7 @@ contract ClearingHouse is
     }
 
     function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
-        bytes32[] memory orderIds = Exchange(exchange).getOpenOrderIds(maker, baseToken);
+        bytes32[] memory orderIds = OrderBook(orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -742,7 +754,7 @@ contract ClearingHouse is
         int256 totalQuoteBalance;
         uint256 tokenLen = account.tokens.length;
         // include owedFee
-        uint256 totalQuoteInPools = Exchange(exchange).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
+        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _accountMap[trader].tokens);
 
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = account.tokens[i];
@@ -802,7 +814,7 @@ contract ClearingHouse is
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
         ILiquidityAction.RemoveLiquidityResponse memory response =
-            Exchange(exchange).removeLiquidityByIds(maker, baseToken, orderIds);
+            OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
             AfterRemoveLiquidityParams({
                 maker: maker,
@@ -844,8 +856,8 @@ contract ClearingHouse is
             return;
         }
 
-        uint256 baseInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, true);
-        uint256 quoteInPool = Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false);
+        uint256 baseInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
         if (baseInPool > 0 || quoteInPool > 0) {
             return;
         }
@@ -1048,7 +1060,7 @@ contract ClearingHouse is
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
         ILiquidityAction.RemoveLiquidityResponse memory response =
-            Exchange(exchange).removeLiquidity(
+            OrderBook(orderBook).removeLiquidity(
                 ILiquidityAction.RemoveLiquidityParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
@@ -1197,7 +1209,7 @@ contract ClearingHouse is
         Funding.Growth memory fundingGrowthGlobal
     ) internal returns (int256 fundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 fundingGrowthGlobal
@@ -1245,7 +1257,7 @@ contract ClearingHouse is
         Funding.Growth memory fundingGrowthGlobal
     ) internal view returns (int256 fundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
-            Exchange(exchange).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _accountMarketMap[trader][baseToken].getPendingFundingPayment(
@@ -1398,7 +1410,7 @@ contract ClearingHouse is
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize =
             _accountMarketMap[trader][baseToken].baseBalance.add(
-                Exchange(exchange)
+                OrderBook(orderBook)
                     .getTotalTokenAmountInPool(
                     trader,
                     baseToken,
