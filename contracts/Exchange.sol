@@ -168,15 +168,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         // simulate the swap to calculate the fees charged in exchange
         OrderBook.ReplaySwapResponse memory replayResponse =
             OrderBook(orderBook).replaySwap(
-                OrderBook.InternalReplaySwapParams({
-                    state: UniswapV3Broker.getSwapState(
-                        marketInfo.pool,
-                        signedScaledAmountForReplaySwap,
-                        OrderBook(orderBook).getFeeGrowthGlobal(params.baseToken)
-                    ),
+                OrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
+                    amount: signedScaledAmountForReplaySwap,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: marketInfo.exchangeFeeRatio,
                     uniswapFeeRatio: marketInfo.uniswapFeeRatio,
@@ -292,20 +288,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
                 exchangeFeeRatio,
                 uniswapFeeRatio
             );
-        UniswapV3Broker.SwapState memory swapState =
-            UniswapV3Broker.getSwapState(
-                marketInfo.pool,
-                signedScaledAmountForReplaySwap,
-                OrderBook(orderBook).getFeeGrowthGlobal(params.baseToken)
-            );
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
         OrderBook.ReplaySwapResponse memory response =
             OrderBook(orderBook).replaySwap(
-                OrderBook.InternalReplaySwapParams({
-                    state: swapState,
+                OrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
+                    amount: signedScaledAmountForReplaySwap,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: exchangeFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
@@ -415,16 +405,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     //
     // INTERNAL VIEW
     //
-
-    /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
-    /// @dev the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
-    function _calcOwedFee(
-        uint128 liquidity,
-        uint256 newFeeGrowthInside,
-        uint256 oldFeeGrowthInside
-    ) internal pure returns (uint256) {
-        return FullMath.mulDiv(newFeeGrowthInside - oldFeeGrowthInside, liquidity, FixedPoint128.Q128);
-    }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
     /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()

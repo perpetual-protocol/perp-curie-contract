@@ -25,8 +25,6 @@ import { VirtualToken } from "./VirtualToken.sol";
 import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 import { ExchangeRegistry } from "./ExchangeRegistry.sol";
 
-// rename to liquidity manager?
-// TODO change all baseToken key to pool as key
 contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -38,23 +36,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
     using Tick for mapping(int24 => Tick.GrowthInfo);
-
-    //
-    // EVENT
-    //
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
 
     //
     // STRUCT
@@ -82,14 +63,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
-    struct ReplaySwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-    }
-
     struct MintCallbackData {
         address trader;
         address pool;
@@ -114,7 +87,43 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         uint256 feeAmount;
     }
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    struct ReplaySwapParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool shouldUpdateState;
+        int256 amount;
+        uint160 sqrtPriceLimitX96;
+        uint24 exchangeFeeRatio;
+        uint24 uniswapFeeRatio;
+        Funding.Growth globalFundingGrowth;
+    }
+
+    struct ReplaySwapResponse {
+        int24 tick;
+        uint256 fee; // exchangeFeeRatio
+        uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+    }
+
+    //
+    // EVENT
+    //
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 base,
+        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 quote,
+        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
+        uint256 quoteFee // amount of quote token the maker received as fee
+    );
+
+    //
+    // STATE
+    //
     address public clearingHouse;
     address public quoteToken;
     address public exchange;
@@ -133,26 +142,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     // key: base token
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
-
-    function initialize(
-        address clearingHouseArg,
-        address exchangeRegistryArg,
-        address quoteTokenArg
-    ) external initializer {
-        __SafeOwnable_init();
-
-        // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "EX_CI0");
-        // QuoteToken is 0
-        require(quoteTokenArg != address(0), "EX_QT0");
-        // ExchangeRegistry is 0
-        require(exchangeRegistryArg != address(0), "EX_MR0");
-
-        // update states
-        clearingHouse = clearingHouseArg;
-        quoteToken = quoteTokenArg;
-        exchangeRegistry = exchangeRegistryArg;
-    }
 
     //
     // MODIFIERS
@@ -184,9 +173,31 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     }
 
     //
+    // CONSTRUCTOR
+    //
+    function initialize(
+        address clearingHouseArg,
+        address exchangeRegistryArg,
+        address quoteTokenArg
+    ) external initializer {
+        __SafeOwnable_init();
+
+        // ClearingHouse is 0
+        require(clearingHouseArg != address(0), "EX_CI0");
+        // QuoteToken is 0
+        require(quoteTokenArg != address(0), "EX_QT0");
+        // ExchangeRegistry is 0
+        require(exchangeRegistryArg != address(0), "EX_MR0");
+
+        // update states
+        clearingHouse = clearingHouseArg;
+        quoteToken = quoteTokenArg;
+        exchangeRegistry = exchangeRegistryArg;
+    }
+
+    //
     // EXTERNAL ADMIN FUNCTIONS
     //
-
     function setExchange(address exchangeArg) external onlyOwner {
         // Exchange is 0
         require(exchangeArg != address(0), "EX_CH0");
@@ -196,6 +207,8 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     //
     // EXTERNAL FUNCTIONS
     //
+
+    /// @inheritdoc ILiquidityAction
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
@@ -286,6 +299,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
             });
     }
 
+    /// @inheritdoc ILiquidityAction
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
@@ -374,6 +388,125 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
+    function replaySwap(ReplaySwapParams memory params) external onlyExchange returns (ReplaySwapResponse memory) {
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
+        bool isExactInput = params.amount > 0;
+        uint24 insuranceFundFeeRatio =
+            ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken).insuranceFundFeeRatio;
+        uint256 feeResult; // exchangeFeeRatio
+        uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+
+        UniswapV3Broker.SwapState memory swapState =
+            UniswapV3Broker.getSwapState(pool, params.amount, _feeGrowthGlobalX128Map[params.baseToken]);
+
+        params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
+            ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+            : params.sqrtPriceLimitX96;
+
+        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
+        // which is safer for the system
+        while (swapState.amountSpecifiedRemaining != 0 && swapState.sqrtPriceX96 != params.sqrtPriceLimitX96) {
+            SwapStep memory step;
+            step.initialSqrtPriceX96 = swapState.sqrtPriceX96;
+
+            // find next tick
+            // note the search is bounded in one word
+            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
+                pool,
+                swapState.tick,
+                UniswapV3Broker.getTickSpacing(pool),
+                params.isBaseToQuote
+            );
+
+            // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
+            if (step.nextTick < TickMath.MIN_TICK) {
+                step.nextTick = TickMath.MIN_TICK;
+            } else if (step.nextTick > TickMath.MAX_TICK) {
+                step.nextTick = TickMath.MAX_TICK;
+            }
+
+            // get the next price of this step (either next tick's price or the ending price)
+            // use sqrtPrice instead of tick is more precise
+            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
+
+            // find the next swap checkpoint
+            // (either reached the next price of this step, or exhausted remaining amount specified)
+            (swapState.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+                swapState.sqrtPriceX96,
+                (
+                    params.isBaseToQuote
+                        ? step.nextSqrtPriceX96 < params.sqrtPriceLimitX96
+                        : step.nextSqrtPriceX96 > params.sqrtPriceLimitX96
+                )
+                    ? params.sqrtPriceLimitX96
+                    : step.nextSqrtPriceX96,
+                swapState.liquidity,
+                swapState.amountSpecifiedRemaining,
+                // isBaseToQuote: fee is charged in base token in uniswap pool; thus, use uniswapFeeRatio to replay
+                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use exchangeFeeRatioRatio
+                params.isBaseToQuote ? params.uniswapFeeRatio : params.exchangeFeeRatio
+            );
+
+            // user input 1 quote:
+            // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
+            // fee = 0.98989899 * 2% = 0.01979798
+            if (isExactInput) {
+                swapState.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+            } else {
+                swapState.amountSpecifiedRemaining += step.amountOut.toInt256();
+            }
+
+            // update CH's global fee growth if there is liquidity in this range
+            // note CH only collects quote fee when swapping base -> quote
+            if (swapState.liquidity > 0) {
+                if (params.isBaseToQuote) {
+                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
+                }
+
+                feeResult += step.feeAmount;
+                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
+                insuranceFundFeeResult += stepInsuranceFundFee;
+                uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
+                swapState.feeGrowthGlobalX128 += FullMath.mulDiv(stepMakerFee, FixedPoint128.Q128, swapState.liquidity);
+            }
+
+            if (swapState.sqrtPriceX96 == step.nextSqrtPriceX96) {
+                // we have reached the tick's boundary
+                if (step.isNextTickInitialized) {
+                    if (params.shouldUpdateState) {
+                        // update the tick if it has been initialized
+                        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+                        // according to the above updating logic,
+                        // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
+                        tickMap.cross(
+                            step.nextTick,
+                            Tick.GrowthInfo({
+                                feeX128: swapState.feeGrowthGlobalX128,
+                                twPremiumX96: params.globalFundingGrowth.twPremiumX96,
+                                twPremiumDivBySqrtPriceX96: params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
+                            })
+                        );
+                    }
+
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
+                    swapState.liquidity = LiquidityMath.addDelta(swapState.liquidity, liquidityNet);
+                }
+
+                swapState.tick = params.isBaseToQuote ? step.nextTick - 1 : step.nextTick;
+            } else if (swapState.sqrtPriceX96 != step.initialSqrtPriceX96) {
+                // update state.tick corresponding to the current price if the price has changed in this step
+                swapState.tick = TickMath.getTickAtSqrtRatio(swapState.sqrtPriceX96);
+            }
+        }
+        if (params.shouldUpdateState) {
+            // update global states since swap state transitions are all done
+            _feeGrowthGlobalX128Map[params.baseToken] = swapState.feeGrowthGlobalX128;
+        }
+
+        return ReplaySwapResponse({ tick: swapState.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -423,10 +556,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
     }
 
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken), twapInterval);
-    }
-
     /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
     /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function getLiquidityCoefficientInFundingPayment(
@@ -461,148 +590,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
 
     function getFeeGrowthGlobal(address baseToken) external view returns (uint256) {
         return _feeGrowthGlobalX128Map[baseToken];
-    }
-
-    struct InternalReplaySwapParams {
-        UniswapV3Broker.SwapState state;
-        address baseToken;
-        bool isBaseToQuote;
-        bool shouldUpdateState;
-        uint160 sqrtPriceLimitX96;
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        Funding.Growth globalFundingGrowth;
-    }
-
-    struct ReplaySwapResponse {
-        int24 tick;
-        uint256 fee; // exchangeFeeRatio
-        uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
-    }
-
-    function replaySwap(InternalReplaySwapParams memory params)
-        external
-        onlyExchange
-        returns (ReplaySwapResponse memory)
-    {
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
-        bool isExactInput = params.state.amountSpecifiedRemaining > 0;
-        uint24 insuranceFundFeeRatio =
-            ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken).insuranceFundFeeRatio;
-        uint256 feeResult; // exchangeFeeRatio
-        uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
-
-        params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
-            ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
-            : params.sqrtPriceLimitX96;
-
-        // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
-        // which is safer for the system
-        while (params.state.amountSpecifiedRemaining != 0 && params.state.sqrtPriceX96 != params.sqrtPriceLimitX96) {
-            SwapStep memory step;
-            step.initialSqrtPriceX96 = params.state.sqrtPriceX96;
-
-            // find next tick
-            // note the search is bounded in one word
-            (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                pool,
-                params.state.tick,
-                UniswapV3Broker.getTickSpacing(pool),
-                params.isBaseToQuote
-            );
-
-            // ensure that we do not overshoot the min/max tick, as the tick bitmap is not aware of these bounds
-            if (step.nextTick < TickMath.MIN_TICK) {
-                step.nextTick = TickMath.MIN_TICK;
-            } else if (step.nextTick > TickMath.MAX_TICK) {
-                step.nextTick = TickMath.MAX_TICK;
-            }
-
-            // get the next price of this step (either next tick's price or the ending price)
-            // use sqrtPrice instead of tick is more precise
-            step.nextSqrtPriceX96 = TickMath.getSqrtRatioAtTick(step.nextTick);
-
-            // find the next swap checkpoint
-            // (either reached the next price of this step, or exhausted remaining amount specified)
-            (params.state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
-                params.state.sqrtPriceX96,
-                (
-                    params.isBaseToQuote
-                        ? step.nextSqrtPriceX96 < params.sqrtPriceLimitX96
-                        : step.nextSqrtPriceX96 > params.sqrtPriceLimitX96
-                )
-                    ? params.sqrtPriceLimitX96
-                    : step.nextSqrtPriceX96,
-                params.state.liquidity,
-                params.state.amountSpecifiedRemaining,
-                // isBaseToQuote: fee is charged in base token in uniswap pool; thus, use uniswapFeeRatio to replay
-                // !isBaseToQuote: fee is charged in quote token in clearing house; thus, use exchangeFeeRatioRatio
-                params.isBaseToQuote ? params.uniswapFeeRatio : params.exchangeFeeRatio
-            );
-
-            // user input 1 quote:
-            // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
-            // fee = 0.98989899 * 2% = 0.01979798
-            if (isExactInput) {
-                params.state.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
-            } else {
-                params.state.amountSpecifiedRemaining += step.amountOut.toInt256();
-            }
-
-            // update CH's global fee growth if there is liquidity in this range
-            // note CH only collects quote fee when swapping base -> quote
-            if (params.state.liquidity > 0) {
-                if (params.isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
-                }
-
-                feeResult += step.feeAmount;
-                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
-                insuranceFundFeeResult += stepInsuranceFundFee;
-                uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
-                params.state.feeGrowthGlobalX128 += FullMath.mulDiv(
-                    stepMakerFee,
-                    FixedPoint128.Q128,
-                    params.state.liquidity
-                );
-            }
-
-            if (params.state.sqrtPriceX96 == step.nextSqrtPriceX96) {
-                // we have reached the tick's boundary
-                if (step.isNextTickInitialized) {
-                    if (params.shouldUpdateState) {
-                        // update the tick if it has been initialized
-                        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-                        // according to the above updating logic,
-                        // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
-                        tickMap.cross(
-                            step.nextTick,
-                            Tick.GrowthInfo({
-                                feeX128: params.state.feeGrowthGlobalX128,
-                                twPremiumX96: params.globalFundingGrowth.twPremiumX96,
-                                twPremiumDivBySqrtPriceX96: params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
-                            })
-                        );
-                    }
-
-                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
-                    params.state.liquidity = LiquidityMath.addDelta(params.state.liquidity, liquidityNet);
-                }
-
-                params.state.tick = params.isBaseToQuote ? step.nextTick - 1 : step.nextTick;
-            } else if (params.state.sqrtPriceX96 != step.initialSqrtPriceX96) {
-                // update state.tick corresponding to the current price if the price has changed in this step
-                params.state.tick = TickMath.getTickAtSqrtRatio(params.state.sqrtPriceX96);
-            }
-        }
-        if (params.shouldUpdateState) {
-            // update global states since swap state transitions are all done
-            _feeGrowthGlobalX128Map[params.baseToken] = params.state.feeGrowthGlobalX128;
-        }
-
-        return
-            ReplaySwapResponse({ tick: params.state.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
     }
 
     //
