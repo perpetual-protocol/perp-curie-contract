@@ -3,7 +3,7 @@ import { ethers, waffle } from "hardhat"
 import { ClearingHouseConfig } from "../../typechain"
 
 describe("ClearingHouseConfig Spec", () => {
-    const [wallet] = waffle.provider.getWallets()
+    const [wallet, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     let clearingHouseConfig: ClearingHouseConfig
 
@@ -20,7 +20,10 @@ describe("ClearingHouseConfig Spec", () => {
 
     describe("onlyOwner setters", () => {
         it("setLiquidationPenaltyRatio", async () => {
-            await expect(clearingHouseConfig.setLiquidationPenaltyRatio(2e6)).to.be.revertedWith("CH_RO")
+            await expect(clearingHouseConfig.setLiquidationPenaltyRatio(2e6)).to.be.revertedWith("CHC_RO")
+            await expect(clearingHouseConfig.connect(alice).setLiquidationPenaltyRatio("500000")).to.be.revertedWith(
+                "SO_CNO",
+            )
             await expect(clearingHouseConfig.setLiquidationPenaltyRatio("500000")) // 50%
                 .to.emit(clearingHouseConfig, "LiquidationPenaltyRatioChanged")
                 .withArgs(500000)
@@ -28,7 +31,8 @@ describe("ClearingHouseConfig Spec", () => {
         })
 
         it("setPartialCloseRatio", async () => {
-            await expect(clearingHouseConfig.setPartialCloseRatio(2e6)).to.be.revertedWith("CH_RO")
+            await expect(clearingHouseConfig.setPartialCloseRatio(2e6)).to.be.revertedWith("CHC_RO")
+            await expect(clearingHouseConfig.connect(alice).setPartialCloseRatio("500000")).to.be.revertedWith("SO_CNO")
             await expect(clearingHouseConfig.setPartialCloseRatio("500000")) // 50%
                 .to.emit(clearingHouseConfig, "PartialCloseRatioChanged")
                 .withArgs(500000)
@@ -36,11 +40,20 @@ describe("ClearingHouseConfig Spec", () => {
         })
 
         it("setTwapInterval", async () => {
-            await expect(clearingHouseConfig.setTwapInterval(0)).to.be.revertedWith("CH_ITI")
+            await expect(clearingHouseConfig.setTwapInterval(0)).to.be.revertedWith("CHC_ITI")
+            await expect(clearingHouseConfig.connect(alice).setTwapInterval(3600)).to.be.revertedWith("SO_CNO")
             await expect(clearingHouseConfig.setTwapInterval(3600))
                 .to.emit(clearingHouseConfig, "TwapIntervalChanged")
                 .withArgs(3600)
             expect(await clearingHouseConfig.twapInterval()).eq(3600)
+        })
+
+        it("setMaxMarketsPerAccount", async () => {
+            await expect(clearingHouseConfig.connect(alice).setMaxMarketsPerAccount(10)).to.be.revertedWith("SO_CNO")
+            await expect(clearingHouseConfig.setMaxMarketsPerAccount(10))
+                .to.emit(clearingHouseConfig, "MaxMarketsPerAccountChanged")
+                .withArgs(10)
+            expect(await clearingHouseConfig.maxMarketsPerAccount()).eq(10)
         })
     })
 })
