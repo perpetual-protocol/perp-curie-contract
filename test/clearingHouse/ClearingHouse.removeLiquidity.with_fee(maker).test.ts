@@ -137,19 +137,18 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // alice received 0.0006151334175725025 quote tokens as fee
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
 
-                // no base fee, and excess vTokens should be auto-burnt
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0"), // debt
-                ])
                 // 10000 - 0.122414646 (added liquidity) = 9999.877585354
                 // auto-burnt:
                 //   available = 9999.877585354 -> 0
                 //   debt = 10000 -> 10000 - 9999.877585354 = 0.122414646
-                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0.122414646"), // debt
-                ])
+                //   balance = available - debt = -0.122414646
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    alice.address,
+                    baseToken.address,
+                )
+
+                expect(baseBalance).to.deep.eq(parseEther("0"))
+                expect(quoteBalance).to.deep.eq(parseEther("-0.122414646"))
                 // note skipping Bob's/ taker's balance
 
                 // B2QFee: there is only quote fee
@@ -170,13 +169,13 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
-                // all base tokens should've been burnt by now
-                const baseTokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-                expect(baseTokenInfo.available).be.eq(0)
+                // all base tokens balance should've been zero by now
+                const [aliceBaseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                expect(aliceBaseBalance).be.eq(0)
                 // alice should've burnt all the quote tokens (only liquidity, fee is being realized) she received
                 // from the removing liquidity, so the remaining quote tokens are all bob's
-                const quoteTokenInfo = await clearingHouse.getTokenInfo(bob.address, quoteToken.address)
-                expect(quoteTokenInfo.available).be.closeTo(parseEther("0.060898208339677747"), 1)
+                const [, bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+                expect(bobBaseBalance).be.closeTo(parseEther("0.060898208339677747"), 1)
             })
 
             describe("initialized price = 148.3760629", () => {
@@ -204,7 +203,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }
-                    // will mint 0.000816820841 base -> transfer to pool
+                    // 0.000816820841 base -> transfer to pool
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                     // liquidity ~= 1
@@ -223,7 +222,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
-                    // will mint 0.1135501475 quote (plus extra for offsetting Uniswap fee) -> transfer to pool
+                    // 0.1135501475 quote (plus extra for offsetting Uniswap fee) -> transfer to pool
                     await clearingHouse.connect(bob).swap(swapParams)
 
                     // alice remove liq 0, alice should collect fee
@@ -282,16 +281,16 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     ])
 
                     // CH should have all bob's base token = 0.0007507052579
-                    const baseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-                    expect(baseTokenInfo.available).be.closeTo(parseEther("0.000750705258114652"), 1)
+                    const [bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+                    expect(bobBaseBalance).be.closeTo(parseEther("0.000750705258114652"), 1)
 
                     // CH should have all alice's fee (quote token) = 0.1135501475 * 1% = 0.001135501475
                     // but all being settled to owedReliazedPnl (except a few rounding left)
 
                     // bob should have zero base token atm
                     // because bob swapped twice in the opposite directions with exact the same amount
-                    const quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-                    expect(quoteTokenInfo.available).be.eq(0)
+                    const [, aliceQuoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                    expect(aliceQuoteBalance).be.eq(0)
                     expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
                         parseEther("0.001135501474999999"),
                     )
@@ -312,7 +311,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }
-                    // will mint 0.000816820841 base -> transfer to pool
+                    // 0.000816820841 base -> transfer to pool
                     await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
                     // liquidity ~= 1
@@ -332,7 +331,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         amount: parseEther("0.1135501475"),
                         sqrtPriceLimitX96: "0",
                     }
-                    // will mint 0.1135501475 quote -> transfer 0.112414646 to pool
+                    // 0.1135501475 quote -> transfer 0.112414646 to pool
                     // will transfer 0.0007507052579 base from pool to CH
                     await clearingHouse.connect(bob).swap(swapParams1)
 
@@ -384,11 +383,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // no base fee
                     // 100 - 0.000816820841 = 99.9991831792
-                    // alice haven't got back any of the 0.000816820841 she minted yet
-                    expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                        parseEther("0"), // available
-                        parseEther("0.000816820841"), // debt
-                    ])
+                    // alice haven't got back any of the 0.000816820841 base in pool
+                    const [aliceBaseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                    expect(aliceBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                     // alice received 0.002259647935 quote tokens as fee
                     expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
@@ -417,8 +414,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // bob should have zero base token atm
                     // because bob swapped twice in the opposite directions with exact the same amount
-                    const baseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-                    expect(baseTokenInfo.available).be.eq(0)
+                    const [bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+                    expect(bobBaseBalance).be.eq(0)
                 })
             })
         })
@@ -451,7 +448,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
-                // will mint & transfer 0.002450462523 base to pool
+                // transfer 0.002450462523 base to pool
                 await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
 
                 // add base liquidity
@@ -465,7 +462,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }
-                // will mint & transfer 0.000816820841 base to pool
+                // transfer 0.000816820841 base to pool
                 await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
 
                 // liquidity ~= 3
@@ -556,20 +553,16 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("0.000562988973635831"),
                     )
 
-                // alice still has 0.002450462523 base debt
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0.002450462523"), // debt
-                ])
+                // alice still has -0.002450462523 balance
+                const [aliceBaseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                expect(aliceBaseBalance).to.deep.eq(parseEther("-0.002450462523"))
 
                 // alice has 0.00168896692 quote from fees
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
 
-                // carol still has 0.000816820841 base debt
-                expect(await clearingHouse.getTokenInfo(carol.address, baseToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0.000816820841"), // debt
-                ])
+                // carol still has -0.000816820841 balance
+                const [carolBaseBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
+                expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.0005629889737 quote from fees
                 expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
@@ -600,8 +593,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
 
-                const baseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-                expect(baseTokenInfo.available).be.closeTo(parseEther("0.000005184070208358"), 1)
+                const [bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+                expect(bobBaseBalance).be.closeTo(parseEther("0.000005184070208358"), 1)
                 // CH should have alice's fee + carol's fee = 0.00168896692 + 0.0005629889737 = 0.002251955894
                 // but they're all settled to their owedRelizedPnl so 0 with a few roundings left
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
@@ -774,20 +767,16 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("0.002460658034826347"),
                     )
 
-                // alice still has 0.001625514583 base debt
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0.001625514583200000"), // debt
-                ])
+                // alice still has -0.001625514583 balance
+                const [aliceBaseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                expect(aliceBaseBalance).to.deep.eq(parseEther("-0.001625514583200000"))
 
                 // alice has 0.00444896749 quote from fees
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
 
-                // carol still has 0.000816820841 base debt
-                expect(await clearingHouse.getTokenInfo(carol.address, baseToken.address)).to.deep.eq([
-                    parseEther("0"), // available
-                    parseEther("0.000816820841"), // debt
-                ])
+                // carol still has -0.000816820841 balance
+                const [carolBaseBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
+                expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.002460658036 quote from fees
                 expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
@@ -824,18 +813,18 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // verify CH balances
                 // CH should have a little base token left because bob did not swap back all his base token on swap #2
-                const baseTokenInfo = await clearingHouse.getTokenInfo(bob.address, baseToken.address)
-                expect(baseTokenInfo.available).be.closeTo(parseEther("0.000000000000873619"), 1)
+                const [baseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
+                expect(baseBalance).be.closeTo(parseEther("0.000000000000873619"), 1)
 
                 // CH should have both alice's and carol's fee = 0.00444896749 + 0.002460658036 = 0.006909625526
                 // but they're all settled to their own owedRealizedPnl, so 0 balance left in CH
                 {
-                    const quoteTokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-                    expect(quoteTokenInfo.available).be.eq(0)
+                    const [, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+                    expect(quoteBalance).be.eq(0)
                 }
                 {
-                    const quoteTokenInfo = await clearingHouse.getTokenInfo(carol.address, quoteToken.address)
-                    expect(quoteTokenInfo.available).be.eq(0)
+                    const [, quoteBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
+                    expect(quoteBalance).be.eq(0)
                 }
                 expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
                 expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
@@ -847,24 +836,24 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 // // === useful console.log for verifying stats ===
 // console.log("alice stats:")
 // console.log("base, available")
-// console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[0].toString())
+// console.log((await clearingHouse.getTokenBalance(alice.address, baseToken.address))[0].toString())
 // console.log("base, debt")
-// console.log((await clearingHouse.getTokenInfo(alice.address, baseToken.address))[1].toString())
+// console.log((await clearingHouse.getTokenBalance(alice.address, baseToken.address))[1].toString())
 // console.log("quote, available")
-// console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[0].toString())
+// console.log((await clearingHouse.getTokenBalance(alice.address, quoteToken.address))[0].toString())
 // console.log("quote, debt")
-// console.log((await clearingHouse.getTokenInfo(alice.address, quoteToken.address))[1].toString())
+// console.log((await clearingHouse.getTokenBalance(alice.address, quoteToken.address))[1].toString())
 
 // console.log("----------------------")
 // console.log("carol stats:")
 // console.log("base, available")
-// console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[0].toString())
+// console.log((await clearingHouse.getTokenBalance(carol.address, baseToken.address))[0].toString())
 // console.log("base, debt")
-// console.log((await clearingHouse.getTokenInfo(carol.address, baseToken.address))[1].toString())
+// console.log((await clearingHouse.getTokenBalance(carol.address, baseToken.address))[1].toString())
 // console.log("quote, available")
-// console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[0].toString())
+// console.log((await clearingHouse.getTokenBalance(carol.address, quoteToken.address))[0].toString())
 // console.log("quote, debt")
-// console.log((await clearingHouse.getTokenInfo(carol.address, quoteToken.address))[1].toString())
+// console.log((await clearingHouse.getTokenBalance(carol.address, quoteToken.address))[1].toString())
 
 // console.log("----------------------")
 // console.log("lastFeeGrowthInsideX128 carol 50000 - 50200")
