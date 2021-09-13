@@ -2,15 +2,15 @@ import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouseConfig } from "../../typechain"
 
-describe("ClearingHouse Spec", () => {
+describe("ClearingHouseConfig Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
-
     let clearingHouseConfig: ClearingHouseConfig
 
     async function chConfigFixture(): Promise<ClearingHouseConfig> {
         const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
         const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+        await clearingHouseConfig.initialize()
         return clearingHouseConfig
     }
 
