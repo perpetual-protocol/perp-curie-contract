@@ -132,7 +132,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     //
 
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
+        ExchangeRegistry(exchangeRegistry).setMaxOrdersPerMarket(maxOrdersPerMarketArg);
     }
 
     ////// TODO REMOVE LATER

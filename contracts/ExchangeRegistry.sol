@@ -15,6 +15,8 @@ contract ExchangeRegistry is SafeOwnable {
     address public quoteToken;
     address public clearingHouse;
 
+    uint8 public maxOrdersPerMarket;
+
     // key: base token, value: pool
     mapping(address => address) internal _poolMap;
 
@@ -119,6 +121,10 @@ contract ExchangeRegistry is SafeOwnable {
         checkRatio(insuranceFundFeeRatioArg)
     {
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
+    }
+
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external {
+        maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     //

@@ -119,8 +119,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     address public exchange;
     address public exchangeRegistry;
 
-    uint8 public maxOrdersPerMarket;
-
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
 
@@ -179,10 +177,6 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
         // Exchange is 0
         require(exchangeArg != address(0), "EX_CH0");
         exchange = exchangeArg;
-    }
-
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
     }
 
     //
@@ -716,6 +710,7 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // EX_ONE: orders number exceeded
+            uint8 maxOrdersPerMarket = ExchangeRegistry(exchangeRegistry).maxOrdersPerMarket();
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "EX_ONE");
             orderIds.push(orderId);
 
