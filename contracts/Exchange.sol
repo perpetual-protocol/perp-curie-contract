@@ -219,10 +219,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     //    }
 
     modifier checkCallback() {
-        address sender = _msgSender();
-        address baseToken = IUniswapV3Pool(sender).token0();
-        // failed callback verification
-        require(sender == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
+        address pool = _msgSender();
+        address baseToken = IUniswapV3Pool(pool).token0();
+        require(pool == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
         _;
     }
 

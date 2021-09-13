@@ -115,7 +115,6 @@ describe("Quoter.swap", () => {
             })
             expect(quoteResponse.deltaAvailableQuote).to.be.lt(quoteAmount)
 
-            await clearingHouse.connect(bob).mint(quoteToken.address, quoteAmount)
             const swapResponse = await clearingHouse.connect(bob).callStatic.swap({
                 baseToken: baseToken.address,
                 // buy base
