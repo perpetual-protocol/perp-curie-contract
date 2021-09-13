@@ -176,10 +176,10 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     }
 
     modifier checkCallback() {
-        address sender = _msgSender();
-        address baseToken = IUniswapV3Pool(sender).token0();
+        address pool = _msgSender();
+        address baseToken = IUniswapV3Pool(pool).token0();
         // failed callback verification
-        require(sender == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
+        require(pool == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
         _;
     }
 

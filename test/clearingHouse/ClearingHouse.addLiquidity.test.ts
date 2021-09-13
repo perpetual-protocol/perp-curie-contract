@@ -477,9 +477,12 @@ describe("ClearingHouse addLiquidity", () => {
                 ).to.be.revertedWith("UB_ZL")
             })
 
+            // TODO move to orderbook integration test
             it("force error, non-registered pool calls mint callback", async () => {
                 const encodedData = defaultAbiCoder.encode(["address"], [baseToken.address])
-                await expect(clearingHouse.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith("CH_OE")
+                await expect(orderBook.uniswapV3MintCallback(123, 456, encodedData)).to.be.revertedWith(
+                    "function call to a non-contract account",
+                )
             })
 
             it("force error, orders number exceeded", async () => {
