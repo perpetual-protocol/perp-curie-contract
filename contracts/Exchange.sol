@@ -328,62 +328,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         return ExchangeRegistry(exchangeRegistry).getPool(baseToken);
     }
 
-    // TODO move to interface
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
-        return OrderBook(orderBook).getOpenOrderIds(trader, baseToken);
-    }
-
-    // TODO move to interface
-    function getOpenOrder(
-        address trader,
-        address baseToken,
-        int24 lowerTick,
-        int24 upperTick
-    ) external view returns (OrderBook.OpenOrder memory) {
-        return OrderBook(orderBook).getOpenOrder(trader, baseToken, lowerTick, upperTick);
-    }
-
     function getTick(address baseToken) external view returns (int24) {
         return UniswapV3Broker.getTick(ExchangeRegistry(exchangeRegistry).getPool(baseToken));
     }
 
-    // TODO move to interface
-    function hasOrder(address trader, address[] calldata tokens) external view returns (bool) {
-        return OrderBook(orderBook).hasOrder(trader, tokens);
-    }
-
-    // TODO move to interface
-    /// @dev note the return value includes maker fee.
-    ///      For more details please refer to _getTotalTokenAmountInPool() docstring
-    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
-        return OrderBook(orderBook).getTotalQuoteAmountInPools(trader, baseTokens);
-    }
-
-    // TODO move to interface
-    /// @dev the returned quote amount does not include funding payment because
-    ///      the latter is counted directly toward realizedPnl.
-    ///      please refer to _getTotalTokenAmountInPool() docstring for specs
-    function getTotalTokenAmountInPool(
-        address trader,
-        address baseToken,
-        bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view returns (uint256 tokenAmount) {
-        return OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, fetchBase);
-    }
-
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken), twapInterval);
-    }
-
-    // TODO move to interface
-    /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
-    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
-    function getLiquidityCoefficientInFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) external view returns (int256 liquidityCoefficientInFundingPayment) {
-        return OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
     }
 
     //

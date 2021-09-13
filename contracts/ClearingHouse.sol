@@ -731,7 +731,7 @@ contract ClearingHouse is
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
 
         int256 openNotional =
-            Exchange(exchange).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+            OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
                 _accountMarketMap[trader][baseToken].quoteBalance
             );
 
