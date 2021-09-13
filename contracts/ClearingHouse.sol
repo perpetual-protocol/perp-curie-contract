@@ -530,7 +530,7 @@ contract ClearingHouse is
         // TODO scale up or down the opposite amount bound if it's a partial close
         // if oldPositionSize is long, close a long position is short, B2Q
         // if oldPositionSize is short, close a short position is long, Q2B
-        bool isBaseToQuote = _getPositionSize(trader, params.baseToken) > 0 ? true : false;
+        bool isBaseToQuote = getPositionSize(trader, params.baseToken) > 0 ? true : false;
         _checkSlippage(
             CheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
@@ -706,6 +706,23 @@ contract ClearingHouse is
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
     }
 
+    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
+        // for instance, maker adds liquidity with 2 base (2000000000000000000),
+        // the actual base amount in pool would be 1999999999999999999
+        int256 positionSize =
+            _accountMarketMap[trader][baseToken].baseBalance.add(
+                Exchange(exchange)
+                    .getTotalTokenAmountInPool(
+                    trader,
+                    baseToken,
+                    true // get base token amount
+                )
+                    .toInt256()
+            );
+        return positionSize.abs() < _DUST ? 0 : positionSize;
+    }
+
     /// @dev a negative returned value is only be used when calculating pnl
     function getPositionValue(address trader, address baseToken) external view returns (int256) {
         return _getPositionValue(trader, baseToken);
@@ -764,10 +781,6 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
         return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
-    }
-
-    function getPositionSize(address trader, address baseToken) external view returns (int256) {
-        return _getPositionSize(trader, baseToken);
     }
 
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
@@ -889,7 +902,7 @@ contract ClearingHouse is
 
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = _getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         int256 deltaAvailableQuote;
 
@@ -1102,7 +1115,7 @@ contract ClearingHouse is
     }
 
     function _closePosition(InternalClosePositionParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = _getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
@@ -1340,7 +1353,7 @@ contract ClearingHouse is
 
     /// @dev we use 15 mins twap to calc position value
     function _getPositionValue(address trader, address baseToken) internal view returns (int256) {
-        int256 positionSize = _getPositionSize(trader, baseToken);
+        int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
@@ -1390,23 +1403,6 @@ contract ClearingHouse is
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
 
-    function _getPositionSize(address trader, address baseToken) internal view returns (int256) {
-        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
-        // for instance, maker adds liquidity with 2 base (2000000000000000000),
-        // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize =
-            _accountMarketMap[trader][baseToken].baseBalance.add(
-                Exchange(exchange)
-                    .getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    true // get base token amount
-                )
-                    .toInt256()
-            );
-        return positionSize.abs() < _DUST ? 0 : positionSize;
-    }
-
     function _hasPool(address baseToken) internal view returns (bool) {
         return Exchange(exchange).getPool(baseToken) != address(0);
     }
@@ -1417,7 +1413,7 @@ contract ClearingHouse is
         bool isBaseToQuote
     ) internal view returns (bool) {
         // increase position == old/new position are in the same direction
-        int256 positionSize = _getPositionSize(trader, baseToken);
+        int256 positionSize = getPositionSize(trader, baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
