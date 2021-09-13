@@ -67,6 +67,7 @@ describe("Exchange Spec", () => {
 
                 const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
                 baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
+                baseToken2.smocked.isInWhitelist.will.return.with(true)
                 const pool2 = poolFactory.attach(POOL_B_ADDRESS) as UniswapV3Pool
                 const mockedPool2 = await smockit(pool2)
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)

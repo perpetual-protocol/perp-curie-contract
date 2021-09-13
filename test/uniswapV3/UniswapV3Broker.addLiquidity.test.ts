@@ -48,8 +48,6 @@ describe("UniswapV3Broker addLiquidity", () => {
 
         await uniswapV3Broker.addLiquidity({
             pool: pool.address,
-            baseToken: baseToken.address,
-            quoteToken: quoteToken.address,
             lowerTick: 50000, // 148.3760629
             upperTick: 50400, // 154.4310961
             base,
@@ -72,8 +70,6 @@ describe("UniswapV3Broker addLiquidity", () => {
         await expect(
             uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50400, // 154.4310961
                 base,
@@ -106,8 +102,6 @@ describe("UniswapV3Broker addLiquidity", () => {
         await expect(
             uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000,
                 upperTick: 50200,
                 base,
@@ -136,8 +130,6 @@ describe("UniswapV3Broker addLiquidity", () => {
         await expect(
             uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base,
@@ -159,8 +151,6 @@ describe("UniswapV3Broker addLiquidity", () => {
         await expect(
             uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base,
@@ -189,8 +179,6 @@ describe("UniswapV3Broker addLiquidity", () => {
         await expect(
             uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base,

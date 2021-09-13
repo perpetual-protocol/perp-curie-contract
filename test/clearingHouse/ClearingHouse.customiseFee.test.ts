@@ -1,5 +1,4 @@
 import { MockContract } from "@eth-optimism/smock"
-import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"

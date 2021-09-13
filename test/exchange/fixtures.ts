@@ -40,6 +40,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     mockedQuoteToken.smocked.totalSupply.will.return.with(async () => {
         return ethers.constants.MaxUint256
     })
+    mockedQuoteToken.smocked.isInWhitelist.will.return.with(async () => {
+        return true
+    })
 
     const mockedVault = await smockit(vault)
     const mockedInsuranceFund = await smockit(insuranceFund)
@@ -75,6 +78,9 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     })
     mockedBaseToken.smocked.balanceOf.will.return.with(async () => {
         return ethers.constants.MaxUint256
+    })
+    mockedBaseToken.smocked.isInWhitelist.will.return.with(async () => {
+        return true
     })
 
     return {

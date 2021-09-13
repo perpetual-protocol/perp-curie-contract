@@ -29,8 +29,6 @@ library UniswapV3Broker {
 
     struct AddLiquidityParams {
         address pool;
-        address baseToken;
-        address quoteToken;
         int24 lowerTick;
         int24 upperTick;
         uint256 base;
@@ -42,11 +40,11 @@ library UniswapV3Broker {
         uint256 base;
         uint256 quote;
         uint128 liquidity;
-        uint256 feeGrowthInsideQuoteX128;
     }
 
     struct RemoveLiquidityParams {
         address pool;
+        address recipient;
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
@@ -55,7 +53,6 @@ library UniswapV3Broker {
     struct RemoveLiquidityResponse {
         uint256 base; // amount of base token received from burning the liquidity (excl. fee)
         uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
-        uint256 feeGrowthInsideQuoteX128;
     }
 
     struct SwapState {
@@ -68,6 +65,7 @@ library UniswapV3Broker {
 
     struct SwapParams {
         address pool;
+        address recipient;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
@@ -101,16 +99,7 @@ library UniswapV3Broker {
         (uint256 addedAmount0, uint256 addedAmount1) =
             IUniswapV3Pool(params.pool).mint(address(this), params.lowerTick, params.upperTick, liquidity, params.data);
 
-        // fetch the fee growth state if this has liquidity
-        uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
-
-        return
-            AddLiquidityResponse({
-                base: addedAmount0,
-                quote: addedAmount1,
-                liquidity: liquidity,
-                feeGrowthInsideQuoteX128: feeGrowthInside1LastX128
-            });
+        return AddLiquidityResponse({ base: addedAmount0, quote: addedAmount1, liquidity: liquidity });
     }
 
     function removeLiquidity(RemoveLiquidityParams memory params)
@@ -126,20 +115,16 @@ library UniswapV3Broker {
         // 1. every maker's fee in the same range (ClearingHouse is the only maker in the pool's perspective)
         // 2. the amount of token equivalent to liquidity burned
         IUniswapV3Pool(params.pool).collect(
-            address(this),
+            params.recipient,
             params.lowerTick,
             params.upperTick,
             type(uint128).max,
             type(uint128).max
         );
 
-        // fetch the fee growth state if there is liquidity
-        uint256 feeGrowthInside1LastX128 = _getFeeGrowthInsideLast(params.pool, params.lowerTick, params.upperTick);
-
         // make base & quote into the right order
         response.base = amount0Burned;
         response.quote = amount1Burned;
-        response.feeGrowthInsideQuoteX128 = feeGrowthInside1LastX128;
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
@@ -154,7 +139,7 @@ library UniswapV3Broker {
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =
             IUniswapV3Pool(params.pool).swap(
-                address(this),
+                params.recipient,
                 params.isBaseToQuote,
                 specifiedAmount,
                 params.sqrtPriceLimitX96 == 0
@@ -287,18 +272,6 @@ library UniswapV3Broker {
                 feeGrowthGlobalX128: feeGrowthGlobalX128,
                 liquidity: getLiquidity(pool)
             });
-    }
-
-    function _getFeeGrowthInsideLast(
-        address pool,
-        int24 lowerTick,
-        int24 upperTick
-    ) private view returns (uint256 feeGrowthInside1LastX128) {
-        bytes32 positionKey = PositionKey.compute(address(this), lowerTick, upperTick);
-
-        // get feeGrowthInside{0,1}LastX128
-        // feeGrowthInside{0,1}LastX128 would be kept in position even after removing the whole liquidity
-        (, , feeGrowthInside1LastX128, , ) = IUniswapV3Pool(pool).positions(positionKey);
     }
 
     function _getPositionOfInitializedTickWithinOneWord(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {

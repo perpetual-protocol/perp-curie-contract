@@ -105,21 +105,17 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             // WIP verify account states
             // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
             //  however, the actual number of tokens sent/received are matched
-            expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                BigNumber.from(0), // available
-                BigNumber.from(1), // debt
-            ])
-            expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                parseUnits("0", await quoteToken.decimals()), // available
-                parseUnits("0", await quoteToken.decimals()), // debt
-            ])
+            const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(baseBalance).to.deep.eq(BigNumber.from(-1))
+            expect(quoteBalance).to.deep.eq(parseUnits("0", await quoteToken.decimals()))
+
             expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
             const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
             expect(openOrder).to.deep.eq([
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
                 0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                 openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                 openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -191,23 +187,22 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     )
 
                 // verify account states
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    parseUnits("0", await baseToken.decimals()), // available
-                    parseUnits("0", await baseToken.decimals()), // debt
-                ])
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    alice.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).to.deep.eq(parseUnits("0", await baseToken.decimals()))
                 // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
                 //  however, the actual number of tokens sent/received are matched
-                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("0"), // available
-                    BigNumber.from("1"), // debt
-                ])
+                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -260,21 +255,20 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // verify account states
                 // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
                 //  however, the actual number of tokens sent/received are matched
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    BigNumber.from("0"), // available
-                    BigNumber.from("1"), // debt
-                ])
-                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("0"), // available
-                    BigNumber.from("1"), // debt
-                ])
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    alice.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).to.deep.eq(BigNumber.from("-1"))
+                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -326,21 +320,20 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // verify account states
                 // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
                 //  however, the actual number of tokens sent/received are matched
-                expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-                    BigNumber.from("0"), // available
-                    BigNumber.from("1"), // debt
-                ])
-                expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-                    BigNumber.from("0"), // available
-                    BigNumber.from("1"), // debt
-                ])
+                const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
+                    alice.address,
+                    baseToken.address,
+                )
+                expect(baseBalance).to.deep.eq(BigNumber.from("-1"))
+                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -442,14 +435,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         // verify account states
         // alice should have 100 - 33.9381545695 = 66.0618454305 debt
-        expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-            BigNumber.from("0"), // available
-            parseUnits("66.061845430469484023", await baseToken.decimals()), // debt
-        ])
-        expect(await clearingHouse.getTokenInfo(alice.address, quoteToken.address)).to.deep.eq([
-            BigNumber.from(0), // available
-            parseUnits("10000", await quoteToken.decimals()), // debt
-        ])
+        const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+        expect(baseBalance).to.deep.eq(parseUnits("-66.061845430469484023", await baseToken.decimals()))
+        expect(quoteBalance).to.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
+
         expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
             keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
         ])
@@ -458,7 +447,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             liquidity,
             50000, // lowerTick
             50400, // upperTick
-            parseUnits("0", await baseToken.decimals()), // feeGrowthInsideLastBase
+            parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
             openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
             openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
