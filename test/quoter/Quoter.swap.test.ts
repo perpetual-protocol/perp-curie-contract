@@ -4,6 +4,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     Quoter,
     QuoteToken,
@@ -20,6 +21,7 @@ describe("Quoter.swap", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -35,6 +37,7 @@ describe("Quoter.swap", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
@@ -48,7 +51,7 @@ describe("Quoter.swap", () => {
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
         quoter = (await quoterFactory.deploy()) as Quoter
-        await quoter.initialize(exchange.address)
+        await quoter.initialize(exchangeRegistry.address)
 
         lowerTick = 49000
         upperTick = 51400
