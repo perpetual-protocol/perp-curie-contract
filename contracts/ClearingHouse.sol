@@ -707,8 +707,8 @@ contract ClearingHouse is
     }
 
     /// @dev a negative returned value is only be used when calculating pnl
-    function getPositionValue(address trader, address token) external view returns (int256) {
-        return _getPositionValue(trader, token);
+    function getPositionValue(address trader, address baseToken) external view returns (int256) {
+        return _getPositionValue(trader, baseToken);
     }
 
     /// @dev the amount of quote token paid for a position when opening
@@ -1320,8 +1320,8 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
-    function _getIndexPrice(address token) internal view returns (uint256) {
-        return IIndexPrice(token).getIndexPrice(twapInterval);
+    function _getIndexPrice(address baseToken) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(twapInterval);
     }
 
     // return decimals 18
@@ -1339,11 +1339,11 @@ contract ClearingHouse is
     }
 
     /// @dev we use 15 mins twap to calc position value
-    function _getPositionValue(address trader, address token) internal view returns (int256) {
-        int256 positionSize = _getPositionSize(trader, token);
+    function _getPositionValue(address trader, address baseToken) internal view returns (int256) {
+        int256 positionSize = _getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = IIndexPrice(token).getIndexPrice(twapInterval);
+        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
