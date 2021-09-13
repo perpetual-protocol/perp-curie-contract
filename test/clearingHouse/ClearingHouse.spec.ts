@@ -36,30 +36,6 @@ describe("ClearingHouse Spec", () => {
     })
 
     describe("onlyOwner setters", () => {
-        it("setLiquidationPenaltyRatio", async () => {
-            await expect(clearingHouse.setLiquidationPenaltyRatio(2e6)).to.be.revertedWith("CH_RO")
-            await expect(clearingHouse.setLiquidationPenaltyRatio("500000")) // 50%
-                .to.emit(clearingHouse, "LiquidationPenaltyRatioChanged")
-                .withArgs(500000)
-            expect(await clearingHouse.liquidationPenaltyRatio()).eq(500000)
-        })
-
-        it("setPartialCloseRatio", async () => {
-            await expect(clearingHouse.setPartialCloseRatio(2e6)).to.be.revertedWith("CH_RO")
-            await expect(clearingHouse.setPartialCloseRatio("500000")) // 50%
-                .to.emit(clearingHouse, "PartialCloseRatioChanged")
-                .withArgs(500000)
-            expect(await clearingHouse.partialCloseRatio()).eq(500000)
-        })
-
-        it("setTwapInterval", async () => {
-            await expect(clearingHouse.setTwapInterval(0)).to.be.revertedWith("CH_ITI")
-            await expect(clearingHouse.setTwapInterval(3600))
-                .to.emit(clearingHouse, "TwapIntervalChanged")
-                .withArgs(3600)
-            expect(await clearingHouse.twapInterval()).eq(3600)
-        })
-
         it("setMaxTickCrossedWithinBlock", async () => {
             exchange.smocked.getPool.will.return.with(EMPTY_ADDRESS)
             await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
