@@ -13,7 +13,7 @@ import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
-import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
+import { UniswapV3Broker, IUniswapV3Pool } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
@@ -24,8 +24,9 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityAction, SafeOwnable, ArbBlockContext {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -89,23 +90,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint160 sqrtPriceLimitX96;
     }
 
-    struct AddLiquidityParams {
-        address trader;
-        address baseToken;
-        uint256 base;
-        uint256 quote;
-        int24 lowerTick;
-        int24 upperTick;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct AddLiquidityResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 fee;
-        uint128 liquidity;
-    }
-
     struct SwapParams {
         address trader;
         address baseToken;
@@ -126,7 +110,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     struct MintCallbackData {
         address trader;
-        address baseToken;
         address pool;
     }
 
@@ -135,20 +118,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken;
         address pool;
         uint24 uniswapFeeRatio;
-        uint256 fee;
-    }
-
-    struct RemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 liquidity;
-    }
-
-    struct RemoveLiquidityResponse {
-        uint256 base;
-        uint256 quote;
         uint256 fee;
     }
 
@@ -254,6 +223,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
         require(ratio <= 1e6, "EX_RO");
+        _;
+    }
+
+    modifier checkCallback() {
+        address pool = _msgSender();
+        address baseToken = IUniswapV3Pool(pool).token0();
+        // failed callback verification
+        require(pool == _poolMap[baseToken], "EX_FCV");
         _;
     }
 
@@ -406,8 +383,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
+    /// @inheritdoc ILiquidityAction
     function addLiquidity(AddLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
@@ -424,13 +403,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             response = UniswapV3Broker.addLiquidity(
                 UniswapV3Broker.AddLiquidityParams(
                     pool,
-                    params.baseToken,
-                    quoteToken,
                     params.lowerTick,
                     params.upperTick,
                     params.base,
                     params.quote,
-                    abi.encode(MintCallbackData(params.trader, params.baseToken, pool))
+                    abi.encode(MintCallbackData(params.trader, pool))
                 )
             );
             // mint callback
@@ -497,11 +474,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
+    /// @inheritdoc ILiquidityAction
     function removeLiquidityByIds(
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
@@ -528,8 +506,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
     }
 
+    /// @inheritdoc ILiquidityAction
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
@@ -616,11 +596,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external override {
-        MintCallbackData memory callbackData = abi.decode(data, (MintCallbackData));
-        // EX_FMV: failed mintCallback verification
-        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FMV");
-
+    ) external override checkCallback {
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
@@ -629,11 +605,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         int256 amount0Delta,
         int256 amount1Delta,
         bytes calldata data
-    ) external override {
-        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
-        // EX_FSV: failed swapCallback verification
-        require(_msgSender() == _poolMap[callbackData.baseToken], "EX_FSV");
-
+    ) external override checkCallback {
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 

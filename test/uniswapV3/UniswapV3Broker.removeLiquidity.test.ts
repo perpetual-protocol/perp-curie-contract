@@ -46,8 +46,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
             const quote = parseEther("0.122414646")
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base,
@@ -82,8 +80,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base,
@@ -119,8 +115,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000,
                 upperTick: 50200,
                 base,
@@ -153,8 +147,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50400, // 154.4310961
                 base: parseEther("0.000808693720084599"),
@@ -189,17 +181,14 @@ describe("UniswapV3Broker removeLiquidity", () => {
             // P(50200) = 1.0001^50200 ~= 151.3733069
             await pool.initialize(encodePriceSqrt(151.3733069, 1))
 
-            const addLiquidityParams = {
+            await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 base: parseEther("0.000808693720084599"),
                 quote: parseEther("0.122414646"),
                 data: hexlify([]),
-            }
-            await uniswapV3Broker.addLiquidity(addLiquidityParams)
+            })
 
             const removeLiquidityParams = {
                 pool: pool.address,
@@ -221,8 +210,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
 
             await uniswapV3Broker.addLiquidity({
                 pool: pool.address,
-                baseToken: baseToken.address,
-                quoteToken: quoteToken.address,
                 lowerTick: 50000, // 148.3760629
                 upperTick: 50200, // 151.3733069
                 base: "0",
