@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
-
+import "hardhat/console.sol";
 import { ClearingHouse } from "../ClearingHouse.sol";
 import { Funding } from "../lib/Funding.sol";
 
@@ -61,19 +61,7 @@ contract TestClearingHouse is ClearingHouse {
             );
     }
 
-    function mint(address token, uint256 amount) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-            _registerBaseToken(_msgSender(), token);
-        }
-        // always check margin ratio
-        _mint(_msgSender(), token, amount, true);
-    }
-
-    function burn(address token) external nonReentrant() {
-        if (token != quoteToken) {
-            _requireHasBaseToken(token);
-        }
-        _burn(_msgSender(), token);
+    function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
+        return (_accountMarketMap[trader][baseToken].baseBalance, _accountMarketMap[trader][baseToken].quoteBalance);
     }
 }

@@ -1,4 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
@@ -21,6 +22,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
+    let baseAmount: BigNumber
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
@@ -61,7 +63,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         // accountValue = 10
         // freeCollateral = 0
         // alice adds liquidity (base only) above the current price
-        const baseAmount = parseUnits("1", await baseToken.decimals())
+        baseAmount = parseUnits("1", await baseToken.decimals())
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
             base: baseAmount,
@@ -72,10 +74,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        expect(await clearingHouse.getTokenInfo(alice.address, baseToken.address)).to.deep.eq([
-            parseUnits("0"), // available
-            baseAmount, // debt
-        ])
+        const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+
+        // parseUnits("-1", await baseToken.decimals()) or -baseAmount
+        expect(baseBalance).be.deep.eq(parseUnits("-1", await baseToken.decimals()))
     })
 
     describe("cancel alice's all open orders (single order)", () => {
@@ -88,17 +90,18 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         it("has 0 open orders left", async () => {
             const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-            expect(openOrderIds).to.deep.eq([])
+            expect(openOrderIds).be.deep.eq([])
         })
 
-        it("burn base or base-debt to 0", async () => {
-            const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
+        // there will be 1 wei dust of base token due to _removeLiquidity
+        it("base balance should reduce", async () => {
+            const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(baseBalance).be.deep.eq("-1")
         })
 
-        it("has either 0 quote-available or 0 quote-debt left", async () => {
-            const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
+        it("quote balance should return to zero", async () => {
+            const [, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(quoteBalance).be.deep.eq(parseUnits("0", await quoteToken.decimals()))
         })
     })
 
@@ -109,7 +112,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await collateral.transfer(alice.address, amount)
             await deposit(alice, vault, 20, collateral)
 
-            const baseAmount = parseUnits("1", await baseToken.decimals())
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: baseAmount,
@@ -131,17 +133,18 @@ describe("ClearingHouse cancelExcessOrders", () => {
         it("has 0 open orders left", async () => {
             // bob as a keeper
             const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-            expect(openOrderIds).to.deep.eq([])
+            expect(openOrderIds).be.deep.eq([])
         })
 
-        it("has either 0 base-available or 0 base-debt left", async () => {
-            const tokenInfo = await clearingHouse.getTokenInfo(alice.address, baseToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
+        // there will be 2 wei dust (2 orders) of base token due to _removeLiquidity
+        it("base balance should reduce", async () => {
+            const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(baseBalance).deep.eq("-2")
         })
 
-        it("has either 0 quote-available or 0 quote-debt left", async () => {
-            const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
-            expect(tokenInfo.available.mul(tokenInfo.debt)).deep.eq(parseUnits("0"))
+        it("quote balance should return to zero", async () => {
+            const [, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+            expect(quoteBalance).deep.eq(parseUnits("0", await quoteToken.decimals()))
         })
     })
 
@@ -172,7 +175,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             //                = min(10, 14.95) - 10.1 = -0.1 < 0
             await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
             const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-            expect(openOrderIds).to.deep.eq([])
+            expect(openOrderIds).be.deep.eq([])
         })
     })
 
@@ -188,7 +191,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EFC")
 
         const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
     })
 
     it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
@@ -205,6 +208,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
         ).to.be.revertedWith("EX_NEO")
 
         const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore).to.deep.eq(openOrderIdsAfter)
+        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
     })
 })
