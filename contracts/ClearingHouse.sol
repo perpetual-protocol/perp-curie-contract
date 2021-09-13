@@ -1430,10 +1430,6 @@ contract ClearingHouse is
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
-    function _getImRatio() internal view returns (uint24) {
-        return ClearingHouseConfig(config).imRatio();
-    }
-
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
         require(_getFreeCollateral(trader) >= 0, "CH_NEAV");
