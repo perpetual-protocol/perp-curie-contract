@@ -12,7 +12,7 @@ import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/m
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
-import { Exchange } from "../Exchange.sol";
+import { ExchangeRegistry } from "../ExchangeRegistry.sol";
 
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
@@ -39,7 +39,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         int256 exchangedPositionNotional;
     }
 
-    address public exchange;
+    address public exchangeRegistry;
 
     // __gap is reserved storage
     uint256[50] private __gap;
@@ -47,20 +47,21 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
     function initialize(address exchangeArg) external initializer {
         // Q_EX0: exchange is 0
         require(exchangeArg != address(0), "Q_EX0");
-        exchange = exchangeArg;
+        exchangeRegistry = exchangeArg;
     }
 
     function swap(SwapParams memory params) external returns (SwapResponse memory response) {
         // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
-        address pool = Exchange(exchange).getPool(params.baseToken);
+        ExchangeRegistry.Info memory marketInfo = ExchangeRegistry(exchangeRegistry).getInfo(params.baseToken);
+        address pool = marketInfo.pool;
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");
 
         // TODO: maybe can merge this two fee ratios into one
-        uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
-        uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
+        uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
+        uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
 
         // scale up before swap to achieve customized fee/ignore Uniswap fee
         uint256 scaledAmount =
@@ -148,7 +149,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         require(amount0Delta > 0 || amount1Delta > 0, "Q_F0S");
 
         address baseToken = abi.decode(data, (address));
-        address pool = Exchange(exchange).getPool(baseToken);
+        address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
         // CH_FSV: failed swapCallback verification
         require(msg.sender == pool, "Q_FSV");
 
