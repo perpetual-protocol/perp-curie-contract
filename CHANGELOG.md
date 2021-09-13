@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- add `CleaeringHouseConfig` contract
+
+### Changed
+
+- `TwapIntervalChanged` now emitted by ClearingHouseConfig
+- `LiquidationPenaltyRatioChanged` now emitted by ClearingHouseConfig
+- `PartialCloseRatioChanged` now emitted by ClearingHouseConfig
+- `ReferredPositionChanged` now emitted by ClearingHouseConfig
+- `MaxMarketsPerAccountChanged` now emitted by ClearingHouseConfig
+
 ## [0.5.3] - 2021-09-03
 
 ### Removed
