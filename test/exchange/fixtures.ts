@@ -15,6 +15,7 @@ import { tokensFixture } from "../shared/fixtures"
 
 interface MockedClearingHouseFixture {
     exchange: Exchange
+    exchangeRegistry
     mockedUniV3Factory: MockContract
     mockedQuoteToken: MockContract
     mockedBaseToken: MockContract
@@ -90,6 +91,7 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
 
     return {
         exchange,
+        exchangeRegistry,
         mockedUniV3Factory,
         mockedQuoteToken,
         mockedBaseToken,

@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -20,6 +21,7 @@ describe("ClearingHouse withdraw", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -35,6 +37,7 @@ describe("ClearingHouse withdraw", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -49,7 +52,7 @@ describe("ClearingHouse withdraw", () => {
 
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
     })
 
     describe("# withdraw with maker fee", () => {

@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -21,6 +22,7 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -41,6 +43,7 @@ describe("ClearingHouse openPosition", () => {
         orderBook = _clearingHouseFixture.orderBook
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         baseToken2 = _clearingHouseFixture.baseToken2
@@ -60,8 +63,8 @@ describe("ClearingHouse openPosition", () => {
 
         await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
-        await exchange.addPool(baseToken2.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken2.address, 10000)
         await exchange.setFeeRatio(baseToken.address, 10000)
         await exchange.setFeeRatio(baseToken2.address, 10000)
 

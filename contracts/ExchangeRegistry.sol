@@ -80,8 +80,7 @@ contract ExchangeRegistry is SafeOwnable {
     // EXTERNAL ADMIN FUNCTIONS
     //
 
-    // TODO add onlyOwner
-    function addPool(address baseToken, uint24 feeRatio) external returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
         // EX_BDN18: baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
         // EX_CHBNE: clearingHouse base token balance not enough, should be maximum of uint256

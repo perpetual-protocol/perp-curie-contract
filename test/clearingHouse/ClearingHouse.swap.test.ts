@@ -4,6 +4,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -20,6 +21,7 @@ describe("ClearingHouse.swap", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -36,6 +38,7 @@ describe("ClearingHouse.swap", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -48,7 +51,7 @@ describe("ClearingHouse.swap", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, "10000")
+        await exchangeRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

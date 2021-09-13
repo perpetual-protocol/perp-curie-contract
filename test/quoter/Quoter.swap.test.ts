@@ -40,6 +40,7 @@ describe("Quoter.swap", () => {
         exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -47,7 +48,7 @@ describe("Quoter.swap", () => {
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
-        await exchange.addPool(baseToken.address, "10000")
+        await exchangeRegistry.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
         quoter = (await quoterFactory.deploy()) as Quoter

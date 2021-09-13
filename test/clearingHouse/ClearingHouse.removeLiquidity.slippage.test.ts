@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -20,6 +21,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -35,6 +37,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -57,7 +60,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
             // add pool after it's initialized
-            await exchange.addPool(baseToken.address, 10000)
+            await exchangeRegistry.addPool(baseToken.address, 10000)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -112,7 +115,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             // add pool after it's initialized
-            await exchange.addPool(baseToken.address, 10000)
+            await exchangeRegistry.addPool(baseToken.address, 10000)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,

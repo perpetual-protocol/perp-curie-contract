@@ -3,7 +3,16 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, OrderBook, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouse,
+    Exchange,
+    ExchangeRegistry,
+    OrderBook,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -14,6 +23,7 @@ describe("ClearingHouse funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -31,6 +41,7 @@ describe("ClearingHouse funding", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -45,7 +56,7 @@ describe("ClearingHouse funding", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))

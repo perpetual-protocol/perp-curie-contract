@@ -16,7 +16,6 @@ describe("Exchange Spec", () => {
     const DEFAULT_FEE = 3000
 
     let exchange: Exchange
-    let orderBook: OrderBook
     let exchangeRegistry: ExchangeRegistry
     let baseToken: MockContract
     let quoteToken: MockContract
@@ -25,6 +24,7 @@ describe("Exchange Spec", () => {
     beforeEach(async () => {
         const _exchangeFixtures = await loadFixture(mockedExchangeFixture)
         exchange = _exchangeFixtures.exchange
+        exchangeRegistry = _exchangeFixtures.exchangeRegistry
         baseToken = _exchangeFixtures.mockedBaseToken
         quoteToken = _exchangeFixtures.mockedQuoteToken
         uniV3Factory = _exchangeFixtures.mockedUniV3Factory
@@ -54,7 +54,7 @@ describe("Exchange Spec", () => {
             })
 
             it("add multiple UniswapV3 pools", async () => {
-                await exchange.addPool(baseToken.address, DEFAULT_FEE)
+                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
                 expect(await exchange.getPool(baseToken.address)).to.eq(mockedPool.address)
 
                 const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, quoteToken.address)
@@ -65,7 +65,7 @@ describe("Exchange Spec", () => {
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
                 mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
 
-                await exchange.addPool(baseToken2.address, DEFAULT_FEE)
+                await exchangeRegistry.addPool(baseToken2.address, DEFAULT_FEE)
                 // verify isPoolExisted
                 expect(await exchange.getPool(baseToken2.address)).to.eq(mockedPool2.address)
             })
@@ -74,26 +74,28 @@ describe("Exchange Spec", () => {
                 uniV3Factory.smocked.getPool.will.return.with(() => {
                     return EMPTY_ADDRESS
                 })
-                await expect(exchange.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_NEP")
+                await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_NEP")
             })
 
             it("force error, pool is already existent in ClearingHouse", async () => {
-                await exchange.addPool(baseToken.address, DEFAULT_FEE)
-                await expect(exchange.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_EP")
+                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_EP")
             })
 
             it("force error, pool is existed in Exchange even with the same base but diff fee", async () => {
-                await exchange.addPool(baseToken.address, DEFAULT_FEE)
+                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
                 uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
                     return POOL_B_ADDRESS
                 })
-                await expect(exchange.addPool(baseToken.address, 10000)).to.be.revertedWith("EX_EP")
+                await expect(exchangeRegistry.addPool(baseToken.address, 10000)).to.be.revertedWith("EX_EP")
             })
 
             it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
                 const tokenWithLongerAddr = await mockedBaseTokenTo(ADDR_GREATER_THAN, quoteToken.address)
                 tokenWithLongerAddr.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
-                await expect(exchange.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith("EX_IB")
+                await expect(exchangeRegistry.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith(
+                    "EX_IB",
+                )
             })
 
             it("force error, base token balance in clearing house not enough", async () => {
@@ -103,12 +105,12 @@ describe("Exchange Spec", () => {
                 uniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
                 mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
 
-                await expect(exchange.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("EX_CHBNE")
+                await expect(exchangeRegistry.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("EX_CHBNE")
             })
         })
 
         it("force error, before the pool is initialized", async () => {
-            await expect(exchange.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_PNI")
+            await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_PNI")
         })
     })
 
@@ -122,13 +124,13 @@ describe("Exchange Spec", () => {
         })
 
         it("setFeeRatio", async () => {
-            await exchange.addPool(baseToken.address, DEFAULT_FEE)
+            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
             await exchange.setFeeRatio(baseToken.address, 10000) // 1%
             expect(await exchange.getFeeRatio(baseToken.address)).eq(10000)
         })
 
         it("force error, ratio overflow", async () => {
-            await exchange.addPool(baseToken.address, DEFAULT_FEE)
+            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
             const twoHundredPercent = 2000000 // 200% in uint24
             await expect(exchange.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
         })

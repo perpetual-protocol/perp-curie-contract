@@ -6,6 +6,7 @@ import {
     BaseToken,
     ClearingHouse,
     Exchange,
+    ExchangeRegistry,
     InsuranceFund,
     OrderBook,
     QuoteToken,
@@ -21,6 +22,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     const [admin, maker1, maker2, taker1] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -37,6 +39,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund
         collateral = _clearingHouseFixture.USDC
@@ -51,7 +54,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         })
         await pool.initialize(encodePriceSqrt(100, 1))
 
-        await exchange.addPool(baseToken.address, "10000")
+        await exchangeRegistry.addPool(baseToken.address, "10000")
         await exchange.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         // prepare collateral for maker1

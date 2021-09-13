@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    ExchangeRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -20,6 +21,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: ExchangeRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let collateral: TestERC20
@@ -35,6 +37,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -72,7 +75,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
                 // add pool after it's initialized
-                await exchange.addPool(baseToken.address, 10000)
+                await exchangeRegistry.addPool(baseToken.address, 10000)
 
                 const lowerTick = "50000"
                 const upperTick = "50200"
@@ -196,7 +199,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
                     // add pool after it's initialized
-                    await exchange.addPool(baseToken.address, 10000)
+                    await exchangeRegistry.addPool(baseToken.address, 10000)
                 })
 
                 it("a trader swaps quote to base, thus the maker receives quote fee in Uniswap", async () => {
@@ -439,7 +442,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
                 // add pool after it's initialized
-                await exchange.addPool(baseToken.address, 10000)
+                await exchangeRegistry.addPool(baseToken.address, 10000)
             })
 
             it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
