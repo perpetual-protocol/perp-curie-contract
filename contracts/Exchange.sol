@@ -135,10 +135,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
         ExchangeRegistry(exchangeRegistry).setMaxOrdersPerMarket(maxOrdersPerMarketArg);
     }
 
-    function setFeeRatio(address baseToken, uint24 feeRatio) external onlyOwner {
-        ExchangeRegistry(exchangeRegistry).setFeeRatio(baseToken, feeRatio);
-    }
-
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
         ExchangeRegistry(exchangeRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
@@ -330,11 +326,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     // TODO remove
     function getPool(address baseToken) external view returns (address) {
         return ExchangeRegistry(exchangeRegistry).getPool(baseToken);
-    }
-
-    // TODO remove
-    function getFeeRatio(address baseToken) external view returns (uint24) {
-        return ExchangeRegistry(exchangeRegistry).getFeeRatio(baseToken);
     }
 
     // TODO move to interface
