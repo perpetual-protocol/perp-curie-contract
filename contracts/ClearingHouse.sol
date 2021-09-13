@@ -766,7 +766,7 @@ contract ClearingHouse is
         return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
     }
 
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+    function getPositionSize(address trader, address baseToken) external view returns (int256) {
         return _getPositionSize(trader, baseToken);
     }
 
@@ -889,7 +889,7 @@ contract ClearingHouse is
 
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = _getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         int256 deltaAvailableQuote;
 
@@ -1102,7 +1102,7 @@ contract ClearingHouse is
     }
 
     function _closePosition(InternalClosePositionParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = _getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
@@ -1417,7 +1417,7 @@ contract ClearingHouse is
         bool isBaseToQuote
     ) internal view returns (bool) {
         // increase position == old/new position are in the same direction
-        int256 positionSize = getPositionSize(trader, baseToken);
+        int256 positionSize = _getPositionSize(trader, baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
