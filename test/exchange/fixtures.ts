@@ -1,6 +1,14 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Factory, Vault } from "../../typechain"
+import {
+    ClearingHouse,
+    ClearingHouseConfig,
+    Exchange,
+    InsuranceFund,
+    TestERC20,
+    UniswapV3Factory,
+    Vault,
+} from "../../typechain"
 import { ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { tokensFixture } from "../shared/fixtures"
 
@@ -41,10 +49,14 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
     const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
     const mockedUniV3Factory = await smockit(uniV3Factory)
 
+    const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
+    const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
     await clearingHouse.initialize(
+        clearingHouseConfig.address,
         mockedVault.address,
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
