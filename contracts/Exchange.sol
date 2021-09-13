@@ -227,10 +227,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     }
 
     modifier checkCallback() {
-        address sender = _msgSender();
-        address baseToken = IUniswapV3Pool(sender).token0();
+        address pool = _msgSender();
+        address baseToken = IUniswapV3Pool(pool).token0();
         // failed callback verification
-        require(sender == _poolMap[baseToken], "EX_FCV");
+        require(pool == _poolMap[baseToken], "EX_FCV");
         _;
     }
 
