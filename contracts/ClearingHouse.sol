@@ -26,7 +26,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
-import { Exchange, ILiquidityAction } from "./Exchange.sol";
+import { Exchange } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderBook } from "./OrderBook.sol";
 
@@ -456,9 +456,9 @@ contract ClearingHouse is
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
-        ILiquidityAction.AddLiquidityResponse memory response =
+        OrderBook.AddLiquidityResponse memory response =
             OrderBook(orderBook).addLiquidity(
-                ILiquidityAction.AddLiquidityParams({
+                OrderBook.AddLiquidityParams({
                     trader: trader,
                     baseToken: params.baseToken,
                     base: params.base,
@@ -813,7 +813,7 @@ contract ClearingHouse is
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
-        ILiquidityAction.RemoveLiquidityResponse memory response =
+        OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
             AfterRemoveLiquidityParams({
@@ -1059,9 +1059,9 @@ contract ClearingHouse is
     {
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
-        ILiquidityAction.RemoveLiquidityResponse memory response =
+        OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidity(
-                ILiquidityAction.RemoveLiquidityParams({
+                OrderBook.RemoveLiquidityParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
                     lowerTick: params.lowerTick,

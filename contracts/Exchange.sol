@@ -25,10 +25,9 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { ExchangeRegistry } from "./ExchangeRegistry.sol";
-import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 import { OrderBook } from "./OrderBook.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityAction, SafeOwnable, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -221,35 +220,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
                 insuranceFundFee: replayResponse.insuranceFundFee,
                 tick: replayResponse.tick
             });
-    }
-
-    /// @inheritdoc ILiquidityAction
-    function addLiquidity(AddLiquidityParams calldata params)
-        external
-        override
-        onlyClearingHouse
-        returns (AddLiquidityResponse memory)
-    {
-        return OrderBook(orderBook).addLiquidity(params);
-    }
-
-    /// @inheritdoc ILiquidityAction
-    function removeLiquidityByIds(
-        address maker,
-        address baseToken,
-        bytes32[] calldata orderIds
-    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
-        return OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
-    }
-
-    /// @inheritdoc ILiquidityAction
-    function removeLiquidity(RemoveLiquidityParams calldata params)
-        external
-        override
-        onlyClearingHouse
-        returns (RemoveLiquidityResponse memory)
-    {
-        return OrderBook(orderBook).removeLiquidity(params);
     }
 
     /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()

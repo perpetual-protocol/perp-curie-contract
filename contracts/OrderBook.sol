@@ -22,10 +22,9 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
-import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 import { ExchangeRegistry } from "./ExchangeRegistry.sol";
 
-contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
+contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -40,6 +39,37 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     //
     // STRUCT
     //
+    struct AddLiquidityParams {
+        address trader;
+        address baseToken;
+        uint256 base;
+        uint256 quote;
+        int24 lowerTick;
+        int24 upperTick;
+        Funding.Growth fundingGrowthGlobal;
+    }
+
+    struct AddLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+        uint128 liquidity;
+    }
+
+    struct RemoveLiquidityParams {
+        address maker;
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+    }
+
+    struct RemoveLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+    }
+
     struct InternalAddLiquidityToOrderParams {
         address maker;
         address baseToken;
@@ -208,10 +238,8 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
     // EXTERNAL FUNCTIONS
     //
 
-    /// @inheritdoc ILiquidityAction
     function addLiquidity(AddLiquidityParams calldata params)
         external
-        override
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
@@ -299,22 +327,19 @@ contract OrderBook is IUniswapV3MintCallback, ILiquidityAction, SafeOwnable {
             });
     }
 
-    /// @inheritdoc ILiquidityAction
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        override
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
         return _removeLiquidity(params);
     }
 
-    /// @inheritdoc ILiquidityAction
     function removeLiquidityByIds(
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
