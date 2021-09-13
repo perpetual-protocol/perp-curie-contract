@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
-import { Exchange, ExchangeRegistry, UniswapV3Pool } from "../../typechain"
+import { Exchange, ExchangeRegistry, OrderBook, UniswapV3Pool } from "../../typechain"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { mockedExchangeFixture } from "./fixtures"
 
@@ -16,6 +16,7 @@ describe("Exchange Spec", () => {
     const DEFAULT_FEE = 3000
 
     let exchange: Exchange
+    let orderBook: OrderBook
     let exchangeRegistry: ExchangeRegistry
     let baseToken: MockContract
     let quoteToken: MockContract

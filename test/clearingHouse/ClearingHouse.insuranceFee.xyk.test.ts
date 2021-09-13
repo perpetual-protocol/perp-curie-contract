@@ -7,6 +7,7 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
+    OrderBook,
     QuoteToken,
     TestERC20,
     UniswapV3Pool,
@@ -22,6 +23,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
@@ -36,6 +38,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund

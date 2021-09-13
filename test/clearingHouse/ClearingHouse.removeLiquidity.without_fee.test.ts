@@ -3,7 +3,16 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -13,6 +22,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let exchange: Exchange
+    let orderBook: OrderBook
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
@@ -25,6 +35,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -89,7 +100,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(exchange, "LiquidityChanged")
+                .to.emit(orderBook, "LiquidityChanged")
                 .withArgs(
                     alice.address,
                     baseToken.address,
@@ -173,7 +184,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -239,7 +250,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -430,7 +441,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 deadline: ethers.constants.MaxUint256,
             }),
         )
-            .to.emit(exchange, "LiquidityChanged")
+            .to.emit(orderBook, "LiquidityChanged")
             .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
 
         // verify account states

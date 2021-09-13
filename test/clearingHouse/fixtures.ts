@@ -20,6 +20,7 @@ import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3Factory
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
+    orderBook: OrderBook
     exchangeRegistry: ExchangeRegistry
     exchange: Exchange
     vault: Vault
@@ -152,6 +153,7 @@ export function createClearingHouseFixture(
         const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
+            orderBook,
             exchangeRegistry,
             exchange,
             vault,

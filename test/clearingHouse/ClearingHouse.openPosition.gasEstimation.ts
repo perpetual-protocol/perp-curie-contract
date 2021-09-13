@@ -2,7 +2,16 @@ import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, QuoteToken, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouse,
+    Exchange,
+    OrderBook,
+    QuoteToken,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -14,6 +23,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -29,6 +39,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
             createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
         )
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC

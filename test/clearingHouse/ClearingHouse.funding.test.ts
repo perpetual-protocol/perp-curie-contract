@@ -3,7 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { BaseToken, ClearingHouse, Exchange, OrderBook, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -15,6 +15,7 @@ describe("ClearingHouse funding", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -28,6 +29,7 @@ describe("ClearingHouse funding", () => {
             createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
         )
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -606,7 +608,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -652,7 +654,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -696,7 +698,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -794,7 +796,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(exchange, "LiquidityChanged")
+                        .to.emit(orderBook, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
@@ -941,7 +943,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(exchange, "LiquidityChanged")
+                        .to.emit(orderBook, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
