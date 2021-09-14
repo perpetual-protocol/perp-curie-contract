@@ -128,7 +128,6 @@ export function createClearingHouseFixture(
         const exchange = (await exchangeFactory.deploy()) as Exchange
         await exchange.initialize(clearingHouse.address, exchangeRegistry.address, orderBook.address)
         await clearingHouse.setExchange(exchange.address)
-        await clearingHouse.setOrderBook(orderBook.address)
         await orderBook.setExchange(exchange.address)
 
         // deploy a pool
