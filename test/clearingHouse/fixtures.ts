@@ -282,6 +282,8 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const exchange = (await exchangeFactory.deploy()) as Exchange
     await exchange.initialize(clearingHouse.address, mockedMarketRegistry.address, mockedOrderBook.address)
     const mockedExchange = await smockit(exchange)
+
+    mockedExchange.smocked.orderBook.will.return.with("0x000000000000000000000000000000000000000B")
     await clearingHouse.setExchange(mockedExchange.address)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
