@@ -91,12 +91,6 @@ contract ClearingHouse is
     // Struct
     //
 
-    // struct Account {
-    //     // realized pnl but haven't settle to collateral, vToken decimals
-    //     int256 owedRealizedPnl;
-    //     address[] tokens; // all tokens (base only) this account is in debt of
-    // }
-
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -261,9 +255,6 @@ contract ClearingHouse is
     // trader => baseTokens
     // base token registry of each trader
     mapping(address => address[]) internal _baseTokensMap;
-
-    // key: trader
-    // mapping(address => Account) internal _accountMap;
 
     // first key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
@@ -856,8 +847,8 @@ contract ClearingHouse is
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
         if (
-            _accountMarketMap[trader][baseToken].baseBalance != 0 ||
-            _accountMarketMap[trader][baseToken].quoteBalance != 0
+            _accountMarketMap[trader][baseToken].baseBalance.abs() >= _DUST ||
+            _accountMarketMap[trader][baseToken].quoteBalance.abs() >= _DUST
         ) {
             return;
         }
