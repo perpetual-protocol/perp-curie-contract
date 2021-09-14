@@ -6,7 +6,7 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
-    ExchangeRegistry,
+    MarketRegistry,
     OrderBook,
     TestClearingHouse,
     TestERC20,
@@ -21,7 +21,7 @@ import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3Factory
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
     orderBook: OrderBook
-    exchangeRegistry: ExchangeRegistry
+    exchangeRegistry: MarketRegistry
     exchange: Exchange
     vault: Vault
     insuranceFund: InsuranceFund
@@ -115,8 +115,8 @@ export function createClearingHouseFixture(
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
 
-        const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
-        const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+        const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+        const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
         await exchangeRegistry.initialize(uniV3Factory.address, quoteToken.address, clearingHouse.address)
 
         const orderBookFactory = await ethers.getContractFactory("OrderBook")
@@ -270,10 +270,10 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedUniV3Factory.address,
     )
 
-    const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
-    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+    const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
     await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
-    const mockedExchangeRegistry = await smockit(exchangeRegistry)
+    const mockedMarketRegistry = await smockit(exchangeRegistry)
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
     await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, mockedQuoteToken.address)
@@ -281,7 +281,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(clearingHouse.address, mockedExchangeRegistry.address, mockedOrderBook.address)
+    await exchange.initialize(clearingHouse.address, mockedMarketRegistry.address, mockedOrderBook.address)
     const mockedExchange = await smockit(exchange)
     await clearingHouse.setExchange(mockedExchange.address)
 

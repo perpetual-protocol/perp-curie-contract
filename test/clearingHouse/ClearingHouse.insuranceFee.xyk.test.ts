@@ -6,7 +6,7 @@ import {
     BaseToken,
     ClearingHouse,
     Exchange,
-    ExchangeRegistry,
+    MarketRegistry,
     InsuranceFund,
     OrderBook,
     QuoteToken,
@@ -23,7 +23,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     const [admin, maker1, maker2, taker1, taker2, insurance] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
-    let exchangeRegistry: ExchangeRegistry
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -57,7 +57,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         })
         await pool.initialize(encodePriceSqrt("10", "1"))
         await exchangeRegistry.addPool(baseToken.address, "10000")
-        await exchange.setInsuranceFundFeeRatio(baseToken.address, "400000")
+        await exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

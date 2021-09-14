@@ -22,7 +22,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
-import { ExchangeRegistry } from "./ExchangeRegistry.sol";
+import { MarketRegistry } from "./MarketRegistry.sol";
 
 contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     using SafeMathUpgradeable for uint256;
@@ -157,7 +157,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     address public clearingHouse;
     address public quoteToken;
     address public exchange;
-    address public exchangeRegistry;
+    address public marketRegistry;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
@@ -188,17 +188,11 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         _;
     }
 
-    modifier checkRatio(uint24 ratio) {
-        // EX_RO: ratio overflow
-        require(ratio <= 1e6, "EX_RO");
-        _;
-    }
-
     modifier checkCallback() {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
         // failed callback verification
-        require(pool == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
+        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
         _;
     }
 
@@ -207,7 +201,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     //
     function initialize(
         address clearingHouseArg,
-        address exchangeRegistryArg,
+        address marketRegistryArg,
         address quoteTokenArg
     ) external initializer {
         __SafeOwnable_init();
@@ -216,13 +210,13 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         require(clearingHouseArg != address(0), "EX_CI0");
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "EX_QT0");
-        // ExchangeRegistry is 0
-        require(exchangeRegistryArg != address(0), "EX_MR0");
+        // MarketRegistry is 0
+        require(marketRegistryArg != address(0), "EX_MR0");
 
         // update states
         clearingHouse = clearingHouseArg;
         quoteToken = quoteTokenArg;
-        exchangeRegistry = exchangeRegistryArg;
+        marketRegistry = marketRegistryArg;
     }
 
     //
@@ -243,7 +237,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
@@ -375,7 +369,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -414,10 +408,10 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     }
 
     function replaySwap(ReplaySwapParams memory params) external onlyExchange returns (ReplaySwapResponse memory) {
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
-            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
+            MarketRegistry(marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 feeResult; // exchangeFeeRatio
         uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 
@@ -590,7 +584,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     ) external view returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -629,7 +623,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         // EX_NEL not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "EX_NEL");
 
-        address pool = ExchangeRegistry(exchangeRegistry).getPool(params.baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
@@ -736,7 +730,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // EX_ONE: orders number exceeded
-            uint8 maxOrdersPerMarket = ExchangeRegistry(exchangeRegistry).maxOrdersPerMarket();
+            uint8 maxOrdersPerMarket = MarketRegistry(marketRegistry).maxOrdersPerMarket();
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "EX_ONE");
             orderIds.push(orderId);
 
@@ -803,7 +797,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken));
+            UniswapV3Broker.getSqrtMarkPriceX96(MarketRegistry(marketRegistry).getPool(baseToken));
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder memory order = _openOrderMap[orderIds[i]];
 

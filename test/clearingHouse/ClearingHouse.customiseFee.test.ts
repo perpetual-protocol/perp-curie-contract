@@ -5,7 +5,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
-    ExchangeRegistry,
+    MarketRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -21,7 +21,7 @@ describe("ClearingHouse customized fee", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: ExchangeRegistry
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault

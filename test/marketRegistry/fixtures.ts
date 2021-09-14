@@ -1,16 +1,16 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { BaseToken, ClearingHouse, ExchangeRegistry, UniswapV3Factory } from "../../typechain"
+import { BaseToken, ClearingHouse, MarketRegistry, UniswapV3Factory } from "../../typechain"
 import { createBaseTokenFixture, createQuoteTokenFixture, token0Fixture, tokensFixture } from "../shared/fixtures"
 
-interface MockedExchangeRegistryFixture {
-    exchangeRegistry: ExchangeRegistry
+interface MockedMarketRegistryFixture {
+    exchangeRegistry: MarketRegistry
     mockedQuoteToken: MockContract
     mockedClearingHouse: MockContract
     mockedUniV3Factory: MockContract
 }
 
-export async function mockedExchangeRegistryFixture(): Promise<MockedExchangeRegistryFixture> {
+export async function mockedMarketRegistryFixture(): Promise<MockedMarketRegistryFixture> {
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
     const mockedClearingHouse = await smockit(clearingHouse)
@@ -22,8 +22,8 @@ export async function mockedExchangeRegistryFixture(): Promise<MockedExchangeReg
     const quoteToken = await createQuoteTokenFixture("USD", "USD")()
     const mockedQuoteToken = await smockit(quoteToken)
 
-    const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
-    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+    const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
     await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, mockedClearingHouse.address)
 
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {

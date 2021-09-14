@@ -7,7 +7,7 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
-contract ExchangeRegistry is SafeOwnable {
+contract MarketRegistry is SafeOwnable {
     //
     // STRUCT
     //
@@ -26,16 +26,16 @@ contract ExchangeRegistry is SafeOwnable {
     address public clearingHouse;
     uint8 public maxOrdersPerMarket;
 
-    // key: base token, value: pool
+    // key: baseToken, value: pool
     mapping(address => address) internal _poolMap;
 
     // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
     mapping(address => uint24) internal _insuranceFundFeeRatioMap;
 
-    // key: pool , uniswap fee will be ignored and use the exchangeFeeRatio instead
+    // key: baseToken , uniswap fee will be ignored and use the exchangeFeeRatio instead
     mapping(address => uint24) internal _exchangeFeeRatioMap;
 
-    // key: pool, _uniswapFeeRatioMap cache only
+    // key: baseToken, _uniswapFeeRatioMap cache only
     mapping(address => uint24) internal _uniswapFeeRatioMap;
 
     //
@@ -57,11 +57,11 @@ contract ExchangeRegistry is SafeOwnable {
         __SafeOwnable_init();
 
         // UnsiwapV3Factory is 0
-        require(uniswapV3FactoryArg != address(0), "EX_UF0");
+        require(uniswapV3FactoryArg != address(0), "MR_UF0");
         // QuoteToken is 0
-        require(quoteTokenArg != address(0), "EX_QT0");
+        require(quoteTokenArg != address(0), "MR_QT0");
         // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "EX_CH0");
+        require(clearingHouseArg != address(0), "MR_CH0");
 
         // update states
         uniswapV3Factory = uniswapV3FactoryArg;
@@ -74,14 +74,14 @@ contract ExchangeRegistry is SafeOwnable {
     //
 
     modifier checkRatio(uint24 ratio) {
-        // EX_RO: ratio overflow
-        require(ratio <= 1e6, "EX_RO");
+        // ratio overflow
+        require(ratio <= 1e6, "MR_RO");
         _;
     }
 
     modifier checkPool(address baseToken) {
-        // EX_PNE: pool not exists
-        require(_poolMap[baseToken] != address(0), "EX_PNE");
+        // pool not exists
+        require(_poolMap[baseToken] != address(0), "MR_PNE");
         _;
     }
 
@@ -90,41 +90,39 @@ contract ExchangeRegistry is SafeOwnable {
     //
 
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
-        // EX_BDN18: baseToken decimals is not 18
-        require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
-        // EX_CHBNE: clearingHouse base token balance not enough, should be maximum of uint256
-        require(IERC20Metadata(baseToken).balanceOf(clearingHouse) == type(uint256).max, "EX_CHBNE");
+        // baseToken decimals is not 18
+        require(IERC20Metadata(baseToken).decimals() == 18, "MR_BDN18");
+        // clearingHouse base token balance not enough
+        require(IERC20Metadata(baseToken).balanceOf(clearingHouse) == type(uint256).max, "MR_CHBNE");
 
-        // TODO remove this once quotToken's balance is checked in CH's initializer
-        // EX_QTSNE: quote token total supply not enough, should be maximum of uint256
-        require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "EX_QTSNE");
+        // quote token total supply not enough
+        require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "MR_QTSNE");
 
         // to ensure the base is always token0 and quote is always token1
-        // EX_IB: invalid baseToken
-        require(baseToken < quoteToken, "EX_IB");
+        // invalid baseToken
+        require(baseToken < quoteToken, "MR_IB");
 
         address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
-        // EX_NEP: non-existent pool in uniswapV3 factory
-        require(pool != address(0), "EX_NEP");
-        // EX_EP: existent pool in ClearingHouse
-        require(_poolMap[baseToken] == address(0), "EX_EP");
-        // EX_PNI: pool not (yet) initialized
-        require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "EX_PNI");
+        // non-existent pool in uniswapV3 factory
+        require(pool != address(0), "MR_NEP");
+        // existent pool
+        require(_poolMap[baseToken] == address(0), "MR_EP");
+        // pool not (yet) initialized
+        require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "MR_PNI");
 
-        // EX_CHNBWL: clearingHouse not in baseToken whitelist
-        require(VirtualToken(baseToken).isInWhitelist(clearingHouse), "EX_CHNBWL");
-        // EX_PNBWL: pool not in baseToken whitelist
-        require(VirtualToken(baseToken).isInWhitelist(pool), "EX_PNBWL");
+        // clearingHouse not in baseToken whitelist
+        require(VirtualToken(baseToken).isInWhitelist(clearingHouse), "MR_CNBWL");
+        // pool not in baseToken whitelist
+        require(VirtualToken(baseToken).isInWhitelist(pool), "MR_PNBWL");
 
-        // TODO: remove this once quotToken white list is checked in CH or Exchange's initializer
-        // EX_CHNQWL: clearingHouse not in quoteToken whitelist
-        require(VirtualToken(quoteToken).isInWhitelist(clearingHouse), "EX_CHNQWL");
-        // EX_PNQWL: pool not in quoteToken whitelist
-        require(VirtualToken(quoteToken).isInWhitelist(pool), "EX_PNQWL");
+        // clearingHouse not in quoteToken whitelist
+        require(VirtualToken(quoteToken).isInWhitelist(clearingHouse), "MR_CHNQWL");
+        // pool not in quoteToken whitelist
+        require(VirtualToken(quoteToken).isInWhitelist(pool), "MR_PNQWL");
 
         _poolMap[baseToken] = pool;
-        _uniswapFeeRatioMap[pool] = feeRatio;
-        _exchangeFeeRatioMap[pool] = feeRatio;
+        _uniswapFeeRatioMap[baseToken] = feeRatio;
+        _exchangeFeeRatioMap[baseToken] = feeRatio;
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;

@@ -12,7 +12,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { ExchangeRegistry } from "../../typechain/ExchangeRegistry"
+import { MarketRegistry } from "../../typechain/MarketRegistry"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -21,7 +21,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: ExchangeRegistry
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault

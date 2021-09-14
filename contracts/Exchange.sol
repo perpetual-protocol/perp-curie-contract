@@ -24,7 +24,7 @@ import { Tick } from "./lib/Tick.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
-import { ExchangeRegistry } from "./ExchangeRegistry.sol";
+import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
@@ -77,7 +77,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 fee;
     }
 
-    address public exchangeRegistry;
+    address public marketRegistry;
     address public clearingHouse;
     address public orderBook;
 
@@ -85,21 +85,21 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     function initialize(
         address clearingHouseArg,
-        address exchangeRegistryArg,
+        address marketRegistryArg,
         address orderBookArg
     ) external initializer {
         __SafeOwnable_init();
 
         // ClearingHouse is 0
         require(clearingHouseArg != address(0), "EX_CH0");
-        // ExchangeRegistry is 0
-        require(exchangeRegistryArg != address(0), "EX_MR0");
+        // MarketRegistry is 0
+        require(marketRegistryArg != address(0), "EX_MR0");
         // OrderBook is 0
         require(orderBookArg != address(0), "EX_OB0");
 
         // update states
         clearingHouse = clearingHouseArg;
-        exchangeRegistry = exchangeRegistryArg;
+        marketRegistry = marketRegistryArg;
         orderBook = orderBookArg;
     }
 
@@ -115,7 +115,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     modifier checkCallback() {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
-        require(pool == ExchangeRegistry(exchangeRegistry).getPool(baseToken), "EX_FCV");
+        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
         _;
     }
 
@@ -124,21 +124,18 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     //
 
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
-        ExchangeRegistry(exchangeRegistry).setMaxOrdersPerMarket(maxOrdersPerMarketArg);
+        MarketRegistry(marketRegistry).setMaxOrdersPerMarket(maxOrdersPerMarketArg);
     }
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        ExchangeRegistry(exchangeRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
+        MarketRegistry(marketRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
-
-    //////
 
     //
     // EXTERNAL FUNCTIONS
     //
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
-        ExchangeRegistry.MarketInfo memory marketInfo =
-            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken);
+        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             _getScaledAmountForSwaps(
@@ -232,8 +229,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     // return the price after replay swap (final tick)
     function replaySwap(ReplaySwapParams memory params) external returns (int24) {
-        ExchangeRegistry.MarketInfo memory marketInfo =
-            ExchangeRegistry(exchangeRegistry).getMarketInfo(params.baseToken);
+        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
@@ -288,15 +284,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
 
     // TODO should be able to remove if we can remove CH._hasPool
     function getPool(address baseToken) external view returns (address) {
-        return ExchangeRegistry(exchangeRegistry).getPool(baseToken);
+        return MarketRegistry(marketRegistry).getPool(baseToken);
     }
 
     function getTick(address baseToken) external view returns (int24) {
-        return UniswapV3Broker.getTick(ExchangeRegistry(exchangeRegistry).getPool(baseToken));
+        return UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken));
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(ExchangeRegistry(exchangeRegistry).getPool(baseToken), twapInterval);
+        return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
     }
 
     //

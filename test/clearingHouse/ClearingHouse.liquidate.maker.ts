@@ -8,7 +8,7 @@ import {
     BaseToken,
     ClearingHouse,
     Exchange,
-    ExchangeRegistry,
+    MarketRegistry,
     OrderBook,
     QuoteToken,
     TestERC20,
@@ -24,7 +24,7 @@ describe("ClearingHouse liquidate maker", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
-    let exchangeRegistry: ExchangeRegistry
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
