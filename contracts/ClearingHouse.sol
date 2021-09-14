@@ -729,19 +729,17 @@ contract ClearingHouse is
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function getNetQuoteBalance(address trader) public view returns (int256) {
         int256 totalQuoteBalance;
-        uint256 tokenLen = _baseTokensMap[trader].length;
-        // include owedFee
-        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
-
-        for (uint256 i = 0; i < tokenLen; i++) {
+        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
             address baseToken = _baseTokensMap[trader][i];
             if (_hasPool(baseToken)) {
-                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
-
-                totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
+                totalQuoteBalance = totalQuoteBalance.add(_accountMarketMap[trader][baseToken].quoteBalance);
             }
         }
+
+        // owedFee is included
+        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
         int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
+
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
