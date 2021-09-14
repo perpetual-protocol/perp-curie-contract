@@ -337,7 +337,7 @@ contract ClearingHouse is
     function setExchange(address exchangeArg) external onlyOwner {
         // exchange is 0
         require(exchangeArg != address(0), "CH_EI0");
-        address orderBookArg = Exchange(exchange).orderBook();
+        address orderBookArg = Exchange(exchangeArg).orderBook();
         // orderbook is 0
         require(orderBookArg != address(0), "CH_OI0");
 
