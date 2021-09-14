@@ -684,7 +684,7 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
-    describe("# OrderBook.getOpenOrders", () => {
+    describe("# OrderBook.getOpenOrderById", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
             // add pool after it's initialized
@@ -713,13 +713,11 @@ describe("ClearingHouse addLiquidity", () => {
             })
         })
 
-        it("getOpenOrders", async () => {
+        it("getOpenOrderById", async () => {
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds.length).be.eq(2)
 
-            const openOrders = await orderBook.getOpenOrders(openOrderIds)
-
-            const openOrder0 = openOrders[0]
+            const openOrder0 = await orderBook.getOpenOrderById(openOrderIds[0])
             expect({
                 lowerTick: openOrder0.lowerTick,
                 upperTick: openOrder0.upperTick,
@@ -728,7 +726,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: 50400,
             })
 
-            const openOrder1 = openOrders[1]
+            const openOrder1 = await orderBook.getOpenOrderById(openOrderIds[1])
             expect({
                 lowerTick: openOrder1.lowerTick,
                 upperTick: openOrder1.upperTick,
@@ -738,16 +736,16 @@ describe("ClearingHouse addLiquidity", () => {
             })
         })
 
-        it("getOpenOrders with non-existent orderIds", async () => {
-            const nonExistentOrderIds = [
-                keccak256(["address", "address", "int24", "int24"], [bob.address, baseToken.address, 200, 400]),
-            ]
-            const openOrders = await orderBook.getOpenOrders(nonExistentOrderIds)
+        it("getOpenOrderById with non-existent orderId", async () => {
+            const nonExistentOrderId = keccak256(
+                ["address", "address", "int24", "int24"],
+                [bob.address, baseToken.address, 200, 400],
+            )
 
-            const openOrder0 = openOrders[0]
+            const emptyOpenOrder = await orderBook.getOpenOrderById(nonExistentOrderId)
             expect({
-                lowerTick: openOrder0.lowerTick,
-                upperTick: openOrder0.upperTick,
+                lowerTick: emptyOpenOrder.lowerTick,
+                upperTick: emptyOpenOrder.upperTick,
             }).be.deep.eq({
                 lowerTick: 0,
                 upperTick: 0,
