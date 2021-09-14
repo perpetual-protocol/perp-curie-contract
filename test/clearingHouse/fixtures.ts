@@ -174,6 +174,7 @@ interface MockedClearingHouseFixture {
     mockedUSDC: MockContract
     mockedBaseToken: MockContract
     mockedExchange: MockContract
+    mockedInsuranceFund: MockContract
 }
 
 export const ADDR_GREATER_THAN = true
@@ -271,5 +272,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedQuoteToken,
         mockedUSDC,
         mockedBaseToken,
+        mockedInsuranceFund,
     }
 }

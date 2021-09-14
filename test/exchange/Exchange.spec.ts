@@ -19,6 +19,7 @@ describe("Exchange Spec", () => {
     let baseToken: MockContract
     let quoteToken: MockContract
     let uniV3Factory: MockContract
+    let clearingHouse: MockContract
 
     beforeEach(async () => {
         const _exchangeFixtures = await loadFixture(mockedExchangeFixture)
@@ -26,6 +27,7 @@ describe("Exchange Spec", () => {
         baseToken = _exchangeFixtures.mockedBaseToken
         quoteToken = _exchangeFixtures.mockedQuoteToken
         uniV3Factory = _exchangeFixtures.mockedUniV3Factory
+        clearingHouse = _exchangeFixtures.mockedClearingHouse
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
@@ -33,6 +35,32 @@ describe("Exchange Spec", () => {
         })
 
         baseToken.smocked.getIndexPrice.will.return.with(parseEther("100"))
+    })
+
+    describe("# initialize", () => {
+        it("force error, invalid clearingHouse address", async () => {
+            const exchangeFactory = await ethers.getContractFactory("Exchange")
+            const exchange = (await exchangeFactory.deploy()) as Exchange
+            await expect(
+                exchange.initialize(wallet.address, uniV3Factory.address, quoteToken.address),
+            ).to.be.revertedWith("EX_CHANC")
+        })
+
+        it("force error, invalid uniswapV3Factory address", async () => {
+            const exchangeFactory = await ethers.getContractFactory("Exchange")
+            const exchange = (await exchangeFactory.deploy()) as Exchange
+            await expect(
+                exchange.initialize(clearingHouse.address, wallet.address, quoteToken.address),
+            ).to.be.revertedWith("EX_UANC")
+        })
+
+        it("force error, invalid quoteToken address", async () => {
+            const exchangeFactory = await ethers.getContractFactory("Exchange")
+            const exchange = (await exchangeFactory.deploy()) as Exchange
+            await expect(
+                exchange.initialize(clearingHouse.address, uniV3Factory.address, wallet.address),
+            ).to.be.revertedWith("EX_QANC")
+        })
     })
 
     describe("# addPool", () => {
@@ -117,6 +145,10 @@ describe("Exchange Spec", () => {
 
         it("force error, before the pool is initialized", async () => {
             await expect(exchange.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("EX_PNI")
+        })
+
+        it("force error, base token is not contract", async () => {
+            await expect(exchange.addPool(EMPTY_ADDRESS, DEFAULT_FEE)).to.be.revertedWith("EX_ANC")
         })
     })
 

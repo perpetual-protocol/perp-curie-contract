@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
@@ -9,6 +10,7 @@ import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
 
 contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     using SafeMathUpgradeable for uint256;
+    using AddressUpgradeable for address;
 
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     AggregatorV3Interface private _aggregator;
@@ -17,8 +19,8 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     uint256[50] private __gap;
 
     function initialize(AggregatorV3Interface aggregator) external initializer {
-        // BT_IA: invalid address
-        require(address(aggregator) != address(0), "BT_IA");
+        // CPF_ANC: Aggregator address is not contract
+        require(address(aggregator).isContract(), "CPF_ANC");
 
         _aggregator = aggregator;
     }
@@ -121,6 +123,7 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     }
 
     function _requireEnoughHistory(uint80 _round) private pure {
-        require(_round > 0, "Not enough history");
+        // CPF_NEH: Not enough history
+        require(_round > 0, "CPF_NEH");
     }
 }

@@ -4,14 +4,15 @@ import { ClearingHouse, Exchange, InsuranceFund, TestERC20, UniswapV3Factory, Va
 import { ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
 import { tokensFixture } from "../shared/fixtures"
 
-interface MockedClearingHouseFixture {
+interface MockedExchangeFixture {
     exchange: Exchange
     mockedUniV3Factory: MockContract
     mockedQuoteToken: MockContract
     mockedBaseToken: MockContract
+    mockedClearingHouse: MockContract
 }
 
-export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixture> {
+export async function mockedExchangeFixture(): Promise<MockedExchangeFixture> {
     const { token1 } = await tokensFixture()
 
     // deploy test tokens
@@ -53,11 +54,12 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
     )
-    await token1.mintMaximumTo(clearingHouse.address)
+    const mockedClearingHouse = await smockit(clearingHouse)
+    await token1.mintMaximumTo(mockedClearingHouse.address)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(clearingHouse.address, mockedUniV3Factory.address, mockedQuoteToken.address)
+    await exchange.initialize(mockedClearingHouse.address, mockedUniV3Factory.address, mockedQuoteToken.address)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
@@ -76,5 +78,6 @@ export async function mockedExchangeFixture(): Promise<MockedClearingHouseFixtur
         mockedUniV3Factory,
         mockedQuoteToken,
         mockedBaseToken,
+        mockedClearingHouse,
     }
 }

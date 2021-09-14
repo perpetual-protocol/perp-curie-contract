@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
@@ -27,6 +28,7 @@ import { VirtualToken } from "./VirtualToken.sol";
 import { ILiquidityAction } from "./interface/ILiquidityAction.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityAction, SafeOwnable, ArbBlockContext {
+    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -198,12 +200,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     ) external initializer {
         __SafeOwnable_init();
 
-        // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "EX_CH0");
-        // UnsiwapV3Factory is 0
-        require(uniswapV3FactoryArg != address(0), "EX_UF0");
-        // QuoteToken is 0
-        require(quoteTokenArg != address(0), "EX_QT0");
+        // EX_CHANC: ClearingHouse address is not contract
+        require(clearingHouseArg.isContract(), "EX_CHANC");
+        // EX_UANC: UnsiwapV3Factory address is not contract
+        require(uniswapV3FactoryArg.isContract(), "EX_UANC");
+        // EX_QANC: QuoteToken address is not contract
+        require(quoteTokenArg.isContract(), "EX_QANC");
 
         // update states
         clearingHouse = clearingHouseArg;
@@ -257,6 +259,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ILiquidityA
     }
 
     function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
+        // EX_ANC: baseToken address is not contract
+        require(baseToken.isContract(), "EX_ANC");
         // EX_BDN18: baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "EX_BDN18");
         // EX_CHBNE: clearingHouse base token balance not enough, should be maximum of uint256
