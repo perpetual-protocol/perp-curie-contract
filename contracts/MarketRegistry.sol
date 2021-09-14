@@ -2,12 +2,15 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
 contract MarketRegistry is SafeOwnable {
+    using AddressUpgradeable for address;
+
     //
     // STRUCT
     //
@@ -42,6 +45,7 @@ contract MarketRegistry is SafeOwnable {
     // EVENT
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+    event ClearingHouseChanged(address indexed clearingHouse);
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
     event InsuranceFundFeeRatioChanged(uint24 feeRatio);
     event MaxOrdersPerMarketChanged(uint24 feeRatio);
@@ -49,24 +53,17 @@ contract MarketRegistry is SafeOwnable {
     //
     // CONSTRUCTOR
     //
-    function initialize(
-        address uniswapV3FactoryArg,
-        address quoteTokenArg,
-        address clearingHouseArg
-    ) external initializer {
+    function initialize(address uniswapV3FactoryArg, address quoteTokenArg) external initializer {
         __SafeOwnable_init();
 
-        // UnsiwapV3Factory is 0
-        require(uniswapV3FactoryArg != address(0), "MR_UF0");
-        // QuoteToken is 0
-        require(quoteTokenArg != address(0), "MR_QT0");
-        // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "MR_CH0");
+        // UnsiwapV3Factory is not contract
+        require(uniswapV3FactoryArg.isContract(), "MR_UFNC");
+        // QuoteToken is not contract
+        require(quoteTokenArg.isContract(), "MR_QTNC");
 
         // update states
         uniswapV3Factory = uniswapV3FactoryArg;
         quoteToken = quoteTokenArg;
-        clearingHouse = clearingHouseArg;
     }
 
     //
@@ -126,6 +123,13 @@ contract MarketRegistry is SafeOwnable {
 
         emit PoolAdded(baseToken, feeRatio, pool);
         return pool;
+    }
+
+    function setClearingHouse(address clearingHouseArg) external onlyOwner {
+        // ClearingHouse is not contract
+        require(clearingHouseArg.isContract(), "MR_CHNC");
+        clearingHouse = clearingHouseArg;
+        emit ClearingHouseChanged(clearingHouseArg);
     }
 
     function setFeeRatio(address baseToken, uint24 feeRatio)

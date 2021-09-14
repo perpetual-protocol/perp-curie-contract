@@ -125,7 +125,8 @@ export function createClearingHouseFixture(
 
         const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
         const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-        await marketRegistry.initialize(uniV3Factory.address, quoteToken.address, clearingHouse.address)
+        await marketRegistry.initialize(uniV3Factory.address, quoteToken.address)
+        await marketRegistry.setClearingHouse(clearingHouse.address)
 
         const orderBookFactory = await ethers.getContractFactory("OrderBook")
         const orderBook = (await orderBookFactory.deploy()) as OrderBook
@@ -286,7 +287,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
     const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
+    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address)
     const mockedMarketRegistry = await smockit(marketRegistry)
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
