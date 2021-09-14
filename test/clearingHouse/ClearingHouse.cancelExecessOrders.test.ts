@@ -3,7 +3,17 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -12,7 +22,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -27,7 +39,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -52,11 +66,11 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         await pool2.initialize(encodePriceSqrt("50000", "1"))
         // add pool after it's initialized
-        await exchange.addPool(baseToken2.address, 10000)
+        await marketRegistry.addPool(baseToken2.address, 10000)
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)
@@ -89,7 +103,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
 
         it("has 0 open orders left", async () => {
-            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+            const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
 
@@ -131,7 +145,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         it("has 0 open orders left", async () => {
             // bob as a keeper
-            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+            const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
 
@@ -172,7 +186,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             // freeCollateral = min(collateral, accountValue) - imReq
             //                = min(10, 14.95) - 10.1 = -0.1 < 0
             await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
-            const openOrderIds = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+            const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
     })
@@ -182,13 +196,13 @@ describe("ClearingHouse cancelExcessOrders", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
         await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EFC")
 
-        const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
     })
 
@@ -197,15 +211,15 @@ describe("ClearingHouse cancelExcessOrders", () => {
             return [0, parseUnits("100000", 6), 0, 0, 0]
         })
 
-        const openOrderIdsBefore = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // _getOrderId() with baseToken2 would generate a non-existent orderId
         await expect(
             clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
-        ).to.be.revertedWith("EX_NEO")
+        ).to.be.revertedWith("OB_NEO")
 
-        const openOrderIdsAfter = await exchange.getOpenOrderIds(alice.address, baseToken.address)
+        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
     })
 })

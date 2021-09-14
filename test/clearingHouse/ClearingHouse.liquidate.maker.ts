@@ -4,7 +4,17 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, QuoteToken, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouse,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -14,7 +24,9 @@ describe("ClearingHouse liquidate maker", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let quoteToken: QuoteToken
@@ -37,7 +49,9 @@ describe("ClearingHouse liquidate maker", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         quoteToken = _clearingHouseFixture.quoteToken
@@ -53,7 +67,7 @@ describe("ClearingHouse liquidate maker", () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
         await pool.initialize(encodePriceSqrt("10", "1"))
-        await exchange.addPool(baseToken.address, "10000")
+        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

@@ -3,7 +3,17 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -12,7 +22,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
@@ -25,7 +37,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -59,7 +73,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         it("above current price", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
             // add pool after it's initialized
-            await exchange.addPool(baseToken.address, 10000)
+            await marketRegistry.addPool(baseToken.address, 10000)
 
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
@@ -75,7 +89,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
+            const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
             // will receive 100 base from pool
             await expect(
@@ -89,7 +103,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(exchange, "LiquidityChanged")
+                .to.emit(orderBook, "LiquidityChanged")
                 .withArgs(
                     alice.address,
                     baseToken.address,
@@ -106,8 +120,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             expect(baseBalance).to.deep.eq(BigNumber.from(0))
             expect(quoteBalance).to.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
-            expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-            const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
+            expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+            const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
             expect(openOrder).to.deep.eq([
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
@@ -137,7 +151,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 // add pool after it's initialized
-                await exchange.addPool(baseToken.address, 10000)
+                await marketRegistry.addPool(baseToken.address, 10000)
             })
 
             it("below current price", async () => {
@@ -155,7 +169,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
+                const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200))
                     .liquidity
 
                 // will receive 10000 quote from pool
@@ -170,7 +184,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -191,8 +205,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 expect(baseBalance).to.deep.eq(parseUnits("0", await baseToken.decimals()))
                 expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -219,7 +233,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 // will receive x base and y quote from pool
@@ -234,7 +248,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -254,8 +268,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 expect(baseBalance).to.deep.eq(BigNumber.from("0"))
                 expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -282,7 +296,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 const firstRemoveLiquidity = liquidity.div(2)
@@ -316,8 +330,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 expect(baseBalance).to.deep.eq(BigNumber.from("0"))
                 expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
-                expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
                 expect(openOrder).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
@@ -342,7 +356,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 })
-                const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                     .liquidity
 
                 await expect(
@@ -355,7 +369,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("EX_NEL")
+                ).to.be.revertedWith("OB_NEL")
             })
 
             it("force error, range does not exist", async () => {
@@ -382,7 +396,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("EX_NEO")
+                ).to.be.revertedWith("OB_NEO")
             })
         })
     })
@@ -390,7 +404,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     it("remove zero liquidity; no swap no fee", async () => {
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         // assume imRatio = 0.1
         // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
@@ -405,7 +419,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        const liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+        const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
         // will receive no tokens from pool (no fees)
         await expect(
@@ -419,7 +433,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 deadline: ethers.constants.MaxUint256,
             }),
         )
-            .to.emit(exchange, "LiquidityChanged")
+            .to.emit(orderBook, "LiquidityChanged")
             .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
 
         // verify account states
@@ -428,10 +442,10 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         expect(baseBalance).to.deep.eq(parseUnits("-66.061845430469484023", await baseToken.decimals()))
         expect(quoteBalance).to.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
 
-        expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+        expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
             keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
         ])
-        const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+        const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
         expect(openOrder).to.deep.eq([
             liquidity,
             50000, // lowerTick

@@ -4,8 +4,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    ClearingHouseConfig,
     Exchange,
+    MarketRegistry,
+    OrderBook,
+    ClearingHouseConfig,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -21,8 +23,10 @@ describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -36,8 +40,10 @@ describe("ClearingHouse partial close in xyk pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -50,7 +56,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
         await pool.initialize(encodePriceSqrt("10", "1"))
-        await exchange.addPool(baseToken.address, "10000")
+        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

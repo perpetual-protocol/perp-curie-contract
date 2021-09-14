@@ -2,7 +2,16 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -12,7 +21,9 @@ describe("ClearingHouse.getPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -24,7 +35,9 @@ describe("ClearingHouse.getPositionValue", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -56,7 +69,7 @@ describe("ClearingHouse.getPositionValue", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.3733069", "1"))
             // add pool after it's initialized
-            await exchange.addPool(baseToken.address, 10000)
+            await marketRegistry.addPool(baseToken.address, 10000)
         })
 
         // see more desc in getPositionSize test
@@ -227,7 +240,7 @@ describe("ClearingHouse.getPositionValue", () => {
         // initial price at 50000 == 148.3760629
         await pool.initialize(encodePriceSqrt("148.3760629", "1"))
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 

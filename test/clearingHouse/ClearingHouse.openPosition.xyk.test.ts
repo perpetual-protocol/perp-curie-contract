@@ -2,7 +2,17 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -12,7 +22,9 @@ describe("ClearingHouse openPosition in xyk pool", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -26,7 +38,9 @@ describe("ClearingHouse openPosition in xyk pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -43,7 +57,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-        await exchange.addPool(baseToken.address, "10000")
+        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

@@ -13,7 +13,7 @@ import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/m
 import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 import { FeeMath } from "../lib/FeeMath.sol";
-import { Exchange } from "../Exchange.sol";
+import { MarketRegistry } from "../MarketRegistry.sol";
 
 /// @title Provides quotes for swaps
 /// @notice Allows getting the expected amount out or amount in for a given swap without executing the swap
@@ -41,28 +41,29 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         int256 exchangedPositionNotional;
     }
 
-    address public exchange;
+    address public marketRegistry;
 
     // __gap is reserved storage
     uint256[50] private __gap;
 
-    function initialize(address exchangeArg) external initializer {
+    function initialize(address marketRegistryArg) external initializer {
         // Q_ANC: Exchange address is not contract
-        require(exchangeArg.isContract(), "Q_ANC");
-        exchange = exchangeArg;
+        require(marketRegistryArg.isContract(), "Q_ANC");
+        marketRegistry = marketRegistryArg;
     }
 
     function swap(SwapParams memory params) external returns (SwapResponse memory response) {
         // Q_ZI: zero input
         require(params.amount > 0, "Q_ZI");
 
-        address pool = Exchange(exchange).getPool(params.baseToken);
+        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
+        address pool = marketInfo.pool;
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");
 
         // TODO: maybe can merge this two fee ratios into one
-        uint24 uniswapFeeRatio = IUniswapV3Pool(pool).fee();
-        uint24 exchangeFeeRatio = Exchange(exchange).getFeeRatio(params.baseToken);
+        uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
+        uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
 
         // scale up before swap to achieve customized fee/ignore Uniswap fee
         uint256 scaledAmount =
@@ -150,7 +151,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         require(amount0Delta > 0 || amount1Delta > 0, "Q_F0S");
 
         address baseToken = abi.decode(data, (address));
-        address pool = Exchange(exchange).getPool(baseToken);
+        address pool = MarketRegistry(marketRegistry).getPool(baseToken);
         // CH_FSV: failed swapCallback verification
         require(msg.sender == pool, "Q_FSV");
 
