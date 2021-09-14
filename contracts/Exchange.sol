@@ -22,13 +22,13 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
-import { ClearingHouseDelegate } from "./base/ClearingHouseDelegate.sol";
+import { BaseExchange } from "./base/BaseExchange.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseDelegate, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, BaseExchange, ArbBlockContext {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -82,7 +82,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     address public orderBook;
 
     function initialize(address marketRegistryArg, address orderBookArg) external initializer {
-        __ClearingHouseDelegator_init(marketRegistryArg);
+        __BaseExchange_init(marketRegistryArg);
 
         // OrderBook is not contract
         require(orderBookArg.isContract(), "EX_OBNC");
