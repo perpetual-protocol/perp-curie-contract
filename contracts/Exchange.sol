@@ -77,7 +77,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 fee;
     }
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     address public exchangeRegistry;
     address public clearingHouse;
     address public orderBook;
@@ -112,12 +111,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         require(_msgSender() == clearingHouse, "EX_OCH");
         _;
     }
-
-    //    modifier checkRatio(uint24 ratio) {
-    //        // EX_RO: ratio overflow
-    //        require(ratio <= 1e6, "EX_RO");
-    //        _;
-    //    }
 
     modifier checkCallback() {
         address pool = _msgSender();
@@ -293,7 +286,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     // EXTERNAL VIEW
     //
 
-    // TODO remove
+    // TODO should be able to remove if we can remove CH._hasPool
     function getPool(address baseToken) external view returns (address) {
         return ExchangeRegistry(exchangeRegistry).getPool(baseToken);
     }

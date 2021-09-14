@@ -42,6 +42,9 @@ contract ExchangeRegistry is SafeOwnable {
     // EVENT
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
+    event FeeRatioChanged(address baseToken, uint24 feeRatio);
+    event InsuranceFundFeeRatioChanged(uint24 feeRatio);
+    event MaxOrdersPerMarketChanged(uint24 feeRatio);
 
     //
     // CONSTRUCTOR
@@ -73,6 +76,12 @@ contract ExchangeRegistry is SafeOwnable {
     modifier checkRatio(uint24 ratio) {
         // EX_RO: ratio overflow
         require(ratio <= 1e6, "EX_RO");
+        _;
+    }
+
+    modifier checkPool(address baseToken) {
+        // EX_PNE: pool not exists
+        require(_poolMap[baseToken] != address(0), "EX_PNE");
         _;
     }
 
@@ -121,23 +130,29 @@ contract ExchangeRegistry is SafeOwnable {
         return pool;
     }
 
-    // TODO add onlyOwner
-    function setFeeRatio(address baseToken, uint24 feeRatio) external checkRatio(feeRatio) {
-        // EX_PNE: pool not exists
-        require(_poolMap[baseToken] != address(0), "EX_PNE");
-        _exchangeFeeRatioMap[_poolMap[baseToken]] = feeRatio;
+    function setFeeRatio(address baseToken, uint24 feeRatio)
+        external
+        checkPool(baseToken)
+        checkRatio(feeRatio)
+        onlyOwner
+    {
+        _exchangeFeeRatioMap[baseToken] = feeRatio;
+        emit FeeRatioChanged(baseToken, feeRatio);
     }
 
-    // TODO add onlyOwner
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
         external
+        checkPool(baseToken)
         checkRatio(insuranceFundFeeRatioArg)
+        onlyOwner
     {
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
+        emit InsuranceFundFeeRatioChanged(insuranceFundFeeRatioArg);
     }
 
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external {
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
         maxOrdersPerMarket = maxOrdersPerMarketArg;
+        emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
     }
 
     //
@@ -148,16 +163,19 @@ contract ExchangeRegistry is SafeOwnable {
     }
 
     function getFeeRatio(address baseToken) external view returns (uint24) {
-        return _exchangeFeeRatioMap[_poolMap[baseToken]];
+        return _exchangeFeeRatioMap[baseToken];
+    }
+
+    function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24) {
+        return _insuranceFundFeeRatioMap[baseToken];
     }
 
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory) {
-        address pool = _poolMap[baseToken];
         return
             MarketInfo({
-                pool: pool,
-                exchangeFeeRatio: _exchangeFeeRatioMap[pool],
-                uniswapFeeRatio: _uniswapFeeRatioMap[pool],
+                pool: _poolMap[baseToken],
+                exchangeFeeRatio: _exchangeFeeRatioMap[baseToken],
+                uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
                 insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken]
             });
     }

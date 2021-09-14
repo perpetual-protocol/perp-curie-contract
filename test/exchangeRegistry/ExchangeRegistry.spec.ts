@@ -8,7 +8,7 @@ import { mockedExchangeRegistryFixture } from "./fixtures"
 import { token0Fixture } from "../shared/fixtures"
 
 describe("ExchangeRegistry Spec", () => {
-    const [wallet] = waffle.provider.getWallets()
+    const [wallet, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
     const DEFAULT_FEE = 3000
@@ -79,20 +79,63 @@ describe("ExchangeRegistry Spec", () => {
             await baseToken.addWhitelist(mockedPool.address)
         })
 
-        it("setFeeRatio", async () => {
-            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-            await exchangeRegistry.setFeeRatio(baseToken.address, 10000) // 1%
-            expect(await exchangeRegistry.getFeeRatio(baseToken.address)).eq(10000)
-        })
+        describe("after addPool", () => {
+            beforeEach(async () => {
+                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
+            })
 
-        it("force error, ratio overflow", async () => {
-            await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-            const twoHundredPercent = 2000000 // 200% in uint24
-            await expect(exchangeRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith("EX_RO")
+            it("setFeeRatio", async () => {
+                await exchangeRegistry.setFeeRatio(baseToken.address, 10000) // 1%
+                expect(await exchangeRegistry.getFeeRatio(baseToken.address)).eq(10000)
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(exchangeRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                    "EX_RO",
+                )
+            })
+
+            it("setInsuranceFundFeeRatio", async () => {
+                await exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
+                expect(await exchangeRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(exchangeRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                    "EX_RO",
+                )
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(
+                    exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, twoHundredPercent),
+                ).to.be.revertedWith("EX_RO")
+            })
+
+            it("force error, caller not owner", async () => {
+                await expect(exchangeRegistry.connect(alice).setFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
+                    "SO_CNO",
+                )
+                await expect(
+                    exchangeRegistry.connect(alice).setInsuranceFundFeeRatio(baseToken.address, 10000),
+                ).to.be.revertedWith("SO_CNO")
+                await expect(exchangeRegistry.connect(alice).setMaxOrdersPerMarket(1)).to.be.revertedWith("SO_CNO")
+            })
         })
 
         it("force error, pool not exists", async () => {
             await expect(exchangeRegistry.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("EX_PNE")
+            await expect(exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
+                "EX_PNE",
+            )
+        })
+
+        it("setMaxOrdersPerMarket", async () => {
+            await exchangeRegistry.setMaxOrdersPerMarket(1)
+            expect(await exchangeRegistry.maxOrdersPerMarket()).eq(1)
         })
     })
 })
