@@ -529,6 +529,10 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         return _openOrderIdsMap[trader][baseToken];
     }
 
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
+        return _openOrderMap[orderId];
+    }
+
     function getOpenOrder(
         address trader,
         address baseToken,

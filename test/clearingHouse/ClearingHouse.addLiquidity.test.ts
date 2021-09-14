@@ -6,22 +6,22 @@ import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    Exchange,
-    OrderBook,
     ClearingHouseConfig,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
     Vault,
-    MarketRegistry,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
-    const [admin, alice] = waffle.provider.getWallets()
+    const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
@@ -680,6 +680,75 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
                 ])
+            })
+        })
+    })
+
+    describe("# OrderBook.getOpenOrderById", () => {
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+            // add pool after it's initialized
+            await marketRegistry.addPool(baseToken.address, 10000)
+
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseUnits("100", await baseToken.decimals()),
+                quote: 0,
+                lowerTick: 50200,
+                upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseUnits("200", await baseToken.decimals()),
+                quote: 0,
+                lowerTick: 50400,
+                upperTick: 50600,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+        })
+
+        it("getOpenOrderById", async () => {
+            const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
+            expect(openOrderIds.length).be.eq(2)
+
+            const openOrder0 = await orderBook.getOpenOrderById(openOrderIds[0])
+            expect({
+                lowerTick: openOrder0.lowerTick,
+                upperTick: openOrder0.upperTick,
+            }).be.deep.eq({
+                lowerTick: 50200,
+                upperTick: 50400,
+            })
+
+            const openOrder1 = await orderBook.getOpenOrderById(openOrderIds[1])
+            expect({
+                lowerTick: openOrder1.lowerTick,
+                upperTick: openOrder1.upperTick,
+            }).be.deep.eq({
+                lowerTick: 50400,
+                upperTick: 50600,
+            })
+        })
+
+        it("getOpenOrderById with non-existent orderId", async () => {
+            const nonExistentOrderId = keccak256(
+                ["address", "address", "int24", "int24"],
+                [bob.address, baseToken.address, 200, 400],
+            )
+
+            const emptyOpenOrder = await orderBook.getOpenOrderById(nonExistentOrderId)
+            expect({
+                lowerTick: emptyOpenOrder.lowerTick,
+                upperTick: emptyOpenOrder.upperTick,
+            }).be.deep.eq({
+                lowerTick: 0,
+                upperTick: 0,
             })
         })
     })
