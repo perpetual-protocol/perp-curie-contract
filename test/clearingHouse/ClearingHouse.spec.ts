@@ -52,6 +52,7 @@ describe("ClearingHouse Spec", () => {
                     insuranceFund.address,
                     quoteToken.address,
                     uniV3Factory.address,
+                    exchange.address,
                 ),
             ).to.be.revertedWith("CH_VANC")
         })
@@ -66,6 +67,7 @@ describe("ClearingHouse Spec", () => {
                     wallet.address,
                     quoteToken.address,
                     uniV3Factory.address,
+                    exchange.address,
                 ),
             ).to.be.revertedWith("CH_IFANC")
         })
@@ -80,6 +82,7 @@ describe("ClearingHouse Spec", () => {
                     insuranceFund.address,
                     wallet.address,
                     uniV3Factory.address,
+                    exchange.address,
                 ),
             ).to.be.revertedWith("CH_QANC")
         })
@@ -94,6 +97,7 @@ describe("ClearingHouse Spec", () => {
                     insuranceFund.address,
                     quoteToken.address,
                     wallet.address,
+                    exchange.address,
                 ),
             ).to.be.revertedWith("CH_UANC")
         })
@@ -121,10 +125,6 @@ describe("ClearingHouse Spec", () => {
             await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 1e6)).to.be.revertedWith(
                 "CH_MTCLOOR",
             )
-        })
-
-        it("force error, invalid exchange address when setExchange", async () => {
-            await expect(clearingHouse.setExchange(wallet.address)).to.be.revertedWith("CH_ANC")
         })
 
         it("force error, invalid base token address when setMaxTickCrossedWithinBlock", async () => {
