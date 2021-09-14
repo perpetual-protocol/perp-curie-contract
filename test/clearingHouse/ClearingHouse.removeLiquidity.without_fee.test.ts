@@ -102,11 +102,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     0,
                 )
 
-            // WIP verify account states
-            // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-            //  however, the actual number of tokens sent/received are matched
             const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
-            expect(baseBalance).to.deep.eq(BigNumber.from(-1))
+            expect(baseBalance).to.deep.eq(BigNumber.from(0))
             expect(quoteBalance).to.deep.eq(parseUnits("0", await quoteToken.decimals()))
 
             expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
@@ -192,9 +189,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     baseToken.address,
                 )
                 expect(baseBalance).to.deep.eq(parseUnits("0", await baseToken.decimals()))
-                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-                //  however, the actual number of tokens sent/received are matched
-                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+                expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
@@ -252,15 +247,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         0,
                     )
 
-                // verify account states
-                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-                //  however, the actual number of tokens sent/received are matched
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseBalance).to.deep.eq(BigNumber.from("-1"))
-                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+                expect(baseBalance).to.deep.eq(BigNumber.from("0"))
+                expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
@@ -317,15 +309,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                // verify account states
-                // TODO somehow Alice receives 1 wei less than she deposited, it seems to be an artifact of uniswapV3Pool.mint/burn()
-                //  however, the actual number of tokens sent/received are matched
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseBalance).to.deep.eq(BigNumber.from("-1"))
-                expect(quoteBalance).to.deep.eq(BigNumber.from("-1"))
+                expect(baseBalance).to.deep.eq(BigNumber.from("0"))
+                expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
                 expect(await exchange.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)

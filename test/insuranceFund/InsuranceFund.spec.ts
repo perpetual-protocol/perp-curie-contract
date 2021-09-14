@@ -1,4 +1,18 @@
+import { expect } from "chai"
+import { ethers, waffle } from "hardhat"
+import { InsuranceFund } from "../../typechain"
+
 describe("InsuranceFund Spec", () => {
+    const [wallet] = waffle.provider.getWallets()
+
+    describe("# initialize", () => {
+        it("force error, invalid vault address", async () => {
+            const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+            const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+            await expect(insuranceFund.initialize(wallet.address)).to.be.revertedWith("IF_ANC")
+        })
+    })
+
     it("has a vault")
     it.skip("has a treasury")
 
