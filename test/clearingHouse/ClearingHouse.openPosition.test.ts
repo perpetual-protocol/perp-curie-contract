@@ -3,7 +3,17 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -12,7 +22,9 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -28,8 +40,10 @@ describe("ClearingHouse openPosition", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         baseToken2 = _clearingHouseFixture.baseToken2
@@ -49,10 +63,10 @@ describe("ClearingHouse openPosition", () => {
 
         await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
-        await exchange.addPool(baseToken2.address, 10000)
-        await exchange.setFeeRatio(baseToken.address, 10000)
-        await exchange.setFeeRatio(baseToken2.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken2.address, 10000)
+        await exchangeRegistry.setFeeRatio(baseToken.address, 10000)
+        await exchangeRegistry.setFeeRatio(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -152,7 +166,7 @@ describe("ClearingHouse openPosition", () => {
 
             it("force error due to not enough liquidity", async () => {
                 // empty the liquidity
-                const order = await exchange.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
+                const order = await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
                 await clearingHouse.connect(maker).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick,
@@ -193,7 +207,7 @@ describe("ClearingHouse openPosition", () => {
         }
         beforeEach(async () => {
             // set fee ratio to 0
-            await exchange.setFeeRatio(baseToken.address, 0)
+            await exchangeRegistry.setFeeRatio(baseToken.address, 0)
         })
         describe("market price lesser than index price", () => {
             beforeEach(async () => {

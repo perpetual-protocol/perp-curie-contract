@@ -3,7 +3,17 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -14,7 +24,9 @@ describe("ClearingHouse liquidate", () => {
     let million
     let hundred
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -51,7 +63,9 @@ describe("ClearingHouse liquidate", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -72,7 +86,7 @@ describe("ClearingHouse liquidate", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
 
         // initialize BTC pool
         await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
@@ -80,7 +94,7 @@ describe("ClearingHouse liquidate", () => {
         await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchange.addPool(baseToken2.address, 10000)
+        await exchangeRegistry.addPool(baseToken2.address, 10000)
 
         // mint
         collateral.mint(alice.address, hundred)

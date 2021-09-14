@@ -4,6 +4,8 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
+    MarketRegistry,
+    OrderBook,
     Quoter,
     QuoteToken,
     TestClearingHouse,
@@ -19,7 +21,9 @@ describe("Quoter.swap", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -33,6 +37,8 @@ describe("Quoter.swap", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -41,11 +47,11 @@ describe("Quoter.swap", () => {
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
-        await exchange.addPool(baseToken.address, "10000")
+        await exchangeRegistry.addPool(baseToken.address, "10000")
 
         const quoterFactory = await ethers.getContractFactory("Quoter")
         quoter = (await quoterFactory.deploy()) as Quoter
-        await quoter.initialize(exchange.address)
+        await quoter.initialize(exchangeRegistry.address)
 
         lowerTick = 49000
         upperTick = 51400
@@ -434,7 +440,7 @@ describe("Quoter.swap", () => {
 
         it("force error, 0 liquidity swap", async () => {
             // remove alice's all liquidity
-            const aliceOrder = await exchange
+            const aliceOrder = await orderBook
                 .connect(alice)
                 .getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             await clearingHouse.connect(alice).removeLiquidity({

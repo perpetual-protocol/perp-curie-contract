@@ -3,7 +3,16 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, ClearingHouse, Exchange, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouse,
+    Exchange,
+    MarketRegistry,
+    OrderBook,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -14,7 +23,9 @@ describe("ClearingHouse funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let exchangeRegistry: MarketRegistry
     let exchange: Exchange
+    let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -28,7 +39,9 @@ describe("ClearingHouse funding", () => {
             createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
         )
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
+        orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -43,7 +56,7 @@ describe("ClearingHouse funding", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchange.addPool(baseToken.address, 10000)
+        await exchangeRegistry.addPool(baseToken.address, 10000)
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -590,7 +603,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+                let liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove half of the liquidity of the order (50000, 50400); all pending funding payment should be settled
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -606,7 +619,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -636,7 +649,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+                liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove all the remaining liquidity of the order (50000, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -652,7 +665,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -680,7 +693,7 @@ describe("ClearingHouse funding", () => {
                 )
 
                 owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
+                liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
                 // remove all liquidity of the order (50200, 50400)
                 // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
@@ -696,7 +709,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(exchange, "LiquidityChanged")
+                    .to.emit(orderBook, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -777,7 +790,7 @@ describe("ClearingHouse funding", () => {
                     )
 
                     let owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(alice.address)
-                    let liquidity = (await exchange.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
+                    let liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
                         .liquidity
 
                     // carol removes half of her liquidity; all pending funding payment should be settled
@@ -794,7 +807,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(exchange, "LiquidityChanged")
+                        .to.emit(orderBook, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
@@ -924,7 +937,7 @@ describe("ClearingHouse funding", () => {
                     )
 
                     const owedRealizedPnlBefore = await clearingHouse.getOwedRealizedPnl(carol.address)
-                    let liquidity = (await exchange.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
+                    let liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
                         .liquidity
 
                     // carol removes all her liquidity; all pending funding payment should be settled
@@ -941,7 +954,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(exchange, "LiquidityChanged")
+                        .to.emit(orderBook, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,

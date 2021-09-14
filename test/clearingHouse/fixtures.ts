@@ -6,7 +6,8 @@ import {
     ClearingHouse,
     Exchange,
     InsuranceFund,
-    ExchangeRegistry,
+    MarketRegistry,
+    OrderBook,
     TestClearingHouse,
     TestERC20,
     TestUniswapV3Broker,
@@ -19,7 +20,8 @@ import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3Factory
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
-    exchangeRegistry: ExchangeRegistry
+    orderBook: OrderBook
+    exchangeRegistry: MarketRegistry
     exchange: Exchange
     vault: Vault
     insuranceFund: InsuranceFund
@@ -113,20 +115,20 @@ export function createClearingHouseFixture(
         await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
 
-        const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
-        const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+        const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+        const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
         await exchangeRegistry.initialize(uniV3Factory.address, quoteToken.address, clearingHouse.address)
+
+        const orderBookFactory = await ethers.getContractFactory("OrderBook")
+        const orderBook = (await orderBookFactory.deploy()) as OrderBook
+        await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, quoteToken.address)
 
         // deploy exchange
         const exchangeFactory = await ethers.getContractFactory("Exchange")
         const exchange = (await exchangeFactory.deploy()) as Exchange
-        await exchange.initialize(
-            clearingHouse.address,
-            uniV3Factory.address,
-            exchangeRegistry.address,
-            quoteToken.address,
-        )
+        await exchange.initialize(clearingHouse.address, exchangeRegistry.address, orderBook.address)
         await clearingHouse.setExchange(exchange.address)
+        await orderBook.setExchange(exchange.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
@@ -151,6 +153,7 @@ export function createClearingHouseFixture(
         const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
+            orderBook,
             exchangeRegistry,
             exchange,
             vault,
@@ -266,20 +269,21 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedUniV3Factory.address,
     )
 
-    const exchangeRegistryFactory = await ethers.getContractFactory("ExchangeRegistry")
-    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as ExchangeRegistry
+    const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
     await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, clearingHouse.address)
-    const mockedExchangeRegistry = await smockit(exchangeRegistry)
+    const mockedMarketRegistry = await smockit(exchangeRegistry)
+    const orderBookFactory = await ethers.getContractFactory("OrderBook")
+    const orderBook = (await orderBookFactory.deploy()) as OrderBook
+    await orderBook.initialize(clearingHouse.address, exchangeRegistry.address, mockedQuoteToken.address)
+    const mockedOrderBook = await smockit(orderBook)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(
-        clearingHouse.address,
-        mockedUniV3Factory.address,
-        mockedExchangeRegistry.address,
-        mockedQuoteToken.address,
-    )
+    await exchange.initialize(clearingHouse.address, mockedMarketRegistry.address, mockedOrderBook.address)
     const mockedExchange = await smockit(exchange)
+
+    mockedExchange.smocked.orderBook.will.return.with("0x000000000000000000000000000000000000000B")
     await clearingHouse.setExchange(mockedExchange.address)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
