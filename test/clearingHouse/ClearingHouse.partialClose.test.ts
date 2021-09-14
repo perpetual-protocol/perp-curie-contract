@@ -2,7 +2,15 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouseConfig,
+    Exchange,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardTimestamp } from "../shared/time"
@@ -13,6 +21,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
@@ -27,6 +36,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -79,7 +89,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         // if we want to limit price impact to 1%, and 1% / 0.01% = 100
         // so limiting price impact to 1% means tick should not cross 100 ticks
         await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-        await clearingHouse.connect(admin).setPartialCloseRatio(250000) // 25%
+        await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
     })
 
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159

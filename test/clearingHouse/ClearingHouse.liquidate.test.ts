@@ -3,7 +3,16 @@ import { expect } from "chai"
 import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, Exchange, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    ClearingHouseConfig,
+    Exchange,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -14,6 +23,7 @@ describe("ClearingHouse liquidate", () => {
     let million
     let hundred
     let clearingHouse: TestClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let vault: Vault
     let collateral: TestERC20
@@ -51,6 +61,7 @@ describe("ClearingHouse liquidate", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -114,17 +125,6 @@ describe("ClearingHouse liquidate", () => {
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
-    })
-
-    describe("adjustable parameter", () => {
-        it.skip("setLiquidationDiscount")
-        it("setLiquidationPenaltyRatio", async () => {
-            await clearingHouse.setLiquidationPenaltyRatio("30000") // 3%
-            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(30000)
-        })
-        it("force error, only admin", async () => {
-            await expect(clearingHouse.connect(alice).setLiquidationPenaltyRatio("30000")).to.be.revertedWith("SO_CNO")
-        })
     })
 
     describe("alice long ETH; price doesn't change", () => {

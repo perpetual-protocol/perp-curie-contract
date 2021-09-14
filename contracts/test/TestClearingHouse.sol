@@ -9,12 +9,13 @@ contract TestClearingHouse is ClearingHouse {
     uint256 private _testBlockTimestamp;
 
     function __TestClearingHouse_init(
+        address configArg,
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg
     ) external initializer {
-        ClearingHouse.initialize(vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg);
+        ClearingHouse.initialize(configArg, vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg);
         _testBlockTimestamp = block.timestamp;
     }
 

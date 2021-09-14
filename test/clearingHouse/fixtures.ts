@@ -4,6 +4,7 @@ import {
     BaseToken,
     ChainlinkPriceFeed,
     ClearingHouse,
+    ClearingHouseConfig,
     Exchange,
     InsuranceFund,
     TestClearingHouse,
@@ -18,6 +19,7 @@ import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3Factory
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
+    clearingHouseConfig: ClearingHouseConfig
     exchange: Exchange
     vault: Vault
     insuranceFund: InsuranceFund
@@ -77,12 +79,17 @@ export function createClearingHouseFixture(
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
         await insuranceFund.initialize(vault.address)
 
+        const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
+        const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+        await clearingHouseConfig.initialize()
+
         // deploy clearingHouse
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
             const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy()) as TestClearingHouse
             await clearingHouse.initialize(
+                clearingHouseConfig.address,
                 vault.address,
                 insuranceFund.address,
                 quoteToken.address,
@@ -92,6 +99,7 @@ export function createClearingHouseFixture(
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
             await clearingHouse.initialize(
+                clearingHouseConfig.address,
                 vault.address,
                 insuranceFund.address,
                 quoteToken.address,
@@ -140,6 +148,7 @@ export function createClearingHouseFixture(
         const mockedArbSys = await getMockedArbSys()
         return {
             clearingHouse,
+            clearingHouseConfig,
             exchange,
             vault,
             insuranceFund,
@@ -168,6 +177,7 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
+    clearingHouseConfig: ClearingHouseConfig
     mockedUniV3Factory: MockContract
     mockedVault: MockContract
     mockedQuoteToken: MockContract
@@ -245,10 +255,14 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
     const mockedUniV3Factory = await smockit(uniV3Factory)
 
+    const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
+    const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
     await clearingHouse.initialize(
+        clearingHouseConfig.address,
         mockedVault.address,
         mockedInsuranceFund.address,
         mockedQuoteToken.address,
@@ -266,6 +280,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     return {
         clearingHouse,
+        clearingHouseConfig,
         mockedExchange,
         mockedUniV3Factory,
         mockedVault,

@@ -29,6 +29,7 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { Exchange, ILiquidityAction } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
+import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -80,12 +81,8 @@ contract ClearingHouse is
         int256 amount // +: trader pays, -: trader receives
     );
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
-    event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint24 partialCloseRatio);
-    event ReferredPositionChanged(bytes32 indexed referralCode);
     event ExchangeChanged(address exchange);
-    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
+    event ReferredPositionChanged(bytes32 indexed referralCode);
 
     //
     // Struct
@@ -231,16 +228,10 @@ contract ClearingHouse is
     address public quoteToken;
     address public uniswapV3Factory;
 
+    address public config;
     address public vault;
     address public insuranceFund;
     address public exchange;
-
-    uint24 public imRatio;
-    uint24 public mmRatio;
-
-    uint24 public liquidationPenaltyRatio;
-    uint24 public partialCloseRatio;
-    uint8 public maxMarketsPerAccount;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
@@ -275,6 +266,7 @@ contract ClearingHouse is
     mapping(address => int24) internal _lastUpdatedTickMap;
 
     function initialize(
+        address configArg,
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
@@ -292,10 +284,13 @@ contract ClearingHouse is
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
         // CH_UANC: UniV3Factory address is not contract
         require(uniV3FactoryArg.isContract(), "CH_UANC");
+        // ClearingHouseConfig address is not contract
+        require(configArg.isContract(), "CH_CCNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
+        config = configArg;
         vault = vaultArg;
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
@@ -303,11 +298,6 @@ contract ClearingHouse is
 
         _settlementTokenDecimals = IVault(vault).decimals();
 
-        imRatio = 10e4; // initial-margin ratio, 10%
-        mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
-        liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
-        partialCloseRatio = 25e4; // partial close ratio, 25%
-        twapInterval = 15 minutes;
         // we don't use this var
         versionRecipient = "2.0.0";
     }
@@ -315,12 +305,6 @@ contract ClearingHouse is
     //
     // MODIFIER
     //
-    modifier checkRatio(uint24 ratio) {
-        // CH_RL1: ratio overflow
-        require(ratio <= 1e6, "CH_RO");
-        _;
-    }
-
     modifier onlyExchange() {
         // only exchange
         require(_msgSender() == exchange, "CH_OE");
@@ -348,33 +332,6 @@ contract ClearingHouse is
         require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "CH_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-    }
-
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
-        // CH_ITI: invalid twapInterval
-        require(twapIntervalArg != 0, "CH_ITI");
-
-        twapInterval = twapIntervalArg;
-        emit TwapIntervalChanged(twapIntervalArg);
-    }
-
-    function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
-        external
-        checkRatio(liquidationPenaltyRatioArg)
-        onlyOwner
-    {
-        liquidationPenaltyRatio = liquidationPenaltyRatioArg;
-        emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
-    }
-
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
-        partialCloseRatio = partialCloseRatioArg;
-        emit PartialCloseRatioChanged(partialCloseRatioArg);
-    }
-
-    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
-        maxMarketsPerAccount = maxMarketsPerAccountArg;
-        emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
@@ -616,7 +573,7 @@ contract ClearingHouse is
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(
-                _getTotalAbsPositionValue(trader).mulRatio(mmRatio).toInt256(),
+                _getTotalAbsPositionValue(trader).mulRatio(ClearingHouseConfig(config).mmRatio()).toInt256(),
                 _settlementTokenDecimals
             ),
             "CH_EAV"
@@ -637,7 +594,8 @@ contract ClearingHouse is
             );
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.abs().mulRatio(liquidationPenaltyRatio);
+        uint256 liquidationFee =
+            response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
@@ -892,6 +850,7 @@ contract ClearingHouse is
             }
             if (!hit) {
                 // CH_MNE: markets number exceeded
+                uint8 maxMarketsPerAccount = ClearingHouseConfig(config).maxMarketsPerAccount();
                 require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
@@ -1133,6 +1092,7 @@ contract ClearingHouse is
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
+        uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
         if (
             partialCloseRatio > 0 &&
             _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
@@ -1289,7 +1249,7 @@ contract ClearingHouse is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = twapInterval;
+        uint32 twapIntervalArg = _getTwapInterval();
         // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[baseToken] == 0) {
             twapIntervalArg = 0;
@@ -1331,15 +1291,19 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
+    function _getTwapInterval() internal view returns (uint32) {
+        return ClearingHouseConfig(config).twapInterval();
+    }
+
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
     }
 
     // return decimals 18
     function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
         uint256 totalDebtValue = _getTotalDebtValue(trader);
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
-
+        uint24 imRatio = ClearingHouseConfig(config).imRatio();
         return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(imRatio);
     }
 
@@ -1354,7 +1318,7 @@ contract ClearingHouse is
         int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
 
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
