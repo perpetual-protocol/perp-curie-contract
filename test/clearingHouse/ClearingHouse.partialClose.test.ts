@@ -4,10 +4,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
-    ClearingHouseConfig,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -190,7 +190,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_OPI")
+            ).to.revertedWith("CH_OPIAS")
         })
     })
 
@@ -235,6 +235,129 @@ describe("ClearingHouse partial close in xyk pool", () => {
             await expect(
                 clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
             ).to.be.revertedWith("CH_AOPLO")
+        })
+    })
+
+    // solution for bad debt attack
+    // https://www.notion.so/perp/isOverPriceLimit-974202d798d746e69a3bbd0ee866926b?d=f9557a7434aa4c0a9a9fe92c4efee682#da5dee7be5e4465dbde04ce522b6711a
+    // only check the price before swap here
+    // it hits the limit only when
+    //  1.the first short cause the price impact less than ~1.2%
+    //    (the price impact of the remaining position after partial close will be less than 1%)
+    //  2.because we have price check after swap, the PnL for the attacker will be very small.
+    //    if the fee ratio is too large(1%), the attack can't get any benefit from CH
+    //    So, the fee ratio must be small (haven't had a precious number)
+    describe("bad debt attack: check price limit before swap", () => {
+        beforeEach(async () => {
+            // set fee ratio to 0.1%, it's easier to produce the attack
+            await marketRegistry.setFeeRatio(baseToken.address, 1000)
+            // move to next block to have finalTickLastBlock
+            await forwardTimestamp(clearingHouse)
+        })
+
+        it("position closed partially, carol opens a short and alice open a large long which makes carol has bad debt", async () => {
+            // 1. carol shorts 0.5 eth (price impact should be around 1.2%) and get quote 4.97, price now is 9.901
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.5"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // 2. alice opens large long with 1000 quote and get base 50.325, price now is 39.742
+            await clearingHouse.connect(alice).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // 3. carol can only close partial position, -(0.5 - 0.5/4) = -0.375
+            await clearingHouse.connect(carol).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
+
+            // 4. alice can only close partial position, 50.33 - 50.33/4 = 37.7475
+            await clearingHouse.connect(alice).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+                parseEther("37.762630707661446261"),
+            )
+        })
+
+        it("force error, can not open a reverse pos, carol opens a short and alice open a large long which makes carol has bad debt", async () => {
+            // 1. carol shorts 0.5 eth (price impact should be around 1.2%) and get quote 4.97, price now is 9.901
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.5"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // 2. alice opens large long with 1000 quote and get base 50.325, price now is 39.742
+            await clearingHouse.connect(alice).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // 3. carol can only close partial position, -(0.5 - 0.5/4) = -0.375
+            await clearingHouse.connect(carol).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
+
+            // 4. alice can not close her position through open a reverse position
+            await expect(
+                clearingHouse.connect(alice).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1000"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("CH_OPIBS")
+
+            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+                parseEther("50.350174276881928348"),
+            )
         })
     })
 })
