@@ -81,20 +81,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     address public orderBook;
 
-    function initialize(
-        address clearingHouseArg,
-        address marketRegistryArg,
-        address orderBookArg
-    ) external initializer {
+    function initialize(address marketRegistryArg, address orderBookArg) external initializer {
         __ClearingHouseDelegator_init(marketRegistryArg);
 
-        // ClearingHouse is not contract
-        require(clearingHouseArg.isContract(), "EX_CHNC");
         // OrderBook is not contract
         require(orderBookArg.isContract(), "EX_OBNC");
 
         // update states
-        clearingHouse = clearingHouseArg;
         orderBook = orderBookArg;
     }
 

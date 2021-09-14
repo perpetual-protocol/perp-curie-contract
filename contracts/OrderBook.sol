@@ -174,20 +174,13 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseDelegator {
     //
     // CONSTRUCTOR
     //
-    function initialize(
-        address clearingHouseArg,
-        address marketRegistryArg,
-        address quoteTokenArg
-    ) external initializer {
+    function initialize(address marketRegistryArg, address quoteTokenArg) external initializer {
         __ClearingHouseDelegator_init(marketRegistryArg);
 
-        // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "OB_CI0");
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "OB_QT0");
 
         // update states
-        clearingHouse = clearingHouseArg;
         quoteToken = quoteTokenArg;
     }
 

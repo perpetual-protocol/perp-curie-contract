@@ -130,14 +130,16 @@ export function createClearingHouseFixture(
 
         const orderBookFactory = await ethers.getContractFactory("OrderBook")
         const orderBook = (await orderBookFactory.deploy()) as OrderBook
-        await orderBook.initialize(clearingHouse.address, marketRegistry.address, quoteToken.address)
+        await orderBook.initialize(marketRegistry.address, quoteToken.address)
+        await orderBook.setClearingHouse(clearingHouse.address)
 
         // deploy exchange
         const exchangeFactory = await ethers.getContractFactory("Exchange")
         const exchange = (await exchangeFactory.deploy()) as Exchange
-        await exchange.initialize(clearingHouse.address, marketRegistry.address, orderBook.address)
+        await exchange.initialize(marketRegistry.address, orderBook.address)
         await clearingHouse.setExchange(exchange.address)
         await orderBook.setExchange(exchange.address)
+        await exchange.setClearingHouse(clearingHouse.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
@@ -291,12 +293,12 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const mockedMarketRegistry = await smockit(marketRegistry)
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
-    await orderBook.initialize(clearingHouse.address, marketRegistry.address, mockedQuoteToken.address)
+    await orderBook.initialize(marketRegistry.address, mockedQuoteToken.address)
     const mockedOrderBook = await smockit(orderBook)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(clearingHouse.address, mockedMarketRegistry.address, mockedOrderBook.address)
+    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address)
     const mockedExchange = await smockit(exchange)
 
     mockedExchange.smocked.orderBook.will.return.with(mockedOrderBook.address)
