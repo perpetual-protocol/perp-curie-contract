@@ -677,9 +677,9 @@ contract ClearingHouse is
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
-    // return in settlement token decimals
-    function getAccountValue(address account) public view returns (int256) {
-        return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
+    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
+    function getAccountValue(address trader) public view returns (int256) {
+        return _getTotalCollateralValue(trader).addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
     }
 
     function getPositionSize(address trader, address baseToken) public view returns (int256) {
