@@ -22,13 +22,13 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
-import { ClearingHouseDelegator } from "./base/ClearingHouseDelegator.sol";
+import { ClearingHouseDelegate } from "./base/ClearingHouseDelegate.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseDelegator, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseDelegate, ArbBlockContext {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;

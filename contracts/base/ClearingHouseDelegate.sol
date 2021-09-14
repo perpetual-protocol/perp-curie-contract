@@ -7,7 +7,7 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeOwnable } from "./SafeOwnable.sol";
 import { MarketRegistry } from "../MarketRegistry.sol";
 
-abstract contract ClearingHouseDelegator is SafeOwnable {
+abstract contract ClearingHouseDelegate is SafeOwnable {
     using AddressUpgradeable for address;
 
     //

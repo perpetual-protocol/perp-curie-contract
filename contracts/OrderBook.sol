@@ -19,12 +19,12 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
-import { ClearingHouseDelegator } from "./base/ClearingHouseDelegator.sol";
+import { ClearingHouseDelegate } from "./base/ClearingHouseDelegate.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 
-contract OrderBook is IUniswapV3MintCallback, ClearingHouseDelegator {
+contract OrderBook is IUniswapV3MintCallback, ClearingHouseDelegate {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
