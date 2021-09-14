@@ -380,7 +380,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("EX_NEL")
+                ).to.be.revertedWith("OB_NEL")
             })
 
             it("force error, range does not exist", async () => {
@@ -407,7 +407,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("EX_NEO")
+                ).to.be.revertedWith("OB_NEO")
             })
         })
     })

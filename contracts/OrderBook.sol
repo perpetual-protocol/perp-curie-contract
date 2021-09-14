@@ -176,12 +176,6 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     //
     // MODIFIERS
     //
-    modifier onlyExchange() {
-        // only Exchange
-        require(_msgSender() == exchange, "EX_OEX");
-        _;
-    }
-
     modifier onlyClearingHouse() {
         // only ClearingHouse
         require(_msgSender() == clearingHouse, "OB_OCH");
@@ -192,7 +186,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
         // failed callback verification
-        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
+        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "OB_FCV");
         _;
     }
 
@@ -207,11 +201,11 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         __SafeOwnable_init();
 
         // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "EX_CI0");
+        require(clearingHouseArg != address(0), "OB_CI0");
         // QuoteToken is 0
-        require(quoteTokenArg != address(0), "EX_QT0");
+        require(quoteTokenArg != address(0), "OB_QT0");
         // MarketRegistry is 0
-        require(marketRegistryArg != address(0), "EX_MR0");
+        require(marketRegistryArg != address(0), "OB_MR0");
 
         // update states
         clearingHouse = clearingHouseArg;
@@ -224,7 +218,7 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     //
     function setExchange(address exchangeArg) external onlyOwner {
         // Exchange is 0
-        require(exchangeArg != address(0), "EX_CH0");
+        require(exchangeArg != address(0), "OB_CH0");
         exchange = exchangeArg;
     }
 
@@ -407,7 +401,8 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
-    function replaySwap(ReplaySwapParams memory params) external onlyExchange returns (ReplaySwapResponse memory) {
+    function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory) {
+        require(_msgSender() == exchange, "OB_OEX");
         address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
@@ -618,10 +613,10 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
-        // EX_NEO non-existent openOrder
-        require(openOrder.liquidity > 0, "EX_NEO");
-        // EX_NEL not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "EX_NEL");
+        // non-existent openOrder
+        require(openOrder.liquidity > 0, "OB_NEO");
+        // not enough liquidity
+        require(params.liquidity <= openOrder.liquidity, "OB_NEL");
 
         address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
@@ -729,9 +724,9 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         if (openOrder.liquidity == 0) {
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
-            // EX_ONE: orders number exceeded
+            // OB_ONE: orders number exceeded
             uint8 maxOrdersPerMarket = MarketRegistry(marketRegistry).maxOrdersPerMarket();
-            require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "EX_ONE");
+            require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "OB_ONE");
             orderIds.push(orderId);
 
             openOrder.lowerTick = params.lowerTick;
