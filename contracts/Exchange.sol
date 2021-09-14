@@ -212,21 +212,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
             });
     }
 
-    /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
-    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
-    function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
-        return
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-                trader,
-                baseToken,
-                fundingGrowthGlobal
-            );
-    }
-
     // return the price after replay swap (final tick)
     function replaySwap(ReplaySwapParams memory params) external returns (int24) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
