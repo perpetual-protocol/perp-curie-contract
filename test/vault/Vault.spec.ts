@@ -1,24 +1,30 @@
+import { MockContract, ModifiableContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { TestERC20, Vault } from "../../typechain"
+import { InsuranceFund, Vault } from "../../typechain"
 import { createVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
-    let usdc: TestERC20
+    let usdc: ModifiableContract
+    let clearingHouse: MockContract
+    let insuranceFund: InsuranceFund
 
     beforeEach(async () => {
         const _fixture = await loadFixture(createVaultFixture())
         vault = _fixture.vault
         usdc = _fixture.USDC
+        clearingHouse = _fixture.mockedClearingHouse
+        insuranceFund = _fixture.insuranceFund
 
         // mint
         const amount = parseUnits("1000", await usdc.decimals())
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
+        await usdc.mint(insuranceFund.address, parseUnits("10000", await usdc.decimals()))
     })
 
     describe("# initialize", () => {
@@ -96,14 +102,63 @@ describe("Vault spec", () => {
         it("force error, clearingHouse not found")
     })
 
-    describe("withdraw settlement token", () => {
-        it("reduce vault's token balance")
-        it("increase sender's token balance")
-        it("update ClearingHouse's quote debt to 0")
-        it("force error if the freeCollateral is not enough")
+    describe("withdraw settlement token", async () => {
+        let amount: ReturnType<typeof parseUnits>
+        beforeEach(async () => {
+            amount = parseUnits("100", await usdc.decimals())
+            await vault.connect(alice).deposit(usdc.address, amount)
+
+            clearingHouse.smocked.settle.will.return.with(0)
+            clearingHouse.smocked.getOwedRealizedPnl.will.return.with(0)
+            clearingHouse.smocked.getAccountValue.will.return.with(amount)
+            clearingHouse.smocked.getTotalInitialMarginRequirement.will.return.with(0)
+        })
+
+        it("emit event and update balances", async () => {
+            const balanceBefore = await usdc.balanceOf(alice.address)
+
+            await expect(vault.connect(alice).withdraw(usdc.address, amount))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(usdc.address, alice.address, amount)
+
+            // decrease vault's token balance
+            expect(await usdc.balanceOf(vault.address)).to.eq("0")
+
+            const balanceAfter = await usdc.balanceOf(alice.address)
+            // sender's token balance increased
+            expect(balanceAfter.sub(balanceBefore)).to.eq(amount)
+
+            // update sender's balance in vault
+            expect(await vault.balanceOf(alice.address)).to.eq("0")
+        })
+
+        it("force error if the freeCollateral is not enough", async () => {
+            // account value decreased, so free collateral is not enough
+            clearingHouse.smocked.getAccountValue.will.return.with(amount.div(2))
+
+            await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
+        })
 
         describe("USDC collateral is not enough", () => {
-            it("borrow from insuranceFund, increase usdcDebt")
+            it("borrow from insuranceFund", async () => {
+                const borrowedAmount = parseUnits("20", await usdc.decimals())
+
+                // modify vault's balance in USDC to make it not enough to pay when withdrawing
+                usdc.smodify.put({
+                    _balances: {
+                        [vault.address]: parseUnits("80", await usdc.decimals()).toString(),
+                    },
+                })
+
+                // need to borrow 20 USDC from insuranceFund
+                await expect(vault.connect(alice).withdraw(usdc.address, amount))
+                    .to.emit(insuranceFund, "Borrowed")
+                    .withArgs(vault.address, borrowedAmount)
+                    .to.emit(vault, "Withdrawn")
+                    .withArgs(usdc.address, alice.address, amount)
+
+                expect(await insuranceFund.vaultDebt()).to.eq(borrowedAmount)
+            })
         })
     })
 

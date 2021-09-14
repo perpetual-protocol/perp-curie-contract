@@ -16,6 +16,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { InsuranceFund } from "./InsuranceFund.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -30,6 +31,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
     event ClearingHouseUpdated(address clearingHouse);
+    event InsuranceFundUpdated(address insuranceFund);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -38,6 +40,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     address public settlementToken;
 
     address public clearingHouse;
+    address public insuranceFund;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
@@ -82,6 +85,13 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         emit ClearingHouseUpdated(clearingHouseArg);
     }
 
+    function setInsuranceFund(address insuranceFundArg) external onlyOwner {
+        // invalid InsuranceFund address
+        require(insuranceFundArg != address(0), "V_IIFA");
+        insuranceFund = insuranceFundArg;
+        emit InsuranceFundUpdated(insuranceFundArg);
+    }
+
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // V_ANC: TrustedForwarder address is not contract
         require(trustedForwarderArg.isContract(), "V_ANC");
@@ -122,6 +132,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         require(_getFreeCollateral(to) >= amount, "V_NEFC");
         _decreaseBalance(to, token, amount);
+
+        // borrow settlement token from insurance fund if token balance is not enough
+        if (token == settlementToken) {
+            uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
+            if (vaultBalance < amount) {
+                InsuranceFund(insuranceFund).borrow(amount - vaultBalance);
+            }
+        }
+
         TransferHelper.safeTransfer(token, to, amount);
         emit Withdrawn(token, to, amount);
     }
