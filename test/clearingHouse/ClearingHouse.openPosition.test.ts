@@ -22,7 +22,7 @@ describe("ClearingHouse openPosition", () => {
     const [admin, maker, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -43,7 +43,7 @@ describe("ClearingHouse openPosition", () => {
         orderBook = _clearingHouseFixture.orderBook
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         baseToken2 = _clearingHouseFixture.baseToken2
@@ -63,10 +63,10 @@ describe("ClearingHouse openPosition", () => {
 
         await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken.address, 10000)
-        await exchangeRegistry.addPool(baseToken2.address, 10000)
-        await exchangeRegistry.setFeeRatio(baseToken.address, 10000)
-        await exchangeRegistry.setFeeRatio(baseToken2.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken2.address, 10000)
+        await marketRegistry.setFeeRatio(baseToken.address, 10000)
+        await marketRegistry.setFeeRatio(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -207,7 +207,7 @@ describe("ClearingHouse openPosition", () => {
         }
         beforeEach(async () => {
             // set fee ratio to 0
-            await exchangeRegistry.setFeeRatio(baseToken.address, 0)
+            await marketRegistry.setFeeRatio(baseToken.address, 0)
         })
         describe("market price lesser than index price", () => {
             beforeEach(async () => {

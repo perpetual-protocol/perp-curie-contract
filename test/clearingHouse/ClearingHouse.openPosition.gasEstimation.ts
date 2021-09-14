@@ -23,7 +23,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -43,7 +43,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -56,7 +56,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
         await pool.initialize(encodePriceSqrt("100", "1"))
-        await exchangeRegistry.addPool(baseToken.address, "10000")
+        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

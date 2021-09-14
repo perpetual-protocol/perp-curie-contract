@@ -22,7 +22,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -41,7 +41,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -66,11 +66,11 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         await pool2.initialize(encodePriceSqrt("50000", "1"))
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken2.address, 10000)
+        await marketRegistry.addPool(baseToken2.address, 10000)
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)

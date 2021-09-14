@@ -24,7 +24,7 @@ describe("ClearingHouse liquidate", () => {
     let million
     let hundred
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -65,7 +65,7 @@ describe("ClearingHouse liquidate", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -86,7 +86,7 @@ describe("ClearingHouse liquidate", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         // initialize BTC pool
         await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
@@ -94,7 +94,7 @@ describe("ClearingHouse liquidate", () => {
         await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken2.address, 10000)
+        await marketRegistry.addPool(baseToken2.address, 10000)
 
         // mint
         collateral.mint(alice.address, hundred)

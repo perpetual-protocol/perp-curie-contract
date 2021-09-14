@@ -23,7 +23,7 @@ describe("ClearingHouse maker close position", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -44,7 +44,7 @@ describe("ClearingHouse maker close position", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         quoteToken = _clearingHouseFixture.quoteToken
@@ -64,7 +64,7 @@ describe("ClearingHouse maker close position", () => {
         // the initial number of oracle can be recorded is 1; thus, have to expand it
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-        await exchangeRegistry.addPool(baseToken.address, "10000")
+        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -264,7 +264,7 @@ describe("ClearingHouse maker close position", () => {
             // the initial number of oracle can be recorded is 1; thus, have to expand it
             await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-            await exchangeRegistry.addPool(baseToken2.address, "10000")
+            await marketRegistry.addPool(baseToken2.address, "10000")
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))

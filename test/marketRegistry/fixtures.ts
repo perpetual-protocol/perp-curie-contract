@@ -4,7 +4,7 @@ import { BaseToken, ClearingHouse, MarketRegistry, UniswapV3Factory } from "../.
 import { createBaseTokenFixture, createQuoteTokenFixture, token0Fixture, tokensFixture } from "../shared/fixtures"
 
 interface MockedMarketRegistryFixture {
-    exchangeRegistry: MarketRegistry
+    marketRegistry: MarketRegistry
     mockedQuoteToken: MockContract
     mockedClearingHouse: MockContract
     mockedUniV3Factory: MockContract
@@ -22,9 +22,9 @@ export async function mockedMarketRegistryFixture(): Promise<MockedMarketRegistr
     const quoteToken = await createQuoteTokenFixture("USD", "USD")()
     const mockedQuoteToken = await smockit(quoteToken)
 
-    const exchangeRegistryFactory = await ethers.getContractFactory("MarketRegistry")
-    const exchangeRegistry = (await exchangeRegistryFactory.deploy()) as MarketRegistry
-    await exchangeRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, mockedClearingHouse.address)
+    const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
+    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, mockedClearingHouse.address)
 
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
         return 18
@@ -37,7 +37,7 @@ export async function mockedMarketRegistryFixture(): Promise<MockedMarketRegistr
     })
 
     return {
-        exchangeRegistry,
+        marketRegistry,
         mockedQuoteToken,
         mockedClearingHouse,
         mockedUniV3Factory,

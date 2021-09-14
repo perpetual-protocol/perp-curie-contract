@@ -21,7 +21,7 @@ describe("ClearingHouse customized fee", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -39,7 +39,7 @@ describe("ClearingHouse customized fee", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -57,7 +57,7 @@ describe("ClearingHouse customized fee", () => {
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -94,7 +94,7 @@ describe("ClearingHouse customized fee", () => {
     describe("CH fee ratio(2%) > uniswap pool fee ratio(1%)", async () => {
         beforeEach(async () => {
             // set fee ratio to 2%
-            await exchangeRegistry.setFeeRatio(baseToken.address, 20000)
+            await marketRegistry.setFeeRatio(baseToken.address, 20000)
         })
 
         describe("taker open position from zero", async () => {
@@ -380,7 +380,7 @@ describe("ClearingHouse customized fee", () => {
     describe("CH fee ratio < uniswap pool fee ratio", async () => {
         beforeEach(async () => {
             // set fee ratio to 0.5%
-            await exchangeRegistry.setFeeRatio(baseToken.address, 5000)
+            await marketRegistry.setFeeRatio(baseToken.address, 5000)
             await deposit(taker, vault, 1000, collateral)
         })
 
@@ -559,7 +559,7 @@ describe("ClearingHouse customized fee", () => {
     describe("change CH fee ratio", async () => {
         beforeEach(async () => {
             // set fee ratio to 0.5%
-            await exchangeRegistry.setFeeRatio(baseToken.address, 20000)
+            await marketRegistry.setFeeRatio(baseToken.address, 20000)
             await deposit(taker, vault, 1000, collateral)
 
             await clearingHouse.connect(taker).openPosition({
@@ -575,7 +575,7 @@ describe("ClearingHouse customized fee", () => {
         })
 
         it("change from 2% to 3%", async () => {
-            await exchangeRegistry.setFeeRatio(baseToken.address, 30000)
+            await marketRegistry.setFeeRatio(baseToken.address, 30000)
 
             // taker swap 1 USD for ? ETH
             await expect(
@@ -618,7 +618,7 @@ describe("ClearingHouse customized fee", () => {
         })
 
         it("change from 2% to 1%", async () => {
-            await exchangeRegistry.setFeeRatio(baseToken.address, 10000)
+            await marketRegistry.setFeeRatio(baseToken.address, 10000)
 
             // taker swap 1 USD for ? ETH
             await expect(
@@ -661,7 +661,7 @@ describe("ClearingHouse customized fee", () => {
         })
 
         it("change from 2% to 3% and then to 5%", async () => {
-            await exchangeRegistry.setFeeRatio(baseToken.address, 30000)
+            await marketRegistry.setFeeRatio(baseToken.address, 30000)
 
             // taker swap 1 USD for ? ETH
             await clearingHouse.connect(taker).openPosition({
@@ -675,7 +675,7 @@ describe("ClearingHouse customized fee", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            await exchangeRegistry.setFeeRatio(baseToken.address, 50000)
+            await marketRegistry.setFeeRatio(baseToken.address, 50000)
 
             // taker swap 1 USD for ? ETH
             await expect(
@@ -726,7 +726,7 @@ describe("ClearingHouse customized fee", () => {
             await deposit(taker, vault, 10000, collateral)
 
             // set fee ratio to 2%
-            await exchangeRegistry.setFeeRatio(baseToken.address, 20000)
+            await marketRegistry.setFeeRatio(baseToken.address, 20000)
         })
 
         it("Q2B and exact in", async () => {

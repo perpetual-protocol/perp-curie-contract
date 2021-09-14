@@ -16,7 +16,7 @@ describe("MarketRegistry Spec", () => {
     const POOL_B_ADDRESS = "0x000000000000000000000000000000000000000B"
     const DEFAULT_FEE = 3000
 
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let baseToken: BaseToken
     let mockedQuoteToken: MockContract
     let mockedUniV3Factory: MockContract
@@ -25,7 +25,7 @@ describe("MarketRegistry Spec", () => {
 
     beforeEach(async () => {
         const _exchangeFixtures = await loadFixture(mockedMarketRegistryFixture)
-        exchangeRegistry = _exchangeFixtures.exchangeRegistry
+        marketRegistry = _exchangeFixtures.marketRegistry
         mockedQuoteToken = _exchangeFixtures.mockedQuoteToken
         mockedUniV3Factory = _exchangeFixtures.mockedUniV3Factory
 
@@ -52,7 +52,7 @@ describe("MarketRegistry Spec", () => {
         })
 
         it("force error, before the pool is initialized", async () => {
-            await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_PNI")
+            await expect(marketRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_PNI")
         })
 
         describe("after the pool is initialized", () => {
@@ -63,16 +63,16 @@ describe("MarketRegistry Spec", () => {
             // @SAMPLE - addPool
             it("add a UniswapV3 pool and send an event", async () => {
                 // check event has been sent
-                await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE))
-                    .to.emit(exchangeRegistry, "PoolAdded")
+                await expect(marketRegistry.addPool(baseToken.address, DEFAULT_FEE))
+                    .to.emit(marketRegistry, "PoolAdded")
                     .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
 
-                expect(await exchangeRegistry.getPool(baseToken.address)).to.eq(mockedPool.address)
+                expect(await marketRegistry.getPool(baseToken.address)).to.eq(mockedPool.address)
             })
 
             it("add multiple UniswapV3 pools", async () => {
-                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-                expect(await exchangeRegistry.getPool(baseToken.address)).to.eq(mockedPool.address)
+                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                expect(await marketRegistry.getPool(baseToken.address)).to.eq(mockedPool.address)
 
                 const baseToken2 = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
                 baseToken2.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
@@ -82,37 +82,37 @@ describe("MarketRegistry Spec", () => {
                 mockedUniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
                 mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
 
-                await exchangeRegistry.addPool(baseToken2.address, DEFAULT_FEE)
+                await marketRegistry.addPool(baseToken2.address, DEFAULT_FEE)
                 // verify isPoolExisted
-                expect(await exchangeRegistry.getPool(baseToken2.address)).to.eq(mockedPool2.address)
+                expect(await marketRegistry.getPool(baseToken2.address)).to.eq(mockedPool2.address)
             })
 
             it("force error, pool is not existent in uniswap v3", async () => {
                 mockedUniV3Factory.smocked.getPool.will.return.with(() => {
                     return EMPTY_ADDRESS
                 })
-                await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_NEP")
+                await expect(marketRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_NEP")
             })
 
             it("force error, pool is already existent in ClearingHouse", async () => {
-                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
-                await expect(exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_EP")
+                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                await expect(marketRegistry.addPool(baseToken.address, DEFAULT_FEE)).to.be.revertedWith("MR_EP")
             })
 
             it("force error, pool is existed in Exchange even with the same base but diff fee", async () => {
-                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
                 mockedUniV3Factory.smocked.getPool.will.return.with(
                     (token0: string, token1: string, feeRatio: BigNumber) => {
                         return POOL_B_ADDRESS
                     },
                 )
-                await expect(exchangeRegistry.addPool(baseToken.address, 10000)).to.be.revertedWith("MR_EP")
+                await expect(marketRegistry.addPool(baseToken.address, 10000)).to.be.revertedWith("MR_EP")
             })
 
             it("force error, base must be smaller than quote to force base = token0 and quote = token1", async () => {
                 const tokenWithLongerAddr = await mockedBaseTokenTo(ADDR_GREATER_THAN, mockedQuoteToken.address)
                 tokenWithLongerAddr.smocked.balanceOf.will.return.with(ethers.constants.MaxUint256)
-                await expect(exchangeRegistry.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith(
+                await expect(marketRegistry.addPool(tokenWithLongerAddr.address, DEFAULT_FEE)).to.be.revertedWith(
                     "MR_IB",
                 )
             })
@@ -124,7 +124,7 @@ describe("MarketRegistry Spec", () => {
                 mockedUniV3Factory.smocked.getPool.will.return.with(mockedPool2.address)
                 mockedPool2.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
 
-                await expect(exchangeRegistry.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("MR_CHBNE")
+                await expect(marketRegistry.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("MR_CHBNE")
             })
         })
     })
@@ -137,29 +137,29 @@ describe("MarketRegistry Spec", () => {
 
         describe("after addPool", () => {
             beforeEach(async () => {
-                await exchangeRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
             })
 
             it("setFeeRatio", async () => {
-                await exchangeRegistry.setFeeRatio(baseToken.address, 10000) // 1%
-                expect(await exchangeRegistry.getFeeRatio(baseToken.address)).eq(10000)
+                await marketRegistry.setFeeRatio(baseToken.address, 10000) // 1%
+                expect(await marketRegistry.getFeeRatio(baseToken.address)).eq(10000)
             })
 
             it("force error, ratio overflow", async () => {
                 const twoHundredPercent = 2000000 // 200% in uint24
-                await expect(exchangeRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
                     "MR_RO",
                 )
             })
 
             it("setInsuranceFundFeeRatio", async () => {
-                await exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
-                expect(await exchangeRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
+                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
+                expect(await marketRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
             })
 
             it("force error, ratio overflow", async () => {
                 const twoHundredPercent = 2000000 // 200% in uint24
-                await expect(exchangeRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
                     "MR_RO",
                 )
             })
@@ -167,31 +167,29 @@ describe("MarketRegistry Spec", () => {
             it("force error, ratio overflow", async () => {
                 const twoHundredPercent = 2000000 // 200% in uint24
                 await expect(
-                    exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, twoHundredPercent),
+                    marketRegistry.setInsuranceFundFeeRatio(baseToken.address, twoHundredPercent),
                 ).to.be.revertedWith("MR_RO")
             })
 
             it("force error, caller not owner", async () => {
-                await expect(exchangeRegistry.connect(alice).setFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
+                await expect(marketRegistry.connect(alice).setFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
                     "SO_CNO",
                 )
                 await expect(
-                    exchangeRegistry.connect(alice).setInsuranceFundFeeRatio(baseToken.address, 10000),
+                    marketRegistry.connect(alice).setInsuranceFundFeeRatio(baseToken.address, 10000),
                 ).to.be.revertedWith("SO_CNO")
-                await expect(exchangeRegistry.connect(alice).setMaxOrdersPerMarket(1)).to.be.revertedWith("SO_CNO")
+                await expect(marketRegistry.connect(alice).setMaxOrdersPerMarket(1)).to.be.revertedWith("SO_CNO")
             })
         })
 
         it("force error, pool not exists", async () => {
-            await expect(exchangeRegistry.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
-            await expect(exchangeRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
-                "MR_PNE",
-            )
+            await expect(marketRegistry.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
+            await expect(marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
         })
 
         it("setMaxOrdersPerMarket", async () => {
-            await exchangeRegistry.setMaxOrdersPerMarket(1)
-            expect(await exchangeRegistry.maxOrdersPerMarket()).eq(1)
+            await marketRegistry.setMaxOrdersPerMarket(1)
+            expect(await marketRegistry.maxOrdersPerMarket()).eq(1)
         })
     })
 })

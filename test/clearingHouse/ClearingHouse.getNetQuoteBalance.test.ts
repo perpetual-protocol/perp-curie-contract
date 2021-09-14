@@ -21,7 +21,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -37,7 +37,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         collateral = _clearingHouseFixture.USDC
         vault = _clearingHouseFixture.vault
         baseToken = _clearingHouseFixture.baseToken
@@ -66,7 +66,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("200", "1"))
                 // add pool after it's initialized
-                await exchangeRegistry.addPool(baseToken.address, 10000)
+                await marketRegistry.addPool(baseToken.address, 10000)
             })
 
             it("taker has no position", async () => {
@@ -101,7 +101,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("100", "1"))
                 // add pool after it's initialized
-                await exchangeRegistry.addPool(baseToken.address, 10000)
+                await marketRegistry.addPool(baseToken.address, 10000)
             })
 
             it("maker adds liquidity above price with base only", async () => {

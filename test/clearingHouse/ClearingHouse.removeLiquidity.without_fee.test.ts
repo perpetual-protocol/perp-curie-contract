@@ -22,7 +22,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let exchangeRegistry: MarketRegistry
+    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let collateral: TestERC20
@@ -39,7 +39,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
+        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -73,7 +73,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         it("above current price", async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
             // add pool after it's initialized
-            await exchangeRegistry.addPool(baseToken.address, 10000)
+            await marketRegistry.addPool(baseToken.address, 10000)
 
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
@@ -154,7 +154,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 // add pool after it's initialized
-                await exchangeRegistry.addPool(baseToken.address, 10000)
+                await marketRegistry.addPool(baseToken.address, 10000)
             })
 
             it("below current price", async () => {
@@ -415,7 +415,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     it("remove zero liquidity; no swap no fee", async () => {
         await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
         // add pool after it's initialized
-        await exchangeRegistry.addPool(baseToken.address, 10000)
+        await marketRegistry.addPool(baseToken.address, 10000)
 
         // assume imRatio = 0.1
         // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
