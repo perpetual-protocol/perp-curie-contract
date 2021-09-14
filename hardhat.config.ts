@@ -98,7 +98,7 @@ const config: HardhatUserConfig = {
     mocha: {
         require: ["ts-node/register/files"],
         jobs: 4,
-        timeout: 60000,
+        timeout: 120000,
         color: true,
     },
 }
