@@ -594,7 +594,8 @@ contract ClearingHouse is
             );
 
         // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee = response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
+        uint256 liquidationFee =
+            response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
