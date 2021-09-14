@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
@@ -28,6 +29,7 @@ import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
+    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -90,12 +92,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
     ) external initializer {
         __SafeOwnable_init();
 
-        // ClearingHouse is 0
-        require(clearingHouseArg != address(0), "EX_CH0");
-        // MarketRegistry is 0
-        require(marketRegistryArg != address(0), "EX_MR0");
-        // OrderBook is 0
-        require(orderBookArg != address(0), "EX_OB0");
+        // ClearingHouse is not contract
+        require(clearingHouseArg.isContract(), "EX_CHNC");
+        // MarketRegistry is not contract
+        require(marketRegistryArg.isContract(), "EX_MRNC");
+        // OrderBook is not contract
+        require(orderBookArg.isContract(), "EX_OBNC");
 
         // update states
         clearingHouse = clearingHouseArg;
@@ -117,18 +119,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         address baseToken = IUniswapV3Pool(pool).token0();
         require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
         _;
-    }
-
-    //
-    // EXTERNAL ADMIN FUNCTIONS
-    //
-
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
-        MarketRegistry(marketRegistry).setMaxOrdersPerMarket(maxOrdersPerMarketArg);
-    }
-
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external onlyOwner {
-        MarketRegistry(marketRegistry).setInsuranceFundFeeRatio(baseToken, insuranceFundFeeRatioArg);
     }
 
     //

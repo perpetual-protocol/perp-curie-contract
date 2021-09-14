@@ -76,6 +76,14 @@ describe("Quoter.swap", () => {
         await deposit(bob, vault, 100000, collateral)
     })
 
+    describe("# initialize", () => {
+        it("force error, invalid exchange address", async () => {
+            const quoterFactory = await ethers.getContractFactory("Quoter")
+            quoter = (await quoterFactory.deploy()) as Quoter
+            await expect(quoter.initialize(alice.address)).to.be.revertedWith("Q_ANC")
+        })
+    })
+
     describe("quote Q2B with exact input", () => {
         it("returns same result with the CH.swap when liquidity is enough", async () => {
             const quoteAmount = parseEther("250")

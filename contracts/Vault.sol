@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
@@ -24,6 +25,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
     using PerpMath for int256;
+    using AddressUpgradeable for address;
 
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
@@ -52,6 +54,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     mapping(address => bool) internal _collateralTokenMap;
 
     function initialize(address settlementTokenArg) external initializer {
+        // V_ANC: SettlementToken address is not contract
+        require(settlementTokenArg.isContract(), "V_ANC");
+
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
@@ -71,13 +76,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // OWNER SETTER
     //
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
-        // invalid ClearingHouse address
-        require(clearingHouseArg != address(0), "V_ICHA");
+        // V_ANC: ClearingHouse address is not contract
+        require(clearingHouseArg.isContract(), "V_ANC");
         clearingHouse = clearingHouseArg;
         emit ClearingHouseUpdated(clearingHouseArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
+        // V_ANC: TrustedForwarder address is not contract
+        require(trustedForwarderArg.isContract(), "V_ANC");
         _setTrustedForwarder(trustedForwarderArg);
     }
 

@@ -8,13 +8,14 @@ import {
     BaseToken,
     Exchange,
     OrderBook,
+    ClearingHouseConfig,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
     Vault,
+    MarketRegistry,
 } from "../../typechain"
-import { MarketRegistry } from "../../typechain/MarketRegistry"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
@@ -24,6 +25,7 @@ describe("ClearingHouse addLiquidity", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -41,6 +43,7 @@ describe("ClearingHouse addLiquidity", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -533,7 +536,7 @@ describe("ClearingHouse addLiquidity", () => {
             })
 
             it("force error, markets number exceeded", async () => {
-                await clearingHouse.setMaxMarketsPerAccount("1")
+                await clearingHouseConfig.setMaxMarketsPerAccount("1")
 
                 // alice's order in market1
                 await clearingHouse.connect(alice).addLiquidity({

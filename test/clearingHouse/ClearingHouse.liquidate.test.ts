@@ -8,6 +8,7 @@ import {
     Exchange,
     MarketRegistry,
     OrderBook,
+    ClearingHouseConfig,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
@@ -25,6 +26,7 @@ describe("ClearingHouse liquidate", () => {
     let hundred
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -64,6 +66,7 @@ describe("ClearingHouse liquidate", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
@@ -128,17 +131,6 @@ describe("ClearingHouse liquidate", () => {
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
-    })
-
-    describe("adjustable parameter", () => {
-        it.skip("setLiquidationDiscount")
-        it("setLiquidationPenaltyRatio", async () => {
-            await clearingHouse.setLiquidationPenaltyRatio("30000") // 3%
-            expect(await clearingHouse.liquidationPenaltyRatio()).to.eq(30000)
-        })
-        it("force error, only admin", async () => {
-            await expect(clearingHouse.connect(alice).setLiquidationPenaltyRatio("30000")).to.be.revertedWith("SO_CNO")
-        })
     })
 
     describe("alice long ETH; price doesn't change", () => {

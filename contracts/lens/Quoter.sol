@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
@@ -23,6 +24,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
     using PerpSafeCast for uint256;
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for int256;
+    using AddressUpgradeable for address;
 
     struct SwapParams {
         address baseToken;
@@ -44,10 +46,10 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
     // __gap is reserved storage
     uint256[50] private __gap;
 
-    function initialize(address exchangeArg) external initializer {
-        // Q_EX0: exchange is 0
-        require(exchangeArg != address(0), "Q_EX0");
-        marketRegistry = exchangeArg;
+    function initialize(address marketRegistryArg) external initializer {
+        // Q_ANC: Exchange address is not contract
+        require(marketRegistryArg != address(0), "Q_ANC");
+        marketRegistry = marketRegistryArg;
     }
 
     function swap(SwapParams memory params) external returns (SwapResponse memory response) {

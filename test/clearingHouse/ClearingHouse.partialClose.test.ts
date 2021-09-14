@@ -7,6 +7,7 @@ import {
     Exchange,
     MarketRegistry,
     OrderBook,
+    ClearingHouseConfig,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -23,6 +24,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -39,6 +41,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
@@ -92,7 +95,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         // if we want to limit price impact to 1%, and 1% / 0.01% = 100
         // so limiting price impact to 1% means tick should not cross 100 ticks
         await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-        await clearingHouse.connect(admin).setPartialCloseRatio(250000) // 25%
+        await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
     })
 
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159

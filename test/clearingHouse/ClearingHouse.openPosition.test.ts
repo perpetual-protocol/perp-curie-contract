@@ -8,6 +8,7 @@ import {
     Exchange,
     MarketRegistry,
     OrderBook,
+    ClearingHouseConfig,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
@@ -23,6 +24,7 @@ describe("ClearingHouse openPosition", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -41,6 +43,7 @@ describe("ClearingHouse openPosition", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
@@ -876,7 +879,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             await deposit(taker, vault, 1000, collateral)
-            await clearingHouse.setMaxMarketsPerAccount("1")
+            await clearingHouseConfig.setMaxMarketsPerAccount("1")
         })
         it("after closing position on market A, could open on market B ", async () => {
             await clearingHouse.connect(taker).openPosition({
