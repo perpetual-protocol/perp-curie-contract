@@ -684,7 +684,7 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
-    describe.only("# OrderBook.getOpenOrders", () => {
+    describe("# OrderBook.getOpenOrders", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
             // add pool after it's initialized
