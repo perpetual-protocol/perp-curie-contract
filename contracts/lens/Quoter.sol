@@ -48,7 +48,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
 
     function initialize(address marketRegistryArg) external initializer {
         // Q_ANC: Exchange address is not contract
-        require(marketRegistryArg != address(0), "Q_ANC");
+        require(marketRegistryArg.isContract(), "Q_ANC");
         marketRegistry = marketRegistryArg;
     }
 
