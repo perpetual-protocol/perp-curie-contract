@@ -728,8 +728,9 @@ contract ClearingHouse is
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function getNetQuoteBalance(address trader) public view returns (int256) {
+        uint256 tokenLen = _baseTokensMap[trader].length;
         int256 totalQuoteBalance;
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
+        for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             if (_hasPool(baseToken)) {
                 totalQuoteBalance = totalQuoteBalance.add(_accountMarketMap[trader][baseToken].quoteBalance);

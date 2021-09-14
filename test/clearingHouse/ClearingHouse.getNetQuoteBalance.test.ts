@@ -154,6 +154,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 10,
             )
 
+            // taker swaps 64.388155727566507365 to 1 base
             await clearingHouse.connect(bob).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,
@@ -165,8 +166,10 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             // taker sells all quote, making netQuoteBalance == 0
             expect(await clearingHouse.getNetQuoteBalance(bob.address)).to.eq(0)
 
-            // maker should get > 1 quote as fee, as taker swaps ~= 63 quote twice, which is 126 in total -> 126 * 1% = 1.26
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).gt(parseEther("1"))
+            // when taker swaps, maker gets 63.106831428587933867 / 0.99 * 0.01 = 0.6374427417
+            // when taker closes position, maker gets 64.388155727566507365 * 0.01 = 0.6438815573
+            // maker should get 0.6374427417 + 0.6438815573 = 1.281324299 quote as fee
+            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.eq(parseEther("1.281324298978573495"))
         })
 
         it("two makers; a taker swaps and then one maker closes position", async () => {
@@ -211,6 +214,16 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             const carolNetQuoteBalance = await clearingHouse.getNetQuoteBalance(carol.address)
             expect(aliceNetQuoteBalance.add(carolNetQuoteBalance).mul(-1)).to.be.closeTo(bobNetQuoteBalance, 10)
 
+            const quoteSwapped = (
+                await clearingHouse.connect(carol).callStatic.closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+            )[1]
+
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,
@@ -228,7 +241,10 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
             // when bob shorts, carol is forced to long -> when carol closes position, it's short
             // thus, the last maker alice is forced to long more -> even smaller netQuoteBalance
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).lt(aliceNetQuoteBalance)
+            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.be.closeTo(
+                aliceNetQuoteBalance.sub(quoteSwapped),
+                10,
+            )
         })
     })
 })
