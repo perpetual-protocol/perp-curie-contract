@@ -22,13 +22,13 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
-import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseDelegator } from "./base/ClearingHouseDelegator.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable, ArbBlockContext {
+contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseDelegator, ArbBlockContext {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -79,47 +79,28 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, SafeOwnable
         uint256 fee;
     }
 
-    address public marketRegistry;
-    address public clearingHouse;
     address public orderBook;
-
-    uint8 public maxOrdersPerMarket;
 
     function initialize(
         address clearingHouseArg,
         address marketRegistryArg,
         address orderBookArg
     ) external initializer {
-        __SafeOwnable_init();
+        __ClearingHouseDelegator_init(marketRegistryArg);
 
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "EX_CHNC");
-        // MarketRegistry is not contract
-        require(marketRegistryArg.isContract(), "EX_MRNC");
         // OrderBook is not contract
         require(orderBookArg.isContract(), "EX_OBNC");
 
         // update states
         clearingHouse = clearingHouseArg;
-        marketRegistry = marketRegistryArg;
         orderBook = orderBookArg;
     }
 
     //
     // MODIFIERS
     //
-    modifier onlyClearingHouse() {
-        // only ClearingHouse
-        require(_msgSender() == clearingHouse, "EX_OCH");
-        _;
-    }
-
-    modifier checkCallback() {
-        address pool = _msgSender();
-        address baseToken = IUniswapV3Pool(pool).token0();
-        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
-        _;
-    }
 
     //
     // EXTERNAL FUNCTIONS

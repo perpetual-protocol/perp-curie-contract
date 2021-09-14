@@ -19,12 +19,12 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
-import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseDelegator } from "./base/ClearingHouseDelegator.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 
-contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
+contract OrderBook is IUniswapV3MintCallback, ClearingHouseDelegator {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -154,10 +154,8 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     //
     // STATE
     //
-    address public clearingHouse;
     address public quoteToken;
     address public exchange;
-    address public marketRegistry;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
@@ -174,23 +172,6 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     //
-    // MODIFIERS
-    //
-    modifier onlyClearingHouse() {
-        // only ClearingHouse
-        require(_msgSender() == clearingHouse, "OB_OCH");
-        _;
-    }
-
-    modifier checkCallback() {
-        address pool = _msgSender();
-        address baseToken = IUniswapV3Pool(pool).token0();
-        // failed callback verification
-        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "OB_FCV");
-        _;
-    }
-
-    //
     // CONSTRUCTOR
     //
     function initialize(
@@ -198,19 +179,16 @@ contract OrderBook is IUniswapV3MintCallback, SafeOwnable {
         address marketRegistryArg,
         address quoteTokenArg
     ) external initializer {
-        __SafeOwnable_init();
+        __ClearingHouseDelegator_init(marketRegistryArg);
 
         // ClearingHouse is 0
         require(clearingHouseArg != address(0), "OB_CI0");
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "OB_QT0");
-        // MarketRegistry is 0
-        require(marketRegistryArg != address(0), "OB_MR0");
 
         // update states
         clearingHouse = clearingHouseArg;
         quoteToken = quoteTokenArg;
-        marketRegistry = marketRegistryArg;
     }
 
     //
