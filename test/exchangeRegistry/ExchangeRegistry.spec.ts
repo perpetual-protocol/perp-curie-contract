@@ -3,33 +3,41 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
-import { ExchangeRegistry, UniswapV3Pool } from "../../typechain"
-import { mockedExchangeFixture } from "./fixtures"
+import { BaseToken, ExchangeRegistry, UniswapV3Pool } from "../../typechain"
+import { mockedExchangeRegistryFixture } from "./fixtures"
+import { token0Fixture } from "../shared/fixtures"
 
-describe("Exchange Spec", () => {
+describe("ExchangeRegistry Spec", () => {
     const [wallet] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([wallet])
     const POOL_A_ADDRESS = "0x000000000000000000000000000000000000000A"
     const DEFAULT_FEE = 3000
 
     let exchangeRegistry: ExchangeRegistry
-    let baseToken: MockContract
+    let baseToken: BaseToken
     let quoteToken: MockContract
     let uniV3Factory: MockContract
 
     beforeEach(async () => {
-        const _exchangeFixtures = await loadFixture(mockedExchangeFixture)
+        const _exchangeFixtures = await loadFixture(mockedExchangeRegistryFixture)
         exchangeRegistry = _exchangeFixtures.exchangeRegistry
         quoteToken = _exchangeFixtures.mockedQuoteToken
         uniV3Factory = _exchangeFixtures.mockedUniV3Factory
-        baseToken = _exchangeFixtures.mockedBaseToken
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
             return POOL_A_ADDRESS
         })
 
-        baseToken.smocked.getIndexPrice.will.return.with(parseEther("100"))
+        // deploy baseToken
+        const token0FixtureResults = await token0Fixture(quoteToken.address)
+        const clearingHouseAddr = _exchangeFixtures.mockedClearingHouse.address
+        token0FixtureResults.mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [parseEther("100")]
+        })
+        baseToken = token0FixtureResults.baseToken
+        await baseToken.mintMaximumTo(clearingHouseAddr)
+        await baseToken.addWhitelist(clearingHouseAddr)
     })
 
     describe("# addPool", () => {
@@ -41,6 +49,7 @@ describe("Exchange Spec", () => {
             pool = poolFactory.attach(POOL_A_ADDRESS) as UniswapV3Pool
             mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
+            await baseToken.addWhitelist(mockedPool.address)
         })
 
         describe("after the pool is initialized", () => {
@@ -67,6 +76,7 @@ describe("Exchange Spec", () => {
             const mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+            await baseToken.addWhitelist(mockedPool.address)
         })
 
         it("setFeeRatio", async () => {

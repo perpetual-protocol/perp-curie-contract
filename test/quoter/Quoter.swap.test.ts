@@ -40,7 +40,6 @@ describe("Quoter.swap", () => {
         exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
-        exchangeRegistry = _clearingHouseFixture.exchangeRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken

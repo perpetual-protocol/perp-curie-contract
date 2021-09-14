@@ -15,7 +15,7 @@ import { tokensFixture } from "../shared/fixtures"
 
 interface MockedClearingHouseFixture {
     exchange: Exchange
-    exchangeRegistry
+    exchangeRegistry: ExchangeRegistry
     mockedUniV3Factory: MockContract
     mockedQuoteToken: MockContract
     mockedBaseToken: MockContract
