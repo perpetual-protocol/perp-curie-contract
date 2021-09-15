@@ -20,7 +20,6 @@ npm run deploy:arbitrumRinkeby
 # only run the specific deployment script
 npm run deploy:arbitrumRinkeby -- --tags ClearingHouse
 npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
-npm run deploy:arbitrumRinkeby -- --tags status
 ```
 
 2. Update CHANGELOG.md
