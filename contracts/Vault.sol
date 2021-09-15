@@ -91,6 +91,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function setInsuranceFund(address insuranceFundArg) external onlyOwner {
         // V_IFNC: InsuranceFund address is not contract
         require(insuranceFundArg.isContract(), "V_IFNC");
+        // V_STNM: SettlementToken is not match with InsuranceFund
+        require(InsuranceFund(insuranceFundArg).token() == settlementToken, "V_STNM");
         insuranceFund = insuranceFundArg;
         emit InsuranceFundUpdated(insuranceFundArg);
     }

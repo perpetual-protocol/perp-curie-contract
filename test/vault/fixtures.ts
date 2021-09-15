@@ -1,25 +1,25 @@
-import { MockContract, ModifiableContract, smockit, smoddit } from "@eth-optimism/smock"
+import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, ClearingHouseConfig, InsuranceFund, UniswapV3Factory, Vault } from "../../typechain"
+import { ClearingHouse, ClearingHouseConfig, InsuranceFund, TestERC20, UniswapV3Factory, Vault } from "../../typechain"
 
 interface MockedVaultFixture {
     vault: Vault
-    USDC: ModifiableContract
+    USDC: TestERC20
     mockedClearingHouse: MockContract
     mockedInsuranceFund: MockContract
 }
 
 interface VaultFixture {
     vault: Vault
-    USDC: ModifiableContract
+    USDC: TestERC20
     clearingHouse: ClearingHouse
     insuranceFund: InsuranceFund
 }
 
 export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     // deploy test tokens
-    const tokenModifiableFactory = await smoddit("TestERC20")
-    const USDC = (await tokenModifiableFactory.deploy()) as ModifiableContract
+    const tokenFactory = await ethers.getContractFactory("TestERC20")
+    const USDC = (await tokenFactory.deploy()) as TestERC20
     await USDC.initialize("TestUSDC", "USDC")
 
     const vaultFactory = await ethers.getContractFactory("Vault")
@@ -29,6 +29,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     const mockedInsuranceFund = await smockit(insuranceFund)
+    mockedInsuranceFund.smocked.token.will.return.with(USDC.address)
 
     // deploy clearingHouse
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")

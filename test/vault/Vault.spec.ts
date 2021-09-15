@@ -1,15 +1,15 @@
-import { MockContract, ModifiableContract } from "@eth-optimism/smock"
+import { MockContract, smockit } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { Vault } from "../../typechain"
+import { InsuranceFund, TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
 
-describe("Vault spec", () => {
+describe.only("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
-    let usdc: ModifiableContract
+    let usdc: TestERC20
     let clearingHouse: MockContract
     let insuranceFund: MockContract
 
@@ -52,13 +52,26 @@ describe("Vault spec", () => {
     })
 
     describe("set insurance fund", () => {
+        let mockedInsuranceFund: MockContract
+        beforeEach(async () => {
+            const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+            const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+            mockedInsuranceFund = await smockit(insuranceFund)
+            mockedInsuranceFund.smocked.token.will.return.with(usdc.address)
+        })
+
         it("correctly set insurance fund", async () => {
             // set to another contract address
-            await vault.setInsuranceFund(clearingHouse.address)
+            await vault.setInsuranceFund(mockedInsuranceFund.address)
         })
 
         it("force error, not a contract address", async () => {
             await expect(vault.setInsuranceFund(admin.address)).to.be.revertedWith("V_IFNC")
+        })
+
+        it("force error, settlement token not match", async () => {
+            mockedInsuranceFund.smocked.token.will.return.with(admin.address)
+            await expect(vault.setInsuranceFund(mockedInsuranceFund.address)).to.be.revertedWith("V_STNM")
         })
     })
 
