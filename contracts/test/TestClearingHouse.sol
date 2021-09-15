@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 pragma abicoder v2;
-import "hardhat/console.sol";
-import { ClearingHouse } from "../ClearingHouse.sol";
-import { Funding } from "../lib/Funding.sol";
+
+import "../ClearingHouse.sol";
+import "../lib/Funding.sol";
 
 contract TestClearingHouse is ClearingHouse {
     uint256 private _testBlockTimestamp;
@@ -14,9 +14,18 @@ contract TestClearingHouse is ClearingHouse {
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        address exchangeArg
+        address exchangeArg,
+        address accountBalanceArg
     ) external initializer {
-        ClearingHouse.initialize(configArg, vaultArg, insuranceFundArg, quoteTokenArg, uniV3FactoryArg, exchangeArg);
+        ClearingHouse.initialize(
+            configArg,
+            vaultArg,
+            insuranceFundArg,
+            quoteTokenArg,
+            uniV3FactoryArg,
+            exchangeArg,
+            accountBalanceArg
+        );
         _testBlockTimestamp = block.timestamp;
     }
 
@@ -64,6 +73,8 @@ contract TestClearingHouse is ClearingHouse {
     }
 
     function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
-        return (_accountMarketMap[trader][baseToken].baseBalance, _accountMarketMap[trader][baseToken].quoteBalance);
+        int256 base = AccountBalance(accountBalance).getBase(trader, baseToken);
+        int256 quote = AccountBalance(accountBalance).getQuote(trader, baseToken);
+        return (base, quote);
     }
 }

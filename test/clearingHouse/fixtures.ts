@@ -1,6 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ChainlinkPriceFeed,
     ClearingHouse,
@@ -106,6 +107,10 @@ export function createClearingHouseFixture(
         await exchange.initialize(marketRegistry.address, orderBook.address)
         await orderBook.setExchange(exchange.address)
 
+        const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
+        const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+        await accountBalance.initialize(marketRegistry.address)
+
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
@@ -137,6 +142,7 @@ export function createClearingHouseFixture(
                 quoteToken.address,
                 uniV3Factory.address,
                 exchange.address,
+                accountBalance.address,
             )
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -148,6 +154,7 @@ export function createClearingHouseFixture(
                 quoteToken.address,
                 uniV3Factory.address,
                 exchange.address,
+                accountBalance.address,
             )
         }
 
@@ -161,6 +168,7 @@ export function createClearingHouseFixture(
         await marketRegistry.setClearingHouse(clearingHouse.address)
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)
+        await accountBalance.setClearingHouse(clearingHouse.address)
 
         return {
             clearingHouse,
@@ -203,6 +211,7 @@ interface MockedClearingHouseFixture {
     mockedBaseToken: MockContract
     mockedExchange: MockContract
     mockedInsuranceFund: MockContract
+    mockedAccountBalance: MockContract
 }
 
 export const ADDR_GREATER_THAN = true
@@ -290,6 +299,11 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address)
     const mockedExchange = await smockit(exchange)
 
+    const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
+    const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+    await accountBalance.initialize(marketRegistry.address)
+    const mockedAccountBalance = await smockit(accountBalance)
+
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
 
@@ -305,6 +319,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
         mockedExchange.address,
+        mockedAccountBalance.address,
     )
     return {
         clearingHouse,
@@ -316,5 +331,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedUSDC,
         mockedBaseToken,
         mockedInsuranceFund,
+        mockedAccountBalance,
     }
 }

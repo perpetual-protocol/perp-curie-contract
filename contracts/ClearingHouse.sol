@@ -31,6 +31,7 @@ import { Exchange } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
+import { AccountBalance } from "./AccountBalance.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -233,6 +234,7 @@ contract ClearingHouse is
     address public insuranceFund;
     address public exchange;
     address public orderBook;
+    address public accountBalance;
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
@@ -247,9 +249,6 @@ contract ClearingHouse is
     // trader => baseTokens
     // base token registry of each trader
     mapping(address => address[]) internal _baseTokensMap;
-
-    // first key: trader, second key: baseToken
-    mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
     // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
@@ -273,7 +272,8 @@ contract ClearingHouse is
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        address exchangeArg
+        address exchangeArg,
+        address accountBalanceArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
@@ -289,6 +289,8 @@ contract ClearingHouse is
         require(uniV3FactoryArg.isContract(), "CH_UANC");
         // ClearingHouseConfig address is not contract
         require(configArg.isContract(), "CH_CCNC");
+        // AccountBalance is not contract
+        require(accountBalanceArg.isContract(), "CH_ABNC");
 
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
@@ -308,6 +310,7 @@ contract ClearingHouse is
         uniswapV3Factory = uniV3FactoryArg;
         exchange = exchangeArg;
         orderBook = orderBookArg;
+        accountBalance = accountBalanceArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
 
@@ -816,7 +819,7 @@ contract ClearingHouse is
             return;
         }
 
-        delete _accountMarketMap[trader][baseToken];
+        AccountBalance(accountBalance).clearBalance(trader, baseToken);
 
         uint256 length = _baseTokensMap[trader].length;
         for (uint256 i; i < length; i++) {
@@ -1163,7 +1166,9 @@ contract ClearingHouse is
             );
 
         return
-            _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
+            AccountBalance(accountBalance).updateFundingGrowthAngFundingPayment(
+                trader,
+                baseToken,
                 liquidityCoefficientInFundingPayment,
                 fundingGrowthGlobal.twPremiumX96
             );
@@ -1207,7 +1212,9 @@ contract ClearingHouse is
             OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
-            _accountMarketMap[trader][baseToken].getPendingFundingPayment(
+            AccountBalance(accountBalance).getPendingFundingPayment(
+                trader,
+                baseToken,
                 liquidityCoefficientInFundingPayment,
                 fundingGrowthGlobal.twPremiumX96
             );
@@ -1458,8 +1465,7 @@ contract ClearingHouse is
         address baseToken,
         int256 delta
     ) internal {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.baseBalance = accountInfo.baseBalance.add(delta);
+        AccountBalance(accountBalance).addBase(trader, baseToken, delta);
     }
 
     function _addQuote(
@@ -1467,15 +1473,14 @@ contract ClearingHouse is
         address baseToken,
         int256 delta
     ) internal {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.quoteBalance = accountInfo.quoteBalance.add(delta);
+        AccountBalance(accountBalance).addQuote(trader, baseToken, delta);
     }
 
     function _getBase(address trader, address baseToken) internal view returns (int256) {
-        return _accountMarketMap[trader][baseToken].baseBalance;
+        return AccountBalance(accountBalance).getBase(trader, baseToken);
     }
 
     function _getQuote(address trader, address baseToken) internal view returns (int256) {
-        return _accountMarketMap[trader][baseToken].quoteBalance;
+        return AccountBalance(accountBalance).getQuote(trader, baseToken);
     }
 }
