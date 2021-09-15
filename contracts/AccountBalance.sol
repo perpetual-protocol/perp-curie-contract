@@ -223,7 +223,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
     /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
     function _getFundingGrowthGlobalAndTwaps(address baseToken)
-        internal
+        public
         view
         returns (
             Funding.Growth memory fundingGrowthGlobal,

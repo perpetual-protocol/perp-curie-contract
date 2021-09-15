@@ -18,11 +18,13 @@ import {
     Vault,
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
+import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
     orderBook: OrderBook
+    accountBalance: TestAccountBalance | AccountBalance
     marketRegistry: MarketRegistry
     clearingHouseConfig: ClearingHouseConfig
     exchange: Exchange
@@ -107,8 +109,14 @@ export function createClearingHouseFixture(
         await exchange.initialize(marketRegistry.address, orderBook.address)
         await orderBook.setExchange(exchange.address)
 
-        const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
-        const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+        let accountBalance
+        if (canMockTime) {
+            const accountBalanceFactory = await ethers.getContractFactory("TestAccountBalance")
+            accountBalance = (await accountBalanceFactory.deploy()) as TestAccountBalance
+        } else {
+            const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
+            accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+        }
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
         await orderBook.setAccountBalance(accountBalance.address)
 
@@ -174,6 +182,7 @@ export function createClearingHouseFixture(
         return {
             clearingHouse,
             orderBook,
+            accountBalance,
             marketRegistry,
             clearingHouseConfig,
             exchange,
