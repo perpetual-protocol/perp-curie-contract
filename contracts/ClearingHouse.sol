@@ -435,12 +435,8 @@ contract ClearingHouse is
         // collect fee to owedRealizedPnl
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(response.fee.toInt256());
 
-        _accountMarketMap[trader][params.baseToken].baseBalance = _accountMarketMap[trader][params.baseToken]
-            .baseBalance
-            .add(-(response.base.toInt256()));
-        _accountMarketMap[trader][params.baseToken].quoteBalance = _accountMarketMap[trader][params.baseToken]
-            .quoteBalance
-            .add(-(response.quote.toInt256()));
+        _addBase(trader, params.baseToken, -(response.base.toInt256()));
+        _addQuote(trader, params.baseToken, -(response.quote.toInt256()));
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -802,16 +798,8 @@ contract ClearingHouse is
         // collect fee to owedRealizedPnl
         _owedRealizedPnlMap[params.maker] = _owedRealizedPnlMap[params.maker].add(params.collectedFee.toInt256());
 
-        _accountMarketMap[params.maker][params.baseToken].quoteBalance = _accountMarketMap[params.maker][
-            params.baseToken
-        ]
-            .quoteBalance
-            .add(params.removedQuote.toInt256());
-        _accountMarketMap[params.maker][params.baseToken].baseBalance = _accountMarketMap[params.maker][
-            params.baseToken
-        ]
-            .baseBalance
-            .add(params.removedBase.toInt256());
+        _addQuote(params.maker, params.baseToken, params.removedQuote.toInt256());
+        _addBase(params.maker, params.baseToken, params.removedBase.toInt256());
 
         _deregisterBaseToken(params.maker, params.baseToken);
     }
@@ -968,9 +956,7 @@ contract ClearingHouse is
 
         // TODO refactor with settle()
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(deltaPnl);
-        _accountMarketMap[trader][baseToken].quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance.add(
-            -deltaPnl
-        );
+        _addQuote(trader, baseToken, -deltaPnl);
     }
 
     // check here for custom fee design,
@@ -992,16 +978,8 @@ contract ClearingHouse is
         // update internal states
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        _accountMarketMap[params.trader][params.baseToken].baseBalance = _accountMarketMap[params.trader][
-            params.baseToken
-        ]
-            .baseBalance
-            .add(response.exchangedPositionSize);
-        _accountMarketMap[params.trader][params.baseToken].quoteBalance = _accountMarketMap[params.trader][
-            params.baseToken
-        ]
-            .quoteBalance
-            .add(response.exchangedPositionNotional.sub(response.fee.toInt256()));
+        _addBase(params.trader, params.baseToken, response.exchangedPositionSize);
+        _addQuote(params.trader, params.baseToken, response.exchangedPositionNotional.sub(response.fee.toInt256()));
         _owedRealizedPnlMap[insuranceFund] = _owedRealizedPnlMap[insuranceFund].add(
             response.insuranceFundFee.toInt256()
         );
@@ -1474,5 +1452,26 @@ contract ClearingHouse is
                 require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
             }
         }
+    }
+
+    //
+    // TODO: MOVE TO ACCOUNT BALANCE
+    //
+    function _addBase(
+        address trader,
+        address baseToken,
+        int256 delta
+    ) internal {
+        AccountMarket.Info storage baseBalance = _accountMarketMap[trader][baseToken].baseBalance;
+        baseBalance = baseBalance.add(delta);
+    }
+
+    function _addQuote(
+        address trader,
+        address baseToken,
+        int256 delta
+    ) internal {
+        AccountMarket.Info storage quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
+        quoteBalance = quoteBalance.add(delta);
     }
 }
