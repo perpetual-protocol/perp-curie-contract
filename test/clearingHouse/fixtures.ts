@@ -110,6 +110,7 @@ export function createClearingHouseFixture(
         const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
         const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
+        await orderBook.setAccountBalance(accountBalance.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
@@ -301,7 +302,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
     const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
-    await accountBalance.initialize(marketRegistry.address)
     const mockedAccountBalance = await smockit(accountBalance)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
