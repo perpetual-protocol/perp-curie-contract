@@ -683,15 +683,14 @@ contract ClearingHouse is
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize =
-            _accountMarketMap[trader][baseToken].baseBalance.add(
-                OrderBook(orderBook)
-                    .getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    true // get base token amount
-                )
-                    .toInt256()
-            );
+            OrderBook(orderBook)
+                .getTotalTokenAmountInPool(
+                trader,
+                baseToken,
+                true // get base token amount
+            )
+                .toInt256()
+                .add(_getBase(trader, baseToken));
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
@@ -707,7 +706,7 @@ contract ClearingHouse is
 
         int256 openNotional =
             OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                _accountMarketMap[trader][baseToken].quoteBalance
+                _getQuote(trader, baseToken)
             );
 
         return openNotional;
@@ -729,7 +728,7 @@ contract ClearingHouse is
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             if (_hasPool(baseToken)) {
-                totalQuoteBalance = totalQuoteBalance.add(_accountMarketMap[trader][baseToken].quoteBalance);
+                totalQuoteBalance = totalQuoteBalance.add(_getQuote(trader, baseToken));
             }
         }
 
@@ -807,10 +806,7 @@ contract ClearingHouse is
     // expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         // TODO add test: open long, add pool, now tokenInfo is cleared,
-        if (
-            _accountMarketMap[trader][baseToken].baseBalance.abs() >= _DUST ||
-            _accountMarketMap[trader][baseToken].quoteBalance.abs() >= _DUST
-        ) {
+        if (_getBase(trader, baseToken).abs() >= _DUST || _getQuote(trader, quoteToken).abs() >= _DUST) {
             return;
         }
 
@@ -843,7 +839,7 @@ contract ClearingHouse is
         }
 
         // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (_accountMarketMap[trader][baseToken].baseBalance == 0) {
+        if (_getBase(trader, baseToken) == 0) {
             bool hit;
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == baseToken) {
@@ -1342,11 +1338,11 @@ contract ClearingHouse is
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             if (_hasPool(baseToken)) {
-                int256 baseBalance = _accountMarketMap[trader][baseToken].baseBalance;
+                int256 baseBalance = _getBase(trader, baseToken);
                 uint256 baseDebt = baseBalance > 0 ? 0 : (-baseBalance).toUint256();
                 uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
                 // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
-                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
+                int256 quoteBalance = _getQuote(trader, baseToken);
 
                 totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
                 totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
@@ -1462,8 +1458,8 @@ contract ClearingHouse is
         address baseToken,
         int256 delta
     ) internal {
-        AccountMarket.Info storage baseBalance = _accountMarketMap[trader][baseToken].baseBalance;
-        baseBalance = baseBalance.add(delta);
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.baseBalance = accountInfo.baseBalance.add(delta);
     }
 
     function _addQuote(
@@ -1471,7 +1467,15 @@ contract ClearingHouse is
         address baseToken,
         int256 delta
     ) internal {
-        AccountMarket.Info storage quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
-        quoteBalance = quoteBalance.add(delta);
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.quoteBalance = accountInfo.quoteBalance.add(delta);
+    }
+
+    function _getBase(address trader, address baseToken) internal view returns (int256) {
+        return _accountMarketMap[trader][baseToken].baseBalance;
+    }
+
+    function _getQuote(address trader, address baseToken) internal view returns (int256) {
+        return _accountMarketMap[trader][baseToken].quoteBalance;
     }
 }
