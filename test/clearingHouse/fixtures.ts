@@ -151,16 +151,16 @@ export function createClearingHouseFixture(
             )
         }
 
-        await quoteToken.addWhitelist(clearingHouse.address)
-        await vault.setClearingHouse(clearingHouse.address)
-        await baseToken.mintMaximumTo(clearingHouse.address)
         await quoteToken.mintMaximumTo(clearingHouse.address)
+        await baseToken.mintMaximumTo(clearingHouse.address)
+        await baseToken2.mintMaximumTo(clearingHouse.address)
+        await quoteToken.addWhitelist(clearingHouse.address)
+        await baseToken.addWhitelist(clearingHouse.address)
+        await baseToken2.addWhitelist(clearingHouse.address)
+        await vault.setClearingHouse(clearingHouse.address)
         await marketRegistry.setClearingHouse(clearingHouse.address)
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)
-        await baseToken.addWhitelist(clearingHouse.address)
-        await baseToken2.mintMaximumTo(clearingHouse.address)
-        await baseToken2.addWhitelist(clearingHouse.address)
 
         return {
             clearingHouse,

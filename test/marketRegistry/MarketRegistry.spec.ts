@@ -48,76 +48,6 @@ describe("MarketRegistry Spec", () => {
         await baseToken.addWhitelist(clearingHouseAddr)
     })
 
-    describe("onlyOwner setters", () => {
-        beforeEach(async () => {
-            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            await baseToken.addWhitelist(mockedPool.address)
-        })
-
-        it("setClearingHouse", async () => {
-            await marketRegistry.setClearingHouse(mockedClearingHouse.address)
-            expect(await marketRegistry.clearingHouse()).eq(mockedClearingHouse.address)
-        })
-
-        describe("after addPool", () => {
-            beforeEach(async () => {
-                await marketRegistry.setClearingHouse(mockedClearingHouse.address)
-                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
-            })
-
-            it("setFeeRatio", async () => {
-                await marketRegistry.setFeeRatio(baseToken.address, 10000) // 1%
-                expect(await marketRegistry.getFeeRatio(baseToken.address)).eq(10000)
-            })
-
-            it("force error, ratio overflow", async () => {
-                const twoHundredPercent = 2000000 // 200% in uint24
-                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
-                    "MR_RO",
-                )
-            })
-
-            it("setInsuranceFundFeeRatio", async () => {
-                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
-                expect(await marketRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
-            })
-
-            it("force error, ratio overflow", async () => {
-                const twoHundredPercent = 2000000 // 200% in uint24
-                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
-                    "MR_RO",
-                )
-            })
-
-            it("force error, ratio overflow", async () => {
-                const twoHundredPercent = 2000000 // 200% in uint24
-                await expect(
-                    marketRegistry.setInsuranceFundFeeRatio(baseToken.address, twoHundredPercent),
-                ).to.be.revertedWith("MR_RO")
-            })
-
-            it("force error, caller not owner", async () => {
-                await expect(marketRegistry.connect(alice).setFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
-                    "SO_CNO",
-                )
-                await expect(
-                    marketRegistry.connect(alice).setInsuranceFundFeeRatio(baseToken.address, 10000),
-                ).to.be.revertedWith("SO_CNO")
-                await expect(marketRegistry.connect(alice).setMaxOrdersPerMarket(1)).to.be.revertedWith("SO_CNO")
-            })
-        })
-
-        it("force error, pool not exists", async () => {
-            await expect(marketRegistry.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
-            await expect(marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
-        })
-
-        it("setMaxOrdersPerMarket", async () => {
-            await marketRegistry.setMaxOrdersPerMarket(1)
-            expect(await marketRegistry.maxOrdersPerMarket()).eq(1)
-        })
-    })
-
     describe("# addPool", () => {
         beforeEach(async () => {
             await baseToken.addWhitelist(mockedPool.address)
@@ -199,6 +129,76 @@ describe("MarketRegistry Spec", () => {
 
                 await expect(marketRegistry.addPool(baseToken2.address, DEFAULT_FEE)).revertedWith("MR_CHBNE")
             })
+        })
+    })
+
+    describe("onlyOwner setters", () => {
+        beforeEach(async () => {
+            mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
+            await baseToken.addWhitelist(mockedPool.address)
+        })
+
+        it("setClearingHouse", async () => {
+            await marketRegistry.setClearingHouse(mockedClearingHouse.address)
+            expect(await marketRegistry.clearingHouse()).eq(mockedClearingHouse.address)
+        })
+
+        describe("after addPool", () => {
+            beforeEach(async () => {
+                await marketRegistry.setClearingHouse(mockedClearingHouse.address)
+                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
+            })
+
+            it("setFeeRatio", async () => {
+                await marketRegistry.setFeeRatio(baseToken.address, 10000) // 1%
+                expect(await marketRegistry.getFeeRatio(baseToken.address)).eq(10000)
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                    "MR_RO",
+                )
+            })
+
+            it("setInsuranceFundFeeRatio", async () => {
+                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
+                expect(await marketRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(marketRegistry.setFeeRatio(baseToken.address, twoHundredPercent)).to.be.revertedWith(
+                    "MR_RO",
+                )
+            })
+
+            it("force error, ratio overflow", async () => {
+                const twoHundredPercent = 2000000 // 200% in uint24
+                await expect(
+                    marketRegistry.setInsuranceFundFeeRatio(baseToken.address, twoHundredPercent),
+                ).to.be.revertedWith("MR_RO")
+            })
+
+            it("force error, caller not owner", async () => {
+                await expect(marketRegistry.connect(alice).setFeeRatio(baseToken.address, 10000)).to.be.revertedWith(
+                    "SO_CNO",
+                )
+                await expect(
+                    marketRegistry.connect(alice).setInsuranceFundFeeRatio(baseToken.address, 10000),
+                ).to.be.revertedWith("SO_CNO")
+                await expect(marketRegistry.connect(alice).setMaxOrdersPerMarket(1)).to.be.revertedWith("SO_CNO")
+            })
+        })
+
+        it("force error, pool not exists", async () => {
+            await expect(marketRegistry.setFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
+            await expect(marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000)).to.be.revertedWith("MR_PNE")
+        })
+
+        it("setMaxOrdersPerMarket", async () => {
+            await marketRegistry.setMaxOrdersPerMarket(1)
+            expect(await marketRegistry.maxOrdersPerMarket()).eq(1)
         })
     })
 })
