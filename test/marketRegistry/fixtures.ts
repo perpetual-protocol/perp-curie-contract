@@ -24,7 +24,7 @@ export async function mockedMarketRegistryFixture(): Promise<MockedMarketRegistr
 
     const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
     const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
-    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address, mockedClearingHouse.address)
+    await marketRegistry.initialize(mockedUniV3Factory.address, mockedQuoteToken.address)
 
     mockedQuoteToken.smocked.decimals.will.return.with(async () => {
         return 18

@@ -82,8 +82,6 @@ contract ClearingHouse is
         int256 amount // +: trader pays, -: trader receives
     );
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
-    event ExchangeChanged(address exchange);
-    event OrderBookChanged(address orderBook);
     event ReferredPositionChanged(bytes32 indexed referralCode);
 
     //
@@ -274,7 +272,8 @@ contract ClearingHouse is
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
-        address uniV3FactoryArg
+        address uniV3FactoryArg,
+        address exchangeArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
@@ -291,6 +290,14 @@ contract ClearingHouse is
         // ClearingHouseConfig address is not contract
         require(configArg.isContract(), "CH_CCNC");
 
+        // CH_ANC: address is not contract
+        require(exchangeArg.isContract(), "CH_ANC");
+
+        address orderBookArg = Exchange(exchangeArg).orderBook();
+
+        // orderbook is not contarct
+        require(orderBookArg.isContract(), "CH_OBNC");
+
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
@@ -299,6 +306,8 @@ contract ClearingHouse is
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
+        exchange = exchangeArg;
+        orderBook = orderBookArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
 
@@ -318,21 +327,6 @@ contract ClearingHouse is
     //
     // EXTERNAL ADMIN FUNCTIONS
     //
-    function setExchange(address exchangeArg) external onlyOwner {
-        // CH_ANC: address is not contract
-        require(exchangeArg.isContract(), "CH_ANC");
-
-        address orderBookArg = Exchange(exchangeArg).orderBook();
-
-        // orderbook is not contarct
-        require(orderBookArg.isContract(), "CH_OBNC");
-
-        exchange = exchangeArg;
-        orderBook = orderBookArg;
-
-        emit ExchangeChanged(exchangeArg);
-        emit OrderBookChanged(orderBookArg);
-    }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // CH_ANC: address is not contract
