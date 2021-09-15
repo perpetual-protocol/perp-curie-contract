@@ -534,6 +534,12 @@ contract ClearingHouse is
 
         // cache before actual swap
         bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
+        if (isReducePosition) {
+            // revert if current price isOverPriceLimit before open position
+            // CH_OPIBS: over price impact before swap
+            require(!_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)), "CH_OPIBS");
+        }
+
         SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
@@ -550,8 +556,8 @@ contract ClearingHouse is
 
         if (isReducePosition) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
-            // CH_OPI: over price impact
-            require(!_isOverPriceLimit(params.baseToken, response.tick), "CH_OPI");
+            // CH_OPIAS: over price impact after swap
+            require(!_isOverPriceLimit(params.baseToken, response.tick), "CH_OPIAS");
         }
 
         _checkSlippage(
@@ -1104,7 +1110,8 @@ contract ClearingHouse is
         uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
         if (
             partialCloseRatio > 0 &&
-            _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
+            (_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
+                _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams)))
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
