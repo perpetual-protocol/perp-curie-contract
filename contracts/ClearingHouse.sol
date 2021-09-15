@@ -77,12 +77,6 @@ contract ClearingHouse is
         uint256 liquidationFee,
         address liquidator
     );
-    event FundingPaymentSettled(
-        address indexed trader,
-        address indexed baseToken,
-        int256 amount // +: trader pays, -: trader receives
-    );
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event ReferredPositionChanged(bytes32 indexed referralCode);
 
     //
@@ -254,17 +248,10 @@ contract ClearingHouse is
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
-    // key: base token
-    mapping(address => uint256) internal _firstTradedTimestampMap;
-    mapping(address => uint256) internal _lastSettledTimestampMap;
-    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-
     // TODO move to exchange
     // key: base token
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-    // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
-    mapping(address => int24) internal _lastUpdatedTickMap;
 
     function initialize(
         address configArg,
@@ -747,13 +734,6 @@ contract ClearingHouse is
         return _getAllPendingFundingPayment(trader);
     }
 
-    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
-    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        _requireHasBaseToken(baseToken);
-        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
-        return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
-    }
-
     function getTotalUnrealizedPnl(address trader) public view returns (int256) {
         int256 totalPositionValue;
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
@@ -984,8 +964,8 @@ contract ClearingHouse is
         );
 
         // update timestamp of the first tx in this market
-        if (_firstTradedTimestampMap[params.baseToken] == 0) {
-            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
+        if (getFirstTradedTimestamp(params.baseToken) == 0) {
+            updateFirstTradedTimestamp(params.baseToken);
         }
 
         return
@@ -1111,69 +1091,6 @@ contract ClearingHouse is
             );
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
-    /// @dev personal funding payment is settled whenever there is pending funding payment
-    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
-    function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
-        private
-        returns (Funding.Growth memory fundingGrowthGlobal)
-    {
-        uint256 markTwap;
-        uint256 indexTwap;
-        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
-
-        // pass fundingGrowthGlobal in for states mutation
-        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        if (fundingPayment != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
-            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
-        }
-
-        // update states before further actions in this block; once per block
-        if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
-            // update fundingGrowthGlobal
-            Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-            (
-                _lastSettledTimestampMap[baseToken],
-                lastFundingGrowthGlobal.twPremiumX96,
-                lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
-            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
-
-            // update tick
-            _lastUpdatedTickMap[baseToken] = Exchange(exchange).getTick(baseToken);
-
-            emit FundingUpdated(baseToken, markTwap, indexTwap);
-        }
-
-        return fundingGrowthGlobal;
-    }
-
-    /// @dev this is the non-view version of _getPendingFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _updateFundingGrowthAndFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-                trader,
-                baseToken,
-                fundingGrowthGlobal
-            );
-
-        return
-            AccountBalance(accountBalance).updateFundingGrowthAngFundingPayment(
-                trader,
-                baseToken,
-                liquidityCoefficientInFundingPayment,
-                fundingGrowthGlobal.twPremiumX96
-            );
-    }
-
     //
     // INTERNAL VIEW FUNCTIONS
     //
@@ -1183,7 +1100,7 @@ contract ClearingHouse is
         if (maxTickDelta == 0) {
             return false;
         }
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        int24 lastUpdatedTick = getLastUpdatedTickMap(baseToken);
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
         int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
         int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
@@ -1191,7 +1108,7 @@ contract ClearingHouse is
     }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        int24 lastUpdatedTick = getLastUpdatedTickMap(baseToken);
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
@@ -1201,25 +1118,6 @@ contract ClearingHouse is
     // -------------------------------
     // --- funding related getters ---
 
-    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _getPendingFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal view returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        return
-            AccountBalance(accountBalance).getPendingFundingPayment(
-                trader,
-                baseToken,
-                liquidityCoefficientInFundingPayment,
-                fundingGrowthGlobal.twPremiumX96
-            );
-    }
-
     /// @return fundingPayment the funding payment of all markets of a trader
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
@@ -1228,61 +1126,6 @@ contract ClearingHouse is
                 fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
             }
         }
-    }
-
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
-    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
-    function _getFundingGrowthGlobalAndTwaps(address baseToken)
-        internal
-        view
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        )
-    {
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-
-        // get mark twap
-        uint32 twapIntervalArg = _getTwapInterval();
-        // shorten twapInterval if prior observations are not enough for twapInterval
-        if (_firstTradedTimestampMap[baseToken] == 0) {
-            twapIntervalArg = 0;
-        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
-            // overflow inspection:
-            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
-        }
-
-        uint256 markTwapX96 =
-            Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
-        markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = _getIndexPrice(baseToken);
-
-        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
-            int256 twPremiumDeltaX96 =
-                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
-                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
-                );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
-
-            // overflow inspection:
-            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-                    uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
-                )
-            );
-        } else {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
-        }
-
-        return (fundingGrowthGlobal, markTwap, indexTwap);
     }
 
     // --- funding related getters ---
@@ -1482,5 +1325,185 @@ contract ClearingHouse is
 
     function _getQuote(address trader, address baseToken) internal view returns (int256) {
         return AccountBalance(accountBalance).getQuote(trader, baseToken);
+    }
+
+    //
+    // AccountBalance.owedRealizedpnl
+    //
+
+    //
+    // TODO move to acocunt balance
+    // funding related
+    //
+
+    // key: base token
+    mapping(address => uint256) internal _firstTradedTimestampMap;
+    mapping(address => uint256) internal _lastSettledTimestampMap;
+    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
+
+    // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
+    mapping(address => int24) internal _lastUpdatedTickMap;
+
+    event FundingPaymentSettled(
+        address indexed trader,
+        address indexed baseToken,
+        int256 amount // +: trader pays, -: trader receives
+    );
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+
+    function getFirstTradedTimestamp(address baseToken) public view returns (uint256) {
+        return _firstTradedTimestampMap[baseToken];
+    }
+
+    function updateFirstTradedTimestamp(address baseToken) public {
+        _firstTradedTimestampMap[baseToken] = _blockTimestamp();
+    }
+
+    function getLastUpdatedTickMap(address baseToken) public view returns (int24) {
+        return _lastUpdatedTickMap[baseToken];
+    }
+
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
+    /// @dev personal funding payment is settled whenever there is pending funding payment
+    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
+        private
+        returns (Funding.Growth memory fundingGrowthGlobal)
+    {
+        uint256 markTwap;
+        uint256 indexTwap;
+        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
+
+        // pass fundingGrowthGlobal in for states mutation
+        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
+
+        if (fundingPayment != 0) {
+            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
+        }
+
+        // update states before further actions in this block; once per block
+        if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
+            // update fundingGrowthGlobal
+            Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+            (
+                _lastSettledTimestampMap[baseToken],
+                lastFundingGrowthGlobal.twPremiumX96,
+                lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
+            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
+
+            // update tick
+            _lastUpdatedTickMap[baseToken] = Exchange(exchange).getTick(baseToken);
+
+            emit FundingUpdated(baseToken, markTwap, indexTwap);
+        }
+
+        return fundingGrowthGlobal;
+    }
+
+    /// @dev this is the non-view version of _getPendingFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
+    function _updateFundingGrowthAndFundingPayment(
+        address trader,
+        address baseToken,
+        Funding.Growth memory fundingGrowthGlobal
+    ) internal returns (int256 fundingPayment) {
+        int256 liquidityCoefficientInFundingPayment =
+            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+                trader,
+                baseToken,
+                fundingGrowthGlobal
+            );
+
+        return
+            AccountBalance(accountBalance).updateFundingGrowthAngFundingPayment(
+                trader,
+                baseToken,
+                liquidityCoefficientInFundingPayment,
+                fundingGrowthGlobal.twPremiumX96
+            );
+    }
+
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
+    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
+    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
+    function _getFundingGrowthGlobalAndTwaps(address baseToken)
+        internal
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
+    {
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+
+        // get mark twap
+        uint32 twapIntervalArg = _getTwapInterval();
+        // shorten twapInterval if prior observations are not enough for twapInterval
+        if (_firstTradedTimestampMap[baseToken] == 0) {
+            twapIntervalArg = 0;
+        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+        }
+
+        uint256 markTwapX96 =
+            Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        markTwap = markTwapX96.formatX96ToX10_18();
+        indexTwap = _getIndexPrice(baseToken);
+
+        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
+        if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
+            int256 twPremiumDeltaX96 =
+                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
+                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
+                );
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+
+            // overflow inspection:
+            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
+            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
+                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
+                    uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
+                )
+            );
+        } else {
+            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        }
+
+        return (fundingGrowthGlobal, markTwap, indexTwap);
+    }
+
+    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
+    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
+        _requireHasBaseToken(baseToken);
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
+        return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
+    }
+
+    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
+    function _getPendingFundingPayment(
+        address trader,
+        address baseToken,
+        Funding.Growth memory fundingGrowthGlobal
+    ) internal view returns (int256 fundingPayment) {
+        int256 liquidityCoefficientInFundingPayment =
+            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+
+        return
+            AccountBalance(accountBalance).getPendingFundingPayment(
+                trader,
+                baseToken,
+                liquidityCoefficientInFundingPayment,
+                fundingGrowthGlobal.twPremiumX96
+            );
     }
 }
