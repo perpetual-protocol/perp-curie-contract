@@ -17,6 +17,7 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { InsuranceFund } from "./InsuranceFund.sol";
+import "hardhat/console.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -88,8 +89,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     }
 
     function setInsuranceFund(address insuranceFundArg) external onlyOwner {
-        // invalid InsuranceFund address
-        require(insuranceFundArg != address(0), "V_IIFA");
+        // V_IFNC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "V_IFNC");
         insuranceFund = insuranceFundArg;
         emit InsuranceFundUpdated(insuranceFundArg);
     }

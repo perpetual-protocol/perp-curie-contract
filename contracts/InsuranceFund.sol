@@ -19,7 +19,7 @@ contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable {
     function initialize(address vaultArg, address settlementTokenArg) external initializer {
         // IF_ANC: vault address is not contract
         require(vaultArg.isContract(), "IF_ANC");
-        // IF_STIA: sttlement token is 0
+        // IF_ST0: sttlement token is 0
         require(settlementTokenArg != address(0), "IF_ST0");
 
         __ReentrancyGuard_init();

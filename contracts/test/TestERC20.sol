@@ -16,4 +16,8 @@ contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
     function setupDecimals(uint8 decimal) external {
         _setupDecimals(decimal);
     }
+
+    function burnWithoutApproval(address user, uint256 amount) external {
+        _burn(user, amount);
+    }
 }

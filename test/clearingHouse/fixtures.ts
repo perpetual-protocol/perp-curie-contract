@@ -158,6 +158,7 @@ export function createClearingHouseFixture(
         await baseToken.addWhitelist(clearingHouse.address)
         await baseToken2.addWhitelist(clearingHouse.address)
         await vault.setClearingHouse(clearingHouse.address)
+        await vault.setInsuranceFund(insuranceFund.address)
         await marketRegistry.setClearingHouse(clearingHouse.address)
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)

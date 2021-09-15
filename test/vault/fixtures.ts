@@ -2,49 +2,55 @@ import { MockContract, ModifiableContract, smockit, smoddit } from "@eth-optimis
 import { ethers } from "hardhat"
 import { ClearingHouse, ClearingHouseConfig, InsuranceFund, UniswapV3Factory, Vault } from "../../typechain"
 
-interface VaultFixture {
+interface MockedVaultFixture {
     vault: Vault
     USDC: ModifiableContract
     mockedClearingHouse: MockContract
+    mockedInsuranceFund: MockContract
 }
 
-export function createVaultFixture(): () => Promise<VaultFixture> {
-    return async (): Promise<VaultFixture> => {
-        // deploy test tokens
-        const tokenModifiableFactory = await smoddit("TestERC20")
-        const USDC = (await tokenModifiableFactory.deploy()) as ModifiableContract
-        await USDC.initialize("TestUSDC", "USDC")
+interface VaultFixture {
+    vault: Vault
+    USDC: ModifiableContract
+    clearingHouse: ClearingHouse
+    insuranceFund: InsuranceFund
+}
 
-        const vaultFactory = await ethers.getContractFactory("Vault")
-        const vault = (await vaultFactory.deploy()) as Vault
-        await vault.initialize(USDC.address)
+export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
+    // deploy test tokens
+    const tokenModifiableFactory = await smoddit("TestERC20")
+    const USDC = (await tokenModifiableFactory.deploy()) as ModifiableContract
+    await USDC.initialize("TestUSDC", "USDC")
 
-        const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-        const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-        await insuranceFund.initialize(vault.address, USDC.address)
+    const vaultFactory = await ethers.getContractFactory("Vault")
+    const vault = (await vaultFactory.deploy()) as Vault
+    await vault.initialize(USDC.address)
 
-        // deploy clearingHouse
-        const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
-        const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
+    const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+    const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+    const mockedInsuranceFund = await smockit(insuranceFund)
 
-        const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
-        const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
-        await clearingHouseConfig.initialize()
+    // deploy clearingHouse
+    const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
+    const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
-        const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-        const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
-        await clearingHouse.initialize(
-            clearingHouseConfig.address,
-            vault.address,
-            insuranceFund.address,
-            USDC.address,
-            uniV3Factory.address,
-        )
-        const mockedClearingHouse = await smockit(clearingHouse)
+    const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
+    const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+    await clearingHouseConfig.initialize()
 
-        await vault.setInsuranceFund(insuranceFund.address)
-        await vault.setClearingHouse(mockedClearingHouse.address)
+    const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+    await clearingHouse.initialize(
+        clearingHouseConfig.address,
+        vault.address,
+        insuranceFund.address,
+        USDC.address,
+        uniV3Factory.address,
+    )
+    const mockedClearingHouse = await smockit(clearingHouse)
 
-        return { vault, USDC, mockedClearingHouse }
-    }
+    await vault.setInsuranceFund(mockedInsuranceFund.address)
+    await vault.setClearingHouse(mockedClearingHouse.address)
+
+    return { vault, USDC, mockedClearingHouse, mockedInsuranceFund }
 }

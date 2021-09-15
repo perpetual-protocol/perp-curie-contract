@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { Vault } from "../../typechain"
-import { createVaultFixture } from "./fixtures"
+import { mockedVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
@@ -11,17 +11,21 @@ describe("Vault spec", () => {
     let vault: Vault
     let usdc: ModifiableContract
     let clearingHouse: MockContract
+    let insuranceFund: MockContract
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createVaultFixture())
+        const _fixture = await loadFixture(mockedVaultFixture)
         vault = _fixture.vault
         usdc = _fixture.USDC
         clearingHouse = _fixture.mockedClearingHouse
+        insuranceFund = _fixture.mockedInsuranceFund
 
         // mint
         const amount = parseUnits("1000", await usdc.decimals())
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
+
+        await usdc.mint(admin.address, amount)
     })
 
     describe("# initialize", () => {
@@ -34,6 +38,28 @@ describe("Vault spec", () => {
 
     describe("decimals", () => {
         it("equals to settlement token's decimal")
+    })
+
+    describe("set clearingHouse", () => {
+        it("correctly set clearingHouse", async () => {
+            // set to another contract address
+            await vault.setClearingHouse(insuranceFund.address)
+        })
+
+        it("force error, not a contract address", async () => {
+            await expect(vault.setClearingHouse(admin.address)).to.be.revertedWith("V_ANC")
+        })
+    })
+
+    describe("set insurance fund", () => {
+        it("correctly set insurance fund", async () => {
+            // set to another contract address
+            await vault.setInsuranceFund(clearingHouse.address)
+        })
+
+        it("force error, not a contract address", async () => {
+            await expect(vault.setInsuranceFund(admin.address)).to.be.revertedWith("V_IFNC")
+        })
     })
 
     describe("admin only simple setter", () => {
