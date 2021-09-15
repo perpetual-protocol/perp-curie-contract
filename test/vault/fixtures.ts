@@ -1,6 +1,16 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, ClearingHouseConfig, InsuranceFund, TestERC20, UniswapV3Factory, Vault } from "../../typechain"
+import {
+    ClearingHouse,
+    ClearingHouseConfig,
+    Exchange,
+    InsuranceFund,
+    MarketRegistry,
+    OrderBook,
+    TestERC20,
+    UniswapV3Factory,
+    Vault,
+} from "../../typechain"
 
 interface MockedVaultFixture {
     vault: Vault
@@ -35,6 +45,19 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
     const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
+    const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
+    const marketRegistry = (await marketRegistryFactory.deploy()) as MarketRegistry
+    await marketRegistry.initialize(uniV3Factory.address, USDC.address)
+
+    const orderBookFactory = await ethers.getContractFactory("OrderBook")
+    const orderBook = (await orderBookFactory.deploy()) as OrderBook
+    await orderBook.initialize(marketRegistry.address, USDC.address)
+
+    const exchangeFactory = await ethers.getContractFactory("Exchange")
+    const exchange = (await exchangeFactory.deploy()) as Exchange
+    await exchange.initialize(marketRegistry.address, orderBook.address)
+    await orderBook.setExchange(exchange.address)
+
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
     await clearingHouseConfig.initialize()
@@ -47,6 +70,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         insuranceFund.address,
         USDC.address,
         uniV3Factory.address,
+        exchange.address,
     )
     const mockedClearingHouse = await smockit(clearingHouse)
 
