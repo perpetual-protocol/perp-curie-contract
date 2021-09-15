@@ -5,7 +5,7 @@ import { ethers, waffle } from "hardhat"
 import { InsuranceFund, TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
 
-describe.only("Vault spec", () => {
+describe("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
