@@ -47,6 +47,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     uint8 public override decimals;
 
+    uint256 public totalDebt;
+
     address[] internal _collateralTokens;
 
     // key: trader, token address
@@ -137,7 +139,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         if (token == settlementToken) {
             uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
             if (vaultBalance < amount) {
-                InsuranceFund(insuranceFund).borrow(amount - vaultBalance);
+                uint256 borrowAmount = amount - vaultBalance;
+                InsuranceFund(insuranceFund).borrow(borrowAmount);
+                totalDebt += borrowAmount;
             }
         }
 

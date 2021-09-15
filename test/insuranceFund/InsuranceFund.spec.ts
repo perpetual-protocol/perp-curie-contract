@@ -9,7 +9,7 @@ describe("InsuranceFund Spec", () => {
         it("force error, invalid vault address", async () => {
             const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
             const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-            await expect(insuranceFund.initialize(wallet.address)).to.be.revertedWith("IF_ANC")
+            await expect(insuranceFund.initialize(wallet.address, wallet.address)).to.be.revertedWith("IF_ANC")
         })
     })
 

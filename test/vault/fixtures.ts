@@ -1,11 +1,10 @@
 import { MockContract, ModifiableContract, smockit, smoddit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
-import { ClearingHouse, InsuranceFund, UniswapV3Factory, Vault } from "../../typechain"
+import { ClearingHouse, ClearingHouseConfig, InsuranceFund, UniswapV3Factory, Vault } from "../../typechain"
 
 interface VaultFixture {
     vault: Vault
     USDC: ModifiableContract
-    insuranceFund: InsuranceFund
     mockedClearingHouse: MockContract
 }
 
@@ -22,19 +21,30 @@ export function createVaultFixture(): () => Promise<VaultFixture> {
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-        await insuranceFund.initialize(vault.address)
+        await insuranceFund.initialize(vault.address, USDC.address)
 
         // deploy clearingHouse
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
+
+        const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
+        const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
+        await clearingHouseConfig.initialize()
+
         const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
         const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
-        await clearingHouse.initialize(vault.address, insuranceFund.address, USDC.address, uniV3Factory.address)
+        await clearingHouse.initialize(
+            clearingHouseConfig.address,
+            vault.address,
+            insuranceFund.address,
+            USDC.address,
+            uniV3Factory.address,
+        )
         const mockedClearingHouse = await smockit(clearingHouse)
 
         await vault.setInsuranceFund(insuranceFund.address)
         await vault.setClearingHouse(mockedClearingHouse.address)
 
-        return { vault, USDC, insuranceFund, mockedClearingHouse }
+        return { vault, USDC, mockedClearingHouse }
     }
 }

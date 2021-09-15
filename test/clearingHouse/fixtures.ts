@@ -81,7 +81,7 @@ export function createClearingHouseFixture(
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-        await insuranceFund.initialize(vault.address)
+        await insuranceFund.initialize(vault.address, USDC.address)
 
         const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
         const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
@@ -257,7 +257,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     await vault.initialize(USDC.address)
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-    await insuranceFund.initialize(vault.address)
+    await insuranceFund.initialize(vault.address, USDC.address)
 
     const mockedUSDC = await smockit(USDC)
     const mockedQuoteToken = await smockit(token1)
