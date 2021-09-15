@@ -363,11 +363,11 @@ contract ClearingHouse is
 
         if (amount0Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token0();
-            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
+            IERC20Metadata(token).transfer(callbackData.pool, amount0Owed);
         }
         if (amount1Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token1();
-            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
+            IERC20Metadata(token).transfer(callbackData.pool, amount1Owed);
         }
     }
 
@@ -391,7 +391,7 @@ contract ClearingHouse is
                 : (uniswapV3Pool.token1(), uint256(amount1Delta));
 
         // swap
-        TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
+        IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay);
     }
 
     //
