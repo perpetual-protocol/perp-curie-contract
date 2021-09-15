@@ -237,9 +237,6 @@ contract ClearingHouse is
 
     uint32 public twapInterval;
 
-    // trader => owedRealizedPnl
-    mapping(address => int256) internal _owedRealizedPnlMap;
-
     // trader => baseTokens
     // base token registry of each trader
     mapping(address => address[]) internal _baseTokensMap;
@@ -423,7 +420,7 @@ contract ClearingHouse is
         // TODO should burn base fee received instead of adding it to available amount
 
         // collect fee to owedRealizedPnl
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(response.fee.toInt256());
+        addOwedRealizedPnl(trader, response.fee.toInt256());
 
         _addBase(trader, params.baseToken, -(response.base.toInt256()));
         _addQuote(trader, params.baseToken, -(response.quote.toInt256()));
@@ -598,11 +595,12 @@ contract ClearingHouse is
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
             response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(liquidationFee.toInt256());
+
+        addOwedRealizedPnl(trader, -(liquidationFee.toInt256()));
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        _owedRealizedPnlMap[liquidator] = _owedRealizedPnlMap[liquidator].add(liquidationFee.toInt256());
+        addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -650,8 +648,8 @@ contract ClearingHouse is
             }
         }
 
-        int256 pnl = _owedRealizedPnlMap[trader];
-        _owedRealizedPnlMap[trader] = 0;
+        int256 pnl = getOwedRealizedPnl(trader);
+        clearOwedRealizedPnl(trader);
 
         return pnl;
     }
@@ -700,10 +698,6 @@ contract ClearingHouse is
             );
 
         return openNotional;
-    }
-
-    function getOwedRealizedPnl(address trader) external view returns (int256) {
-        return _owedRealizedPnlMap[trader];
     }
 
     /// @dev the decimals of the return value is 18
@@ -778,7 +772,7 @@ contract ClearingHouse is
 
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         // collect fee to owedRealizedPnl
-        _owedRealizedPnlMap[params.maker] = _owedRealizedPnlMap[params.maker].add(params.collectedFee.toInt256());
+        addOwedRealizedPnl(params.maker, params.collectedFee.toInt256());
 
         _addQuote(params.maker, params.baseToken, params.removedQuote.toInt256());
         _addBase(params.maker, params.baseToken, params.removedBase.toInt256());
@@ -934,7 +928,7 @@ contract ClearingHouse is
         }
 
         // TODO refactor with settle()
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(deltaPnl);
+        addOwedRealizedPnl(trader, deltaPnl);
         _addQuote(trader, baseToken, -deltaPnl);
     }
 
@@ -959,9 +953,7 @@ contract ClearingHouse is
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
         _addBase(params.trader, params.baseToken, response.exchangedPositionSize);
         _addQuote(params.trader, params.baseToken, response.exchangedPositionNotional.sub(response.fee.toInt256()));
-        _owedRealizedPnlMap[insuranceFund] = _owedRealizedPnlMap[insuranceFund].add(
-            response.insuranceFundFee.toInt256()
-        );
+        addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
 
         // update timestamp of the first tx in this market
         if (getFirstTradedTimestamp(params.baseToken) == 0) {
@@ -1149,7 +1141,8 @@ contract ClearingHouse is
 
     // return in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = _owedRealizedPnlMap[trader].sub(_getAllPendingFundingPayment(trader));
+        // TODO can be merge into 1 func in accountBalance
+        int256 owedRealizedPnl = getOwedRealizedPnl(trader).sub(_getAllPendingFundingPayment(trader));
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
@@ -1331,6 +1324,21 @@ contract ClearingHouse is
     // AccountBalance.owedRealizedpnl
     //
 
+    // trader => owedRealizedPnl
+    mapping(address => int256) internal _owedRealizedPnlMap;
+
+    function getOwedRealizedPnl(address trader) public view returns (int256) {
+        return _owedRealizedPnlMap[trader];
+    }
+
+    function addOwedRealizedPnl(address trader, int256 delta) public {
+        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
+    }
+
+    function clearOwedRealizedPnl(address trader) public {
+        _owedRealizedPnlMap[trader] = 0;
+    }
+
     //
     // TODO move to acocunt balance
     // funding related
@@ -1380,7 +1388,7 @@ contract ClearingHouse is
         int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         if (fundingPayment != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
+            addOwedRealizedPnl(trader, -fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
