@@ -7,6 +7,7 @@ import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/m
 import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
 
+// can be merge back to account balance
 library AccountMarket {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
