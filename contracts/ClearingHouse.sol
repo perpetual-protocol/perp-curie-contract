@@ -723,7 +723,7 @@ contract ClearingHouse is
 
     /// @dev the decimals of the return value is 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalInitialMarginRequirement(trader);
+        return _getTotalMarginRequirement(trader, ClearingHouseConfig(config).imRatio());
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
@@ -780,8 +780,8 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
 
         // CH_EFC: enough free collateral
-        // only cancel open orders if there are not enough free collateral
-        require(_getFreeCollateral(maker) < 0, "CH_EFC");
+        // only cancel open orders if there are not enough free collateral with mmRatio
+        require(_requiredCollateral(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_EFC");
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
@@ -1316,11 +1316,10 @@ contract ClearingHouse is
     }
 
     // return decimals 18
-    function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
+    function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = _getTotalDebtValue(trader);
         uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
-        uint24 imRatio = ClearingHouseConfig(config).imRatio();
-        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(imRatio);
+        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(ratio);
     }
 
     // return in settlement token decimals
@@ -1414,18 +1413,16 @@ contract ClearingHouse is
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
     // we will start with the conservative one, then gradually change it to more aggressive ones
     // to increase capital efficiency.
-    function _getFreeCollateral(address trader) private view returns (int256) {
+    function _requiredCollateral(address trader, uint24 ratio) private view returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 totalCollateralValue = _getTotalCollateralValue(trader);
         int256 accountValue = totalCollateralValue.addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
-        uint256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(trader);
-        int256 freeCollateral =
+        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
+        return
             PerpMath.min(totalCollateralValue, accountValue).subS(
-                totalInitialMarginRequirement.toInt256(),
+                totalMarginRequirement.toInt256(),
                 _settlementTokenDecimals
             );
-
-        return freeCollateral;
 
         // TODO checklist before enabling more aggressive configs:
         // - protect the system against index price spread attack
@@ -1444,7 +1441,8 @@ contract ClearingHouse is
 
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
-        require(_getFreeCollateral(trader) >= 0, "CH_NEAV");
+        // freeCollateral is calculated with imRatio
+        require(_requiredCollateral(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEAV");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {
