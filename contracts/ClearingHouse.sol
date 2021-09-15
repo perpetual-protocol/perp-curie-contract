@@ -1330,4 +1330,8 @@ contract ClearingHouse is
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return AccountBalance(accountBalance).getOwedRealizedPnl(trader);
     }
+
+    function getPendingFundingPayment(address trader, address baseToken) external view returns (int256) {
+        return AccountBalance(accountBalance).getPendingFundingPayment(trader, baseToken);
+    }
 }
