@@ -7,7 +7,7 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeOwnable } from "./SafeOwnable.sol";
 import { MarketRegistry } from "../MarketRegistry.sol";
 
-abstract contract BaseExchange is SafeOwnable {
+abstract contract ClearingHouseCallee is SafeOwnable {
     using AddressUpgradeable for address;
 
     //
@@ -43,7 +43,7 @@ abstract contract BaseExchange is SafeOwnable {
     //
     // CONSTRUCTOR
     //
-    function __BaseExchange_init(address marketRegistryArg) internal initializer {
+    function __ClearingHouseCallee_init(address marketRegistryArg) internal initializer {
         __SafeOwnable_init();
 
         // MarketRegistry is not contract
