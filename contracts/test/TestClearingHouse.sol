@@ -56,7 +56,7 @@ contract TestClearingHouse is ClearingHouse {
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         _registerBaseToken(_msgSender(), params.baseToken);
-        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(params.baseToken);
+        //        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
             _swapAndCalculateOpenNotional(
@@ -67,7 +67,7 @@ contract TestClearingHouse is ClearingHouse {
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: fundingGrowthGlobal
+                    fundingGrowthGlobal: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
     }

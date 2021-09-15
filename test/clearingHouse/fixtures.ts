@@ -109,7 +109,7 @@ export function createClearingHouseFixture(
 
         const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
         const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
-        await accountBalance.initialize(marketRegistry.address)
+        await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
