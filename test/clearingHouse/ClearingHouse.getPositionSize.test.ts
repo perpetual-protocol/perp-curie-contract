@@ -115,7 +115,6 @@ describe("ClearingHouse.getPositionSize", () => {
             // The swap pushes the mark price to 149.863446 (tick = 50099.75001)
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420499999999"),
             )
 
@@ -167,7 +166,6 @@ describe("ClearingHouse.getPositionSize", () => {
             // which makes the mark price become 149.863446 (tick = 50099.75001)
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420599999999"),
             )
 

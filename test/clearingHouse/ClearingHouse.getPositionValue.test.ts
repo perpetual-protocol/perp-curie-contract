@@ -143,7 +143,6 @@ describe("ClearingHouse.getPositionValue", () => {
             })
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420499999999"),
             )
             // 149.852206 * 0.408410420499999999 = 61.2012024653
@@ -219,7 +218,6 @@ describe("ClearingHouse.getPositionValue", () => {
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420599999999"),
             )
             // 150.092150 * 0.408410420599999999 = 61.2991981103

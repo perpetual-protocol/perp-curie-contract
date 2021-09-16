@@ -429,18 +429,15 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // update token info
-        // TODO should burn base fee received instead of adding it to available amount
-
-        // collect fee to owedRealizedPnl
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(response.fee.toInt256());
-
+        // update balances
         _accountMarketMap[trader][params.baseToken].baseBalance = _accountMarketMap[trader][params.baseToken]
             .baseBalance
             .add(-(response.base.toInt256()));
         _accountMarketMap[trader][params.baseToken].quoteBalance = _accountMarketMap[trader][params.baseToken]
             .quoteBalance
             .add(-(response.quote.toInt256()));
+        // collect fee to owedRealizedPnl
+        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(response.fee.toInt256());
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -641,7 +638,7 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    /// @dev settle() would be called by Vault.withdraw()
+    /// @dev this function is now only called by Vault.withdraw()
     function settle(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == vault, "CH_OV");
@@ -816,9 +813,8 @@ contract ClearingHouse is
         _deregisterBaseToken(params.maker, params.baseToken);
     }
 
-    // expensive
+    /// @dev this function is expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
-        // TODO add test: open long, add pool, now tokenInfo is cleared,
         if (
             _accountMarketMap[trader][baseToken].baseBalance.abs() >= _DUST ||
             _accountMarketMap[trader][baseToken].quoteBalance.abs() >= _DUST
@@ -837,7 +833,8 @@ contract ClearingHouse is
         uint256 length = _baseTokensMap[trader].length;
         for (uint256 i; i < length; i++) {
             if (_baseTokensMap[trader][i] == baseToken) {
-                // if the removal item is the last one, just `pop`
+                // if the item to be removed is the last one, pop it directly
+                // else, replace it with the last one and pop the last one
                 if (i != length - 1) {
                     _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
                 }
@@ -956,7 +953,7 @@ contract ClearingHouse is
         return response;
     }
 
-    // caller must ensure there's enough quote available and debt
+    /// @dev caller of this function must ensure there's enough available and debt of quote
     function _realizePnl(
         address trader,
         address baseToken,

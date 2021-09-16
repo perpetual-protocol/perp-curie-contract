@@ -106,9 +106,6 @@ describe("ClearingHouse funding", () => {
             //   quote.available = 15.1128025359
             //   quote.debt = 0
             // mark price should be 153.9623330511 (tick ~= 50369)
-
-            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-            // check why is that the case
         })
 
         it("no funding payment when it's still the same block as swapping", async () => {
