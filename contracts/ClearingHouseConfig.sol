@@ -57,6 +57,9 @@ contract ClearingHouseConfig is SafeOwnable {
     }
 
     function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+        // CHC_IPCR: invalid partialCloseRatio
+        require(partialCloseRatioArg > 0, "CHC_IPCR");
+
         partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
