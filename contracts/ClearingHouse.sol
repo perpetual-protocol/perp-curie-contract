@@ -643,12 +643,6 @@ contract ClearingHouse is
             );
     }
 
-    // TODO remove?
-    /// @dev a negative returned value is only be used when calculating pnl
-    function getPositionValue(address trader, address baseToken) external view returns (int256) {
-        return AccountBalance(accountBalance).getPositionValue(trader, baseToken);
-    }
-
     /// @dev the amount of quote token paid for a position when opening
     function getOpenNotional(address trader, address baseToken) public view returns (int256) {
         // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]

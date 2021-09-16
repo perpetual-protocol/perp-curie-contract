@@ -378,6 +378,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
+    /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
     function getPositionValue(address trader, address baseToken) public view returns (int256) {
         int256 positionSize = getPositionSize(trader, baseToken);
