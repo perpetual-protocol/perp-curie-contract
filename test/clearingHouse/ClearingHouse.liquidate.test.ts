@@ -534,7 +534,7 @@ describe("ClearingHouse liquidate", () => {
             // const getTotalUnrealizedPnl = await clearingHouse.getTotalUnrealizedPnl(alice.address)
             // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
-            // const netQuoteBalance = await clearingHouse.getNetQuoteBalance(alice.address)
+            // const netQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
             // console.log(`netQuoteBalance=${formatEther(netQuoteBalance.toString())}`)
             // {
             //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)

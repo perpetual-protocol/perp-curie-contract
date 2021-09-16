@@ -531,7 +531,7 @@ describe("ClearingHouse openPosition", () => {
 
             // pos size: 0.01961501593
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
-            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
+            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
             expect(await getMakerFee()).be.closeTo(parseEther("0.03"), 1)
@@ -569,7 +569,7 @@ describe("ClearingHouse openPosition", () => {
 
             // pos size: 0.006538933220746361
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
-            expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
+            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
         })
 
         it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {

@@ -1074,10 +1074,6 @@ contract ClearingHouse is
 
     // TODO the followinwg are just for unfixed tests
 
-    function getNetQuoteBalance(address trader) public view returns (int256) {
-        return AccountBalance(accountBalance).getNetQuoteBalance(trader);
-    }
-
     function getTotalUnrealizedPnl(address trader) external view returns (int256) {
         return AccountBalance(accountBalance).getTotalUnrealizedPnl(trader);
     }
