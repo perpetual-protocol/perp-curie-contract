@@ -13,6 +13,7 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -26,6 +27,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
@@ -42,6 +44,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund

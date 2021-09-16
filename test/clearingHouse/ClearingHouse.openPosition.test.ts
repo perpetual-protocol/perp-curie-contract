@@ -14,6 +14,7 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -27,6 +28,7 @@ describe("ClearingHouse openPosition", () => {
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -43,6 +45,7 @@ describe("ClearingHouse openPosition", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        accountBalance = _clearingHouseFixture.accountBalance
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange

@@ -14,6 +14,7 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
@@ -29,6 +30,7 @@ describe("ClearingHouse liquidate", () => {
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -68,6 +70,7 @@ describe("ClearingHouse liquidate", () => {
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -531,7 +534,7 @@ describe("ClearingHouse liquidate", () => {
             // )
             // accountValue = collateral + totalMarketPnl
             // totalMarketPnl = netQuoteBalance + totalPosValue
-            // const getTotalUnrealizedPnl = await clearingHouse.getTotalUnrealizedPnl(alice.address)
+            // const getTotalUnrealizedPnl = await accountBalance.getTotalUnrealizedPnl(alice.address)
             // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
             // const netQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
