@@ -108,7 +108,7 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("realizedPnl remains", async () => {
-            const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+            const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
             expect(pnl).eq(0)
         })
 
@@ -143,7 +143,7 @@ describe("ClearingHouse.swap", () => {
             })
 
             it("realizedPnl++", async () => {
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl.gt(0)).be.true
             })
         })
@@ -219,7 +219,7 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("realizedPnl remains", async () => {
-            const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+            const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
             expect(pnl).eq(0)
         })
 
@@ -257,7 +257,7 @@ describe("ClearingHouse.swap", () => {
 
             // problem: it might increase the realized pnl when reducing position
             it("realizedPnl--", async () => {
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl.lt(0)).be.true
             })
         })
@@ -281,7 +281,7 @@ describe("ClearingHouse.swap", () => {
                 // 2nd 38.3990039298 ETH -> 400 USD
                 // closedNotional = 400/(38.3990039298/19.839679358717434869) = 206.6686875002
                 // pnl = 206.6686875002 - 250 = -43.3313124998
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl).eq(parseEther("-43.331312499999999962"))
             })
 

@@ -605,7 +605,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // 2 - 1.9602000000002648364741 = 0.0398000015
-                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
                 expect(pnl).eq(parseEther("-0.039800000000000043")) // fee loss
             }
 
@@ -674,7 +674,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 2.3328803158 - 2 = 0.3328803158
-                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
                 expect(pnl).deep.eq(parseEther("0.332880320006927809"))
             }
 
@@ -740,7 +740,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 1.6133545031 -2 = -0.3866454969
-                const pnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
                 expect(pnl).deep.eq(parseEther("-0.386645498819609266"))
             }
 
@@ -772,7 +772,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
 
             // realizedPnl = -0.04126249485
-            expect(await clearingHouse.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
+            expect(await accountBalance.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
         })
 
         // TODO: blocked by TWAP based _getDebtValue
@@ -849,7 +849,7 @@ describe("ClearingHouse openPosition", () => {
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
             const openNotional = await clearingHouse.getOpenNotional(taker.address, baseToken.address)
-            const realizedPnl = await clearingHouse.getOwedRealizedPnl(taker.address)
+            const realizedPnl = await accountBalance.getOwedRealizedPnl(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
             expect(openNotional).to.eq(parseEther("-8").sub(realizedPnl))
         })

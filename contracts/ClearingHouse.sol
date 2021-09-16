@@ -987,6 +987,7 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
+    // TODO remove
     // return decimals 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
@@ -1072,10 +1073,6 @@ contract ClearingHouse is
     }
 
     // TODO the followinwg are just for unfixed tests
-    // TODO move vault'starget to accountBALANCE
-    function getOwedRealizedPnl(address trader) external view returns (int256) {
-        return AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-    }
 
     // TODO remove after fixing test
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256) {
