@@ -360,11 +360,11 @@ contract ClearingHouse is
 
         if (amount0Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token0();
-            TransferHelper.safeTransfer(token, callbackData.pool, amount0Owed);
+            IERC20Metadata(token).transfer(callbackData.pool, amount0Owed);
         }
         if (amount1Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token1();
-            TransferHelper.safeTransfer(token, callbackData.pool, amount1Owed);
+            IERC20Metadata(token).transfer(callbackData.pool, amount1Owed);
         }
     }
 
@@ -388,7 +388,7 @@ contract ClearingHouse is
                 : (uniswapV3Pool.token1(), uint256(amount1Delta));
 
         // swap
-        TransferHelper.safeTransfer(token, address(callbackData.pool), amountToPay);
+        IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay);
     }
 
     //
@@ -654,10 +654,13 @@ contract ClearingHouse is
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
-    // return in settlement token decimals
+    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
-        int256 totalUnrealizedPnl = AccountBalance(accountBalance).getTotalUnrealizedPnl(trader);
-        return _getTotalCollateralValue(trader).addS(totalUnrealizedPnl, _settlementTokenDecimals);
+        return
+            _getTotalCollateralValue(trader).addS(
+                AccountBalance(accountBalance).getTotalUnrealizedPnl(trader),
+                _settlementTokenDecimals
+            );
     }
 
     // TODO remove?
@@ -681,7 +684,7 @@ contract ClearingHouse is
 
     /// @dev the decimals of the return value is 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalInitialMarginRequirement(trader);
+        return _getTotalMarginRequirement(trader, ClearingHouseConfig(config).imRatio());
     }
 
     //
@@ -696,8 +699,8 @@ contract ClearingHouse is
         _requireHasBaseToken(baseToken);
 
         // CH_EFC: enough free collateral
-        // only cancel open orders if there are not enough free collateral
-        require(_getFreeCollateral(maker) < 0, "CH_EFC");
+        // only cancel open orders if there are not enough free collateral with mmRatio
+        require(_requiredCollateral(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_EFC");
 
         // must settle funding before getting token info
         AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
@@ -955,9 +958,8 @@ contract ClearingHouse is
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
         if (
-            partialCloseRatio > 0 &&
-            (_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
-                _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams)))
+            _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
+            _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
@@ -1011,11 +1013,11 @@ contract ClearingHouse is
     // -------------------------------
 
     // return decimals 18
-    function _getTotalInitialMarginRequirement(address trader) internal view returns (uint256) {
+    function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
         uint256 totalPositionValue = AccountBalance(accountBalance).getTotalAbsPositionValue(trader);
         uint24 imRatio = ClearingHouseConfig(config).imRatio();
-        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(imRatio);
+        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(ratio);
     }
 
     // return in settlement token decimals
@@ -1058,19 +1060,17 @@ contract ClearingHouse is
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
     // we will start with the conservative one, then gradually change it to more aggressive ones
     // to increase capital efficiency.
-    function _getFreeCollateral(address trader) private view returns (int256) {
+    function _requiredCollateral(address trader, uint24 ratio) private view returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 totalCollateralValue = _getTotalCollateralValue(trader);
         int256 totalUnrealizedPnl = AccountBalance(accountBalance).getTotalUnrealizedPnl(trader);
         int256 accountValue = totalCollateralValue.addS(totalUnrealizedPnl, _settlementTokenDecimals);
-        uint256 totalInitialMarginRequirement = _getTotalInitialMarginRequirement(trader);
-        int256 freeCollateral =
+        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
+        return
             PerpMath.min(totalCollateralValue, accountValue).subS(
-                totalInitialMarginRequirement.toInt256(),
+                totalMarginRequirement.toInt256(),
                 _settlementTokenDecimals
             );
-
-        return freeCollateral;
 
         // TODO checklist before enabling more aggressive configs:
         // - protect the system against index price spread attack
@@ -1089,7 +1089,8 @@ contract ClearingHouse is
 
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEAV: not enough account value
-        require(_getFreeCollateral(trader) >= 0, "CH_NEAV");
+        // freeCollateral is calculated with imRatio
+        require(_requiredCollateral(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEAV");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {
