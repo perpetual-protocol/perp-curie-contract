@@ -61,22 +61,27 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         orderBook = orderBookArg;
     }
 
-    function addBase(
+    function addBalance(
         address trader,
         address baseToken,
-        int256 delta
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
     ) external onlyClearingHouse {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.baseBalance = accountInfo.baseBalance.add(delta);
+        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
+        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
+        addOwedRealizedPnl(trader, owedRealizedPnl);
     }
 
-    function addQuote(
+    function settleQuoteToPnl(
         address trader,
         address baseToken,
-        int256 delta
+        int256 amount
     ) external onlyClearingHouse {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.quoteBalance = accountInfo.quoteBalance.add(delta);
+        accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
+        addOwedRealizedPnl(trader, amount);
     }
 
     function _updateFundingGrowthAngFundingPayment(
@@ -118,7 +123,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     //
-    // TODO move to acocunt balance
     // funding related
     //
 

@@ -431,10 +431,14 @@ contract ClearingHouse is
         // TODO should burn base fee received instead of adding it to available amount
 
         // collect fee to owedRealizedPnl
-        AccountBalance(accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
 
-        _addBase(trader, params.baseToken, -(response.base.toInt256()));
-        _addQuote(trader, params.baseToken, -(response.quote.toInt256()));
+        AccountBalance(accountBalance).addBalance(
+            trader,
+            params.baseToken,
+            -(response.base.toInt256()),
+            -(response.quote.toInt256()),
+            response.fee.toInt256()
+        );
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -669,7 +673,7 @@ contract ClearingHouse is
 
         int256 openNotional =
             OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                _getQuote(trader, baseToken)
+                AccountBalance(accountBalance).getQuote(trader, baseToken)
             );
 
         return openNotional;
@@ -712,11 +716,13 @@ contract ClearingHouse is
 
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         // collect fee to owedRealizedPnl
-        AccountBalance(accountBalance).addOwedRealizedPnl(params.maker, params.collectedFee.toInt256());
-
-        _addQuote(params.maker, params.baseToken, params.removedQuote.toInt256());
-        _addBase(params.maker, params.baseToken, params.removedBase.toInt256());
-
+        AccountBalance(accountBalance).addBalance(
+            params.maker,
+            params.baseToken,
+            params.removedBase.toInt256(),
+            params.removedQuote.toInt256(),
+            params.collectedFee.toInt256()
+        );
         AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
     }
 
@@ -815,8 +821,7 @@ contract ClearingHouse is
         }
 
         // TODO refactor with settle()
-        AccountBalance(accountBalance).addOwedRealizedPnl(trader, deltaPnl);
-        _addQuote(trader, baseToken, -deltaPnl);
+        AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
     }
 
     // check here for custom fee design,
@@ -838,8 +843,13 @@ contract ClearingHouse is
         // update internal states
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        _addBase(params.trader, params.baseToken, response.exchangedPositionSize);
-        _addQuote(params.trader, params.baseToken, response.exchangedPositionNotional.sub(response.fee.toInt256()));
+        AccountBalance(accountBalance).addBalance(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional.sub(response.fee.toInt256()),
+            0
+        );
         AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
 
         // update timestamp of the first tx in this market
@@ -1111,33 +1121,6 @@ contract ClearingHouse is
         }
     }
 
-    //
-    // TODO: remove after changing to accountBalance
-    //
-    function _addBase(
-        address trader,
-        address baseToken,
-        int256 delta
-    ) internal {
-        AccountBalance(accountBalance).addBase(trader, baseToken, delta);
-    }
-
-    function _addQuote(
-        address trader,
-        address baseToken,
-        int256 delta
-    ) internal {
-        AccountBalance(accountBalance).addQuote(trader, baseToken, delta);
-    }
-
-    function _getBase(address trader, address baseToken) internal view returns (int256) {
-        return AccountBalance(accountBalance).getBase(trader, baseToken);
-    }
-
-    function _getQuote(address trader, address baseToken) internal view returns (int256) {
-        return AccountBalance(accountBalance).getQuote(trader, baseToken);
-    }
-
     // TODO move vault'starget to accountBALANCE
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return AccountBalance(accountBalance).getOwedRealizedPnl(trader);
@@ -1155,6 +1138,7 @@ contract ClearingHouse is
         return AccountBalance(accountBalance).settle(trader);
     }
 
+    // for test
     function getPositionSize(address trader, address baseToken) external view returns (int256) {
         return AccountBalance(accountBalance).getPositionSize(trader, baseToken);
     }
