@@ -48,7 +48,7 @@ contract MarketRegistry is SafeOwnable {
     event ClearingHouseChanged(address indexed clearingHouse);
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
     event InsuranceFundFeeRatioChanged(uint24 feeRatio);
-    event MaxOrdersPerMarketChanged(uint24 feeRatio);
+    event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
 
     //
     // CONSTRUCTOR
