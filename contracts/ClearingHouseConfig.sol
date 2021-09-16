@@ -39,7 +39,7 @@ contract ClearingHouseConfig is SafeOwnable {
     // MODIFIER
     //
     modifier checkRatio(uint24 ratio) {
-        // CH_RL1: ratio overflow
+        // CHC_RO: ratio overflow
         require(ratio <= 1e6, "CHC_RO");
         _;
     }
