@@ -118,7 +118,6 @@ export function createClearingHouseFixture(
             accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
         }
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
-        await orderBook.setAccountBalance(accountBalance.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)

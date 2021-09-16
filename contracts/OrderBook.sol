@@ -158,7 +158,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     //
     address public quoteToken;
     address public exchange;
-    address public accountBalance;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
@@ -173,15 +172,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     // key: base token
     // value: the global accumulator of **quote fee transformed from base fee** of each pool
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
-
-    //
-    // MODIFIER
-    //
-    modifier onlyAccountBalance() {
-        // only AccountBalance
-        require(_msgSender() == accountBalance, "CHD_OAB");
-        _;
-    }
 
     //
     // CONSTRUCTOR
@@ -203,12 +193,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
         exchange = exchangeArg;
-    }
-
-    function setAccountBalance(address accountBalanceArg) external onlyOwner {
-        // accountBalance is 0
-        require(accountBalanceArg.isContract(), "OB_ABNC");
-        accountBalance = accountBalanceArg;
     }
 
     //
@@ -349,7 +333,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
-    ) external onlyAccountBalance returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = MarketRegistry(marketRegistry).getPool(baseToken);

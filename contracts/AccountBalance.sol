@@ -17,6 +17,7 @@ import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { IAccountBalanceCallback } from "./interface/IAccountBalanceCallback.sol";
 
 contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     using AddressUpgradeable for address;
@@ -163,7 +164,20 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         // pass fundingGrowthGlobal in for states mutation
-        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
+        int256 liquidityCoefficientInFundingPayment =
+            IAccountBalanceCallback(_msgSender()).accountBalanceSettleFundingCallback(
+                trader,
+                baseToken,
+                fundingGrowthGlobal
+            );
+
+        int256 fundingPayment =
+            _updateFundingGrowthAngFundingPayment(
+                trader,
+                baseToken,
+                liquidityCoefficientInFundingPayment,
+                fundingGrowthGlobal.twPremiumX96
+            );
 
         if (fundingPayment != 0) {
             addOwedRealizedPnl(trader, -fundingPayment);
@@ -187,29 +201,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         }
 
         return fundingGrowthGlobal;
-    }
-
-    /// @dev this is the non-view version of _getPendingFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _updateFundingGrowthAndFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-                trader,
-                baseToken,
-                fundingGrowthGlobal
-            );
-
-        return
-            _updateFundingGrowthAngFundingPayment(
-                trader,
-                baseToken,
-                liquidityCoefficientInFundingPayment,
-                fundingGrowthGlobal.twPremiumX96
-            );
     }
 
     // TODO change to internal after updating swap test
