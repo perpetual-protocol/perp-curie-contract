@@ -31,12 +31,10 @@ import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 import { AccountBalance } from "./AccountBalance.sol";
-import { IAccountBalanceCallback } from "./interface/IAccountBalanceCallback.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
-    IAccountBalanceCallback,
     ReentrancyGuardUpgradeable,
     Validation,
     OwnerPausable,
@@ -324,22 +322,6 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(trustedForwarderArg.isContract(), "CH_ANC");
         _setTrustedForwarder(trustedForwarderArg);
-    }
-
-    /// @inheritdoc IAccountBalanceCallback
-    function accountBalanceSettleFundingCallback(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) external override returns (int256 liquidityCoefficientInFundingPayment) {
-        // caller not AccountBalance
-        require(_msgSender() == accountBalance, "CH_CNAB");
-        return
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-                trader,
-                baseToken,
-                fundingGrowthGlobal
-            );
     }
 
     //

@@ -17,7 +17,6 @@ import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { IAccountBalanceCallback } from "./interface/IAccountBalanceCallback.sol";
 
 contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     using AddressUpgradeable for address;
@@ -170,13 +169,20 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         onlyClearingHouse
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
+        return _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+    }
+
+    function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
+        internal
+        returns (Funding.Growth memory fundingGrowthGlobal)
+    {
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         // pass fundingGrowthGlobal in for states mutation
         int256 liquidityCoefficientInFundingPayment =
-            IAccountBalanceCallback(_msgSender()).accountBalanceSettleFundingCallback(
+            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 fundingGrowthGlobal
@@ -314,7 +320,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     /// @dev settle() would be called by Vault.withdraw()
-    /// @dev settle() would be called by Vault.withdraw()
     function settle(address trader) external returns (int256) {
         // only vault
         require(_msgSender() == vault, "AB_OV");
@@ -332,7 +337,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            settleFundingAndUpdateFundingGrowth(trader, baseToken);
+            _settleFundingAndUpdateFundingGrowth(trader, baseToken);
         }
 
         int256 pnl = getOwedRealizedPnl(trader);
