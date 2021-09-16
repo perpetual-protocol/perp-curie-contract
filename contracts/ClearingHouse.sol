@@ -1109,9 +1109,8 @@ contract ClearingHouse is
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
         if (
-            partialCloseRatio > 0 &&
-            (_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
-                _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams)))
+            _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
+            _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
