@@ -25,7 +25,7 @@ describe("Vault spec", () => {
         it("force error, invalid clearingHouse address", async () => {
             const vaultFactory = await ethers.getContractFactory("Vault")
             const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(alice.address)).to.be.revertedWith("V_ANC")
+            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith("V_ANC")
         })
     })
 
@@ -39,9 +39,6 @@ describe("Vault spec", () => {
         it("setLiquidationIncentive")
         it("setLiquidationOrder")
         it("force error by non-admin")
-        it("force error, invalid ClearingHouse address", async () => {
-            await expect(vault.setClearingHouse(alice.address)).to.be.revertedWith("V_ANC")
-        })
 
         it("force error, invalid TrustedForwarder address", async () => {
             await expect(vault.setTrustedForwarder(alice.address)).to.be.revertedWith("V_ANC")

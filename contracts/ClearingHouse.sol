@@ -24,7 +24,6 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { Exchange } from "./Exchange.sol";
@@ -37,7 +36,6 @@ import { IAccountBalanceCallback } from "./interface/IAccountBalanceCallback.sol
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
-    ISettlement,
     IAccountBalanceCallback,
     ReentrancyGuardUpgradeable,
     Validation,
@@ -682,11 +680,6 @@ contract ClearingHouse is
         return openNotional;
     }
 
-    /// @dev the decimals of the return value is 18
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalMarginRequirement(trader, ClearingHouseConfig(config).imRatio());
-    }
-
     //
     // INTERNAL FUNCTIONS
     //
@@ -1057,34 +1050,8 @@ contract ClearingHouse is
         require(_hasPool(baseToken), "CH_BTNE");
     }
 
-    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    // we will start with the conservative one, then gradually change it to more aggressive ones
-    // to increase capital efficiency.
     function _requiredCollateral(address trader, uint24 ratio) private view returns (int256) {
-        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-        int256 totalCollateralValue = _getTotalCollateralValue(trader);
-        int256 totalUnrealizedPnl = AccountBalance(accountBalance).getTotalUnrealizedPnl(trader);
-        int256 accountValue = totalCollateralValue.addS(totalUnrealizedPnl, _settlementTokenDecimals);
-        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
-        return
-            PerpMath.min(totalCollateralValue, accountValue).subS(
-                totalMarginRequirement.toInt256(),
-                _settlementTokenDecimals
-            );
-
-        // TODO checklist before enabling more aggressive configs:
-        // - protect the system against index price spread attack
-        //   https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
-        // - protect against index price anomaly (see the TODO for aggressive model below)
-
-        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
-        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
-
-        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
-        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
-        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
-        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
-        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+        return IVault(vault).getRequiredCollateral(trader, ratio);
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
@@ -1122,6 +1089,7 @@ contract ClearingHouse is
         }
     }
 
+    // TODO the followinwg are just for unfixed tests
     // TODO move vault'starget to accountBALANCE
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return AccountBalance(accountBalance).getOwedRealizedPnl(trader);
@@ -1130,13 +1098,6 @@ contract ClearingHouse is
     // TODO remove after fixing test
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256) {
         return AccountBalance(accountBalance).getPendingFundingPayment(trader, baseToken);
-    }
-
-    /// @dev settle() would be called by Vault.withdraw()
-    function settle(address trader) external override returns (int256) {
-        // only vault
-        require(_msgSender() == vault, "CH_OV");
-        return AccountBalance(accountBalance).settle(trader);
     }
 
     // for test

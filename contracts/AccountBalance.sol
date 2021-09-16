@@ -33,6 +33,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     address public config;
     address public exchange;
     address public orderBook;
+    address public vault;
 
     // 10 wei
     uint256 internal constant _DUST = 10;
@@ -59,6 +60,12 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         config = configArg;
         exchange = exchangeArg;
         orderBook = orderBookArg;
+    }
+
+    function setVault(address vaultArg) external onlyOwner {
+        // vault address is not contract
+        require(vaultArg.isContract(), "CH_VNC");
+        vault = vaultArg;
     }
 
     function addBalance(
@@ -307,7 +314,11 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     /// @dev settle() would be called by Vault.withdraw()
-    function settle(address trader) external onlyClearingHouse returns (int256) {
+    /// @dev settle() would be called by Vault.withdraw()
+    function settle(address trader) external returns (int256) {
+        // only vault
+        require(_msgSender() == vault, "AB_OV");
+
         // the full process of a trader's withdrawal:
         // for loop of each order:
         //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)

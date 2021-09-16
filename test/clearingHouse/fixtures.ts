@@ -78,14 +78,6 @@ export function createClearingHouseFixture(
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
 
-        const vaultFactory = await ethers.getContractFactory("Vault")
-        const vault = (await vaultFactory.deploy()) as Vault
-        await vault.initialize(USDC.address)
-
-        const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-        const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-        await insuranceFund.initialize(vault.address)
-
         const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
         const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
         await clearingHouseConfig.initialize()
@@ -118,6 +110,15 @@ export function createClearingHouseFixture(
             accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
         }
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
+
+        const vaultFactory = await ethers.getContractFactory("Vault")
+        const vault = (await vaultFactory.deploy()) as Vault
+        await vault.initialize(USDC.address, clearingHouseConfig.address, accountBalance.address)
+        await accountBalance.setVault(vault.address)
+
+        const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
+        const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
+        await insuranceFund.initialize(vault.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
@@ -172,7 +173,6 @@ export function createClearingHouseFixture(
         await quoteToken.addWhitelist(clearingHouse.address)
         await baseToken.addWhitelist(clearingHouse.address)
         await baseToken2.addWhitelist(clearingHouse.address)
-        await vault.setClearingHouse(clearingHouse.address)
         await marketRegistry.setClearingHouse(clearingHouse.address)
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)
@@ -272,7 +272,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     await USDC.initialize("TestUSDC", "USDC")
     const vaultFactory = await ethers.getContractFactory("Vault")
     const vault = (await vaultFactory.deploy()) as Vault
-    await vault.initialize(USDC.address)
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     await insuranceFund.initialize(vault.address)
