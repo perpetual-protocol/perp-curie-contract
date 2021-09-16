@@ -235,10 +235,6 @@ contract ClearingHouse is
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     uint8 internal _settlementTokenDecimals;
 
-    // trader => baseTokens
-    // base token registry of each trader
-    mapping(address => address[]) internal _baseTokensMap;
-
     // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
@@ -580,7 +576,7 @@ contract ClearingHouse is
         );
 
         // CH_NEO: not empty order
-        require(!OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]), "CH_NEO");
+        require(!hasOrder(trader));
 
         Funding.Growth memory fundingGrowthGlobal =
             AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
@@ -627,35 +623,6 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    /// @dev settle() would be called by Vault.withdraw()
-    function settle(address trader) external override returns (int256) {
-        // only vault
-        require(_msgSender() == vault, "CH_OV");
-
-        // the full process of a trader's withdrawal:
-        // for loop of each order:
-        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
-        //         settle funding payment to owedRealizedPnl
-        //         collect fee to owedRealizedPnl
-        // call Vault.withdraw(token, amount)
-        //     settle pnl to trader balance in Vault
-        //     transfer amount to trader
-
-        // make sure funding payments are always settled,
-        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
-            }
-        }
-
-        int256 pnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-        AccountBalance(accountBalance).clearOwedRealizedPnl(trader);
-
-        return pnl;
-    }
-
     //
     // EXTERNAL VIEW FUNCTIONS
     //
@@ -666,22 +633,6 @@ contract ClearingHouse is
     // return in settlement token decimals
     function getAccountValue(address account) public view returns (int256) {
         return _getTotalCollateralValue(account).addS(getTotalUnrealizedPnl(account), _settlementTokenDecimals);
-    }
-
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
-        // for instance, maker adds liquidity with 2 base (2000000000000000000),
-        // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize =
-            OrderBook(orderBook)
-                .getTotalTokenAmountInPool(
-                trader,
-                baseToken,
-                true // get base token amount
-            )
-                .toInt256()
-                .add(_getBase(trader, baseToken));
-        return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
     /// @dev a negative returned value is only be used when calculating pnl
@@ -705,41 +656,6 @@ contract ClearingHouse is
     /// @dev the decimals of the return value is 18
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
         return _getTotalInitialMarginRequirement(trader);
-    }
-
-    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
-    function getNetQuoteBalance(address trader) public view returns (int256) {
-        uint256 tokenLen = _baseTokensMap[trader].length;
-        int256 totalQuoteBalance;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                totalQuoteBalance = totalQuoteBalance.add(_getQuote(trader, baseToken));
-            }
-        }
-
-        // owedFee is included
-        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
-        int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
-
-        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
-    }
-
-    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
-    function getAllPendingFundingPayment(address trader) external view returns (int256) {
-        return _getAllPendingFundingPayment(trader);
-    }
-
-    function getTotalUnrealizedPnl(address trader) public view returns (int256) {
-        int256 totalPositionValue;
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                totalPositionValue = totalPositionValue.add(_getPositionValue(trader, baseToken));
-            }
-        }
-
-        return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
     //
@@ -780,59 +696,6 @@ contract ClearingHouse is
         _addBase(params.maker, params.baseToken, params.removedBase.toInt256());
 
         _deregisterBaseToken(params.maker, params.baseToken);
-    }
-
-    // expensive
-    function _deregisterBaseToken(address trader, address baseToken) internal {
-        // TODO add test: open long, add pool, now tokenInfo is cleared,
-        if (_getBase(trader, baseToken).abs() >= _DUST || _getQuote(trader, quoteToken).abs() >= _DUST) {
-            return;
-        }
-
-        uint256 baseInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
-        uint256 quoteInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        if (baseInPool > 0 || quoteInPool > 0) {
-            return;
-        }
-
-        AccountBalance(accountBalance).clearBalance(trader, baseToken);
-
-        uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i; i < length; i++) {
-            if (_baseTokensMap[trader][i] == baseToken) {
-                // if the removal item is the last one, just `pop`
-                if (i != length - 1) {
-                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
-                }
-                _baseTokensMap[trader].pop();
-                break;
-            }
-        }
-    }
-
-    function _registerBaseToken(address trader, address baseToken) internal {
-        address[] memory tokens = _baseTokensMap[trader];
-        if (tokens.length == 0) {
-            _baseTokensMap[trader].push(baseToken);
-            return;
-        }
-
-        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (_getBase(trader, baseToken) == 0) {
-            bool hit;
-            for (uint256 i = 0; i < tokens.length; i++) {
-                if (tokens[i] == baseToken) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (!hit) {
-                // CH_MNE: markets number exceeded
-                uint8 maxMarketsPerAccount = ClearingHouseConfig(config).maxMarketsPerAccount();
-                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
-                _baseTokensMap[trader].push(baseToken);
-            }
-        }
     }
 
     // TODO refactor
@@ -1152,17 +1015,6 @@ contract ClearingHouse is
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
     }
 
-    /// @dev we use 15 mins twap to calc position value
-    function _getPositionValue(address trader, address baseToken) internal view returns (int256) {
-        int256 positionSize = getPositionSize(trader, baseToken);
-        if (positionSize == 0) return 0;
-
-        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
-
-        // both positionSize & indexTwap are in 10^18 already
-        return positionSize.mul(indexTwap.toInt256()).divBy10_18();
-    }
-
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
     function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
         address[] memory tokens = _baseTokensMap[trader];
@@ -1333,5 +1185,161 @@ contract ClearingHouse is
 
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256) {
         return AccountBalance(accountBalance).getPendingFundingPayment(trader, baseToken);
+    }
+
+    //
+    // basetokensMap
+    //
+
+    // trader => baseTokens
+    // base token registry of each trader
+    mapping(address => address[]) internal _baseTokensMap;
+
+    function hasOrder(address trader) external view returns (bool) {
+        return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
+    }
+
+    /// @dev settle() would be called by Vault.withdraw()
+    function settle(address trader) external override returns (int256) {
+        // only vault
+        require(_msgSender() == vault, "CH_OV");
+
+        // the full process of a trader's withdrawal:
+        // for loop of each order:
+        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
+        //         settle funding payment to owedRealizedPnl
+        //         collect fee to owedRealizedPnl
+        // call Vault.withdraw(token, amount)
+        //     settle pnl to trader balance in Vault
+        //     transfer amount to trader
+
+        // make sure funding payments are always settled,
+        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
+        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
+            address baseToken = _baseTokensMap[trader][i];
+            if (_hasPool(baseToken)) {
+                AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
+            }
+        }
+
+        int256 pnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
+        AccountBalance(accountBalance).clearOwedRealizedPnl(trader);
+
+        return pnl;
+    }
+
+    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
+    function getNetQuoteBalance(address trader) public view returns (int256) {
+        uint256 tokenLen = _baseTokensMap[trader].length;
+        int256 totalQuoteBalance;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _baseTokensMap[trader][i];
+            if (_hasPool(baseToken)) {
+                totalQuoteBalance = totalQuoteBalance.add(_getQuote(trader, baseToken));
+            }
+        }
+
+        // owedFee is included
+        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
+        int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
+
+        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
+    }
+
+    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
+        // for instance, maker adds liquidity with 2 base (2000000000000000000),
+        // the actual base amount in pool would be 1999999999999999999
+        int256 positionSize =
+            OrderBook(orderBook)
+                .getTotalTokenAmountInPool(
+                trader,
+                baseToken,
+                true // get base token amount
+            )
+                .toInt256()
+                .add(_getBase(trader, baseToken));
+        return positionSize.abs() < _DUST ? 0 : positionSize;
+    }
+
+    /// @dev we use 15 mins twap to calc position value
+    function _getPositionValue(address trader, address baseToken) internal view returns (int256) {
+        int256 positionSize = getPositionSize(trader, baseToken);
+        if (positionSize == 0) return 0;
+
+        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
+
+        // both positionSize & indexTwap are in 10^18 already
+        return positionSize.mul(indexTwap.toInt256()).divBy10_18();
+    }
+
+    function getTotalUnrealizedPnl(address trader) public view returns (int256) {
+        int256 totalPositionValue;
+        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
+            address baseToken = _baseTokensMap[trader][i];
+            if (_hasPool(baseToken)) {
+                totalPositionValue = totalPositionValue.add(_getPositionValue(trader, baseToken));
+            }
+        }
+
+        return getNetQuoteBalance(trader).add(totalPositionValue);
+    }
+
+    // expensive
+    function _deregisterBaseToken(address trader, address baseToken) internal {
+        // TODO add test: open long, add pool, now tokenInfo is cleared,
+        if (_getBase(trader, baseToken).abs() >= _DUST || _getQuote(trader, quoteToken).abs() >= _DUST) {
+            return;
+        }
+
+        uint256 baseInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
+        if (baseInPool > 0 || quoteInPool > 0) {
+            return;
+        }
+
+        AccountBalance(accountBalance).clearBalance(trader, baseToken);
+
+        uint256 length = _baseTokensMap[trader].length;
+        for (uint256 i; i < length; i++) {
+            if (_baseTokensMap[trader][i] == baseToken) {
+                // if the removal item is the last one, just `pop`
+                if (i != length - 1) {
+                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
+                }
+                _baseTokensMap[trader].pop();
+                break;
+            }
+        }
+    }
+
+    function _registerBaseToken(address trader, address baseToken) internal {
+        address[] memory tokens = _baseTokensMap[trader];
+        if (tokens.length == 0) {
+            _baseTokensMap[trader].push(baseToken);
+            return;
+        }
+
+        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
+        if (_getBase(trader, baseToken) == 0) {
+            bool hit;
+            for (uint256 i = 0; i < tokens.length; i++) {
+                if (tokens[i] == baseToken) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (!hit) {
+                // CH_MNE: markets number exceeded
+                uint8 maxMarketsPerAccount = ClearingHouseConfig(config).maxMarketsPerAccount();
+                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
+                _baseTokensMap[trader].push(baseToken);
+            }
+        }
+    }
+
+    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
+    function getAllPendingFundingPayment(address trader) external view returns (int256) {
+        return _getAllPendingFundingPayment(trader);
     }
 }
