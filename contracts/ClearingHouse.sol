@@ -987,15 +987,6 @@ contract ClearingHouse is
     // --- funding related getters ---
     // -------------------------------
 
-    // TODO remove
-    // return decimals 18
-    function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
-        uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
-        uint256 totalPositionValue = AccountBalance(accountBalance).getTotalAbsPositionValue(trader);
-        uint24 imRatio = ClearingHouseConfig(config).imRatio();
-        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(ratio);
-    }
-
     // return in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnlWithPendingFundingPayment(trader);
