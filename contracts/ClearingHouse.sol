@@ -1074,11 +1074,6 @@ contract ClearingHouse is
 
     // TODO the followinwg are just for unfixed tests
 
-    // for test
-    function getPositionSize(address trader, address baseToken) external view returns (int256) {
-        return AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-    }
-
     function getNetQuoteBalance(address trader) public view returns (int256) {
         return AccountBalance(accountBalance).getNetQuoteBalance(trader);
     }

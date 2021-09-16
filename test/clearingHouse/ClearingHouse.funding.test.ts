@@ -1026,11 +1026,11 @@ describe("ClearingHouse funding", () => {
 //     "pendingFundingPayment: ",
 //     (await accountBalance.getPendingFundingPayment(carol.address, baseToken.address)).toString(),
 // )
-// console.log("positionSize: ", (await clearingHouse.getPositionSize(carol.address, baseToken.address)).toString())
+// console.log("positionSize: ", (await accountBalance.getPositionSize(carol.address, baseToken.address)).toString())
 // console.log("alice")
 // console.log(
 //     "pendingFundingPayment: ",
 //     (await accountBalance.getPendingFundingPayment(alice.address, baseToken.address)).toString(),
 // )
-// console.log("positionSize: ", (await clearingHouse.getPositionSize(alice.address, baseToken.address)).toString())
+// console.log("positionSize: ", (await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
 // // === useful console.log for verifying stats ===

@@ -625,5 +625,5 @@ describe("ClearingHouse liquidate", () => {
 // console.log(`timestamp (before liquidation): ${(await ethers.provider.getBlock("latest")).timestamp}`)
 // console.log(`mark twap: ${formatEther(parseEther((await clearingHouse.getMarkTwapX96(baseToken.address)).toString()).div(BigNumber.from(2).pow(96)))}`)
 // console.log(`index price: ${formatEther(await clearingHouse.getIndexPrice(baseToken.address))}`)
-// console.log(`position size: ${formatEther(await clearingHouse.getPositionSize(alice.address, baseToken.address))}`)
+// console.log(`position size: ${formatEther(await accountBalance.getPositionSize(alice.address, baseToken.address))}`)
 // console.log(`getAllPendingFundingPayment: ${formatEther(await clearingHouse.getAllPendingFundingPayment(alice.address))}`)

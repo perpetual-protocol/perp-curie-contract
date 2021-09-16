@@ -123,7 +123,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         })
 
         // maker close position
-        const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+        const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base

@@ -127,7 +127,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0"), // realizedPnl
                     )
 
-                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6473478014450606")
+                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6473478014450606")
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -170,7 +170,7 @@ describe("ClearingHouse customized fee", () => {
                         "-156640962647093188836", // openNotional
                         parseEther("0"), // realizedPnl
                     )
-                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
+                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -214,7 +214,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("146.311093502018220172"), // openNotional
                         parseEther("0"), // realizedPnl
                     )
-                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
+                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -254,7 +254,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("1"), // openNotional
                         parseEther("0"), // realizedPnl
                     )
-                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
+                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("-0.006741636644634247"),
                 )
 
@@ -322,7 +322,9 @@ describe("ClearingHouse customized fee", () => {
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("0.06"), 1)
 
-                expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19416937961245645")
+                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
+                    "19416937961245645",
+                )
             })
 
             it("increase position and exact out", async () => {
@@ -409,7 +411,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                 )
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6572552804907016")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6572552804907016")
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -453,7 +455,7 @@ describe("ClearingHouse customized fee", () => {
                     "-154279541099649572924", // openNotional
                     parseEther("0"), // realizedPnl
                 )
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -497,7 +499,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("148.550549014804213338"), // openNotional
                     parseEther("0"), // realizedPnl
                 )
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -537,7 +539,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("1"), // openNotional
                     parseEther("0"), // realizedPnl
                 )
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
                 parseEther("-0.006639994546394814"),
             )
 
@@ -601,7 +603,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                 )
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("12879752442217497")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("12879752442217497")
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -644,7 +646,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                 )
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("13011828563053424")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("13011828563053424")
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -701,7 +703,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                 )
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19152832300036026")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("19152832300036026")
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({

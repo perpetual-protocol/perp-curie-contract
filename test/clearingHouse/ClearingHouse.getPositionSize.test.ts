@@ -67,7 +67,7 @@ describe("ClearingHouse.getPositionSize", () => {
         })
 
         it("size = 0, if no swap", async () => {
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -80,7 +80,7 @@ describe("ClearingHouse.getPositionSize", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
         })
 
         it("bob(taker) swaps 1 time", async () => {
@@ -114,13 +114,13 @@ describe("ClearingHouse.getPositionSize", () => {
 
             // The swap pushes the mark price to 149.863446 (tick = 50099.75001)
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420499999999"),
             )
 
             // 0.4084104205
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
         })
 
         it("bob swaps 2 time", async () => {
@@ -166,13 +166,13 @@ describe("ClearingHouse.getPositionSize", () => {
 
             // which makes the mark price become 149.863446 (tick = 50099.75001)
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420599999999"),
             )
 
             // 0.2042052103 * 2 = 0.4084104206
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
         })
     })
 
@@ -249,16 +249,16 @@ describe("ClearingHouse.getPositionSize", () => {
         // mark price should be 153.8170921 (tick = 50360.15967)
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
             parseEther("-1.465065799750044640"),
         )
 
         // 1.633641682 + 0.6482449586 = 2.2818866406
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(
             parseEther("2.281886640750044638"),
         )
 
         // -1.633641682 / 2 = -0.816820841
-        expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
+        expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
     })
 })

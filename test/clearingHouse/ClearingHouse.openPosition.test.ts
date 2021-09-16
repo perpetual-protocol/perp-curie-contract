@@ -530,7 +530,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
             // pos size: 0.01961501593
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
             expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
@@ -568,7 +568,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.gt(parseEther("0"))
 
             // pos size: 0.006538933220746361
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
             expect(await clearingHouse.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
         })
 
@@ -614,7 +614,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("999.960199", 6))
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("close position with profit", async () => {
@@ -682,7 +682,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("1000.33288", 6))
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -748,7 +748,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("999.613354", collateralDecimals))
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("open larger reverse position", async () => {
@@ -766,7 +766,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // position size = -0.05368894844
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
 
             // openNotional = 8.0412624948
             expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
@@ -844,7 +844,7 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await clearingHouse.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
 
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx

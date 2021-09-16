@@ -129,7 +129,7 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // maker close position
-        const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+        const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -178,7 +178,7 @@ describe("ClearingHouse maker close position", () => {
 
         {
             // maker reduce half position
-            const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+            const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -198,7 +198,7 @@ describe("ClearingHouse maker close position", () => {
         }
 
         // maker close the remain half position, the pnl should be the same
-        const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+        const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -241,7 +241,7 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // maker close position
-        const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+        const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: true, // quote to base
@@ -327,7 +327,7 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // maker close position
-            const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+            const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -375,7 +375,7 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // maker close position
-            const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+            const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true, // quote to base
