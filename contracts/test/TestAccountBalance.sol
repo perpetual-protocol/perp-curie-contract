@@ -27,4 +27,16 @@ contract TestAccountBalance is AccountBalance {
     function _blockTimestamp() internal view override returns (uint256) {
         return _testBlockTimestamp;
     }
+
+    function getFundingGrowthGlobalAndTwaps(address baseToken)
+        external
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
+    {
+        return super._getFundingGrowthGlobalAndTwaps(baseToken);
+    }
 }

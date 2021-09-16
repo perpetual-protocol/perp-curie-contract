@@ -58,7 +58,7 @@ contract TestClearingHouse is ClearingHouse {
         _requireHasBaseToken(params.baseToken);
         AccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
-            AccountBalance(accountBalance)._getFundingGrowthGlobalAndTwaps(params.baseToken);
+            TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
             _swapAndCalculateOpenNotional(

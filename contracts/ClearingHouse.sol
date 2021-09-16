@@ -975,20 +975,10 @@ contract ClearingHouse is
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    // -------------------------------
-    // --- funding related getters ---
-
-    // --- funding related getters ---
-    // -------------------------------
-
     // return in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnlWithPendingFundingPayment(trader);
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
-    }
-
-    function _hasPool(address baseToken) internal view returns (bool) {
-        return Exchange(exchange).getPool(baseToken) != address(0);
     }
 
     function _isIncreasePosition(
@@ -1015,7 +1005,7 @@ contract ClearingHouse is
     // TODO remove, should check in exchange
     function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
-        require(_hasPool(baseToken), "CH_BTNE");
+        require(Exchange(exchange).getPool(baseToken) != address(0), "CH_BTNE");
     }
 
     function _requiredCollateral(address trader, uint24 ratio) private view returns (int256) {
