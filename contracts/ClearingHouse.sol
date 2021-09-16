@@ -1071,10 +1071,4 @@ contract ClearingHouse is
             }
         }
     }
-
-    // TODO the followinwg are just for unfixed tests
-
-    function getTotalUnrealizedPnl(address trader) external view returns (int256) {
-        return AccountBalance(accountBalance).getTotalUnrealizedPnl(trader);
-    }
 }
