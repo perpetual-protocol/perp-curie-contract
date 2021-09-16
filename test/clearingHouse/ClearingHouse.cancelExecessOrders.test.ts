@@ -179,12 +179,19 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 referralCode: ethers.constants.HashZero,
             })
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("101", 6), 0, 0, 0]
+                return [0, parseUnits("162", 6), 0, 0, 0]
             })
-            // alice unrealizedPnl = 5 + 101 * -0.000490465148677081 = 4.95046302
+            // alice unrealizedPnl = 5 + 162 * -0.000490465148677081 = 4.9205446459
+            // pos value = |-0.000490465148677081 * 162| = 0.07945535409
+            // total debt value = base debt * price + quote debt = 1 * 162 + 0 = 162
+            // total margin req = max(pos value, total debt value) = 162
+            // mmReq = 162 * 6.25% = 10.125
 
-            // freeCollateral = min(collateral, accountValue) - imReq
-            //                = min(10, 14.95) - 10.1 = -0.1 < 0
+            // use mmRatio here to calculate required collateral
+            // https://app.asana.com/0/1200338471046334/1200394318059946/f
+
+            // requiredCollateral = min(collateral, accountValue) - mmReq
+            //                = min(10, 14.95) - 10.125  < 0
             await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
@@ -193,7 +200,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
     it("force fail, alice has enough free collateral so shouldn't be canceled", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("160", 6), 0, 0, 0]
         })
 
         const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
