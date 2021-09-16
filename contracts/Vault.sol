@@ -97,7 +97,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         address from = _msgSender();
 
-        _increaseBalance(from, token, amount);
+        _modifyBalance(from, token, amount.toInt256());
 
         // for deflationary token,
         // amount may not be equal to the received amount due to the charged (and burned) transaction fee
@@ -112,17 +112,14 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
-        // settle ClearingHouse's owedRealizedPnl to collateral
         int256 pnl = ClearingHouse(clearingHouse).settle(to);
-        if (pnl > 0) {
-            _increaseBalance(to, settlementToken, pnl.toUint256());
-        } else if (pnl < 0) {
-            _decreaseBalance(to, settlementToken, pnl.abs());
-        }
+        // V_NEFC: not enough freeCollateral
+        require(_getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
-        require(_getFreeCollateral(to) >= amount, "V_NEFC");
-        _decreaseBalance(to, token, amount);
+        // settle owedRealizedPnl in ClearingHouse withdraw
+        _modifyBalance(to, token, pnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
+
         emit Withdrawn(token, to, amount);
     }
 
@@ -152,20 +149,12 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         _collateralTokens.push(token);
     }
 
-    function _increaseBalance(
+    function _modifyBalance(
         address trader,
         address token,
-        uint256 amount
+        int256 amount
     ) internal {
-        _balance[trader][token] = _getBalance(trader, token).add(amount.toInt256());
-    }
-
-    function _decreaseBalance(
-        address trader,
-        address token,
-        uint256 amount
-    ) internal {
-        _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
+        _balance[trader][token] = _getBalance(trader, token).add(amount);
     }
 
     function _getBalance(address trader, address token) internal view returns (int256) {
