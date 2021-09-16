@@ -1,8 +1,8 @@
-import { MockContract, smockit } from "@eth-optimism/smock"
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { InsuranceFund, TestERC20, Vault } from "../../typechain"
+import { TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
@@ -29,10 +29,23 @@ describe("Vault spec", () => {
     })
 
     describe("# initialize", () => {
-        it("force error, invalid clearingHouse address", async () => {
+        it("force error, invalid settlement token address", async () => {
             const vaultFactory = await ethers.getContractFactory("Vault")
             const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(alice.address)).to.be.revertedWith("V_ANC")
+            await expect(vault.initialize(insuranceFund.address, alice.address)).to.be.revertedWith("V_STNC")
+        })
+
+        it("force error, invalid insuranceFund address", async () => {
+            const vaultFactory = await ethers.getContractFactory("Vault")
+            const vault = (await vaultFactory.deploy()) as Vault
+            await expect(vault.initialize(alice.address, usdc.address)).to.be.revertedWith("V_IFNC")
+        })
+
+        it("force error, settlement token not match with insuranceFund", async () => {
+            const vaultFactory = await ethers.getContractFactory("Vault")
+            const vault = (await vaultFactory.deploy()) as Vault
+            insuranceFund.smocked.token.will.return.with(alice.address)
+            await expect(vault.initialize(insuranceFund.address, usdc.address)).to.be.revertedWith("V_STNM")
         })
     })
 
@@ -48,30 +61,6 @@ describe("Vault spec", () => {
 
         it("force error, not a contract address", async () => {
             await expect(vault.setClearingHouse(admin.address)).to.be.revertedWith("V_ANC")
-        })
-    })
-
-    describe("set insurance fund", () => {
-        let mockedInsuranceFund: MockContract
-        beforeEach(async () => {
-            const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
-            const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-            mockedInsuranceFund = await smockit(insuranceFund)
-            mockedInsuranceFund.smocked.token.will.return.with(usdc.address)
-        })
-
-        it("correctly set insurance fund", async () => {
-            // set to another contract address
-            await vault.setInsuranceFund(mockedInsuranceFund.address)
-        })
-
-        it("force error, not a contract address", async () => {
-            await expect(vault.setInsuranceFund(admin.address)).to.be.revertedWith("V_IFNC")
-        })
-
-        it("force error, settlement token not match", async () => {
-            mockedInsuranceFund.smocked.token.will.return.with(admin.address)
-            await expect(vault.setInsuranceFund(mockedInsuranceFund.address)).to.be.revertedWith("V_STNM")
         })
     })
 

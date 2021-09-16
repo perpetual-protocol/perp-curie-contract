@@ -32,14 +32,14 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const USDC = (await tokenFactory.deploy()) as TestERC20
     await USDC.initialize("TestUSDC", "USDC")
 
-    const vaultFactory = await ethers.getContractFactory("Vault")
-    const vault = (await vaultFactory.deploy()) as Vault
-    await vault.initialize(USDC.address)
-
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     const mockedInsuranceFund = await smockit(insuranceFund)
     mockedInsuranceFund.smocked.token.will.return.with(USDC.address)
+
+    const vaultFactory = await ethers.getContractFactory("Vault")
+    const vault = (await vaultFactory.deploy()) as Vault
+    await vault.initialize(mockedInsuranceFund.address, USDC.address)
 
     // deploy clearingHouse
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -74,7 +74,6 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     )
     const mockedClearingHouse = await smockit(clearingHouse)
 
-    await vault.setInsuranceFund(mockedInsuranceFund.address)
     await vault.setClearingHouse(mockedClearingHouse.address)
 
     return { vault, USDC, mockedClearingHouse, mockedInsuranceFund }

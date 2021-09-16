@@ -59,9 +59,13 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
 
-    function initialize(address settlementTokenArg) external initializer {
-        // V_ANC: SettlementToken address is not contract
-        require(settlementTokenArg.isContract(), "V_ANC");
+    function initialize(address insuranceFundArg, address settlementTokenArg) external initializer {
+        // V_IFNC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "V_IFNC");
+        // V_STNC: SettlementToken address is not contract
+        require(settlementTokenArg.isContract(), "V_STNC");
+        // V_STNM: SettlementToken is not match with InsuranceFund
+        require(InsuranceFund(insuranceFundArg).token() == settlementTokenArg, "V_STNM");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -71,6 +75,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         // update states
         decimals = IERC20Metadata(settlementTokenArg).decimals();
+        insuranceFund = insuranceFundArg;
         settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
 
@@ -86,15 +91,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         require(clearingHouseArg.isContract(), "V_ANC");
         clearingHouse = clearingHouseArg;
         emit ClearingHouseUpdated(clearingHouseArg);
-    }
-
-    function setInsuranceFund(address insuranceFundArg) external onlyOwner {
-        // V_IFNC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "V_IFNC");
-        // V_STNM: SettlementToken is not match with InsuranceFund
-        require(InsuranceFund(insuranceFundArg).token() == settlementToken, "V_STNM");
-        insuranceFund = insuranceFundArg;
-        emit InsuranceFundUpdated(insuranceFundArg);
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {

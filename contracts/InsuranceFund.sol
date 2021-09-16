@@ -11,32 +11,35 @@ contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable {
     using AddressUpgradeable for address;
 
     // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    address public vault;
+    address public borrower;
     address public token;
 
     event Borrowed(address vault, uint256 amount);
 
-    function initialize(address vaultArg, address settlementTokenArg) external initializer {
-        // IF_ANC: vault address is not contract
-        require(vaultArg.isContract(), "IF_ANC");
-        // IF_ST0: sttlement token is 0
-        require(settlementTokenArg != address(0), "IF_ST0");
+    function initialize(address settlementTokenArg) external initializer {
+        // IF_STNC: sttlement token address is not contract
+        require(settlementTokenArg.isContract(), "IF_STNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        vault = vaultArg;
         token = settlementTokenArg;
+    }
+
+    function setBorrower(address borrowerArg) external onlyOwner {
+        // IF_VNC: vault is not a contract
+        require(borrowerArg.isContract(), "IF_VNC");
+        borrower = borrowerArg;
     }
 
     function borrow(uint256 amount) external {
         // IF_OV: only vault
-        require(_msgSender() == vault, "IF_OV");
+        require(_msgSender() == borrower, "IF_OV");
         // IF_NEB: not enough balance
         require(IERC20Metadata(token).balanceOf(address(this)) >= amount, "IF_NEB");
 
-        TransferHelper.safeTransfer(token, vault, amount);
+        TransferHelper.safeTransfer(token, borrower, amount);
 
-        emit Borrowed(vault, amount);
+        emit Borrowed(borrower, amount);
     }
 }
