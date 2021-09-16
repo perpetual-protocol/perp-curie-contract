@@ -1074,11 +1074,6 @@ contract ClearingHouse is
 
     // TODO the followinwg are just for unfixed tests
 
-    // TODO remove after fixing test
-    function getPendingFundingPayment(address trader, address baseToken) external view returns (int256) {
-        return AccountBalance(accountBalance).getPendingFundingPayment(trader, baseToken);
-    }
-
     // for test
     function getPositionSize(address trader, address baseToken) external view returns (int256) {
         return AccountBalance(accountBalance).getPositionSize(trader, baseToken);
