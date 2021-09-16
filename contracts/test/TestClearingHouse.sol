@@ -56,7 +56,7 @@ contract TestClearingHouse is ClearingHouse {
 
     function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
-        _registerBaseToken(_msgSender(), params.baseToken);
+        AccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
             AccountBalance(accountBalance)._getFundingGrowthGlobalAndTwaps(params.baseToken);
 
