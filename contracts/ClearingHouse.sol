@@ -1314,14 +1314,12 @@ contract ClearingHouse is
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
     }
 
-    // return decimals 18
+    /// @dev the return value is in decimals == 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
-        uint256 totalDebtValue = _getTotalDebtValue(trader);
-        uint256 totalPositionValue = _getTotalAbsPositionValue(trader);
-        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(ratio);
+        return _getTotalDebtValue(trader).mulRatio(ratio);
     }
 
-    // return in settlement token decimals
+    /// @dev the return value is in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 owedRealizedPnl = _owedRealizedPnlMap[trader].sub(_getAllPendingFundingPayment(trader));
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
