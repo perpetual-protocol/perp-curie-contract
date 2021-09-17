@@ -5,38 +5,37 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
-contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable {
+contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable {
     using AddressUpgradeable for address;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     address public borrower;
     address public token;
 
-    event Borrowed(address vault, uint256 amount);
+    event Borrowed(address borrower, uint256 amount);
 
-    function initialize(address settlementTokenArg) external initializer {
-        // IF_STNC: sttlement token address is not contract
-        require(settlementTokenArg.isContract(), "IF_STNC");
+    function initialize(address tokenArg) external initializer {
+        // token address is not contract
+        require(tokenArg.isContract(), "IF_STNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        token = settlementTokenArg;
+        token = tokenArg;
     }
 
     function setBorrower(address borrowerArg) external onlyOwner {
-        // IF_VNC: vault is not a contract
-        require(borrowerArg.isContract(), "IF_VNC");
+        // borrower is not a contract
+        require(borrowerArg.isContract(), "IF_BNC");
         borrower = borrowerArg;
     }
 
-    function borrow(uint256 amount) external {
-        // IF_OV: only vault
-        require(_msgSender() == borrower, "IF_OV");
-        // IF_NEB: not enough balance
-        require(IERC20Metadata(token).balanceOf(address(this)) >= amount, "IF_NEB");
+    function borrow(uint256 amount) external nonReentrant whenNotPaused {
+        // only borrower
+        require(_msgSender() == borrower, "IF_OB");
+        // not enough balance
+        require(IERC20Upgradeable(token).balanceOf(address(this)) >= amount, "IF_NEB");
 
         TransferHelper.safeTransfer(token, borrower, amount);
 
