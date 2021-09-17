@@ -208,28 +208,28 @@ contract ClearingHouse is
         uint256 oppositeAmountBound;
     }
 
-    // not used in CH, due to inherit from BaseRelayRecipient
-    string public override versionRecipient;
-
     //
     // state variables
     //
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    // ------ immutable states ------
     address public quoteToken;
     address public uniswapV3Factory;
 
-    address public config;
+    // cache the settlement token's decimals for gas optimization
+    uint8 internal _settlementTokenDecimals;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
+
+    // not used in CH, due to inherit from BaseRelayRecipient
+    string public override versionRecipient;
+
+    address public clearingHouseConfig;
     address public vault;
     address public insuranceFund;
     address public exchange;
     address public orderBook;
     address public accountBalance;
-
-    // cached the settlement token's decimal for gas optimization
-    // owner must ensure the settlement token's decimal is not immutable
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    uint8 internal _settlementTokenDecimals;
 
     // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
@@ -241,7 +241,7 @@ contract ClearingHouse is
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
 
     function initialize(
-        address configArg,
+        address clearingHouseConfigArg,
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
@@ -262,7 +262,7 @@ contract ClearingHouse is
         // CH_UANC: UniV3Factory address is not contract
         require(uniV3FactoryArg.isContract(), "CH_UANC");
         // ClearingHouseConfig address is not contract
-        require(configArg.isContract(), "CH_CCNC");
+        require(clearingHouseConfigArg.isContract(), "CH_CCNC");
         // AccountBalance is not contract
         require(accountBalanceArg.isContract(), "CH_ABNC");
 
@@ -277,7 +277,7 @@ contract ClearingHouse is
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        config = configArg;
+        clearingHouseConfig = clearingHouseConfigArg;
         vault = vaultArg;
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
@@ -407,11 +407,7 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // update token info
-        // TODO should burn base fee received instead of adding it to available amount
-
         // collect fee to owedRealizedPnl
-
         AccountBalance(accountBalance).addBalance(
             trader,
             params.baseToken,
@@ -478,9 +474,7 @@ contract ClearingHouse is
                 })
             );
 
-        // TODO scale up or down the opposite amount bound if it's a partial close
-        // if oldPositionSize is long, close a long position is short, B2Q
-        // if oldPositionSize is short, close a short position is long, Q2B
+        // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
         bool isBaseToQuote =
             AccountBalance(accountBalance).getPositionSize(trader, params.baseToken) > 0 ? true : false;
         _checkSlippage(
@@ -572,7 +566,7 @@ contract ClearingHouse is
             getAccountValue(trader).lt(
                 AccountBalance(accountBalance)
                     .getTotalAbsPositionValue(trader)
-                    .mulRatio(ClearingHouseConfig(config).mmRatio())
+                    .mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio())
                     .toInt256(),
                 _settlementTokenDecimals
             ),
@@ -596,7 +590,9 @@ contract ClearingHouse is
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
-            response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
+            response.exchangedPositionNotional.abs().mulRatio(
+                ClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
+            );
 
         AccountBalance(accountBalance).addOwedRealizedPnl(trader, -(liquidationFee.toInt256()));
 
@@ -669,7 +665,7 @@ contract ClearingHouse is
 
         // CH_NEFCM: not enough free collateral by mmRatio
         // only cancel open orders if there are not enough free collateral with mmRatio
-        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_NEFCM");
+        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0, "CH_NEFCM");
 
         // must settle funding before getting token info
         AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
@@ -710,8 +706,6 @@ contract ClearingHouse is
         if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
-            // TODO change _swap.response.deltaAvailableQuote to int
-            // after swapCallback mint task
             deltaAvailableQuote = params.isBaseToQuote
                 ? response.deltaAvailableQuote.toInt256()
                 : -response.deltaAvailableQuote.toInt256();
@@ -729,7 +723,6 @@ contract ClearingHouse is
         // position size based closedRatio
         uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSizeAbs);
 
-        // TODO change _swap.response.deltaAvailableQuote to int
         deltaAvailableQuote = params.isBaseToQuote
             ? response.deltaAvailableQuote.toInt256()
             : -response.deltaAvailableQuote.toInt256();
@@ -782,7 +775,7 @@ contract ClearingHouse is
         return response;
     }
 
-    // caller must ensure there's enough quote available and debt
+    /// @dev caller of this function must ensure there's enough available and debt of quote
     function _realizePnl(
         address trader,
         address baseToken,
@@ -792,7 +785,6 @@ contract ClearingHouse is
             return;
         }
 
-        // TODO refactor with settle()
         AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
     }
 
@@ -925,7 +917,7 @@ contract ClearingHouse is
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
+        uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
         if (
             _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
             _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
@@ -1015,7 +1007,7 @@ contract ClearingHouse is
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEFCI: not enough account value by imRatio
         // freeCollateral is calculated with imRatio
-        require(_getFreeCollateralByRatio(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEFCI");
+        require(_getFreeCollateralByRatio(trader, ClearingHouseConfig(clearingHouseConfig).imRatio()) >= 0, "CH_NEFCI");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {

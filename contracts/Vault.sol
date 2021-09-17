@@ -33,19 +33,20 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
+    // ------ immutable states ------
+    address public settlementToken;
+    address public clearingHouseConfig;
+    address public accountBalance;
+
+    // cache the settlement token's decimals for gas optimization
+    uint8 public override decimals;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
+
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    address public settlementToken;
-    address public config;
-    address public accountBalance;
-
-    // cached the settlement token's decimal for gas optimization
-    // owner must ensure the settlement token's decimal is not immutable
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    uint8 public override decimals;
-
+    address public clearingHouse;
     address[] internal _collateralTokens;
 
     // key: trader, token address
@@ -57,13 +58,13 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
     function initialize(
         address settlementTokenArg,
-        address configArg,
+        address clearingHouseConfigArg,
         address accountBalanceArg
     ) external initializer {
         // V_ANC: SettlementToken address is not contract
         require(settlementTokenArg.isContract(), "V_ANC");
         // ClearingHouseConfig address is not contract
-        require(configArg.isContract(), "V_CNC");
+        require(clearingHouseConfigArg.isContract(), "V_CNC");
         // accountBalance address is not contract
         require(accountBalanceArg.isContract(), "V_ABNC");
 
@@ -77,7 +78,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         decimals = IERC20Metadata(settlementTokenArg).decimals();
         settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
-        config = configArg;
+        clearingHouseConfig = clearingHouseConfigArg;
         accountBalance = accountBalanceArg;
 
         // we don't use this var
@@ -103,7 +104,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         address from = _msgSender();
 
-        _increaseBalance(from, token, amount);
+        _modifyBalance(from, token, amount.toInt256());
 
         // for deflationary token,
         // amount may not be equal to the received amount due to the charged (and burned) transaction fee
@@ -118,17 +119,14 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
-        // settle AccountBalance's owedRealizedPnl to collateral
         int256 pnl = AccountBalance(accountBalance).settle(to);
-        if (pnl > 0) {
-            _increaseBalance(to, settlementToken, pnl.toUint256());
-        } else if (pnl < 0) {
-            _decreaseBalance(to, settlementToken, pnl.abs());
-        }
+        // V_NEFC: not enough freeCollateral
+        require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
-        require(getFreeCollateral(to) >= amount, "V_NEFC");
-        _decreaseBalance(to, token, amount);
+        // settle AccountBalance's owedRealizedPnl to collateral
+        _modifyBalance(to, token, pnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
+
         emit Withdrawn(token, to, amount);
     }
 
@@ -158,20 +156,12 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         _collateralTokens.push(token);
     }
 
-    function _increaseBalance(
+    function _modifyBalance(
         address trader,
         address token,
-        uint256 amount
+        int256 amount
     ) internal {
-        _balance[trader][token] = _getBalance(trader, token).add(amount.toInt256());
-    }
-
-    function _decreaseBalance(
-        address trader,
-        address token,
-        uint256 amount
-    ) internal {
-        _balance[trader][token] = _getBalance(trader, token).sub(amount.toInt256());
+        _balance[trader][token] = _getBalance(trader, token).add(amount);
     }
 
     function _getBalance(address trader, address token) internal view returns (int256) {
@@ -216,7 +206,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     }
 
     function _getImRatio() internal view returns (uint24) {
-        return ClearingHouseConfig(config).imRatio();
+        return ClearingHouseConfig(clearingHouseConfig).imRatio();
     }
 
     /// @inheritdoc BaseRelayRecipient
