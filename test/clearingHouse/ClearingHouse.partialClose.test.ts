@@ -18,7 +18,7 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
@@ -40,7 +40,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig

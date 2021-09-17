@@ -9,9 +9,12 @@ import { VirtualToken } from "./VirtualToken.sol";
 contract BaseToken is IIndexPrice, VirtualToken {
     using SafeMathUpgradeable for uint256;
 
-    address public priceFeed;
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    // ------ immutable states ------
     uint8 private _priceFeedDecimals;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
+
+    address public priceFeed;
 
     function initialize(
         string memory nameArg,

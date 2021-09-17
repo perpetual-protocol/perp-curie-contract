@@ -9,9 +9,11 @@ import { OwnerPausable } from "./base/OwnerPausable.sol";
 contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable {
     using AddressUpgradeable for address;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    // ------ immutable states ------
     address public vault;
     address private _token;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
 
     function initialize(address vaultArg) external initializer {
         // IF_ANC: vault address is not contract

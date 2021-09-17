@@ -52,10 +52,8 @@ export enum BaseQuoteOrdering {
     BASE_1_QUOTE_0,
 }
 
-export function createClearingHouseFixture(
-    baseQuoteOrdering: BaseQuoteOrdering = BaseQuoteOrdering.BASE_0_QUOTE_1, // TODO remove
-    canMockTime: boolean = true,
-): () => Promise<ClearingHouseFixture> {
+// caller of this function should ensure that (base, quote) = (token0, token1) is always true
+export function createClearingHouseFixture(canMockTime: boolean = true): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -66,13 +64,10 @@ export function createClearingHouseFixture(
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
 
-        if (baseQuoteOrdering === BaseQuoteOrdering.BASE_0_QUOTE_1) {
-            baseToken = token0
-            quoteToken = token1
-            mockedBaseAggregator = mockedAggregator0
-        } else {
-            throw new Error("!B1Q0")
-        }
+        // we assume (base, quote) == (token0, token1)
+        baseToken = token0
+        quoteToken = token1
+        mockedBaseAggregator = mockedAggregator0
 
         // deploy UniV3 factory
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")

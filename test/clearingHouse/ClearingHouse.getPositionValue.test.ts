@@ -16,7 +16,7 @@ import {
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -35,7 +35,7 @@ describe("ClearingHouse.getPositionValue", () => {
     let mockedBaseAggregator: MockContract
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
@@ -146,7 +146,6 @@ describe("ClearingHouse.getPositionValue", () => {
             })
 
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420499999999"),
             )
             // 149.852206 * 0.408410420499999999 = 61.2012024653
@@ -222,7 +221,6 @@ describe("ClearingHouse.getPositionValue", () => {
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420599999999"),
             )
             // 150.092150 * 0.408410420599999999 = 61.2991981103

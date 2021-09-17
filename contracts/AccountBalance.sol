@@ -148,9 +148,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return _settleFundingAndUpdateFundingGrowth(trader, baseToken);
     }
 
-    // expensive
+    /// @dev this function is expensive
     function deregisterBaseToken(address trader, address baseToken) external onlyClearingHouse {
-        // TODO add test: open long, add pool, now tokenInfo is cleared,
         if (getBase(trader, baseToken).abs() >= _DUST || getQuote(trader, baseToken).abs() >= _DUST) {
             return;
         }
@@ -166,7 +165,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         uint256 length = _baseTokensMap[trader].length;
         for (uint256 i; i < length; i++) {
             if (_baseTokensMap[trader][i] == baseToken) {
-                // if the removal item is the last one, just `pop`
+                // if the item to be removed is the last one, pop it directly
+                // else, replace it with the last one and pop the last one
                 if (i != length - 1) {
                     _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
                 }
@@ -205,7 +205,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // External
     //
 
-    /// @dev settle() would be called by Vault.withdraw()
+    /// @dev this function is now only called by Vault.withdraw()
     function settle(address trader) external returns (int256) {
         // only vault
         require(_msgSender() == vault, "AB_OV");

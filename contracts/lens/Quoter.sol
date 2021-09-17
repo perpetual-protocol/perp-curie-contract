@@ -61,10 +61,8 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         // Q_BTNE: base token not exists
         require(pool != address(0), "Q_BTNE");
 
-        // TODO: maybe can merge this two fee ratios into one
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
-
         // scale up before swap to achieve customized fee/ignore Uniswap fee
         uint256 scaledAmount =
             FeeMath.calcScaledAmountForUniswapV3PoolSwap(
