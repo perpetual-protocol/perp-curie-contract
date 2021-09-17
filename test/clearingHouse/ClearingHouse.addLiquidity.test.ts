@@ -465,7 +465,7 @@ describe("ClearingHouse addLiquidity", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, add base over minted base", async () => {

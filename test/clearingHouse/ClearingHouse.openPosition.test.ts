@@ -239,7 +239,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, B2Q, due to not enough collateral for mint", async () => {
@@ -254,7 +254,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
         })
 
@@ -280,7 +280,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, B2Q, due to not enough collateral for mint", async () => {
@@ -300,7 +300,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
         })
     })

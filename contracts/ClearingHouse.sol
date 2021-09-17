@@ -779,9 +779,9 @@ contract ClearingHouse is
     ) internal {
         _requireHasBaseToken(baseToken);
 
-        // CH_EFC: enough free collateral
+        // CH_NEFCM: not enough free collateral by mmRatio
         // only cancel open orders if there are not enough free collateral with mmRatio
-        require(_requiredCollateral(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_EFC");
+        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_NEFCM");
 
         // must settle funding before getting token info
         _settleFundingAndUpdateFundingGrowth(maker, baseToken);
@@ -1410,7 +1410,7 @@ contract ClearingHouse is
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
     // we will start with the conservative one, then gradually change it to more aggressive ones
     // to increase capital efficiency.
-    function _requiredCollateral(address trader, uint24 ratio) private view returns (int256) {
+    function _getFreeCollateralByRatio(address trader, uint24 ratio) private view returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 totalCollateralValue = _getTotalCollateralValue(trader);
         int256 accountValue = totalCollateralValue.addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
@@ -1437,9 +1437,9 @@ contract ClearingHouse is
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
-        // CH_NEAV: not enough account value
+        // CH_NEFCI: not enough account value by imRatio
         // freeCollateral is calculated with imRatio
-        require(_requiredCollateral(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEAV");
+        require(_getFreeCollateralByRatio(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEFCI");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {

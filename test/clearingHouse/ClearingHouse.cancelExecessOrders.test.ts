@@ -207,7 +207,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
         expect(openOrderIdsBefore.length == 1).to.be.true
 
         // bob as a keeper
-        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith("CH_EFC")
+        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith(
+            "CH_NEFCM",
+        )
 
         const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
