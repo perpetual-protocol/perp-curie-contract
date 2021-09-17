@@ -256,18 +256,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        // pass fundingGrowthGlobal in for states mutation
-        // int256 liquidityCoefficientInFundingPayment =
-        //     OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-        //         trader,
-        //         baseToken,
-        //         fundingGrowthGlobal
-        //     );
-
-        // _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
-        //     liquidityCoefficientInFundingPayment,
-        //     fundingGrowthGlobal.twPremiumX96
-        // );
         fundingPayment = _updateFundingGrowthAndFundingPayment(
             trader,
             baseToken,
@@ -277,12 +265,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         );
 
         if (fundingPayment != 0) {
-            // _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
         // update states before further actions in this block; once per block
-        if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
+        if (_blockTimestamp() != _lastSettledTimestampMap[baseToken]) {
             // update fundingGrowthGlobal
             Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
             (
@@ -327,7 +314,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         indexTwap = _getIndexPrice(baseToken);
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
+        if (_blockTimestamp() != lastSettledTimestamp && lastSettledTimestamp != 0) {
             int256 twPremiumDeltaX96 =
                 markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
                     _blockTimestamp().sub(lastSettledTimestamp).toInt256()
@@ -400,12 +387,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             );
 
         return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
-
-        // return
-        //     _accountMarketMap[trader][baseToken].getPendingFundingPayment(
-        //         liquidityCoefficientInFundingPayment,
-        //         fundingGrowthGlobal.twPremiumX96
-        //     );
     }
 
     function _getTwapInterval() internal view returns (uint32) {

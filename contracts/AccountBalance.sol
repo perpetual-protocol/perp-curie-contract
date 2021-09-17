@@ -40,11 +40,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // 10 wei
     uint256 internal constant _DUST = 10;
 
-    // key: base token
-    // mapping(address => uint256) internal _firstTradedTimestampMap;
-    // mapping(address => uint256) internal _lastSettledTimestampMap;
-    // mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;
 
@@ -54,19 +49,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
 
     // first key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
-
-    // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
-    // mapping(address => int24) internal _lastUpdatedTickMap;
-
-    //
-    // Event
-    //
-    // event FundingPaymentSettled(
-    //     address indexed trader,
-    //     address indexed baseToken,
-    //     int256 amount // +: trader pays, -: trader receives
-    // );
-    // event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     //
     // Constructor
@@ -130,10 +112,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     function addOwedRealizedPnl(address trader, int256 delta) external onlyClearingHouse {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
-
-    // function updateFirstTradedTimestamp(address baseToken) external onlyClearingHouse {
-    //     _firstTradedTimestampMap[baseToken] = _blockTimestamp();
-    // }
 
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
     /// @dev this function 1. settles personal funding payment 2. updates global funding growth
@@ -239,14 +217,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _owedRealizedPnlMap[trader];
     }
-
-    // function getFirstTradedTimestamp(address baseToken) external view returns (uint256) {
-    //     return _firstTradedTimestampMap[baseToken];
-    // }
-
-    // function getLastUpdatedTickMap(address baseToken) external view returns (int24) {
-    //     return _lastUpdatedTickMap[baseToken];
-    // }
 
     function hasOrder(address trader) external view returns (bool) {
         return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
@@ -373,6 +343,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // Internal View
     //
 
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         internal
         returns (Funding.Growth memory)
@@ -391,61 +363,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
 
         return fundingGrowthGlobal;
     }
-
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
-    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
-    // function _getFundingGrowthGlobalAndTwaps(address baseToken)
-    //     internal
-    //     view
-    //     returns (
-    //         Funding.Growth memory fundingGrowthGlobal,
-    //         uint256 markTwap,
-    //         uint256 indexTwap
-    //     )
-    // {
-    //     Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-
-    //     // get mark twap
-    //     uint32 twapIntervalArg = _getTwapInterval();
-    //     // shorten twapInterval if prior observations are not enough for twapInterval
-    //     if (_firstTradedTimestampMap[baseToken] == 0) {
-    //         twapIntervalArg = 0;
-    //     } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
-    //         // overflow inspection:
-    //         // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-    //         twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
-    //     }
-
-    //     uint256 markTwapX96 =
-    //         Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
-    //     markTwap = markTwapX96.formatX96ToX10_18();
-    //     indexTwap = _getIndexPrice(baseToken);
-
-    //     uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-    //     if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
-    //         int256 twPremiumDeltaX96 =
-    //             markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
-    //                 _blockTimestamp().sub(lastSettledTimestamp).toInt256()
-    //             );
-    //         fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
-
-    //         // overflow inspection:
-    //         // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-    //         // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-    //         fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-    //             (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-    //                 uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
-    //             )
-    //         );
-    //     } else {
-    //         // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-    //         fundingGrowthGlobal = lastFundingGrowthGlobal;
-    //     }
-
-    //     return (fundingGrowthGlobal, markTwap, indexTwap);
-    // }
 
     /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
     /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
