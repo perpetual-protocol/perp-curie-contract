@@ -219,6 +219,9 @@ contract ClearingHouse is
     // state variables
     //
 
+    // 10 wei
+    uint256 internal constant _DUST = 10;
+
     // ------ immutable states ------
     address public quoteToken;
     address public uniswapV3Factory;
@@ -238,8 +241,6 @@ contract ClearingHouse is
     address public orderBook;
 
     uint32 public twapInterval;
-    // 10 wei
-    uint256 internal constant _DUST = 10;
 
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;
