@@ -31,19 +31,18 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
     event ClearingHouseUpdated(address clearingHouse);
 
+    // ------ immutable states ------
+    address public settlementToken;
+
+    // cache the settlement token's decimals for gas optimization
+    uint8 public override decimals;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
+
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    address public settlementToken;
-
     address public clearingHouse;
-
-    // cached the settlement token's decimal for gas optimization
-    // owner must ensure the settlement token's decimal is not immutable
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    uint8 public override decimals;
-
     address[] internal _collateralTokens;
 
     // key: trader, token address

@@ -12,8 +12,10 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     using SafeMathUpgradeable for uint256;
     using AddressUpgradeable for address;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    // ------ immutable states ------
     AggregatorV3Interface private _aggregator;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
 
     // __gap is reserved storage
     uint256[50] private __gap;

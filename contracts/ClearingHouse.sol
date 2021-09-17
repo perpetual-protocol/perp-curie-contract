@@ -215,18 +215,21 @@ contract ClearingHouse is
         uint256 oppositeAmountBound;
     }
 
-    // not used in CH, due to inherit from BaseRelayRecipient
-    string public override versionRecipient;
-    // 10 wei
-    uint256 internal constant _DUST = 10;
-
     //
     // state variables
     //
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
+    // ------ immutable states ------
     address public quoteToken;
     address public uniswapV3Factory;
+
+    // cache the settlement token's decimals for gas optimization
+    uint8 internal _settlementTokenDecimals;
+
+    // ------ ^^^^^^^^^^^^^^^^ ------
+
+    // not used in CH, due to inherit from BaseRelayRecipient
+    string public override versionRecipient;
 
     address public config;
     address public vault;
@@ -234,12 +237,9 @@ contract ClearingHouse is
     address public exchange;
     address public orderBook;
 
-    // cached the settlement token's decimal for gas optimization
-    // owner must ensure the settlement token's decimal is not immutable
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
-    uint8 internal _settlementTokenDecimals;
-
     uint32 public twapInterval;
+    // 10 wei
+    uint256 internal constant _DUST = 10;
 
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;
