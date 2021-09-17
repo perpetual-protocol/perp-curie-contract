@@ -14,6 +14,7 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
@@ -29,6 +30,7 @@ describe("ClearingHouse liquidate", () => {
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -68,6 +70,7 @@ describe("ClearingHouse liquidate", () => {
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -213,7 +216,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davisPnl).to.eq("2102129818649289842")
         })
     })
@@ -280,7 +283,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.315833", 6))
 
             // liquidator gets liquidation reward
-            const davidPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davidPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davidPnl).to.eq("2383442912758163616")
         })
     })
@@ -383,7 +386,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.308362", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davisPnl).to.eq("1015969115608315255")
         })
 
@@ -421,7 +424,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.16927", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davisPnl).to.eq("1114606049534825068")
         })
     })
@@ -528,10 +531,10 @@ describe("ClearingHouse liquidate", () => {
             // )
             // accountValue = collateral + totalMarketPnl
             // totalMarketPnl = netQuoteBalance + totalPosValue
-            // const getTotalUnrealizedPnl = await clearingHouse.getTotalUnrealizedPnl(alice.address)
+            // const getTotalUnrealizedPnl = await accountBalance.getTotalUnrealizedPnl(alice.address)
             // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
-            // const netQuoteBalance = await clearingHouse.getNetQuoteBalance(alice.address)
+            // const netQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
             // console.log(`netQuoteBalance=${formatEther(netQuoteBalance.toString())}`)
             // {
             //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
@@ -563,7 +566,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241799", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davisPnl).to.eq("1251236066562123442")
         })
 
@@ -599,7 +602,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942662", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
             expect(davisPnl).to.eq("1135472350272790574")
         })
     })
@@ -622,6 +625,6 @@ describe("ClearingHouse liquidate", () => {
 // console.log(`timestamp (before liquidation): ${(await ethers.provider.getBlock("latest")).timestamp}`)
 // console.log(`mark twap: ${formatEther(parseEther((await clearingHouse.getMarkTwapX96(baseToken.address)).toString()).div(BigNumber.from(2).pow(96)))}`)
 // console.log(`index price: ${formatEther(await clearingHouse.getIndexPrice(baseToken.address))}`)
-// console.log(`position size: ${formatEther(await clearingHouse.getPositionSize(alice.address, baseToken.address))}`)
+// console.log(`position size: ${formatEther(await accountBalance.getPositionSize(alice.address, baseToken.address))}`)
 // console.log(`getAllPendingFundingPayment: ${formatEther(await clearingHouse.getAllPendingFundingPayment(alice.address))}`)
 // // === useful console.log for verifying stats ===

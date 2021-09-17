@@ -21,6 +21,7 @@ describe("ClearingHouse Spec", () => {
     let exchange: MockContract
     let insuranceFund: MockContract
     let vault: MockContract
+    let accountBalance: MockContract
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(mockedClearingHouseFixture)
@@ -32,6 +33,7 @@ describe("ClearingHouse Spec", () => {
         exchange = _clearingHouseFixture.mockedExchange
         insuranceFund = _clearingHouseFixture.mockedInsuranceFund
         vault = _clearingHouseFixture.mockedVault
+        accountBalance = _clearingHouseFixture.mockedAccountBalance
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
@@ -53,6 +55,7 @@ describe("ClearingHouse Spec", () => {
                     quoteToken.address,
                     uniV3Factory.address,
                     exchange.address,
+                    accountBalance.address,
                 ),
             ).to.be.revertedWith("CH_VANC")
         })
@@ -68,6 +71,7 @@ describe("ClearingHouse Spec", () => {
                     quoteToken.address,
                     uniV3Factory.address,
                     exchange.address,
+                    accountBalance.address,
                 ),
             ).to.be.revertedWith("CH_IFANC")
         })
@@ -83,6 +87,7 @@ describe("ClearingHouse Spec", () => {
                     wallet.address,
                     uniV3Factory.address,
                     exchange.address,
+                    accountBalance.address,
                 ),
             ).to.be.revertedWith("CH_QANC")
         })
@@ -98,6 +103,7 @@ describe("ClearingHouse Spec", () => {
                     quoteToken.address,
                     wallet.address,
                     exchange.address,
+                    accountBalance.address,
                 ),
             ).to.be.revertedWith("CH_UANC")
         })

@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
@@ -25,6 +26,7 @@ import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 
 contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
+    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -156,6 +158,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     //
     address public quoteToken;
     address public exchange;
+    address public accountBalance;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
@@ -191,6 +194,12 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
         exchange = exchangeArg;
+    }
+
+    function setAccountBalance(address accountBalanceArg) external onlyOwner {
+        // accountBalance is 0
+        require(accountBalanceArg != address(0), "OB_AB0");
+        accountBalance = accountBalanceArg;
     }
 
     //
@@ -331,7 +340,10 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
-    ) external onlyClearingHouse returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external returns (int256 liquidityCoefficientInFundingPayment) {
+        // only accountBalance
+        require(_msgSender() == accountBalance, "OB_OAB");
+
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = MarketRegistry(marketRegistry).getPool(baseToken);

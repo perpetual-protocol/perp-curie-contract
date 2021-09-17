@@ -2,6 +2,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
@@ -24,6 +25,7 @@ describe("ClearingHouse.swap", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -38,6 +40,7 @@ describe("ClearingHouse.swap", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -108,7 +111,7 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("realizedPnl remains", async () => {
-            const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+            const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
             expect(pnl).eq(0)
         })
 
@@ -143,7 +146,7 @@ describe("ClearingHouse.swap", () => {
             })
 
             it("realizedPnl++", async () => {
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl.gt(0)).be.true
             })
         })
@@ -201,7 +204,7 @@ describe("ClearingHouse.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
             initOpenNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
-            posSizeBefore = await clearingHouse.getPositionSize(bob.address, baseToken.address)
+            posSizeBefore = await accountBalance.getPositionSize(bob.address, baseToken.address)
         })
 
         it("openNotional++", async () => {
@@ -219,7 +222,7 @@ describe("ClearingHouse.swap", () => {
         })
 
         it("realizedPnl remains", async () => {
-            const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+            const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
             expect(pnl).eq(0)
         })
 
@@ -236,7 +239,7 @@ describe("ClearingHouse.swap", () => {
                     sqrtPriceLimitX96: 0,
                 })
 
-                const bobPosSize = await clearingHouse.getPositionSize(bob.address, baseToken.address)
+                const bobPosSize = await accountBalance.getPositionSize(bob.address, baseToken.address)
                 const partial = bobPosSize.div(4).mul(3)
                 // bob reduce 75% position
                 await clearingHouse.connect(bob).swap({
@@ -257,7 +260,7 @@ describe("ClearingHouse.swap", () => {
 
             // problem: it might increase the realized pnl when reducing position
             it("realizedPnl--", async () => {
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl.lt(0)).be.true
             })
         })
@@ -281,7 +284,7 @@ describe("ClearingHouse.swap", () => {
                 // 2nd 38.3990039298 ETH -> 400 USD
                 // closedNotional = 400/(38.3990039298/19.839679358717434869) = 206.6686875002
                 // pnl = 206.6686875002 - 250 = -43.3313124998
-                const pnl = await clearingHouse.getOwedRealizedPnl(bob.address)
+                const pnl = await accountBalance.getOwedRealizedPnl(bob.address)
                 expect(pnl).eq(parseEther("-43.331312499999999962"))
             })
 

@@ -7,6 +7,7 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeOwnable } from "./SafeOwnable.sol";
 import { MarketRegistry } from "../MarketRegistry.sol";
 
+// TODO split to chCallee and UniswapCallbackBridge
 abstract contract ClearingHouseCallee is SafeOwnable {
     using AddressUpgradeable for address;
 

@@ -13,6 +13,7 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -25,6 +26,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
@@ -39,6 +41,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund
@@ -129,7 +132,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         })
         expect(resp2.fee).eq(0)
 
-        const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+        const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
         // 0.001633641682 * 1% * 40% ~= 0.8
         expect(owedRealizedPnl).eq(parseEther("0.000006534566728"))
     })
@@ -183,7 +186,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // 0.1236448718/0.99 * 1% * 60% * 100% ~= 0.0007493628594
         expect(resp2.fee).eq(parseEther("0.000749362859479297"))
 
-        const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+        const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
         // ((0.122414646 / 0.99) + (0.1236448718 / 0.99)) * 1% * 40% ~= 0.0009941798699
         expect(owedRealizedPnl).eq(parseEther("0.000994179869898991"))
     })

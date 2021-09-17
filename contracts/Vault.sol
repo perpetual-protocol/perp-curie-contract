@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
+import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
@@ -11,11 +12,12 @@ import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { ClearingHouse } from "./ClearingHouse.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { AccountBalance } from "./AccountBalance.sol";
+import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -25,14 +27,16 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
     using PerpMath for int256;
+    using PerpMath for uint256;
     using AddressUpgradeable for address;
 
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
-    event ClearingHouseUpdated(address clearingHouse);
 
     // ------ immutable states ------
     address public settlementToken;
+    address public clearingHouseConfig;
+    address public accountBalance;
 
     // cache the settlement token's decimals for gas optimization
     uint8 public override decimals;
@@ -52,9 +56,17 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
 
-    function initialize(address settlementTokenArg) external initializer {
+    function initialize(
+        address settlementTokenArg,
+        address clearingHouseConfigArg,
+        address accountBalanceArg
+    ) external initializer {
         // V_ANC: SettlementToken address is not contract
         require(settlementTokenArg.isContract(), "V_ANC");
+        // ClearingHouseConfig address is not contract
+        require(clearingHouseConfigArg.isContract(), "V_CHCNC");
+        // accountBalance address is not contract
+        require(accountBalanceArg.isContract(), "V_ABNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -66,6 +78,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         decimals = IERC20Metadata(settlementTokenArg).decimals();
         settlementToken = settlementTokenArg;
         _addCollateralToken(settlementTokenArg);
+        clearingHouseConfig = clearingHouseConfigArg;
+        accountBalance = accountBalanceArg;
 
         // we don't use this var
         versionRecipient = "2.0.0";
@@ -74,12 +88,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     //
     // OWNER SETTER
     //
-    function setClearingHouse(address clearingHouseArg) external onlyOwner {
-        // V_ANC: ClearingHouse address is not contract
-        require(clearingHouseArg.isContract(), "V_ANC");
-        clearingHouse = clearingHouseArg;
-        emit ClearingHouseUpdated(clearingHouseArg);
-    }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // V_ANC: TrustedForwarder address is not contract
@@ -111,11 +119,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
-        int256 pnl = ClearingHouse(clearingHouse).settle(to);
+        int256 pnl = AccountBalance(accountBalance).settle(to);
         // V_NEFC: not enough freeCollateral
-        require(_getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
+        require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
-        // settle owedRealizedPnl in ClearingHouse withdraw
+        // settle AccountBalance's owedRealizedPnl to collateral
         _modifyBalance(to, token, pnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
 
@@ -137,8 +145,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         return settlementTokenValue;
     }
 
-    function getFreeCollateral(address trader) external view returns (uint256) {
-        return _getFreeCollateral(trader);
+    function getFreeCollateral(address trader) public view returns (uint256) {
+        return PerpMath.max(getFreeCollateralByRatio(trader, _getImRatio()), 0).toUint256();
     }
 
     function _addCollateralToken(address token) internal {
@@ -162,21 +170,24 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
         int256 balance = balanceOf(trader);
-        int256 owedRealizedPnl = ClearingHouse(clearingHouse).getOwedRealizedPnl(trader);
+        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
         return balance.addS(owedRealizedPnl, decimals);
     }
 
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
     // we will start with the conservative one, then gradually change it to more aggressive ones
     // to increase capital efficiency.
-    function _getFreeCollateral(address trader) private view returns (uint256) {
+    function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 totalCollateralValue = _getTotalCollateralValue(trader);
-        int256 accountValue = ClearingHouse(clearingHouse).getAccountValue(trader);
-        uint256 totalInitialMarginRequirement = ClearingHouse(clearingHouse).getTotalInitialMarginRequirement(trader);
-        int256 freeCollateral =
+
+        // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
+
+        int256 accountValue =
+            totalCollateralValue.addS(AccountBalance(accountBalance).getTotalUnrealizedPnl(trader), decimals);
+        uint256 totalInitialMarginRequirement = _getTotalMarginRequirement(trader, ratio);
+        return
             PerpMath.min(totalCollateralValue, accountValue).subS(totalInitialMarginRequirement.toInt256(), decimals);
-        return PerpMath.max(freeCollateral, 0).toUint256();
 
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
         // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
@@ -186,6 +197,16 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         //  calculating freeCollateral. We should implement some sort of safety check before using this model;
         //  otherwise a trader could drain the entire vault if the index price deviates significantly.
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+    }
+
+    // return decimals 18
+    function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
+        uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
+        return totalDebtValue.mulRatio(ratio);
+    }
+
+    function _getImRatio() internal view returns (uint24) {
+        return ClearingHouseConfig(clearingHouseConfig).imRatio();
     }
 
     /// @inheritdoc BaseRelayRecipient

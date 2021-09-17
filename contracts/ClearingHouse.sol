@@ -24,18 +24,17 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { ISettlement } from "./interface/ISettlement.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { Exchange } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
+import { AccountBalance } from "./AccountBalance.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
-    ISettlement,
     ReentrancyGuardUpgradeable,
     Validation,
     OwnerPausable,
@@ -76,12 +75,6 @@ contract ClearingHouse is
         uint256 liquidationFee,
         address liquidator
     );
-    event FundingPaymentSettled(
-        address indexed trader,
-        address indexed baseToken,
-        int256 amount // +: trader pays, -: trader receives
-    );
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event ReferredPositionChanged(bytes32 indexed referralCode);
 
     //
@@ -219,9 +212,6 @@ contract ClearingHouse is
     // state variables
     //
 
-    // 10 wei
-    uint256 internal constant _DUST = 10;
-
     // ------ immutable states ------
     address public quoteToken;
     address public uniswapV3Factory;
@@ -234,47 +224,30 @@ contract ClearingHouse is
     // not used in CH, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    address public config;
+    address public clearingHouseConfig;
     address public vault;
     address public insuranceFund;
     address public exchange;
     address public orderBook;
-
-    uint32 public twapInterval;
-
-    // trader => owedRealizedPnl
-    mapping(address => int256) internal _owedRealizedPnlMap;
-
-    // trader => baseTokens
-    // base token registry of each trader
-    mapping(address => address[]) internal _baseTokensMap;
-
-    // first key: trader, second key: baseToken
-    mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
+    address public accountBalance;
 
     // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
-    // key: base token
-    mapping(address => uint256) internal _firstTradedTimestampMap;
-    mapping(address => uint256) internal _lastSettledTimestampMap;
-    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-
     // TODO move to exchange
     // key: base token
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-    // value: tick from the last tx; used for comparing if a tx exceeds maxTickCrossedWithinBlock
-    mapping(address => int24) internal _lastUpdatedTickMap;
 
     function initialize(
-        address configArg,
+        address clearingHouseConfigArg,
         address vaultArg,
         address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
-        address exchangeArg
+        address exchangeArg,
+        address accountBalanceArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
@@ -289,7 +262,9 @@ contract ClearingHouse is
         // CH_UANC: UniV3Factory address is not contract
         require(uniV3FactoryArg.isContract(), "CH_UANC");
         // ClearingHouseConfig address is not contract
-        require(configArg.isContract(), "CH_CCNC");
+        require(clearingHouseConfigArg.isContract(), "CH_CCNC");
+        // AccountBalance is not contract
+        require(accountBalanceArg.isContract(), "CH_ABNC");
 
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
@@ -302,13 +277,14 @@ contract ClearingHouse is
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        config = configArg;
+        clearingHouseConfig = clearingHouseConfigArg;
         vault = vaultArg;
         insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         exchange = exchangeArg;
         orderBook = orderBookArg;
+        accountBalance = accountBalanceArg;
 
         _settlementTokenDecimals = IVault(vault).decimals();
 
@@ -409,9 +385,10 @@ contract ClearingHouse is
 
         address trader = _msgSender();
         // register token if it's the first time
-        _registerBaseToken(trader, params.baseToken);
+        AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
-        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal =
+            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
@@ -430,15 +407,14 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // update balances
-        _accountMarketMap[trader][params.baseToken].baseBalance = _accountMarketMap[trader][params.baseToken]
-            .baseBalance
-            .add(-(response.base.toInt256()));
-        _accountMarketMap[trader][params.baseToken].quoteBalance = _accountMarketMap[trader][params.baseToken]
-            .quoteBalance
-            .add(-(response.quote.toInt256()));
         // collect fee to owedRealizedPnl
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(response.fee.toInt256());
+        AccountBalance(accountBalance).addBalance(
+            trader,
+            params.baseToken,
+            -(response.base.toInt256()),
+            -(response.quote.toInt256()),
+            response.fee.toInt256()
+        );
 
         // TODO : WIP
         // must after token info is updated to ensure free collateral is positive after updated
@@ -485,7 +461,8 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
-        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal =
+            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         SwapResponse memory response =
             _closePosition(
@@ -498,7 +475,8 @@ contract ClearingHouse is
             );
 
         // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
-        bool isBaseToQuote = getPositionSize(trader, params.baseToken) > 0 ? true : false;
+        bool isBaseToQuote =
+            AccountBalance(accountBalance).getPositionSize(trader, params.baseToken) > 0 ? true : false;
         _checkSlippage(
             CheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
@@ -523,10 +501,11 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         _requireHasBaseToken(params.baseToken);
-        _registerBaseToken(trader, params.baseToken);
+        AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must before price impact check
-        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal =
+            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
 
         // cache before actual swap
         bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
@@ -585,16 +564,20 @@ contract ClearingHouse is
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(
-                _getTotalAbsPositionValue(trader).mulRatio(ClearingHouseConfig(config).mmRatio()).toInt256(),
+                AccountBalance(accountBalance)
+                    .getTotalAbsPositionValue(trader)
+                    .mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio())
+                    .toInt256(),
                 _settlementTokenDecimals
             ),
             "CH_EAV"
         );
 
         // CH_NEO: not empty order
-        require(!OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]), "CH_NEO");
+        require(!AccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
-        Funding.Growth memory fundingGrowthGlobal = _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+        Funding.Growth memory fundingGrowthGlobal =
+            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
         SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
@@ -607,12 +590,15 @@ contract ClearingHouse is
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
-            response.exchangedPositionNotional.abs().mulRatio(ClearingHouseConfig(config).liquidationPenaltyRatio());
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(liquidationFee.toInt256());
+            response.exchangedPositionNotional.abs().mulRatio(
+                ClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
+            );
+
+        AccountBalance(accountBalance).addOwedRealizedPnl(trader, -(liquidationFee.toInt256()));
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        _owedRealizedPnlMap[liquidator] = _owedRealizedPnlMap[liquidator].add(liquidationFee.toInt256());
+        AccountBalance(accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -637,35 +623,6 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
-    /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external override returns (int256) {
-        // only vault
-        require(_msgSender() == vault, "CH_OV");
-
-        // the full process of a trader's withdrawal:
-        // for loop of each order:
-        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
-        //         settle funding payment to owedRealizedPnl
-        //         collect fee to owedRealizedPnl
-        // call Vault.withdraw(token, amount)
-        //     settle pnl to trader balance in Vault
-        //     transfer amount to trader
-
-        // make sure funding payments are always settled,
-        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                _settleFundingAndUpdateFundingGrowth(trader, baseToken);
-            }
-        }
-
-        int256 pnl = _owedRealizedPnlMap[trader];
-        _owedRealizedPnlMap[trader] = 0;
-
-        return pnl;
-    }
-
     //
     // EXTERNAL VIEW FUNCTIONS
     //
@@ -675,29 +632,11 @@ contract ClearingHouse is
 
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
-        return _getTotalCollateralValue(trader).addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
-    }
-
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
-        // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
-        // for instance, maker adds liquidity with 2 base (2000000000000000000),
-        // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize =
-            _accountMarketMap[trader][baseToken].baseBalance.add(
-                OrderBook(orderBook)
-                    .getTotalTokenAmountInPool(
-                    trader,
-                    baseToken,
-                    true // get base token amount
-                )
-                    .toInt256()
+        return
+            _getTotalCollateralValue(trader).addS(
+                AccountBalance(accountBalance).getTotalUnrealizedPnl(trader),
+                _settlementTokenDecimals
             );
-        return positionSize.abs() < _DUST ? 0 : positionSize;
-    }
-
-    /// @dev a negative returned value is only be used when calculating pnl
-    function getPositionValue(address trader, address baseToken) external view returns (int256) {
-        return _getPositionValue(trader, baseToken);
     }
 
     /// @dev the amount of quote token paid for a position when opening
@@ -707,61 +646,10 @@ contract ClearingHouse is
 
         int256 openNotional =
             OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                _accountMarketMap[trader][baseToken].quoteBalance
+                AccountBalance(accountBalance).getQuote(trader, baseToken)
             );
 
         return openNotional;
-    }
-
-    function getOwedRealizedPnl(address trader) external view returns (int256) {
-        return _owedRealizedPnlMap[trader];
-    }
-
-    /// @dev the decimals of the return value is 18
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256) {
-        return _getTotalMarginRequirement(trader, ClearingHouseConfig(config).imRatio());
-    }
-
-    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
-    function getNetQuoteBalance(address trader) public view returns (int256) {
-        uint256 tokenLen = _baseTokensMap[trader].length;
-        int256 totalQuoteBalance;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                totalQuoteBalance = totalQuoteBalance.add(_accountMarketMap[trader][baseToken].quoteBalance);
-            }
-        }
-
-        // owedFee is included
-        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
-        int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
-
-        return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
-    }
-
-    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
-    function getAllPendingFundingPayment(address trader) external view returns (int256) {
-        return _getAllPendingFundingPayment(trader);
-    }
-
-    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
-    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        _requireHasBaseToken(baseToken);
-        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
-        return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
-    }
-
-    function getTotalUnrealizedPnl(address trader) public view returns (int256) {
-        int256 totalPositionValue;
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                totalPositionValue = totalPositionValue.add(_getPositionValue(trader, baseToken));
-            }
-        }
-
-        return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
     //
@@ -777,10 +665,10 @@ contract ClearingHouse is
 
         // CH_NEFCM: not enough free collateral by mmRatio
         // only cancel open orders if there are not enough free collateral with mmRatio
-        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(config).mmRatio()) < 0, "CH_NEFCM");
+        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0, "CH_NEFCM");
 
         // must settle funding before getting token info
-        _settleFundingAndUpdateFundingGrowth(maker, baseToken);
+        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
@@ -796,81 +684,19 @@ contract ClearingHouse is
 
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         // collect fee to owedRealizedPnl
-        _owedRealizedPnlMap[params.maker] = _owedRealizedPnlMap[params.maker].add(params.collectedFee.toInt256());
-
-        _accountMarketMap[params.maker][params.baseToken].quoteBalance = _accountMarketMap[params.maker][
-            params.baseToken
-        ]
-            .quoteBalance
-            .add(params.removedQuote.toInt256());
-        _accountMarketMap[params.maker][params.baseToken].baseBalance = _accountMarketMap[params.maker][
-            params.baseToken
-        ]
-            .baseBalance
-            .add(params.removedBase.toInt256());
-
-        _deregisterBaseToken(params.maker, params.baseToken);
-    }
-
-    /// @dev this function is expensive
-    function _deregisterBaseToken(address trader, address baseToken) internal {
-        if (
-            _accountMarketMap[trader][baseToken].baseBalance.abs() >= _DUST ||
-            _accountMarketMap[trader][baseToken].quoteBalance.abs() >= _DUST
-        ) {
-            return;
-        }
-
-        uint256 baseInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
-        uint256 quoteInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        if (baseInPool > 0 || quoteInPool > 0) {
-            return;
-        }
-
-        delete _accountMarketMap[trader][baseToken];
-
-        uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i; i < length; i++) {
-            if (_baseTokensMap[trader][i] == baseToken) {
-                // if the item to be removed is the last one, pop it directly
-                // else, replace it with the last one and pop the last one
-                if (i != length - 1) {
-                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
-                }
-                _baseTokensMap[trader].pop();
-                break;
-            }
-        }
-    }
-
-    function _registerBaseToken(address trader, address baseToken) internal {
-        address[] memory tokens = _baseTokensMap[trader];
-        if (tokens.length == 0) {
-            _baseTokensMap[trader].push(baseToken);
-            return;
-        }
-
-        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (_accountMarketMap[trader][baseToken].baseBalance == 0) {
-            bool hit;
-            for (uint256 i = 0; i < tokens.length; i++) {
-                if (tokens[i] == baseToken) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (!hit) {
-                // CH_MNE: markets number exceeded
-                uint8 maxMarketsPerAccount = ClearingHouseConfig(config).maxMarketsPerAccount();
-                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
-                _baseTokensMap[trader].push(baseToken);
-            }
-        }
+        AccountBalance(accountBalance).addBalance(
+            params.maker,
+            params.baseToken,
+            params.removedBase.toInt256(),
+            params.removedQuote.toInt256(),
+            params.collectedFee.toInt256()
+        );
+        AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
     }
 
     // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         int256 deltaAvailableQuote;
 
@@ -944,7 +770,7 @@ contract ClearingHouse is
         response.openNotional = getOpenNotional(params.trader, params.baseToken);
         response.realizedPnl = realizedPnl;
 
-        _deregisterBaseToken(params.trader, params.baseToken);
+        AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
     }
@@ -959,10 +785,7 @@ contract ClearingHouse is
             return;
         }
 
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(deltaPnl);
-        _accountMarketMap[trader][baseToken].quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance.add(
-            -deltaPnl
-        );
+        AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
     }
 
     // check here for custom fee design,
@@ -984,23 +807,18 @@ contract ClearingHouse is
         // update internal states
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        _accountMarketMap[params.trader][params.baseToken].baseBalance = _accountMarketMap[params.trader][
-            params.baseToken
-        ]
-            .baseBalance
-            .add(response.exchangedPositionSize);
-        _accountMarketMap[params.trader][params.baseToken].quoteBalance = _accountMarketMap[params.trader][
-            params.baseToken
-        ]
-            .quoteBalance
-            .add(response.exchangedPositionNotional.sub(response.fee.toInt256()));
-        _owedRealizedPnlMap[insuranceFund] = _owedRealizedPnlMap[insuranceFund].add(
-            response.insuranceFundFee.toInt256()
+        AccountBalance(accountBalance).addBalance(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional.sub(response.fee.toInt256()),
+            0
         );
+        AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
 
         // update timestamp of the first tx in this market
-        if (_firstTradedTimestampMap[params.baseToken] == 0) {
-            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
+        if (AccountBalance(accountBalance).getFirstTradedTimestamp(params.baseToken) == 0) {
+            AccountBalance(accountBalance).updateFirstTradedTimestamp(params.baseToken);
         }
 
         return
@@ -1021,7 +839,7 @@ contract ClearingHouse is
         returns (RemoveLiquidityResponse memory)
     {
         // must settle funding before getting token info
-        _settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
+        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidity(
                 OrderBook.RemoveLiquidityParams({
@@ -1079,7 +897,7 @@ contract ClearingHouse is
     }
 
     function _closePosition(InternalClosePositionParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
@@ -1099,7 +917,7 @@ contract ClearingHouse is
 
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        uint24 partialCloseRatio = ClearingHouseConfig(config).partialCloseRatio();
+        uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
         if (
             _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
             _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
@@ -1125,67 +943,6 @@ contract ClearingHouse is
             );
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
-    /// @dev personal funding payment is settled whenever there is pending funding payment
-    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
-    function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
-        private
-        returns (Funding.Growth memory fundingGrowthGlobal)
-    {
-        uint256 markTwap;
-        uint256 indexTwap;
-        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
-
-        // pass fundingGrowthGlobal in for states mutation
-        int256 fundingPayment = _updateFundingGrowthAndFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        if (fundingPayment != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
-            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
-        }
-
-        // update states before further actions in this block; once per block
-        if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
-            // update fundingGrowthGlobal
-            Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-            (
-                _lastSettledTimestampMap[baseToken],
-                lastFundingGrowthGlobal.twPremiumX96,
-                lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
-            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
-
-            // update tick
-            _lastUpdatedTickMap[baseToken] = Exchange(exchange).getTick(baseToken);
-
-            emit FundingUpdated(baseToken, markTwap, indexTwap);
-        }
-
-        return fundingGrowthGlobal;
-    }
-
-    /// @dev this is the non-view version of _getPendingFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _updateFundingGrowthAndFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
-                trader,
-                baseToken,
-                fundingGrowthGlobal
-            );
-
-        return
-            _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
-                liquidityCoefficientInFundingPayment,
-                fundingGrowthGlobal.twPremiumX96
-            );
-    }
-
     //
     // INTERNAL VIEW FUNCTIONS
     //
@@ -1195,7 +952,7 @@ contract ClearingHouse is
         if (maxTickDelta == 0) {
             return false;
         }
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        int24 lastUpdatedTick = AccountBalance(accountBalance).getLastUpdatedTickMap(baseToken);
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
         int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
         int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
@@ -1203,173 +960,17 @@ contract ClearingHouse is
     }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        int24 lastUpdatedTick = AccountBalance(accountBalance).getLastUpdatedTickMap(baseToken);
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    // -------------------------------
-    // --- funding related getters ---
-
-    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _getPendingFundingPayment(
-        address trader,
-        address baseToken,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal view returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        return
-            _accountMarketMap[trader][baseToken].getPendingFundingPayment(
-                liquidityCoefficientInFundingPayment,
-                fundingGrowthGlobal.twPremiumX96
-            );
-    }
-
-    /// @return fundingPayment the funding payment of all markets of a trader
-    function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                fundingPayment = fundingPayment.add(getPendingFundingPayment(trader, baseToken));
-            }
-        }
-    }
-
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
-    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
-    function _getFundingGrowthGlobalAndTwaps(address baseToken)
-        internal
-        view
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        )
-    {
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-
-        // get mark twap
-        uint32 twapIntervalArg = _getTwapInterval();
-        // shorten twapInterval if prior observations are not enough for twapInterval
-        if (_firstTradedTimestampMap[baseToken] == 0) {
-            twapIntervalArg = 0;
-        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
-            // overflow inspection:
-            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
-        }
-
-        uint256 markTwapX96 =
-            Exchange(exchange).getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
-        markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = _getIndexPrice(baseToken);
-
-        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
-            int256 twPremiumDeltaX96 =
-                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
-                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
-                );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
-
-            // overflow inspection:
-            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(
-                    uint256(Exchange(exchange).getSqrtMarkTwapX96(baseToken, 0)).toInt256()
-                )
-            );
-        } else {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
-        }
-
-        return (fundingGrowthGlobal, markTwap, indexTwap);
-    }
-
-    // --- funding related getters ---
-    // -------------------------------
-
-    function _getTwapInterval() internal view returns (uint32) {
-        return ClearingHouseConfig(config).twapInterval();
-    }
-
-    function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
-    }
-
-    /// @dev the return value is in decimals == 18
-    function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
-        return _getTotalDebtValue(trader).mulRatio(ratio);
-    }
-
     /// @dev the return value is in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = _owedRealizedPnlMap[trader].sub(_getAllPendingFundingPayment(trader));
+        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnlWithPendingFundingPayment(trader);
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
-    }
-
-    /// @dev we use 15 mins twap to calc position value
-    function _getPositionValue(address trader, address baseToken) internal view returns (int256) {
-        int256 positionSize = getPositionSize(trader, baseToken);
-        if (positionSize == 0) return 0;
-
-        uint256 indexTwap = IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
-
-        // both positionSize & indexTwap are in 10^18 already
-        return positionSize.mul(indexTwap.toInt256()).divBy10_18();
-    }
-
-    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
-    function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
-        address[] memory tokens = _baseTokensMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = tokens[i];
-            if (_hasPool(baseToken)) {
-                // will not use negative value in this case
-                uint256 positionValue = _getPositionValue(trader, baseToken).abs();
-                totalPositionValue = totalPositionValue.add(positionValue);
-            }
-        }
-        return totalPositionValue;
-    }
-
-    function _getTotalDebtValue(address trader) internal view returns (uint256) {
-        int256 totalQuoteBalance;
-        uint256 totalBaseDebtValue;
-        uint256 tokenLen = _baseTokensMap[trader].length;
-
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            if (_hasPool(baseToken)) {
-                int256 baseBalance = _accountMarketMap[trader][baseToken].baseBalance;
-                uint256 baseDebt = baseBalance > 0 ? 0 : (-baseBalance).toUint256();
-                uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
-                // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
-                int256 quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance;
-
-                totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
-                totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
-            }
-        }
-
-        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : (-totalQuoteBalance).toUint256();
-
-        return totalQuoteDebtValue.add(totalBaseDebtValue);
-    }
-
-    function _hasPool(address baseToken) internal view returns (bool) {
-        return Exchange(exchange).getPool(baseToken) != address(0);
     }
 
     function _isIncreasePosition(
@@ -1378,7 +979,7 @@ contract ClearingHouse is
         bool isBaseToQuote
     ) internal view returns (bool) {
         // increase position == old/new position are in the same direction
-        int256 positionSize = getPositionSize(trader, baseToken);
+        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
         bool isOldPositionShort = positionSize < 0 ? true : false;
         return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
@@ -1396,42 +997,17 @@ contract ClearingHouse is
     // TODO remove, should check in exchange
     function _requireHasBaseToken(address baseToken) internal view {
         // CH_BTNE: base token not exists
-        require(_hasPool(baseToken), "CH_BTNE");
+        require(Exchange(exchange).getPool(baseToken) != address(0), "CH_BTNE");
     }
 
-    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    // we will start with the conservative one, then gradually change it to more aggressive ones
-    // to increase capital efficiency.
     function _getFreeCollateralByRatio(address trader, uint24 ratio) private view returns (int256) {
-        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-        int256 totalCollateralValue = _getTotalCollateralValue(trader);
-        int256 accountValue = totalCollateralValue.addS(getTotalUnrealizedPnl(trader), _settlementTokenDecimals);
-        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
-        return
-            PerpMath.min(totalCollateralValue, accountValue).subS(
-                totalMarginRequirement.toInt256(),
-                _settlementTokenDecimals
-            );
-
-        // TODO checklist before enabling more aggressive configs:
-        // - protect the system against index price spread attack
-        //   https://www.notion.so/perp/Index-price-spread-attack-2f203d45b34f4cc3ab80ac835247030f
-        // - protect against index price anomaly (see the TODO for aggressive model below)
-
-        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
-        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
-
-        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
-        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
-        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
-        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
-        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+        return IVault(vault).getFreeCollateralByRatio(trader, ratio);
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
         // CH_NEFCI: not enough account value by imRatio
         // freeCollateral is calculated with imRatio
-        require(_getFreeCollateralByRatio(trader, ClearingHouseConfig(config).imRatio()) >= 0, "CH_NEFCI");
+        require(_getFreeCollateralByRatio(trader, ClearingHouseConfig(clearingHouseConfig).imRatio()) >= 0, "CH_NEFCI");
     }
 
     function _checkSlippage(CheckSlippageParams memory params) internal pure {
