@@ -1,31 +1,40 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestERC20, Vault } from "../../typechain"
-import { createVaultFixture } from "./fixtures"
+import { mockedVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
     let usdc: TestERC20
+    let insuranceFund: MockContract
+    let accountBalance: MockContract
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createVaultFixture())
+        const _fixture = await loadFixture(mockedVaultFixture)
         vault = _fixture.vault
         usdc = _fixture.USDC
+        insuranceFund = _fixture.mockedInsuranceFund
+        accountBalance = _fixture.mockedAccountBalance
 
         // mint
         const amount = parseUnits("1000", await usdc.decimals())
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
+
+        await usdc.mint(admin.address, amount)
     })
 
     describe("# initialize", () => {
-        it("force error, invalid clearingHouse address", async () => {
+        it("force error, invalid insurance fund address", async () => {
             const vaultFactory = await ethers.getContractFactory("Vault")
             const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith("V_ANC")
+            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith(
+                "function call to a non-contract account",
+            )
         })
     })
 
@@ -93,14 +102,41 @@ describe("Vault spec", () => {
         it("force error, clearingHouse not found")
     })
 
-    describe("withdraw settlement token", () => {
-        it("reduce vault's token balance")
-        it("increase sender's token balance")
-        it("update ClearingHouse's quote debt to 0")
-        it("force error if the freeCollateral is not enough")
+    describe("withdraw settlement token", async () => {
+        let amount: ReturnType<typeof parseUnits>
+        beforeEach(async () => {
+            amount = parseUnits("100", await usdc.decimals())
+            await vault.connect(alice).deposit(usdc.address, amount)
 
-        describe("USDC collateral is not enough", () => {
-            it("borrow from insuranceFund, increase usdcDebt")
+            accountBalance.smocked.settle.will.return.with(0)
+            accountBalance.smocked.getOwedRealizedPnl.will.return.with(0)
+            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount)
+            accountBalance.smocked.getTotalDebtValue.will.return.with(0)
+        })
+
+        it("emit event and update balances", async () => {
+            const balanceBefore = await usdc.balanceOf(alice.address)
+
+            await expect(vault.connect(alice).withdraw(usdc.address, amount))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(usdc.address, alice.address, amount)
+
+            // decrease vault's token balance
+            expect(await usdc.balanceOf(vault.address)).to.eq("0")
+
+            const balanceAfter = await usdc.balanceOf(alice.address)
+            // sender's token balance increased
+            expect(balanceAfter.sub(balanceBefore)).to.eq(amount)
+
+            // update sender's balance in vault
+            expect(await vault.balanceOf(alice.address)).to.eq("0")
+        })
+
+        it("force error if the freeCollateral is not enough", async () => {
+            // unrealizePnl = -amount, so free collateral is not enough
+            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount.mul(-1))
+
+            await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })
     })
 

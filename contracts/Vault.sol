@@ -16,6 +16,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { AccountBalance } from "./AccountBalance.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 
@@ -34,19 +35,23 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
     // ------ immutable states ------
-    address public settlementToken;
-    address public clearingHouseConfig;
-    address public accountBalance;
 
-    // cache the settlement token's decimals for gas optimization
+    // cached the settlement token's decimal for gas optimization
     uint8 public override decimals;
 
+    address public settlementToken;
+
     // ------ ^^^^^^^^^^^^^^^^ ------
+
+    address public clearingHouseConfig;
+    address public accountBalance;
+    address public insuranceFund;
+
+    uint256 public totalDebt;
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    address public clearingHouse;
     address[] internal _collateralTokens;
 
     // key: trader, token address
@@ -57,12 +62,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     mapping(address => bool) internal _collateralTokenMap;
 
     function initialize(
-        address settlementTokenArg,
+        address insuranceFundArg,
         address clearingHouseConfigArg,
         address accountBalanceArg
     ) external initializer {
-        // V_ANC: SettlementToken address is not contract
-        require(settlementTokenArg.isContract(), "V_ANC");
+        address settlementTokenArg = IInsuranceFund(insuranceFundArg).token();
+        uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
+
+        // invalid settlementToken decimals
+        require(decimalsArg <= 18, "V_ISTD");
         // ClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "V_CHCNC");
         // accountBalance address is not contract
@@ -71,12 +79,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        // invalid settlementToken decimals
-        require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
-
         // update states
-        decimals = IERC20Metadata(settlementTokenArg).decimals();
+        decimals = decimalsArg;
         settlementToken = settlementTokenArg;
+        insuranceFund = insuranceFundArg;
         _addCollateralToken(settlementTokenArg);
         clearingHouseConfig = clearingHouseConfigArg;
         accountBalance = accountBalanceArg;
@@ -123,6 +129,16 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // V_NEFC: not enough freeCollateral
         require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
+        // borrow settlement token from insurance fund if token balance is not enough
+        if (token == settlementToken) {
+            uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
+            if (vaultBalance < amount) {
+                uint256 borrowAmount = amount - vaultBalance;
+                IInsuranceFund(insuranceFund).borrow(borrowAmount);
+                totalDebt += borrowAmount;
+            }
+        }
+
         // settle AccountBalance's owedRealizedPnl to collateral
         _modifyBalance(to, token, pnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
@@ -148,6 +164,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function getFreeCollateral(address trader) public view returns (uint256) {
         return PerpMath.max(getFreeCollateralByRatio(trader, _getImRatio()), 0).toUint256();
     }
+
+    //
+    // INTERNAL
+    //
 
     function _addCollateralToken(address token) internal {
         // collateral token existed
