@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import "../ClearingHouse.sol";
 import "./TestAccountBalance.sol";
+import "./TestExchange.sol";
 
 contract TestClearingHouse is ClearingHouse {
     uint256 private _testBlockTimestamp;
@@ -31,6 +32,7 @@ contract TestClearingHouse is ClearingHouse {
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
         TestAccountBalance(accountBalance).setBlockTimestamp(blockTimestamp);
+        TestExchange(exchange).setBlockTimestamp(blockTimestamp);
         _testBlockTimestamp = blockTimestamp;
     }
 
