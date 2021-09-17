@@ -15,7 +15,7 @@ import {
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getPositionSize", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -32,7 +32,7 @@ describe("ClearingHouse.getPositionSize", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
@@ -115,7 +115,6 @@ describe("ClearingHouse.getPositionSize", () => {
             // The swap pushes the mark price to 149.863446 (tick = 50099.75001)
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420499999999"),
             )
 
@@ -167,7 +166,6 @@ describe("ClearingHouse.getPositionSize", () => {
             // which makes the mark price become 149.863446 (tick = 50099.75001)
 
             expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
                 parseEther("0.408410420599999999"),
             )
 

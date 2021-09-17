@@ -17,7 +17,7 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -37,9 +37,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(
-            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
-        )
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange

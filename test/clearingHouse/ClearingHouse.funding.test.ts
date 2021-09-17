@@ -17,7 +17,7 @@ import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -35,9 +35,7 @@ describe("ClearingHouse funding", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(
-            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
-        )
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
@@ -106,9 +104,6 @@ describe("ClearingHouse funding", () => {
             //   quote.available = 15.1128025359
             //   quote.debt = 0
             // mark price should be 153.9623330511 (tick ~= 50369)
-
-            // TODO somehow mark TWAP becomes 153.9531248192 which is not exactly the same as the mark price immediately after bob swap
-            // check why is that the case
         })
 
         it("no funding payment when it's still the same block as swapping", async () => {
