@@ -79,8 +79,6 @@ interface IOrderBook {
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
     }
 
-    function setExchange(address exchangeArg) external;
-
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external returns (RemoveLiquidityResponse memory);
