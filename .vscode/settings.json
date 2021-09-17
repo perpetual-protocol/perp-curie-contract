@@ -47,6 +47,7 @@
         "ethersproject",
         "ETHUSD",
         "IERC",
+        "initializable",
         "inheritdoc",
         "keccak",
         "lushan",

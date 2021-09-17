@@ -6,18 +6,19 @@ import {
     BaseToken,
     ClearingHouse,
     Exchange,
-    MarketRegistry,
     InsuranceFund,
+    MarketRegistry,
     OrderBook,
     QuoteToken,
     TestERC20,
     UniswapV3Pool,
     Vault,
+    AccountBalance,
 } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse insurance fee in xyk pool", () => {
     const [admin, maker1, maker2, taker1, taker2, insurance] = waffle.provider.getWallets()
@@ -26,6 +27,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
@@ -38,10 +40,11 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund
@@ -156,7 +159,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 250 * 1% * 60% * 10% ~= 0.15
             expect(resp2.fee).eq(parseEther("0.149999999999999999"))
 
-            const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+            const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
             // 250 * 1% * 40% ~= 1
             expect(owedRealizedPnl).eq(parseEther("1"))
         })
@@ -214,7 +217,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 200 * 1% * 60% * 10% ~= 0.12
             expect(resp2.fee).eq(parseEther("0.119999999999999999"))
 
-            const owedRealizedPnl = await clearingHouse.getOwedRealizedPnl(insuranceFund.address)
+            const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
             // 200 * 1% * 40% ~= 0.8
             expect(owedRealizedPnl).eq(parseEther("0.8"))
         })

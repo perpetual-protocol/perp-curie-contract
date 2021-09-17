@@ -3,6 +3,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
@@ -14,13 +15,14 @@ import {
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse getNetQuoteBalance", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let accountBalance: AccountBalance
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -31,9 +33,10 @@ describe("ClearingHouse getNetQuoteBalance", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
+        accountBalance = _clearingHouseFixture.accountBalance
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
         collateral = _clearingHouseFixture.USDC
@@ -70,8 +73,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
     describe("no swap, netQuoteBalance should be 0", () => {
         it("taker has no position", async () => {
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0"))
-            expect(await clearingHouse.getNetQuoteBalance(bob.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("0"))
         })
 
         it("maker adds liquidity below price with quote only", async () => {
@@ -86,8 +89,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).to.eq(0)
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(0)
         })
 
         it("maker adds liquidity above price with base only", async () => {
@@ -102,8 +105,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).to.eq(parseEther("0"))
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(parseEther("0"))
         })
 
         it("maker adds liquidity with both quote and base", async () => {
@@ -117,8 +120,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).to.deep.eq(parseEther("0"))
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.deep.eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.deep.eq(parseEther("0"))
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.deep.eq(0)
         })
     })
 
@@ -148,8 +151,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
             // current price = 26.3852759058
 
-            expect(await clearingHouse.getNetQuoteBalance(bob.address)).to.eq(parseEther("63.106831428587933867"))
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.be.closeTo(
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("63.106831428587933867"))
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.be.closeTo(
                 parseEther("-63.106831428587933867"),
                 10,
             )
@@ -164,12 +167,12 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             // taker sells all quote, making netQuoteBalance == 0
-            expect(await clearingHouse.getNetQuoteBalance(bob.address)).to.eq(0)
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
 
             // when taker swaps, maker gets 63.106831428587933867 / 0.99 * 0.01 = 0.6374427417
             // when taker closes position, maker gets 64.388155727566507365 * 0.01 = 0.6438815573
             // maker should get 0.6374427417 + 0.6438815573 = 1.281324299 quote as fee
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.eq(parseEther("1.281324298978573495"))
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(parseEther("1.281324298978573495"))
         })
 
         it("two makers; a taker swaps and then one maker closes position", async () => {
@@ -209,9 +212,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             // current price = 70.3806594937
 
             // expect taker's netQuoteBalance == makers' netQuoteBalance
-            const bobNetQuoteBalance = await clearingHouse.getNetQuoteBalance(bob.address)
-            const aliceNetQuoteBalance = await clearingHouse.getNetQuoteBalance(alice.address)
-            const carolNetQuoteBalance = await clearingHouse.getNetQuoteBalance(carol.address)
+            const bobNetQuoteBalance = await accountBalance.getNetQuoteBalance(bob.address)
+            const aliceNetQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
+            const carolNetQuoteBalance = await accountBalance.getNetQuoteBalance(carol.address)
             expect(aliceNetQuoteBalance.add(carolNetQuoteBalance).mul(-1)).to.be.closeTo(bobNetQuoteBalance, 10)
 
             const quoteSwapped = (
@@ -234,14 +237,14 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             // current price = 26.3852759058
 
             // carol's netQuoteBalance should be 0 after closing position
-            expect(await clearingHouse.getNetQuoteBalance(carol.address)).to.eq(0)
+            expect(await accountBalance.getNetQuoteBalance(carol.address)).to.eq(0)
 
             // taker's netQuoteBalance won't change
-            expect(await clearingHouse.getNetQuoteBalance(bob.address)).to.eq(bobNetQuoteBalance)
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobNetQuoteBalance)
 
             // when bob shorts, carol is forced to long -> when carol closes position, it's short
             // thus, the last maker alice is forced to long more -> even smaller netQuoteBalance
-            expect(await clearingHouse.getNetQuoteBalance(alice.address)).to.be.closeTo(
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.be.closeTo(
                 aliceNetQuoteBalance.sub(quoteSwapped),
                 10,
             )

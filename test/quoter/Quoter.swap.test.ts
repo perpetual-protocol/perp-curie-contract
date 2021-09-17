@@ -13,7 +13,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -35,7 +35,7 @@ describe("Quoter.swap", () => {
     let upperTick
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         marketRegistry = _clearingHouseFixture.marketRegistry
         orderBook = _clearingHouseFixture.orderBook

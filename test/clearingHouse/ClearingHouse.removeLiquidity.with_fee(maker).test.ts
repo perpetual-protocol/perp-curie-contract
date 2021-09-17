@@ -3,6 +3,7 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
@@ -15,7 +16,7 @@ import {
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity with fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -24,6 +25,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
@@ -33,10 +35,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let quoteAmount: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -149,7 +152,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     )
 
                 // alice received 0.0006151334175725025 quote tokens as fee
-                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
+                expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq("615133417572502")
 
                 // 10000 - 0.122414646 (added liquidity) = 9999.877585354
                 // auto-burnt:
@@ -270,7 +273,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // 10000 +  = 10000.001135501474999999
                     // atm alice's quote tokens should've been burnt and only the fees are left
-                    expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
+                    expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(
                         parseEther("0.001135501474999999"),
                     )
 
@@ -305,7 +308,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // because bob swapped twice in the opposite directions with exact the same amount
                     const [, aliceQuoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
                     expect(aliceQuoteBalance).be.eq(0)
-                    expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
+                    expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(
                         parseEther("0.001135501474999999"),
                     )
                 })
@@ -402,7 +405,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     expect(aliceBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                     // alice received 0.002259647935 quote tokens as fee
-                    expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(
+                    expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(
                         parseEther("0.002259647935249999"),
                     )
 
@@ -572,14 +575,14 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(aliceBaseBalance).to.deep.eq(parseEther("-0.002450462523"))
 
                 // alice has 0.00168896692 quote from fees
-                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
+                expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
 
                 // carol still has -0.000816820841 balance
                 const [carolBaseBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
                 expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.0005629889737 quote from fees
-                expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
+                expect(await accountBalance.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
 
                 // lastFeeGrowthInsideX128: (0.001116454419 / 4) * 2 ^ 128 + (0.001135501474999999 / 4) * 2 ^ 128 = 1.9157522e35
                 // 191575220500261126937834419214500538
@@ -611,8 +614,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(bobBaseBalance).be.closeTo(parseEther("0.000005184070208358"), 1)
                 // CH should have alice's fee + carol's fee = 0.00168896692 + 0.0005629889737 = 0.002251955894
                 // but they're all settled to their owedRelizedPnl so 0 with a few roundings left
-                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
-                expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
+                expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.001688966920907494"))
+                expect(await accountBalance.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.000562988973635831"))
             })
 
             it("out of maker's range; alice receives more fee as the price goes beyond carol's range", async () => {
@@ -786,14 +789,14 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(aliceBaseBalance).to.deep.eq(parseEther("-0.001625514583200000"))
 
                 // alice has 0.00444896749 quote from fees
-                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
+                expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
 
                 // carol still has -0.000816820841 balance
                 const [carolBaseBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
                 expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.002460658036 quote from fees
-                expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
+                expect(await accountBalance.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
 
                 // when bob swap Q2B
                 //   lastFeeGrowthInsideX128 += (0.001236511576 + 0.0009991504793) * 2 ^ 128 = 7.607563758E35
@@ -840,8 +843,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     const [, quoteBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
                     expect(quoteBalance).be.eq(0)
                 }
-                expect(await clearingHouse.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
-                expect(await clearingHouse.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
+                expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.eq(parseEther("0.004448967489567409"))
+                expect(await accountBalance.getOwedRealizedPnl(carol.address)).to.eq(parseEther("0.002460658034826347"))
             })
         })
     })

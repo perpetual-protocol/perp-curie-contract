@@ -3,6 +3,7 @@ import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouse,
     Exchange,
@@ -17,7 +18,7 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -26,6 +27,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -37,12 +39,11 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(
-            createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1, false),
-        )
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
         clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -123,7 +124,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         })
 
         // maker close position
-        const posSize = await clearingHouse.getPositionSize(alice.address, baseToken.address)
+        const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base

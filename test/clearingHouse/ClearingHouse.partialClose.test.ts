@@ -3,6 +3,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
@@ -17,7 +18,7 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse partial close in xyk pool", () => {
     const [admin, maker, alice, carol, liquidator] = waffle.provider.getWallets()
@@ -27,6 +28,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -38,11 +40,12 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -113,7 +116,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
             // move to next block to simplify test case
             // otherwise we need to bring another trader to move the price further away
@@ -133,7 +136,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
         })
 
         it("carol's position is partially closed with closePosition when it's over price limit", async () => {
@@ -149,7 +152,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
         // values are the same as the above one
@@ -208,7 +211,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
             // liquidation can't happen in the same block because it's based on the index price
             await forwardTimestamp(clearingHouse)
@@ -222,7 +225,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // should be partially liquidated
             // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
         // values are the same as the above one
@@ -289,7 +292,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
 
             // 4. alice can only close partial position, 50.33 - 50.33/4 = 37.7475
             await clearingHouse.connect(alice).closePosition({
@@ -300,7 +303,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("37.762630707661446261"),
             )
         })
@@ -339,7 +342,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.375"))
 
             // 4. alice can not close her position through open a reverse position
             await expect(
@@ -355,7 +358,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 }),
             ).to.be.revertedWith("CH_OPIBS")
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("50.350174276881928348"),
             )
         })

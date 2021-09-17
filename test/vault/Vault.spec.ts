@@ -10,15 +10,15 @@ describe("Vault spec", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
     let usdc: TestERC20
-    let clearingHouse: MockContract
     let insuranceFund: MockContract
+    let accountBalance: MockContract
 
     beforeEach(async () => {
         const _fixture = await loadFixture(mockedVaultFixture)
         vault = _fixture.vault
         usdc = _fixture.USDC
-        clearingHouse = _fixture.mockedClearingHouse
         insuranceFund = _fixture.mockedInsuranceFund
+        accountBalance = _fixture.mockedAccountBalance
 
         // mint
         const amount = parseUnits("1000", await usdc.decimals())
@@ -29,39 +29,15 @@ describe("Vault spec", () => {
     })
 
     describe("# initialize", () => {
-        it("force error, invalid settlement token address", async () => {
+        it("force error, invalid insurance fund address", async () => {
             const vaultFactory = await ethers.getContractFactory("Vault")
             const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(insuranceFund.address, alice.address)).to.be.revertedWith("V_STNC")
-        })
-
-        it("force error, invalid insuranceFund address", async () => {
-            const vaultFactory = await ethers.getContractFactory("Vault")
-            const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(alice.address, usdc.address)).to.be.revertedWith("V_IFNC")
-        })
-
-        it("force error, settlement token not match with insuranceFund", async () => {
-            const vaultFactory = await ethers.getContractFactory("Vault")
-            const vault = (await vaultFactory.deploy()) as Vault
-            insuranceFund.smocked.token.will.return.with(alice.address)
-            await expect(vault.initialize(insuranceFund.address, usdc.address)).to.be.revertedWith("V_STNM")
+            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith("V_IFNC")
         })
     })
 
     describe("decimals", () => {
         it("equals to settlement token's decimal")
-    })
-
-    describe("set clearingHouse", () => {
-        it("correctly set clearingHouse", async () => {
-            // set to another contract address
-            await vault.setClearingHouse(insuranceFund.address)
-        })
-
-        it("force error, not a contract address", async () => {
-            await expect(vault.setClearingHouse(admin.address)).to.be.revertedWith("V_ANC")
-        })
     })
 
     describe("admin only simple setter", () => {
@@ -70,9 +46,6 @@ describe("Vault spec", () => {
         it("setLiquidationIncentive")
         it("setLiquidationOrder")
         it("force error by non-admin")
-        it("force error, invalid ClearingHouse address", async () => {
-            await expect(vault.setClearingHouse(alice.address)).to.be.revertedWith("V_ANC")
-        })
 
         it("force error, invalid TrustedForwarder address", async () => {
             await expect(vault.setTrustedForwarder(alice.address)).to.be.revertedWith("V_ANC")
@@ -133,10 +106,10 @@ describe("Vault spec", () => {
             amount = parseUnits("100", await usdc.decimals())
             await vault.connect(alice).deposit(usdc.address, amount)
 
-            clearingHouse.smocked.settle.will.return.with(0)
-            clearingHouse.smocked.getOwedRealizedPnl.will.return.with(0)
-            clearingHouse.smocked.getAccountValue.will.return.with(amount)
-            clearingHouse.smocked.getTotalInitialMarginRequirement.will.return.with(0)
+            accountBalance.smocked.settle.will.return.with(0)
+            accountBalance.smocked.getOwedRealizedPnl.will.return.with(0)
+            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount)
+            accountBalance.smocked.getTotalDebtValue.will.return.with(0)
         })
 
         it("emit event and update balances", async () => {
@@ -158,8 +131,8 @@ describe("Vault spec", () => {
         })
 
         it("force error if the freeCollateral is not enough", async () => {
-            // account value decreased, so free collateral is not enough
-            clearingHouse.smocked.getAccountValue.will.return.with(amount.div(2))
+            // unrealizePnl = -amount, so free collateral is not enough
+            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount.mul(-1))
 
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })

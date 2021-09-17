@@ -15,7 +15,7 @@ import {
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse withdraw", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -33,7 +33,7 @@ describe("ClearingHouse withdraw", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
@@ -84,7 +84,7 @@ describe("ClearingHouse withdraw", () => {
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
         })
 
-        it("taker swap then withdraw and verify maker's free collateral", async () => {
+        it("taker swap and then withdraw maker's free collateral", async () => {
             // prepare collateral for bob
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
@@ -128,7 +128,7 @@ describe("ClearingHouse withdraw", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            // verify maker's free collateral
+            // verify maker's free collateral should include collected fee
             // collateral = 100 + 0.0006151334176 = 100.0006151334176, base debt = 0, quote debt = 0.122414646
             // maker.quoteInPool -= 0.06151334176
             // maker.baseInPool += 0.0004084104205
@@ -142,6 +142,87 @@ describe("ClearingHouse withdraw", () => {
             //                  = max(min(100.0006151334176, 100.0006151334176 - 0.02067229971) - max(0.0004084104205 * 100, 0.122414646) * 0.1, 0)
             //                  = 99.9677005354
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967700", collateralDecimals))
+
+            // alice can withdraw free collateral even she has liquidity in pool.
+            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("99.967700", collateralDecimals)))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(collateral.address, alice.address, parseUnits("99.967700", collateralDecimals))
+        })
+
+        it("taker swap and then withdraw maker's fee without removing liquidity", async () => {
+            // add Alice's max liquidity
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: 0,
+                quote: parseEther((1000 - 0.122414646).toString()),
+                lowerTick, // 148.3760629
+                upperTick, // 151.3733069
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // prepare collateral for bob
+            await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
+            await deposit(bob, vault, 100, collateral)
+
+            // bob short
+            // specific quote (qs): 0.01
+            // returned base (br): 0.000672815142131486
+            // B2QFee: CH actually shorts with quote 0.1 / 0.99 = 0.101010101 (exact output) and alice get 0.00101010101 fee
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long 0.000672815142131485 eth to clear position
+            // specific base (bs): 0.000672815142131485
+            // returned quote (qr): 0.102030405060708093
+            // Q2BFee: CH actually long with quote 0.102030405060708093 and alice get 0.00102030405060708093 fee
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.000672815142131485"),
+                sqrtPriceLimitX96: encodePriceSqrt(152, 1),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // alice remove liq 0, and collect fee to collateral
+            // B2QFee: 0.00101010101010101010
+            // Q2BFee: 0.00102030405060708093
+            // total fee: 0.002030405
+            await clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick,
+                upperTick,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // verify maker's free collateral should include collected fee
+            // collateral = 100 + 0.002030405 = 100.002030405, base debt = 0, quote debt = 0.122414646
+            // conservative config:
+            //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+            //                  = max(min(collateral, accountValue) - max(quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
+            //                  = max(min(100.002030405, 100.002030405) - max(1000 + 0) * 0.1, 0)
+            //                  = 0.00203
+
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("0.00203", collateralDecimals))
+            // alice can withdraw free collateral even she has liquidity in pool.
+            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("0.00203", collateralDecimals)))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(collateral.address, alice.address, parseUnits("0.00203", collateralDecimals))
         })
     })
 

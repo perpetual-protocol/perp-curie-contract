@@ -12,7 +12,10 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     using AddressUpgradeable for address;
 
     address public borrower;
+
+    // ------ immutable states ------
     address public override token;
+    // ------ ^^^^^^^^^^^^^^^^ ------
 
     event Borrowed(address borrower, uint256 amount);
 

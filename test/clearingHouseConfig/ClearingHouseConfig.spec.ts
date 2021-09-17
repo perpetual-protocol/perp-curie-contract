@@ -55,5 +55,9 @@ describe("ClearingHouseConfig Spec", () => {
                 .withArgs(10)
             expect(await clearingHouseConfig.maxMarketsPerAccount()).eq(10)
         })
+
+        it("fore error, partialCloseRatio should not be 0", async () => {
+            await expect(clearingHouseConfig.setPartialCloseRatio(0)).to.be.revertedWith("CHC_IPCR")
+        })
     })
 })

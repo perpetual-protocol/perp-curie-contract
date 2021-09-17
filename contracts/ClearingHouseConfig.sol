@@ -39,7 +39,7 @@ contract ClearingHouseConfig is SafeOwnable {
     // MODIFIER
     //
     modifier checkRatio(uint24 ratio) {
-        // CH_RL1: ratio overflow
+        // CHC_RO: ratio overflow
         require(ratio <= 1e6, "CHC_RO");
         _;
     }
@@ -57,6 +57,9 @@ contract ClearingHouseConfig is SafeOwnable {
     }
 
     function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+        // CHC_IPCR: invalid partialCloseRatio
+        require(partialCloseRatioArg > 0, "CHC_IPCR");
+
         partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }

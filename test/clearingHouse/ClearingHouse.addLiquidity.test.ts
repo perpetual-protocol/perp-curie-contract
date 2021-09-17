@@ -18,7 +18,7 @@ import {
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -40,7 +40,7 @@ describe("ClearingHouse addLiquidity", () => {
     let quoteAmount: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
@@ -376,8 +376,6 @@ describe("ClearingHouse addLiquidity", () => {
                 ])
             })
 
-            // TODO add test case with fees
-
             it("force error, add nothing", async () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
@@ -465,7 +463,7 @@ describe("ClearingHouse addLiquidity", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, add base over minted base", async () => {
@@ -562,7 +560,7 @@ describe("ClearingHouse addLiquidity", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_MNE")
+                ).to.be.revertedWith("AB_MNE")
             })
         })
 

@@ -1,6 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
+    AccountBalance,
     ClearingHouse,
     ClearingHouseConfig,
     Exchange,
@@ -15,15 +16,8 @@ import {
 interface MockedVaultFixture {
     vault: Vault
     USDC: TestERC20
-    mockedClearingHouse: MockContract
     mockedInsuranceFund: MockContract
-}
-
-interface VaultFixture {
-    vault: Vault
-    USDC: TestERC20
-    clearingHouse: ClearingHouse
-    insuranceFund: InsuranceFund
+    mockedAccountBalance: MockContract
 }
 
 export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
@@ -36,10 +30,6 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     const mockedInsuranceFund = await smockit(insuranceFund)
     mockedInsuranceFund.smocked.token.will.return.with(USDC.address)
-
-    const vaultFactory = await ethers.getContractFactory("Vault")
-    const vault = (await vaultFactory.deploy()) as Vault
-    await vault.initialize(mockedInsuranceFund.address, USDC.address)
 
     // deploy clearingHouse
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -60,21 +50,15 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
-    await clearingHouseConfig.initialize()
+    const mockedConfig = await smockit(clearingHouseConfig)
 
-    const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
-    await clearingHouse.initialize(
-        clearingHouseConfig.address,
-        vault.address,
-        insuranceFund.address,
-        USDC.address,
-        uniV3Factory.address,
-        exchange.address,
-    )
-    const mockedClearingHouse = await smockit(clearingHouse)
+    const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
+    const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+    const mockedAccountBalance = await smockit(accountBalance)
 
-    await vault.setClearingHouse(mockedClearingHouse.address)
+    const vaultFactory = await ethers.getContractFactory("Vault")
+    const vault = (await vaultFactory.deploy()) as Vault
+    await vault.initialize(mockedInsuranceFund.address, mockedConfig.address, mockedAccountBalance.address)
 
-    return { vault, USDC, mockedClearingHouse, mockedInsuranceFund }
+    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance }
 }

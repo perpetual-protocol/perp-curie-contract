@@ -107,7 +107,6 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 )
         })
 
-        // TODO: add partial burn cases for all the following cases in the future
         it("burn and get 100% base token", async () => {
             await pool.initialize(encodePriceSqrt(1, 1))
             const base = parseEther("0.000816820841")

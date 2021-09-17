@@ -3,6 +3,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
@@ -15,7 +16,7 @@ import {
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { BaseQuoteOrdering, createClearingHouseFixture } from "./fixtures"
+import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -24,6 +25,7 @@ describe("ClearingHouse.getPositionValue", () => {
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -33,10 +35,11 @@ describe("ClearingHouse.getPositionValue", () => {
     let mockedBaseAggregator: MockContract
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(BaseQuoteOrdering.BASE_0_QUOTE_1))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
+        accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
@@ -74,8 +77,8 @@ describe("ClearingHouse.getPositionValue", () => {
 
         // see more desc in getPositionSize test
         it("value = 0, if position size = 0", async () => {
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -88,8 +91,8 @@ describe("ClearingHouse.getPositionValue", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(0)
         })
 
         it("bob(taker) swaps 1 time", async () => {
@@ -142,18 +145,17 @@ describe("ClearingHouse.getPositionValue", () => {
                 return [0, parseUnits("149.852206", 6), 0, 0, 0]
             })
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.408410420499999999"),
             )
             // 149.852206 * 0.408410420499999999 = 61.2012024653
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
                 parseEther("61.201202465312622850"),
             )
 
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
             // 149.852206 * -0.4084104205 = -61.2012024653
-            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
                 parseEther("-61.201202465312623000"),
             )
         })
@@ -218,19 +220,18 @@ describe("ClearingHouse.getPositionValue", () => {
             })
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
-            expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
-                // TODO are we concerned that there is a 1 wei difference between Alice vs Bob's position sizes?
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.408410420599999999"),
             )
             // 150.092150 * 0.408410420599999999 = 61.2991981103
-            expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
                 parseEther("61.299198110258289849"),
             )
 
             // short
-            expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
             // 150.092150 * -0.4084104206 = -61.2991981103
-            expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
                 parseEther("-61.299198110258290000"),
             )
         })
@@ -323,27 +324,27 @@ describe("ClearingHouse.getPositionValue", () => {
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
-        expect(await clearingHouse.getPositionSize(alice.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
             parseEther("-1.465065799750044640"),
         )
         // 152.711203 * -1.465065799750044640 = -223.731960754
-        expect(await clearingHouse.getPositionValue(alice.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
             parseEther("-223.731960753986416278"),
         )
 
         // 1.633641682 + 0.6482449586 = 2.2818866406
-        expect(await clearingHouse.getPositionSize(bob.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(
             parseEther("2.281886640750044638"),
         )
         // 152.711203 * 2.281886640750044638 = 348.4696540186
-        expect(await clearingHouse.getPositionValue(bob.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
             parseEther("348.469654018568138972"),
         )
 
         // -1.633641682 / 2 = -0.816820841
-        expect(await clearingHouse.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
+        expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
         // 152.711203 * -0.816820841 = -124.7376932646
-        expect(await clearingHouse.getPositionValue(carol.address, baseToken.address)).eq(
+        expect(await accountBalance.getPositionValue(carol.address, baseToken.address)).eq(
             parseEther("-124.737693264581723000"),
         )
     })
@@ -355,13 +356,13 @@ describe("ClearingHouse.getPositionValue", () => {
 
 // console.log("alice")
 // console.log("getPositionSize")
-// console.log((await clearingHouse.getPositionSize(alice.address, baseToken.address)).toString())
+// console.log((await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
 // console.log("getPositionValue")
-// console.log((await clearingHouse.getPositionValue(alice.address, baseToken.address)).toString())
+// console.log((await accountBalance.getPositionValue(alice.address, baseToken.address)).toString())
 
 // console.log("bob")
 // console.log("getPositionSize")
-// console.log((await clearingHouse.getPositionSize(bob.address, baseToken.address)).toString())
+// console.log((await accountBalance.getPositionSize(bob.address, baseToken.address)).toString())
 // console.log("getPositionValue")
-// console.log((await clearingHouse.getPositionValue(bob.address, baseToken.address)).toString())
+// console.log((await accountBalance.getPositionValue(bob.address, baseToken.address)).toString())
 // // === useful console.log for verifying stats ===

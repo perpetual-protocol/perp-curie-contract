@@ -6,7 +6,6 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { baseTokenFixture } from "./fixtures"
 
-// TODO: should also test ChainlinkPriceFeed
 describe("BaseToken", async () => {
     const [admin] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
