@@ -185,42 +185,39 @@ describe("ClearingHouse liquidate", () => {
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         })
 
-        describe("davis liquidate alice's position", () => {
-            it("closing alice's position", async () => {
-                // position size: 0.588407511354640018
-                // position value: 84.085192745971593683
-                // pnl = 84.085192745971593683 - 90 = -5.914807254
-                // account value: 10 + (-5.914807254) = 4.085192746
-                // fee = 84.085192745971593683 * 0.025 = 2.1021298186
-                await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
-                    .to.emit(clearingHouse, "PositionLiquidated")
-                    .withArgs(
-                        alice.address,
-                        baseToken.address,
-                        "84085192745971593683",
-                        parseEther("0.588407511354640018"),
-                        "2102129818649289842",
-                        davis.address,
-                    )
-                // price after liq. 142.8549872
-                setPool1IndexPrice(142.854987)
+        it("davis liquidate alice's long position", async () => {
+            // position size: 0.588407511354640018
+            // position value: 84.085192745971593683
+            // pnl = 84.085192745971593683 - 90 = -5.914807254
+            // account value: 10 + (-5.914807254) = 4.085192746
+            // fee = 84.085192745971593683 * 0.025 = 2.1021298186
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+                .to.emit(clearingHouse, "PositionLiquidated")
+                .withArgs(
+                    alice.address,
+                    baseToken.address,
+                    "84085192745971593683",
+                    parseEther("0.588407511354640018"),
+                    "2102129818649289842",
+                    davis.address,
+                )
+            // price after liq. 142.8549872
+            setPool1IndexPrice(142.854987)
 
-                // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
-                // deltaAvailableQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
-                // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
-                // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
-                // openOrderMarginRequirement = 0
-                // free collateral = 1.1422109998625 - 0 = 1.1422109998625
-                expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
+            // deltaAvailableQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
+            // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
+            // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
+            // openOrderMarginRequirement = 0
+            // free collateral = 1.1422109998625 - 0 = 1.1422109998625
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
 
-                // liquidator gets liquidation reward
-                const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
-                expect(davisPnl).to.eq("2102129818649289842")
-            })
+            // liquidator gets liquidation reward
+            const davisPnl = await clearingHouse.getOwedRealizedPnl(davis.address)
+            expect(davisPnl).to.eq("2102129818649289842")
         })
     })
 
-    // TODO copy the sheet above and make another scenario for short
     describe("alice short ETH, bob long", () => {
         beforeEach(async () => {
             // makes alice able to trade
@@ -257,7 +254,7 @@ describe("ClearingHouse liquidate", () => {
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         })
 
-        it("davis liquidate alice's position", async () => {
+        it("davis liquidate alice's short position", async () => {
             // position size: -0.600774259337639952
             // position value: -95.337716510326544666
             // pnl = -95.3377165103265 + 90 = -5.3032597722
