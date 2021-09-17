@@ -66,14 +66,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         address clearingHouseConfigArg,
         address accountBalanceArg
     ) external initializer {
-        // V_IFNC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "V_IFNC");
         address settlementTokenArg = IInsuranceFund(insuranceFundArg).token();
-        // V_ANC: SettlementToken address is not contract
-        require(settlementTokenArg.isContract(), "V_STNC");
-        // invalid settlementToken decimals
-        require(IERC20Metadata(settlementTokenArg).decimals() <= 18, "V_ISTD");
+        uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
 
+        // invalid settlementToken decimals
+        require(decimalsArg <= 18, "V_ISTD");
         // ClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "V_CHCNC");
         // accountBalance address is not contract
@@ -83,7 +80,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         __OwnerPausable_init();
 
         // update states
-        decimals = IERC20Metadata(settlementTokenArg).decimals();
+        decimals = decimalsArg;
         settlementToken = settlementTokenArg;
         insuranceFund = insuranceFundArg;
         _addCollateralToken(settlementTokenArg);

@@ -32,7 +32,9 @@ describe("Vault spec", () => {
         it("force error, invalid insurance fund address", async () => {
             const vaultFactory = await ethers.getContractFactory("Vault")
             const vault = (await vaultFactory.deploy()) as Vault
-            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith("V_IFNC")
+            await expect(vault.initialize(alice.address, alice.address, alice.address)).to.be.revertedWith(
+                "function call to a non-contract account",
+            )
         })
     })
 
