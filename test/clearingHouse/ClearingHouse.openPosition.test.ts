@@ -5,10 +5,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
-    ClearingHouseConfig,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
@@ -242,7 +242,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, B2Q, due to not enough collateral for mint", async () => {
@@ -257,7 +257,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
         })
 
@@ -283,7 +283,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
 
             it("force error, B2Q, due to not enough collateral for mint", async () => {
@@ -303,7 +303,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_NEAV")
+                ).to.be.revertedWith("CH_NEFCI")
             })
         })
     })
@@ -538,6 +538,36 @@ describe("ClearingHouse openPosition", () => {
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
             expect(await getMakerFee()).be.closeTo(parseEther("0.03"), 1)
+        })
+
+        it("can increase position when profit > 0", async () => {
+            // this test is to fix a bug of the formula of _getTotalMarginRequirement():
+            // when a position has a profit, the freeCollateral becomes less and thus cannot increase position
+
+            // mock index price to market price
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("382395", 6), 0, 0, 0]
+            })
+
+            // indexPrice = p -> positionValue = 0.026150976705867546 * p
+            // pnl = 0.026150976705867546 * p - 4
+            // totalMarginRequirement = max(0.026150976705867546 * p, 4) * 10%
+            // freeCollateral = min(1000, > 1000) - totalMarginRequirement = 1000 - 0.026150976705867546 * p * 10%
+            // when p > 382,394.895321683, freeCollateral < 0
+
+            // increase position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("2"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("26150976705867546")
         })
 
         it("reduce position", async () => {

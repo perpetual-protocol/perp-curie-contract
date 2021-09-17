@@ -360,7 +360,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
-    /// @return fundingPayment the funding payment of a market of a trader; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
         return _getPendingFundingPayment(trader, baseToken, fundingGrowthGlobal);
@@ -499,7 +499,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return ClearingHouseConfig(clearingHouseConfig).twapInterval();
     }
 
-    /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt
+    /// @return fundingPayment the funding payment of all markets of a trader
     function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
             address baseToken = _baseTokensMap[trader][i];

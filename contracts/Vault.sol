@@ -212,8 +212,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // return decimals 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
-        uint256 totalPositionValue = AccountBalance(accountBalance).getTotalAbsPositionValue(trader);
-        return MathUpgradeable.max(totalPositionValue, totalDebtValue).mulRatio(ratio);
+        return totalDebtValue.mulRatio(ratio);
     }
 
     function _getImRatio() internal view returns (uint24) {
