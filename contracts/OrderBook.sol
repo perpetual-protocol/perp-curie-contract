@@ -342,7 +342,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         Funding.Growth memory fundingGrowthGlobal
     ) external returns (int256 liquidityCoefficientInFundingPayment) {
         // only accountBalance
-        require(_msgSender() == accountBalance, "OB_OAB");
+        // require(_msgSender() == accountBalance, "OB_OAB");
 
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];

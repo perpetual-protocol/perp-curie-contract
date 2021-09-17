@@ -817,9 +817,9 @@ contract ClearingHouse is
         AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
 
         // update timestamp of the first tx in this market
-        if (AccountBalance(accountBalance).getFirstTradedTimestamp(params.baseToken) == 0) {
-            AccountBalance(accountBalance).updateFirstTradedTimestamp(params.baseToken);
-        }
+        // if (AccountBalance(accountBalance).getFirstTradedTimestamp(params.baseToken) == 0) {
+        //     AccountBalance(accountBalance).updateFirstTradedTimestamp(params.baseToken);
+        // }
 
         return
             SwapResponse({
@@ -952,7 +952,7 @@ contract ClearingHouse is
         if (maxTickDelta == 0) {
             return false;
         }
-        int24 lastUpdatedTick = AccountBalance(accountBalance).getLastUpdatedTickMap(baseToken);
+        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTickMap(baseToken);
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
         int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
         int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
@@ -960,7 +960,7 @@ contract ClearingHouse is
     }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = AccountBalance(accountBalance).getLastUpdatedTickMap(baseToken);
+        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTickMap(baseToken);
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;

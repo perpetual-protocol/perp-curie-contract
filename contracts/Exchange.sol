@@ -22,6 +22,8 @@ import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
+import { AccountMarket } from "./lib/AccountMarket.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
@@ -166,6 +168,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             );
         }
 
+        if (getFirstTradedTimestamp(params.baseToken) == 0) {
+            updateFirstTradedTimestamp(params.baseToken);
+        }
+
         return
             SwapResponse({
                 exchangedPositionSize: exchangedPositionSize,
@@ -227,6 +233,201 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
+    // FUNDING THINGS
+    event FundingPaymentSettled(
+        address indexed trader,
+        address indexed baseToken,
+        int256 amount // +: trader pays, -: trader receives
+    );
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+
+    mapping(address => uint256) internal _lastSettledTimestampMap;
+    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
+    mapping(address => uint256) internal _firstTradedTimestampMap;
+    mapping(address => int24) internal _lastUpdatedTickMap;
+
+    function settleFundingAndUpdateFundingGrowth(
+        address trader,
+        address baseToken,
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96
+    ) external returns (Funding.Growth memory fundingGrowthGlobal, int256 fundingPayment) {
+        uint256 markTwap;
+        uint256 indexTwap;
+        (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
+
+        // pass fundingGrowthGlobal in for states mutation
+        // int256 liquidityCoefficientInFundingPayment =
+        //     OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+        //         trader,
+        //         baseToken,
+        //         fundingGrowthGlobal
+        //     );
+
+        // _accountMarketMap[trader][baseToken].updateFundingGrowthAngFundingPayment(
+        //     liquidityCoefficientInFundingPayment,
+        //     fundingGrowthGlobal.twPremiumX96
+        // );
+        fundingPayment = _updateFundingGrowthAndFundingPayment(
+            trader,
+            baseToken,
+            baseBalance,
+            twPremiumGrowthGlobalX96,
+            fundingGrowthGlobal
+        );
+
+        if (fundingPayment != 0) {
+            // _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
+        }
+
+        // update states before further actions in this block; once per block
+        if (_lastSettledTimestampMap[baseToken] != _blockTimestamp()) {
+            // update fundingGrowthGlobal
+            Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+            (
+                _lastSettledTimestampMap[baseToken],
+                lastFundingGrowthGlobal.twPremiumX96,
+                lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
+            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
+
+            // update tick
+            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
+
+            emit FundingUpdated(baseToken, markTwap, indexTwap);
+        }
+
+        return (fundingGrowthGlobal, fundingPayment);
+    }
+
+    function getFundingGrowthGlobalAndTwaps(address baseToken)
+        public
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
+    {
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+
+        // get mark twap
+        uint32 twapIntervalArg = _getTwapInterval();
+        // shorten twapInterval if prior observations are not enough for twapInterval
+        if (_firstTradedTimestampMap[baseToken] == 0) {
+            twapIntervalArg = 0;
+        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+        }
+
+        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        markTwap = markTwapX96.formatX96ToX10_18();
+        indexTwap = _getIndexPrice(baseToken);
+
+        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
+        if (lastSettledTimestamp != _blockTimestamp() && lastSettledTimestamp != 0) {
+            int256 twPremiumDeltaX96 =
+                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
+                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
+                );
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+
+            // overflow inspection:
+            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
+            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
+                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(uint256(getSqrtMarkTwapX96(baseToken, 0)).toInt256())
+            );
+        } else {
+            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        }
+
+        return (fundingGrowthGlobal, markTwap, indexTwap);
+    }
+
+    function _updateFundingGrowthAndFundingPayment(
+        address trader,
+        address baseToken,
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96,
+        Funding.Growth memory fundingGrowthGlobal
+    ) public returns (int256 fundingPayment) {
+        int256 liquidityCoefficientInFundingPayment =
+            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+                trader,
+                baseToken,
+                fundingGrowthGlobal
+            );
+
+        int256 balanceCoefficientInFundingPayment =
+            AccountMarket.getBalanceCoefficientInFundingPayment(
+                baseBalance,
+                fundingGrowthGlobal.twPremiumX96,
+                twPremiumGrowthGlobalX96
+            );
+
+        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
+    }
+
+    function getPendingFundingPayment(
+        address trader,
+        address baseToken,
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96
+    ) public view returns (int256) {
+        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
+        return _getPendingFundingPayment(trader, baseToken, baseBalance, twPremiumGrowthGlobalX96, fundingGrowthGlobal);
+    }
+
+    function _getPendingFundingPayment(
+        address trader,
+        address baseToken,
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96,
+        Funding.Growth memory fundingGrowthGlobal
+    ) internal view returns (int256 fundingPayment) {
+        int256 liquidityCoefficientInFundingPayment =
+            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+
+        int256 balanceCoefficientInFundingPayment =
+            AccountMarket.getBalanceCoefficientInFundingPayment(
+                baseBalance,
+                fundingGrowthGlobal.twPremiumX96,
+                twPremiumGrowthGlobalX96
+            );
+
+        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
+
+        // return
+        //     _accountMarketMap[trader][baseToken].getPendingFundingPayment(
+        //         liquidityCoefficientInFundingPayment,
+        //         fundingGrowthGlobal.twPremiumX96
+        //     );
+    }
+
+    function _getTwapInterval() internal view returns (uint32) {
+        return 900;
+    }
+
+    function _getIndexPrice(address baseToken) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
+    }
+
+    function updateFirstTradedTimestamp(address baseToken) public onlyClearingHouse {
+        _firstTradedTimestampMap[baseToken] = _blockTimestamp();
+    }
+
+    function getFirstTradedTimestamp(address baseToken) public view returns (uint256) {
+        return _firstTradedTimestampMap[baseToken];
+    }
+
+    function getLastUpdatedTickMap(address baseToken) external view returns (int24) {
+        return _lastUpdatedTickMap[baseToken];
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -236,11 +437,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return MarketRegistry(marketRegistry).getPool(baseToken);
     }
 
-    function getTick(address baseToken) external view returns (int24) {
+    function getTick(address baseToken) public view returns (int24) {
         return UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken));
     }
 
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160) {
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
     }
 
