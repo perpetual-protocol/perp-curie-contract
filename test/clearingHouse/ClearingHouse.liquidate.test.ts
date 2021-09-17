@@ -5,10 +5,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
-    ClearingHouseConfig,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
@@ -621,9 +621,10 @@ describe("ClearingHouse liquidate", () => {
     })
 })
 
-// TODO for debugging
+// // === useful console.log for verifying stats ===
 // console.log(`timestamp (before liquidation): ${(await ethers.provider.getBlock("latest")).timestamp}`)
 // console.log(`mark twap: ${formatEther(parseEther((await clearingHouse.getMarkTwapX96(baseToken.address)).toString()).div(BigNumber.from(2).pow(96)))}`)
 // console.log(`index price: ${formatEther(await clearingHouse.getIndexPrice(baseToken.address))}`)
 // console.log(`position size: ${formatEther(await clearingHouse.getPositionSize(alice.address, baseToken.address))}`)
 // console.log(`getAllPendingFundingPayment: ${formatEther(await clearingHouse.getAllPendingFundingPayment(alice.address))}`)
+// // === useful console.log for verifying stats ===

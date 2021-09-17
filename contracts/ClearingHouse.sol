@@ -496,9 +496,7 @@ contract ClearingHouse is
                 })
             );
 
-        // TODO scale up or down the opposite amount bound if it's a partial close
-        // if oldPositionSize is long, close a long position is short, B2Q
-        // if oldPositionSize is short, close a short position is long, Q2B
+        // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
         bool isBaseToQuote = getPositionSize(trader, params.baseToken) > 0 ? true : false;
         _checkSlippage(
             CheckSlippageParams({
@@ -881,8 +879,6 @@ contract ClearingHouse is
         if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
             response = _swap(params);
 
-            // TODO change _swap.response.deltaAvailableQuote to int
-            // after swapCallback mint task
             deltaAvailableQuote = params.isBaseToQuote
                 ? response.deltaAvailableQuote.toInt256()
                 : -response.deltaAvailableQuote.toInt256();
@@ -900,7 +896,6 @@ contract ClearingHouse is
         // position size based closedRatio
         uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSizeAbs);
 
-        // TODO change _swap.response.deltaAvailableQuote to int
         deltaAvailableQuote = params.isBaseToQuote
             ? response.deltaAvailableQuote.toInt256()
             : -response.deltaAvailableQuote.toInt256();
@@ -963,7 +958,6 @@ contract ClearingHouse is
             return;
         }
 
-        // TODO refactor with settle()
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(deltaPnl);
         _accountMarketMap[trader][baseToken].quoteBalance = _accountMarketMap[trader][baseToken].quoteBalance.add(
             -deltaPnl

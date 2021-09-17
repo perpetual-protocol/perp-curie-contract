@@ -376,8 +376,6 @@ describe("ClearingHouse addLiquidity", () => {
                 ])
             })
 
-            // TODO add test case with fees
-
             it("force error, add nothing", async () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
