@@ -16,8 +16,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { InsuranceFund } from "./InsuranceFund.sol";
-import "hardhat/console.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -32,12 +31,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
     event ClearingHouseUpdated(address clearingHouse);
-    event InsuranceFundUpdated(address insuranceFund);
 
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     address public settlementToken;
 
     address public clearingHouse;
@@ -45,7 +42,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
     // cached the settlement token's decimal for gas optimization
     // owner must ensure the settlement token's decimal is not immutable
-    // TODO should be immutable, check how to achieve this in oz upgradeable framework.
     uint8 public override decimals;
 
     uint256 public totalDebt;
@@ -65,7 +61,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // V_STNC: SettlementToken address is not contract
         require(settlementTokenArg.isContract(), "V_STNC");
         // V_STNM: SettlementToken is not match with InsuranceFund
-        require(InsuranceFund(insuranceFundArg).token() == settlementTokenArg, "V_STNM");
+        require(IInsuranceFund(insuranceFundArg).token() == settlementTokenArg, "V_STNM");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -139,7 +135,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
             uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
             if (vaultBalance < amount) {
                 uint256 borrowAmount = amount - vaultBalance;
-                InsuranceFund(insuranceFund).borrow(borrowAmount);
+                IInsuranceFund(insuranceFund).borrow(borrowAmount);
                 totalDebt += borrowAmount;
             }
         }
@@ -166,6 +162,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function getFreeCollateral(address trader) external view returns (uint256) {
         return _getFreeCollateral(trader);
     }
+
+    //
+    // INTERNAL
+    //
 
     function _addCollateralToken(address token) internal {
         // collateral token existed

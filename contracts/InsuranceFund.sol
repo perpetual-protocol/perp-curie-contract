@@ -6,12 +6,13 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 
 contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable {
     using AddressUpgradeable for address;
 
     address public borrower;
-    address public token;
+    address public override token;
 
     event Borrowed(address borrower, uint256 amount);
 
@@ -31,7 +32,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         borrower = borrowerArg;
     }
 
-    function borrow(uint256 amount) external nonReentrant whenNotPaused {
+    function borrow(uint256 amount) external override nonReentrant whenNotPaused {
         // only borrower
         require(_msgSender() == borrower, "IF_OB");
         // not enough balance
