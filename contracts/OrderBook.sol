@@ -198,7 +198,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
 
     function setAccountBalance(address accountBalanceArg) external onlyOwner {
         // accountBalance is 0
-        require(accountBalanceArg != address(0), "OB_CH0");
+        require(accountBalanceArg != address(0), "OB_AB0");
         accountBalance = accountBalanceArg;
     }
 

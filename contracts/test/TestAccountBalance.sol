@@ -16,7 +16,7 @@ contract TestAccountBalance is AccountBalance {
         address exchangeArg
     ) external initializer {
         // ClearingHouseConfig address is not contract
-        require(clearingHouseConfigArg.isContract(), "AB_CCNC");
+        require(clearingHouseConfigArg.isContract(), "AB_ENC");
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 

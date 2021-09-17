@@ -1001,7 +1001,7 @@ contract ClearingHouse is
     }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) private view returns (int256) {
-        return IVault(vault).getRequiredCollateral(trader, ratio);
+        return IVault(vault).getFreeCollateral(trader, ratio);
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {

@@ -64,7 +64,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // V_ANC: SettlementToken address is not contract
         require(settlementTokenArg.isContract(), "V_ANC");
         // ClearingHouseConfig address is not contract
-        require(clearingHouseConfigArg.isContract(), "V_CNC");
+        require(clearingHouseConfigArg.isContract(), "V_CHCNC");
         // accountBalance address is not contract
         require(accountBalanceArg.isContract(), "V_ABNC");
 
@@ -146,7 +146,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     }
 
     function getFreeCollateral(address trader) public view returns (uint256) {
-        return PerpMath.max(getRequiredCollateral(trader, _getImRatio()), 0).toUint256();
+        return PerpMath.max(getFreeCollateral(trader, _getImRatio()), 0).toUint256();
     }
 
     function _addCollateralToken(address token) internal {
@@ -177,7 +177,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
     // we will start with the conservative one, then gradually change it to more aggressive ones
     // to increase capital efficiency.
-    function getRequiredCollateral(address trader, uint24 ratio) public view override returns (int256) {
+    function getFreeCollateral(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 totalCollateralValue = _getTotalCollateralValue(trader);
 
