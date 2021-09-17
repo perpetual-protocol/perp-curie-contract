@@ -3,92 +3,124 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 interface IClearingHouse {
-    enum Side { BUY, SELL }
+    event ReferredPositionChanged(bytes32 indexed referralCode);
 
-    struct Asset {
-        uint256 balance;
-        uint256 debt;
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
+
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+
+    struct AddLiquidityParams {
+        address baseToken;
+        uint256 base;
+        uint256 quote;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 minBase;
+        uint256 minQuote;
+        uint256 deadline;
+    }
+
+    /// @param liquidity collect fee when 0
+    struct RemoveLiquidityParams {
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+        uint256 minBase;
+        uint256 minQuote;
+        uint256 deadline;
+    }
+
+    struct AddLiquidityResponse {
+        uint256 base;
+        uint256 quote;
+        uint256 fee;
+        uint256 liquidity;
+    }
+
+    struct RemoveLiquidityResponse {
+        uint256 base;
+        uint256 quote;
         uint256 fee;
     }
 
-    struct OpenOrder {
-        uint128 liquidity;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 lastFeeGrowthInsideX128;
-        int256 lastTwPremiumGrowthInsideX96;
-        int256 lastTwPremiumGrowthBelowX96;
-        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
+    struct OpenPositionParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        // B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+        // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+        // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+        // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+        // when it's 0 in exactInput, means ignore slippage protection
+        // when it's maxUint in exactOutput = ignore
+        // when it's over or under the bound, it will be reverted
+        uint256 oppositeAmountBound;
+        uint256 deadline;
+        // B2Q: the price cannot be less than this value after the swap
+        // Q2B: The price cannot be greater than this value after the swap
+        // it will fill the trade until it reach the price limit instead of reverted
+        uint160 sqrtPriceLimitX96;
+        bytes32 referralCode;
     }
 
-    struct Account {
-        uint256 margin;
-        // key: vToken
-        mapping(address => Asset) assetMap;
-        // key: vToken, value: UniV3 pool
-        mapping(address => address[]) tokenPoolsMap;
-        // maker only
-        address[] pools;
-        // key: pool address, value: array of order ids
-        mapping(address => uint256[]) makerPositionMap;
+    struct ClosePositionParams {
+        address baseToken;
+        uint160 sqrtPriceLimitX96;
+        uint256 oppositeAmountBound;
+        uint256 deadline;
+        bytes32 referralCode;
     }
 
-    function deposit(uint256 _amount) external;
+    function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
-    // trader's function
-    function removeMargin(uint256 _margin) external;
-
-    function openPosition(
-        address _pool,
-        Side _side,
-        uint256 _quote,
-        uint256 baseLimit
-    ) external returns (uint256 base);
-
-    function closePosition(address _pool, uint256 _quoteLimit) external returns (uint256 quote, uint256 base);
-
-    function liquidate(address _pool, address _taker) external returns (uint256 base);
-
-    // maker's function
-    function mint(address _asset, uint256 _amount) external;
-
-    function burn(address _asset, uint256 _amount) external;
-
-    function addLiquidity(
-        address _pool,
-        uint256 _base,
-        uint256 _minBase,
-        uint256 _quote,
-        uint256 _minQuote,
-        uint256 _tickLower,
-        uint256 _tickUpper
-    )
+    function removeLiquidity(RemoveLiquidityParams calldata params)
         external
-        returns (
-            uint256 liquidity,
-            uint256 baseDelta,
-            uint256 quoteDelta
-        );
+        returns (RemoveLiquidityResponse memory response);
 
-    function removeLiquidity(
-        address _pool,
-        uint256 _orderId,
-        uint256 _liquidity
-    )
+    function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote);
+
+    function closePosition(ClosePositionParams calldata params)
         external
-        returns (
-            uint256 liquidity,
-            uint256 baseDelta,
-            uint256 quoteDelta,
-            uint256 pnl
-        );
+        returns (uint256 deltaBase, uint256 deltaQuote);
 
-    function cancelExcessOpenOrder(
-        address _pool,
-        address _maker,
-        uint256 _orderId,
-        uint256 _liquidity
+    function liquidate(address trader, address baseToken) external;
+
+    function cancelExcessOrders(
+        address maker,
+        address baseToken,
+        bytes32[] calldata orderIds
     ) external;
 
-    function collect(address _pool, uint256 _orderId) external returns (uint256 feeBase, uint256 feeQuote);
+    function cancelAllExcessOrders(address maker, address baseToken) external;
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
+
+    function getAccountValue(address trader) external view returns (int256);
+
+    function getPositionSize(address trader, address baseToken) external view returns (int256);
+
+    function getPositionValue(address trader, address baseToken) external view returns (int256);
+
+    function getOpenNotional(address trader, address baseToken) external view returns (int256);
+
+    function getOwedRealizedPnl(address trader) external view returns (int256);
+
+    function getTotalInitialMarginRequirement(address trader) external view returns (uint256);
+
+    function getNetQuoteBalance(address trader) external view returns (int256);
+
+    function getAllPendingFundingPayment(address trader) external view returns (int256);
+
+    function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
+
+    function getTotalUnrealizedPnl(address trader) external view returns (int256);
 }
