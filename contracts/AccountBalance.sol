@@ -32,7 +32,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     //
     // State
     //
-    address public config;
+    address public clearingHouseConfig;
     address public exchange;
     address public orderBook;
     address public vault;
@@ -72,22 +72,22 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // Constructor
     //
     function initialize(
-        address configArg,
+        address clearingHouseConfigArg,
         address marketRegistryArg,
         address exchangeArg
-    ) public initializer {
+    ) external initializer {
         // ClearingHouseConfig address is not contract
-        require(configArg.isContract(), "CH_CCNC");
-        // CH_ANC: address is not contract
-        require(exchangeArg.isContract(), "AB_ANC");
+        require(clearingHouseConfigArg.isContract(), "AB_CCNC");
+        // Exchange is not contract
+        require(exchangeArg.isContract(), "AB_EXNC");
 
         address orderBookArg = Exchange(exchangeArg).orderBook();
-        // orderbook is not contarct
+        // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init(marketRegistryArg);
 
-        config = configArg;
+        clearingHouseConfig = clearingHouseConfigArg;
         exchange = exchangeArg;
         orderBook = orderBookArg;
     }
@@ -97,7 +97,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     //
     function setVault(address vaultArg) external onlyOwner {
         // vault address is not contract
-        require(vaultArg.isContract(), "CH_VNC");
+        require(vaultArg.isContract(), "AB_VNC");
         vault = vaultArg;
     }
 
@@ -131,7 +131,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
-    function updateFirstTradedTimestamp(address baseToken) public onlyClearingHouse {
+    function updateFirstTradedTimestamp(address baseToken) external onlyClearingHouse {
         _firstTradedTimestampMap[baseToken] = _blockTimestamp();
     }
 
@@ -141,7 +141,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
-        public
+        external
         onlyClearingHouse
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
@@ -193,9 +193,9 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
                 }
             }
             if (!hit) {
-                // CH_MNE: markets number exceeded
-                uint8 maxMarketsPerAccount = ClearingHouseConfig(config).maxMarketsPerAccount();
-                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "CH_MNE");
+                // markets number exceeded
+                uint8 maxMarketsPerAccount = ClearingHouseConfig(clearingHouseConfig).maxMarketsPerAccount();
+                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "AB_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
         }
@@ -252,14 +252,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
 
-    function getBase(address trader, address baseToken) public view returns (int256) {
-        return _accountMarketMap[trader][baseToken].baseBalance;
-    }
-
-    function getQuote(address trader, address baseToken) public view returns (int256) {
-        return _accountMarketMap[trader][baseToken].quoteBalance;
-    }
-
     function getOwedRealizedPnlWithPendingFundingPayment(address trader)
         external
         view
@@ -313,6 +305,17 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
+    //
+    // PUBLIC
+    //
+    function getBase(address trader, address baseToken) public view returns (int256) {
+        return _accountMarketMap[trader][baseToken].baseBalance;
+    }
+
+    function getQuote(address trader, address baseToken) public view returns (int256) {
+        return _accountMarketMap[trader][baseToken].quoteBalance;
+    }
+
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function getNetQuoteBalance(address trader) public view returns (int256) {
         uint256 tokenLen = _baseTokensMap[trader].length;
@@ -364,7 +367,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     //
-    // Internal
+    // INTERNAL
     //
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         internal
@@ -493,7 +496,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     function _getTwapInterval() internal view returns (uint32) {
-        return ClearingHouseConfig(config).twapInterval();
+        return ClearingHouseConfig(clearingHouseConfig).twapInterval();
     }
 
     /// @return fundingPayment the funding payment of all markets of a trader; > 0 is payment and < 0 is receipt

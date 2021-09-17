@@ -562,7 +562,7 @@ describe("ClearingHouse addLiquidity", () => {
                         minQuote: 0,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("CH_MNE")
+                ).to.be.revertedWith("AB_MNE")
             })
         })
 

@@ -947,7 +947,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_MNE")
+            ).to.be.revertedWith("AB_MNE")
         })
     })
 })

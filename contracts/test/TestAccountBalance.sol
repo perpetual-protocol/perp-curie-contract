@@ -5,15 +5,30 @@ pragma abicoder v2;
 import "../AccountBalance.sol";
 
 contract TestAccountBalance is AccountBalance {
+    using AddressUpgradeable for address;
+
     uint256 private _testBlockTimestamp;
 
+    // copy paste from AccountBalance.initialize to avoid it to be public
     function __TestAccountBalance_init(
-        address configArg,
+        address clearingHouseConfigArg,
         address marketRegistryArg,
         address exchangeArg
     ) external initializer {
-        AccountBalance.initialize(configArg, marketRegistryArg, exchangeArg);
-        _testBlockTimestamp = block.timestamp;
+        // ClearingHouseConfig address is not contract
+        require(clearingHouseConfigArg.isContract(), "AB_CCNC");
+        // Exchange is not contract
+        require(exchangeArg.isContract(), "AB_EXNC");
+
+        address orderBookArg = Exchange(exchangeArg).orderBook();
+        // OrderBook is not contarct
+        require(orderBookArg.isContract(), "AB_OBNC");
+
+        __ClearingHouseCallee_init(marketRegistryArg);
+
+        clearingHouseConfig = clearingHouseConfigArg;
+        exchange = exchangeArg;
+        orderBook = orderBookArg;
     }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
