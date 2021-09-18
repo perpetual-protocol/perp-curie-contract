@@ -30,15 +30,16 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     using AccountMarket for AccountMarket.Info;
 
     //
-    // State
+    // STATE
     //
+
+    // 10 wei
+    uint256 internal constant _DUST = 10;
+
     address public clearingHouseConfig;
     address public exchange;
     address public orderBook;
     address public vault;
-
-    // 10 wei
-    uint256 internal constant _DUST = 10;
 
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;
@@ -51,8 +52,9 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
     //
-    // Constructor
+    // EXTERNAL NON-VIEW
     //
+
     function initialize(
         address clearingHouseConfigArg,
         address marketRegistryArg,
@@ -74,18 +76,12 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         orderBook = orderBookArg;
     }
 
-    //
-    // External Admin Setter
-    //
     function setVault(address vaultArg) external onlyOwner {
         // vault address is not contract
         require(vaultArg.isContract(), "AB_VNC");
         vault = vaultArg;
     }
 
-    //
-    // External onlyClearingHouse
-    //
     function addBalance(
         address trader,
         address baseToken,
@@ -113,11 +109,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
-    /// @dev personal funding payment is settled whenever there is pending funding payment
-    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         external
         onlyClearingHouse
@@ -179,12 +170,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         }
     }
 
-    //
-    // External
-    //
-
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external returns (int256) {
+    function settle(address trader) external returns (int256 pnl) {
         // only vault
         require(_msgSender() == vault, "AB_OV");
 
@@ -204,14 +191,14 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
             _settleFundingAndUpdateFundingGrowth(trader, baseToken);
         }
 
-        int256 pnl = _owedRealizedPnlMap[trader];
+        pnl = _owedRealizedPnlMap[trader];
         _owedRealizedPnlMap[trader] = 0;
 
         return pnl;
     }
 
     //
-    // External View
+    // EXTERNAL VIEW
     //
 
     function getOwedRealizedPnl(address trader) external view returns (int256) {
@@ -276,8 +263,9 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     //
-    // PUBLIC
+    // PUBLIC VIEW
     //
+
     function getBase(address trader, address baseToken) public view returns (int256) {
         return _accountMarketMap[trader][baseToken].baseBalance;
     }
@@ -330,21 +318,17 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
+    /// @return the pending funding payment of a trader in one market
     function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         return _getPendingFundingPayment(trader, baseToken);
     }
 
     //
-    // INTERNAL
+    // Internal VIEW
     //
 
-    //
-    // Internal View
-    //
-
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
         internal
         returns (Funding.Growth memory)
@@ -356,21 +340,16 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
                 _accountMarketMap[trader][baseToken].baseBalance,
                 _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96
             );
+        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = fundingGrowthGlobal.twPremiumX96;
+
         if (fundingPayment != 0) {
             _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
         }
-        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = fundingGrowthGlobal.twPremiumX96;
 
         return fundingGrowthGlobal;
     }
 
-    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & availableAndDebt coefficients
-    function _getPendingFundingPayment(address trader, address baseToken)
-        internal
-        view
-        returns (int256 fundingPayment)
-    {
+    function _getPendingFundingPayment(address trader, address baseToken) internal view returns (int256) {
         return
             Exchange(exchange).getPendingFundingPayment(
                 trader,
@@ -388,11 +367,12 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return ClearingHouseConfig(clearingHouseConfig).twapInterval();
     }
 
-    /// @return fundingPayment the funding payment of all markets of a trader
-    function _getAllPendingFundingPayment(address trader) internal view returns (int256 fundingPayment) {
+    /// @return pendingFundingPayment the pending funding payment of a trader in all markets
+    function _getAllPendingFundingPayment(address trader) internal view returns (int256 pendingFundingPayment) {
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            fundingPayment = fundingPayment.add(_getPendingFundingPayment(trader, baseToken));
+            pendingFundingPayment = pendingFundingPayment.add(_getPendingFundingPayment(trader, baseToken));
         }
+        return pendingFundingPayment;
     }
 }
