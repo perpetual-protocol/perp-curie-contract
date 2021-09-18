@@ -9,10 +9,11 @@ import { VirtualToken } from "./VirtualToken.sol";
 contract BaseToken is IIndexPrice, VirtualToken {
     using SafeMathUpgradeable for uint256;
 
-    // ------ immutable states ------
+    // --------- IMMUTABLE ---------
+
     uint8 private _priceFeedDecimals;
 
-    // ------ ^^^^^^^^^^^^^^^^ ------
+    // --------- ^^^^^^^^^ ---------
 
     address public priceFeed;
 

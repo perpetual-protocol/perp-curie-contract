@@ -81,7 +81,28 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         uint256 fee;
     }
 
+    //
+    // STATE
+    //
+
     address public orderBook;
+
+    mapping(address => int24) internal _lastUpdatedTickMap;
+    mapping(address => uint256) internal _firstTradedTimestampMap;
+    mapping(address => uint256) internal _lastSettledTimestampMap;
+    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
+
+    //
+    // EVENT
+    //
+
+    /// @param fundingPayment > 0: payment, < 0 : receipt
+    event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+
+    //
+    // EXTERNAL NON-VIEW
+    //
 
     function initialize(address marketRegistryArg, address orderBookArg) external initializer {
         __ClearingHouseCallee_init(marketRegistryArg);
@@ -93,13 +114,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         orderBook = orderBookArg;
     }
 
-    //
-    // MODIFIERS
-    //
-
-    //
-    // EXTERNAL FUNCTIONS
-    //
+    /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
 
@@ -148,8 +163,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 )
             );
 
-        // because we charge fee in CH instead of uniswap pool,
-        // we need to scale up base or quote amount to get exact exchanged position size and notional
+        // as we charge fees in ClearingHouse instead of in Uniswap pools,
+        // we need to scale up base or quote amounts to get the exact exchanged position size and notional
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
@@ -168,8 +183,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             );
         }
 
-        if (getFirstTradedTimestamp(params.baseToken) == 0) {
-            updateFirstTradedTimestamp(params.baseToken);
+        // update the timestamp of the first tx in this market
+        if (_firstTradedTimestampMap[params.baseToken] == 0) {
+            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
         }
 
         return
@@ -182,7 +198,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             });
     }
 
-    // return the price after replay swap (final tick)
+    /// @return the resulting tick (derived from price) after replaying the swap
     function replaySwap(ReplaySwapParams memory params) external returns (int24) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
@@ -213,39 +229,12 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return response.tick;
     }
 
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        // not order book
-        require(_msgSender() == orderBook, "EX_NOB");
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    /// @inheritdoc IUniswapV3SwapCallback
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override checkCallback {
-        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    // FUNDING THINGS
-    event FundingPaymentSettled(
-        address indexed trader,
-        address indexed baseToken,
-        int256 amount // +: trader pays, -: trader receives
-    );
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
-
-    mapping(address => uint256) internal _lastSettledTimestampMap;
-    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-    mapping(address => uint256) internal _firstTradedTimestampMap;
-    mapping(address => int24) internal _lastUpdatedTickMap;
-
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
+    /// @dev personal funding payment is settled whenever there is pending funding payment
+    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    /// @return fundingPayment the settled pending funding payment
     function settleFundingAndUpdateFundingGrowth(
         address trader,
         address baseToken,
@@ -287,6 +276,70 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return (fundingGrowthGlobal, fundingPayment);
     }
 
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data
+    ) external override {
+        // not order book
+        require(_msgSender() == orderBook, "EX_NOB");
+        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    /// @inheritdoc IUniswapV3SwapCallback
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external override checkCallback {
+        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    //
+    // EXTERNAL VIEW
+    //
+
+    // TODO should be able to remove if we can remove CH._hasPool
+    function getPool(address baseToken) external view returns (address) {
+        return MarketRegistry(marketRegistry).getPool(baseToken);
+    }
+
+    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
+    /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
+    function getPendingFundingPayment(
+        address trader,
+        address baseToken,
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96
+    ) external view returns (int256) {
+        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
+
+        int256 liquidityCoefficientInFundingPayment =
+            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+
+        int256 balanceCoefficientInFundingPayment =
+            AccountMarket.getBalanceCoefficientInFundingPayment(
+                baseBalance,
+                fundingGrowthGlobal.twPremiumX96,
+                twPremiumGrowthGlobalX96
+            );
+
+        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
+    }
+
+    function getLastUpdatedTick(address baseToken) external view returns (int24) {
+        return _lastUpdatedTickMap[baseToken];
+    }
+
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
+    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
+    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
     function getFundingGrowthGlobalAndTwaps(address baseToken)
         public
         view
@@ -335,13 +388,28 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return (fundingGrowthGlobal, markTwap, indexTwap);
     }
 
+    function getTick(address baseToken) public view returns (int24) {
+        return UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken));
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
+    }
+
+    //
+    // INTERNAL NON-VIEW
+    //
+
+    /// @dev this is the non-view version of getPendingFundingPayment()
+    /// @return pendingFundingPayment the pending funding payment of a trader in one market,
+    ///         including liquidity & balance coefficients
     function _updateFundingGrowthAndFundingPayment(
         address trader,
         address baseToken,
         int256 baseBalance,
         int256 twPremiumGrowthGlobalX96,
         Funding.Growth memory fundingGrowthGlobal
-    ) public returns (int256 fundingPayment) {
+    ) internal returns (int256 pendingFundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
             OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
@@ -359,80 +427,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
     }
 
-    function getPendingFundingPayment(
-        address trader,
-        address baseToken,
-        int256 baseBalance,
-        int256 twPremiumGrowthGlobalX96
-    ) public view returns (int256) {
-        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
-        return _getPendingFundingPayment(trader, baseToken, baseBalance, twPremiumGrowthGlobalX96, fundingGrowthGlobal);
-    }
-
-    function _getPendingFundingPayment(
-        address trader,
-        address baseToken,
-        int256 baseBalance,
-        int256 twPremiumGrowthGlobalX96,
-        Funding.Growth memory fundingGrowthGlobal
-    ) internal view returns (int256 fundingPayment) {
-        int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        int256 balanceCoefficientInFundingPayment =
-            AccountMarket.getBalanceCoefficientInFundingPayment(
-                baseBalance,
-                fundingGrowthGlobal.twPremiumX96,
-                twPremiumGrowthGlobalX96
-            );
-
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
-    }
-
-    function _getTwapInterval() internal view returns (uint32) {
-        return 900;
-    }
+    //
+    // INTERNAL VIEW
+    //
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
     }
-
-    function updateFirstTradedTimestamp(address baseToken) public onlyClearingHouse {
-        _firstTradedTimestampMap[baseToken] = _blockTimestamp();
-    }
-
-    function getFirstTradedTimestamp(address baseToken) public view returns (uint256) {
-        return _firstTradedTimestampMap[baseToken];
-    }
-
-    function getLastUpdatedTickMap(address baseToken) external view returns (int24) {
-        return _lastUpdatedTickMap[baseToken];
-    }
-
-    //
-    // EXTERNAL VIEW
-    //
-
-    // TODO should be able to remove if we can remove CH._hasPool
-    function getPool(address baseToken) external view returns (address) {
-        return MarketRegistry(marketRegistry).getPool(baseToken);
-    }
-
-    function getTick(address baseToken) public view returns (int24) {
-        return UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken));
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
-    }
-
-    //
-    // INTERNAL
-    //
-
-    //
-    // INTERNAL VIEW
-    //
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
     /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()
@@ -467,5 +468,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         signedScaledAmountForReplaySwap = isExactInput
             ? signedScaledAmountForReplaySwap
             : -signedScaledAmountForReplaySwap;
+    }
+
+    function _getTwapInterval() internal pure returns (uint32) {
+        return 900;
     }
 }

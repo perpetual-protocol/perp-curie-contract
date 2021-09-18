@@ -55,30 +55,7 @@ contract ClearingHouse is
     using AccountMarket for AccountMarket.Info;
 
     //
-    // events
-    //
-
-    event PositionChanged(
-        address indexed trader,
-        address indexed baseToken,
-        int256 exchangedPositionSize,
-        int256 exchangedPositionNotional,
-        uint256 fee,
-        int256 openNotional,
-        int256 realizedPnl
-    );
-    event PositionLiquidated(
-        address indexed trader,
-        address indexed baseToken,
-        uint256 positionNotional,
-        uint256 positionSize,
-        uint256 liquidationFee,
-        address liquidator
-    );
-    event ReferredPositionChanged(bytes32 indexed referralCode);
-
-    //
-    // Struct
+    // STRUCT
     //
 
     struct AddLiquidityParams {
@@ -124,13 +101,14 @@ contract ClearingHouse is
         uint256 liquidity;
     }
 
+    /// @param sqrtPriceLimitX96 for price slippage protection
     struct InternalSwapParams {
         address trader;
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        uint160 sqrtPriceLimitX96;
         Funding.Growth fundingGrowthGlobal;
     }
 
@@ -209,17 +187,18 @@ contract ClearingHouse is
     }
 
     //
-    // state variables
+    // STATE
     //
 
-    // ------ immutable states ------
+    // --------- IMMUTABLE ---------
+
     address public quoteToken;
     address public uniswapV3Factory;
 
     // cache the settlement token's decimals for gas optimization
     uint8 internal _settlementTokenDecimals;
 
-    // ------ ^^^^^^^^^^^^^^^^ ------
+    // --------- ^^^^^^^^^ ---------
 
     // not used in CH, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
@@ -240,6 +219,44 @@ contract ClearingHouse is
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
 
+    //
+    // EVENT
+    //
+
+    event PositionChanged(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl
+    );
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
+    event ReferredPositionChanged(bytes32 indexed referralCode);
+
+    //
+    // MODIFIER
+    //
+
+    modifier onlyExchange() {
+        // only exchange
+        require(_msgSender() == exchange, "CH_OE");
+        _;
+    }
+
+    //
+    // EXTERNAL NON-VIEW
+    //
+
+    /// @dev this function is public for testing
     function initialize(
         address clearingHouseConfigArg,
         address vaultArg,
@@ -292,19 +309,7 @@ contract ClearingHouse is
         versionRecipient = "2.0.0";
     }
 
-    //
-    // MODIFIER
-    //
-    modifier onlyExchange() {
-        // only exchange
-        require(_msgSender() == exchange, "CH_OE");
-        _;
-    }
-
-    //
-    // EXTERNAL ADMIN FUNCTIONS
-    //
-
+    // solhint-disable-next-line
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // CH_ANC: address is not contract
         require(baseToken.isContract(), "CH_ANC");
@@ -324,56 +329,6 @@ contract ClearingHouse is
         _setTrustedForwarder(trustedForwarderArg);
     }
 
-    //
-    // EXTERNAL ONLY EXCHANGE
-    //
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        // not orderBook
-        require(_msgSender() == orderBook, "CH_NOB");
-
-        OrderBook.MintCallbackData memory callbackData = abi.decode(data, (OrderBook.MintCallbackData));
-
-        if (amount0Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token0();
-            IERC20Metadata(token).transfer(callbackData.pool, amount0Owed);
-        }
-        if (amount1Owed > 0) {
-            address token = IUniswapV3Pool(callbackData.pool).token1();
-            IERC20Metadata(token).transfer(callbackData.pool, amount1Owed);
-        }
-    }
-
-    /// @inheritdoc IUniswapV3SwapCallback
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override onlyExchange {
-        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
-        // CH_F0S: forbidden 0 swap
-        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
-
-        Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
-        IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
-
-        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
-        (address token, uint256 amountToPay) =
-            amount0Delta > 0
-                ? (uniswapV3Pool.token0(), uint256(amount0Delta))
-                : (uniswapV3Pool.token1(), uint256(amount1Delta));
-
-        // swap
-        IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay);
-    }
-
-    //
-    // EXTERNAL FUNCTIONS
-    //
     function addLiquidity(AddLiquidityParams calldata params)
         external
         whenNotPaused
@@ -451,46 +406,6 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
     }
 
-    function closePosition(ClosePositionParams calldata params)
-        external
-        whenNotPaused
-        nonReentrant
-        checkDeadline(params.deadline)
-        returns (uint256 deltaBase, uint256 deltaQuote)
-    {
-        _requireHasBaseToken(params.baseToken);
-
-        address trader = _msgSender();
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
-
-        SwapResponse memory response =
-            _closePosition(
-                InternalClosePositionParams({
-                    trader: trader,
-                    baseToken: params.baseToken,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: fundingGrowthGlobal
-                })
-            );
-
-        // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
-        bool isBaseToQuote =
-            AccountBalance(accountBalance).getPositionSize(trader, params.baseToken) > 0 ? true : false;
-        _checkSlippage(
-            CheckSlippageParams({
-                isBaseToQuote: isBaseToQuote,
-                isExactInput: true,
-                deltaAvailableQuote: response.deltaAvailableQuote,
-                deltaAvailableBase: response.deltaAvailableBase,
-                oppositeAmountBound: params.oppositeAmountBound
-            })
-        );
-
-        emit ReferredPositionChanged(params.referralCode);
-        return (response.deltaAvailableBase, response.deltaAvailableQuote);
-    }
-
     function openPosition(OpenPositionParams memory params)
         external
         whenNotPaused
@@ -539,6 +454,46 @@ contract ClearingHouse is
             CheckSlippageParams({
                 isBaseToQuote: params.isBaseToQuote,
                 isExactInput: params.isExactInput,
+                deltaAvailableQuote: response.deltaAvailableQuote,
+                deltaAvailableBase: response.deltaAvailableBase,
+                oppositeAmountBound: params.oppositeAmountBound
+            })
+        );
+
+        emit ReferredPositionChanged(params.referralCode);
+        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+    }
+
+    function closePosition(ClosePositionParams calldata params)
+        external
+        whenNotPaused
+        nonReentrant
+        checkDeadline(params.deadline)
+        returns (uint256 deltaBase, uint256 deltaQuote)
+    {
+        _requireHasBaseToken(params.baseToken);
+
+        address trader = _msgSender();
+        Funding.Growth memory fundingGrowthGlobal =
+            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+
+        SwapResponse memory response =
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: params.baseToken,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    fundingGrowthGlobal: fundingGrowthGlobal
+                })
+            );
+
+        // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
+        bool isBaseToQuote =
+            AccountBalance(accountBalance).getPositionSize(trader, params.baseToken) > 0 ? true : false;
+        _checkSlippage(
+            CheckSlippageParams({
+                isBaseToQuote: isBaseToQuote,
+                isExactInput: true,
                 deltaAvailableQuote: response.deltaAvailableQuote,
                 deltaAvailableBase: response.deltaAvailableBase,
                 oppositeAmountBound: params.oppositeAmountBound
@@ -623,12 +578,61 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data
+    ) external override {
+        // not orderBook
+        require(_msgSender() == orderBook, "CH_NOB");
+
+        OrderBook.MintCallbackData memory callbackData = abi.decode(data, (OrderBook.MintCallbackData));
+
+        if (amount0Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token0();
+            IERC20Metadata(token).transfer(callbackData.pool, amount0Owed);
+        }
+        if (amount1Owed > 0) {
+            address token = IUniswapV3Pool(callbackData.pool).token1();
+            IERC20Metadata(token).transfer(callbackData.pool, amount1Owed);
+        }
+    }
+
+    /// @inheritdoc IUniswapV3SwapCallback
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external override onlyExchange {
+        // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
+        // CH_F0S: forbidden 0 swap
+        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
+
+        Exchange.SwapCallbackData memory callbackData = abi.decode(data, (Exchange.SwapCallbackData));
+        IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
+
+        // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
+        (address token, uint256 amountToPay) =
+            amount0Delta > 0
+                ? (uniswapV3Pool.token0(), uint256(amount0Delta))
+                : (uniswapV3Pool.token1(), uint256(amount1Delta));
+
+        // swap
+        IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay);
+    }
+
     //
-    // EXTERNAL VIEW FUNCTIONS
+    // EXTERNAL VIEW
     //
+
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
+
+    //
+    // PUBLIC VIEW
+    //
 
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
@@ -653,7 +657,7 @@ contract ClearingHouse is
     }
 
     //
-    // INTERNAL FUNCTIONS
+    // INTERNAL NON-VIEW
     //
 
     function _cancelExcessOrders(
@@ -788,8 +792,6 @@ contract ClearingHouse is
         AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
     }
 
-    // check here for custom fee design,
-    // https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function _swap(InternalSwapParams memory params) internal returns (SwapResponse memory) {
         Exchange.SwapResponse memory response =
             Exchange(exchange).swap(
@@ -816,11 +818,6 @@ contract ClearingHouse is
         );
         AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
 
-        // update timestamp of the first tx in this market
-        // if (AccountBalance(accountBalance).getFirstTradedTimestamp(params.baseToken) == 0) {
-        //     AccountBalance(accountBalance).updateFirstTradedTimestamp(params.baseToken);
-        // }
-
         return
             SwapResponse({
                 deltaAvailableBase: response.exchangedPositionSize.abs(),
@@ -835,7 +832,7 @@ contract ClearingHouse is
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
-        private
+        internal
         returns (RemoveLiquidityResponse memory)
     {
         // must settle funding before getting token info
@@ -944,7 +941,7 @@ contract ClearingHouse is
     }
 
     //
-    // INTERNAL VIEW FUNCTIONS
+    // INTERNAL VIEW
     //
 
     function _isOverPriceLimit(address baseToken, int24 tick) internal view returns (bool) {
@@ -952,7 +949,7 @@ contract ClearingHouse is
         if (maxTickDelta == 0) {
             return false;
         }
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTickMap(baseToken);
+        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
         int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
         int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
@@ -960,7 +957,7 @@ contract ClearingHouse is
     }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTickMap(baseToken);
+        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
@@ -1000,7 +997,7 @@ contract ClearingHouse is
         require(Exchange(exchange).getPool(baseToken) != address(0), "CH_BTNE");
     }
 
-    function _getFreeCollateralByRatio(address trader, uint24 ratio) private view returns (int256) {
+    function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
         return IVault(vault).getFreeCollateralByRatio(trader, ratio);
     }
 
