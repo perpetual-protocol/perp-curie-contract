@@ -245,7 +245,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        fundingPayment = _updateFundingGrowthAndFundingPayment(
+        fundingPayment = _updateFundingGrowth(
             trader,
             baseToken,
             baseBalance,
@@ -305,7 +305,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return MarketRegistry(marketRegistry).getPool(baseToken);
     }
 
-    /// @dev this is the view version of _updateFundingGrowthAndFundingPayment()
+    /// @dev this is the view version of _updateFundingGrowth()
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(
         address trader,
@@ -318,14 +318,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 liquidityCoefficientInFundingPayment =
             OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
-        int256 balanceCoefficientInFundingPayment =
-            AccountMarket.getBalanceCoefficientInFundingPayment(
+        return
+            _getPendingFundingPaymentWithLiquidityCoefficient(
                 baseBalance,
-                fundingGrowthGlobal.twPremiumX96,
-                twPremiumGrowthGlobalX96
+                twPremiumGrowthGlobalX96,
+                fundingGrowthGlobal,
+                liquidityCoefficientInFundingPayment
             );
-
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
     }
 
     function getLastUpdatedTick(address baseToken) external view returns (int24) {
@@ -403,7 +402,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     /// @dev this is the non-view version of getPendingFundingPayment()
     /// @return pendingFundingPayment the pending funding payment of a trader in one market,
     ///         including liquidity & balance coefficients
-    function _updateFundingGrowthAndFundingPayment(
+    function _updateFundingGrowth(
         address trader,
         address baseToken,
         int256 baseBalance,
@@ -417,14 +416,13 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 fundingGrowthGlobal
             );
 
-        int256 balanceCoefficientInFundingPayment =
-            AccountMarket.getBalanceCoefficientInFundingPayment(
+        return
+            _getPendingFundingPaymentWithLiquidityCoefficient(
                 baseBalance,
-                fundingGrowthGlobal.twPremiumX96,
-                twPremiumGrowthGlobalX96
+                twPremiumGrowthGlobalX96,
+                fundingGrowthGlobal,
+                liquidityCoefficientInFundingPayment
             );
-
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
     }
 
     //
@@ -468,6 +466,22 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         signedScaledAmountForReplaySwap = isExactInput
             ? signedScaledAmountForReplaySwap
             : -signedScaledAmountForReplaySwap;
+    }
+
+    function _getPendingFundingPaymentWithLiquidityCoefficient(
+        int256 baseBalance,
+        int256 twPremiumGrowthGlobalX96,
+        Funding.Growth memory fundingGrowthGlobal,
+        int256 liquidityCoefficientInFundingPayment
+    ) internal pure returns (int256) {
+        int256 balanceCoefficientInFundingPayment =
+            AccountMarket.getBalanceCoefficientInFundingPayment(
+                baseBalance,
+                fundingGrowthGlobal.twPremiumX96,
+                twPremiumGrowthGlobalX96
+            );
+
+        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
     }
 
     function _getTwapInterval() internal pure returns (uint32) {
