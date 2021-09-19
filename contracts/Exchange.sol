@@ -86,6 +86,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
 
     address public orderBook;
+    address public accountBalance;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;
@@ -108,10 +109,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         __ClearingHouseCallee_init(marketRegistryArg);
 
         // OrderBook is not contract
-        require(orderBookArg.isContract(), "EX_OBNC");
+        require(orderBookArg.isContract(), "E_OBNC");
 
         // update states
         orderBook = orderBookArg;
+    }
+
+    function setAccountBalance(address accountBalanceArg) external onlyOwner {
+        // accountBalance is 0
+        require(accountBalanceArg != address(0), "E_AB0");
+        accountBalance = accountBalanceArg;
     }
 
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
@@ -241,6 +248,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 baseBalance,
         int256 twPremiumGrowthGlobalX96
     ) external returns (Funding.Growth memory fundingGrowthGlobal, int256 fundingPayment) {
+        // only AccountBalance
+        require(_msgSender() == accountBalance, "E_OAB");
+
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
@@ -283,7 +293,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         bytes calldata data
     ) external override {
         // not order book
-        require(_msgSender() == orderBook, "EX_NOB");
+        require(_msgSender() == orderBook, "E_NOB");
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 

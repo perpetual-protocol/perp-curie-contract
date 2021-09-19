@@ -108,10 +108,10 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         }
         // deploy exchange
         await exchange.initialize(marketRegistry.address, orderBook.address)
+        exchange.setAccountBalance(accountBalance.address)
         await orderBook.setExchange(exchange.address)
 
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
-        orderBook.setAccountBalance(accountBalance.address)
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
