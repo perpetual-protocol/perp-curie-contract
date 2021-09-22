@@ -31,17 +31,18 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     using PerpMath for uint256;
     using AddressUpgradeable for address;
 
-    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
-    event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+    //
+    // STATE
+    //
 
-    // ------ immutable states ------
+    // --------- IMMUTABLE ---------
 
     // cached the settlement token's decimal for gas optimization
     uint8 public override decimals;
 
     address public settlementToken;
 
-    // ------ ^^^^^^^^^^^^^^^^ ------
+    // --------- ^^^^^^^^^ ---------
 
     address public clearingHouseConfig;
     address public accountBalance;
@@ -60,6 +61,17 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // key: token
     // TODO: change bool to collateral factor
     mapping(address => bool) internal _collateralTokenMap;
+
+    //
+    // EVENT
+    //
+
+    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
+    event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+
+    //
+    // EXTERNAL NON-VIEW
+    //
 
     function initialize(
         address insuranceFundArg,
@@ -91,19 +103,12 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         versionRecipient = "2.0.0";
     }
 
-    //
-    // OWNER SETTER
-    //
-
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // V_ANC: TrustedForwarder address is not contract
         require(trustedForwarderArg.isContract(), "V_ANC");
         _setTrustedForwarder(trustedForwarderArg);
     }
 
-    //
-    // EXTERNAL
-    //
     function deposit(address token, uint256 amount) external whenNotPaused nonReentrant {
         // collateralToken not found
         require(_collateralTokenMap[token], "V_CNF");
@@ -146,7 +151,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         emit Withdrawn(token, to, amount);
     }
 
-    // expensive call
+    //
+    // PUBLIC VIEW
+    //
+
+    function getFreeCollateral(address trader) public view returns (uint256) {
+        return PerpMath.max(getFreeCollateralByRatio(trader, _getImRatio()), 0).toUint256();
+    }
+
+    /// @dev this function is expensive
     function balanceOf(address trader) public view override returns (int256) {
         int256 settlementTokenValue;
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
@@ -159,39 +172,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         }
 
         return settlementTokenValue;
-    }
-
-    function getFreeCollateral(address trader) public view returns (uint256) {
-        return PerpMath.max(getFreeCollateralByRatio(trader, _getImRatio()), 0).toUint256();
-    }
-
-    //
-    // INTERNAL
-    //
-
-    function _addCollateralToken(address token) internal {
-        // collateral token existed
-        require(!_collateralTokenMap[token], "V_CTE");
-        _collateralTokenMap[token] = true;
-        _collateralTokens.push(token);
-    }
-
-    function _modifyBalance(
-        address trader,
-        address token,
-        int256 amount
-    ) internal {
-        _balance[trader][token] = _getBalance(trader, token).add(amount);
-    }
-
-    function _getBalance(address trader, address token) internal view returns (int256) {
-        return _balance[trader][token];
-    }
-
-    function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 balance = balanceOf(trader);
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-        return balance.addS(owedRealizedPnl, decimals);
     }
 
     // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
@@ -219,10 +199,43 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
-    // return decimals 18
+    //
+    // INTERNAL NON-VIEW
+    //
+
+    function _addCollateralToken(address token) internal {
+        // collateral token existed
+        require(!_collateralTokenMap[token], "V_CTE");
+        _collateralTokenMap[token] = true;
+        _collateralTokens.push(token);
+    }
+
+    function _modifyBalance(
+        address trader,
+        address token,
+        int256 amount
+    ) internal {
+        _balance[trader][token] = _getBalance(trader, token).add(amount);
+    }
+
+    //
+    // INTERNAL VIEW
+    //
+
+    function _getTotalCollateralValue(address trader) internal view returns (int256) {
+        int256 balance = balanceOf(trader);
+        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
+        return balance.addS(owedRealizedPnl, decimals);
+    }
+
+    /// @return totalMarginRequirement with decimals == 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
         return totalDebtValue.mulRatio(ratio);
+    }
+
+    function _getBalance(address trader, address token) internal view returns (int256) {
+        return _balance[trader][token];
     }
 
     function _getImRatio() internal view returns (uint24) {

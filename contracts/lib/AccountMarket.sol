@@ -14,54 +14,11 @@ library AccountMarket {
     using PerpSafeCast for int256;
     using SignedSafeMathUpgradeable for int256;
 
+    /// @param lastTwPremiumGrowthGlobalX96 the last time weighted premiumGrowthGlobalX96
     struct Info {
         int256 baseBalance;
         int256 quoteBalance;
-        // the last time weighted PremiumGrowthGlobalX96
         int256 lastTwPremiumGrowthGlobalX96;
-    }
-
-    /// @dev this is the non-view version of getPendingFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & balance coefficients
-    function updateFundingGrowthAngFundingPayment(
-        Info storage self,
-        int256 liquidityCoefficientInFundingPayment,
-        int256 updatedGlobalFundingGrowthTwPremiumX96
-    ) internal returns (int256 fundingPayment) {
-        // funding of balance coefficient
-        int256 balanceCoefficientInFundingPayment =
-            getBalanceCoefficientInFundingPayment(
-                self.baseBalance,
-                updatedGlobalFundingGrowthTwPremiumX96,
-                self.lastTwPremiumGrowthGlobalX96
-            );
-
-        // update fundingGrowth of funding payment coefficient of balance
-        self.lastTwPremiumGrowthGlobalX96 = updatedGlobalFundingGrowthTwPremiumX96;
-
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
-    }
-
-    //
-    // VIEW
-    //
-
-    /// @dev this is the view version of updateFundingGrowthAngFundingPayment()
-    /// @return fundingPayment the funding payment of a market, including liquidity & balance coefficients
-    function getPendingFundingPayment(
-        Info storage self,
-        int256 liquidityCoefficientInFundingPayment,
-        int256 updatedGlobalFundingGrowthTwPremiumX96
-    ) internal view returns (int256 fundingPayment) {
-        // funding of balance coefficient
-        int256 balanceCoefficientInFundingPayment =
-            getBalanceCoefficientInFundingPayment(
-                self.baseBalance,
-                updatedGlobalFundingGrowthTwPremiumX96,
-                self.lastTwPremiumGrowthGlobalX96
-            );
-
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
     }
 
     function getBalanceCoefficientInFundingPayment(

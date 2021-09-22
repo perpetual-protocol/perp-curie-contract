@@ -12,10 +12,11 @@ contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
     using SafeMathUpgradeable for uint256;
     using AddressUpgradeable for address;
 
-    // ------ immutable states ------
+    // --------- IMMUTABLE ---------
+
     AggregatorV3Interface private _aggregator;
 
-    // ------ ^^^^^^^^^^^^^^^^ ------
+    // --------- ^^^^^^^^^ ---------
 
     // __gap is reserved storage
     uint256[50] private __gap;

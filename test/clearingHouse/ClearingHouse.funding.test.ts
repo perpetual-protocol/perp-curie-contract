@@ -144,7 +144,7 @@ describe("ClearingHouse funding", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "FundingUpdated")
+                .to.emit(exchange, "FundingUpdated")
                 .withArgs(baseToken.address, parseEther("154.431096099999999999"), parseEther("150.953124"))
         })
 
@@ -243,9 +243,9 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(accountBalance, "FundingPaymentSettled")
+                    .to.emit(exchange, "FundingPaymentSettled")
                     .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
-                    .to.emit(accountBalance, "FundingUpdated")
+                    .to.emit(exchange, "FundingUpdated")
                     .withArgs(baseToken.address, parseEther("154.199634648900471640"), parseEther("156.953124"))
 
                 // note that bob will settle his pending funding payment here
@@ -329,9 +329,9 @@ describe("ClearingHouse funding", () => {
                             referralCode: ethers.constants.HashZero,
                         }),
                     )
-                        .to.emit(accountBalance, "FundingPaymentSettled")
+                        .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("-0.024753444259323776"))
-                        .to.emit(accountBalance, "FundingUpdated")
+                        .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("150.953124"))
 
                     // verify owedRealizedPnl
@@ -414,9 +414,9 @@ describe("ClearingHouse funding", () => {
                             referralCode: ethers.constants.HashZero,
                         }),
                     )
-                        .to.emit(accountBalance, "FundingPaymentSettled")
+                        .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
-                        .to.emit(accountBalance, "FundingUpdated")
+                        .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
 
                     await forward(3600)
@@ -509,7 +509,7 @@ describe("ClearingHouse funding", () => {
                             referralCode: ethers.constants.HashZero,
                         }),
                     )
-                        .to.emit(accountBalance, "FundingPaymentSettled")
+                        .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("-0.001781062548099241"))
 
                     // verify owedRealizedPnl
@@ -654,7 +654,7 @@ describe("ClearingHouse funding", () => {
                         "-203202869155103601574",
                         parseEther("0.829279386920164902"),
                     )
-                    .to.emit(accountBalance, "FundingPaymentSettled")
+                    .to.emit(exchange, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -700,7 +700,7 @@ describe("ClearingHouse funding", () => {
                         "-203202869155103601574",
                         "0",
                     )
-                    .to.emit(accountBalance, "FundingPaymentSettled")
+                    .to.emit(exchange, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -744,7 +744,7 @@ describe("ClearingHouse funding", () => {
                         "-808767873126541797029",
                         parseEther("1"),
                     )
-                    .to.emit(accountBalance, "FundingPaymentSettled")
+                    .to.emit(exchange, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -842,7 +842,7 @@ describe("ClearingHouse funding", () => {
                             "0",
                             parseEther("0.829279386920164902"),
                         )
-                        .to.emit(accountBalance, "FundingPaymentSettled")
+                        .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("-0.035604217676821184"))
 
                     // verify owedRealizedPnl
@@ -989,7 +989,7 @@ describe("ClearingHouse funding", () => {
                             "-816895716963038010374",
                             parseEther("0.819689294088102658"),
                         )
-                        .to.emit(accountBalance, "FundingPaymentSettled")
+                        .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
 
                     let collectedFee = parseEther("0.819689294088102658")

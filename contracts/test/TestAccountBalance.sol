@@ -52,6 +52,6 @@ contract TestAccountBalance is AccountBalance {
             uint256 indexTwap
         )
     {
-        return super._getFundingGrowthGlobalAndTwaps(baseToken);
+        return Exchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 }

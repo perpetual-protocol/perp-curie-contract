@@ -41,6 +41,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     //
     // STRUCT
     //
+
     struct AddLiquidityParams {
         address trader;
         address baseToken;
@@ -137,28 +138,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     }
 
     //
-    // EVENT
-    //
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
-
-    //
     // STATE
     //
-    address public quoteToken;
+
     address public exchange;
-    address public accountBalance;
+    address public quoteToken;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
@@ -175,8 +159,27 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     mapping(address => uint256) internal _feeGrowthGlobalX128Map;
 
     //
-    // CONSTRUCTOR
+    // EVENT
     //
+
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 base,
+        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
+        int256 quote,
+        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
+        uint256 quoteFee // amount of quote token the maker received as fee
+    );
+
+    //
+    // EXTERNAL NON-VIEW
+    //
+
     function initialize(address marketRegistryArg, address quoteTokenArg) external initializer {
         __ClearingHouseCallee_init(marketRegistryArg);
 
@@ -187,24 +190,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         quoteToken = quoteTokenArg;
     }
 
-    //
-    // EXTERNAL ADMIN FUNCTIONS
-    //
     function setExchange(address exchangeArg) external onlyOwner {
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
         exchange = exchangeArg;
     }
-
-    function setAccountBalance(address accountBalanceArg) external onlyOwner {
-        // accountBalance is 0
-        require(accountBalanceArg != address(0), "OB_AB0");
-        accountBalance = accountBalanceArg;
-    }
-
-    //
-    // EXTERNAL FUNCTIONS
-    //
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
@@ -341,9 +331,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
     ) external returns (int256 liquidityCoefficientInFundingPayment) {
-        // only accountBalance
-        require(_msgSender() == accountBalance, "OB_OAB");
-
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = MarketRegistry(marketRegistry).getPool(baseToken);
@@ -594,8 +581,9 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     }
 
     //
-    // INTERNAL
+    // INTERNAL NON-VIEW
     //
+
     function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);

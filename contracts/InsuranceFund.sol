@@ -11,11 +11,13 @@ import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable {
     using AddressUpgradeable for address;
 
-    address public borrower;
+    // --------- IMMUTABLE ---------
 
-    // ------ immutable states ------
     address public override token;
-    // ------ ^^^^^^^^^^^^^^^^ ------
+
+    // --------- ^^^^^^^^^ ---------
+
+    address public borrower;
 
     event Borrowed(address borrower, uint256 amount);
 

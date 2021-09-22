@@ -12,6 +12,7 @@ import {
     OrderBook,
     TestClearingHouse,
     TestERC20,
+    TestExchange,
     TestUniswapV3Broker,
     UniswapV3Factory,
     UniswapV3Pool,
@@ -90,22 +91,27 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         const orderBook = (await orderBookFactory.deploy()) as OrderBook
         await orderBook.initialize(marketRegistry.address, quoteToken.address)
 
-        // deploy exchange
-        const exchangeFactory = await ethers.getContractFactory("Exchange")
-        const exchange = (await exchangeFactory.deploy()) as Exchange
-        await exchange.initialize(marketRegistry.address, orderBook.address)
-        await orderBook.setExchange(exchange.address)
-
         let accountBalance
+        let exchange
         if (canMockTime) {
             const accountBalanceFactory = await ethers.getContractFactory("TestAccountBalance")
             accountBalance = (await accountBalanceFactory.deploy()) as TestAccountBalance
+
+            const exchangeFactory = await ethers.getContractFactory("TestExchange")
+            exchange = (await exchangeFactory.deploy()) as TestExchange
         } else {
             const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
             accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
+
+            const exchangeFactory = await ethers.getContractFactory("Exchange")
+            exchange = (await exchangeFactory.deploy()) as Exchange
         }
+        // deploy exchange
+        await exchange.initialize(marketRegistry.address, orderBook.address)
+        exchange.setAccountBalance(accountBalance.address)
+        await orderBook.setExchange(exchange.address)
+
         await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
-        orderBook.setAccountBalance(accountBalance.address)
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
