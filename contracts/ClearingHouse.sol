@@ -698,83 +698,65 @@ contract ClearingHouse is
         AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
     }
 
-    // TODO refactor
     function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        int256 deltaAvailableQuote;
+        bool isIncreasePosition = _isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote);
 
-        SwapResponse memory response;
-
-        // if increase position (old / new position are in the same direction)
-        if (_isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote)) {
-            response = _swap(params);
-
-            deltaAvailableQuote = params.isBaseToQuote
-                ? response.deltaAvailableQuote.toInt256()
-                : -response.deltaAvailableQuote.toInt256();
-
-            response.openNotional = getOpenNotional(params.trader, params.baseToken);
-
-            // there is no realizedPnl when increasing position
-            return response;
-        }
-
-        // else: openReversePosition
-        response = _swap(params);
-
-        uint256 positionSizeAbs = positionSize.abs();
-        // position size based closedRatio
-        uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSizeAbs);
-
-        deltaAvailableQuote = params.isBaseToQuote
-            ? response.deltaAvailableQuote.toInt256()
-            : -response.deltaAvailableQuote.toInt256();
-
-        int256 realizedPnl;
-        // if reduce or close position (closeRatio <= 1)
-        if (positionSizeAbs >= response.deltaAvailableBase) {
-            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
-            // taker:
-            // step 1: long 20 base
-            // openNotionalFraction = 252.53
-            // openNotional = -252.53
-            // step 2: short 10 base (reduce half of the position)
-            // deltaAvailableQuote = 137.5
-            // closeRatio = 10/20 = 0.5
-            // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
-            // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
-            //                      = 252.53 - 137.5 + 11.235 = 126.265
-            // openNotional = -openNotionalFraction = 126.265
-            int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
-            realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
-        } else {
-            // else, open a larger reverse position
-
-            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
-            // taker:
-            // step 1: long 20 base
-            // openNotionalFraction = 252.53
-            // openNotional = -252.53
-            // step 2: short 30 base (open a larger reverse position)
-            // deltaAvailableQuote = 337.5
-            // closeRatio = 30/20 = 1.5
-            // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
-            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-            // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
-            // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
-            //                      = 252.53 - 337.5 + -27.53 = -112.5
-            // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
-            int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
-            realizedPnl = oldOpenNotional.add(closedPositionNotional);
-        }
-
-        _realizePnl(params.trader, params.baseToken, realizedPnl);
+        SwapResponse memory response = _swap(params);
         response.openNotional = getOpenNotional(params.trader, params.baseToken);
-        response.realizedPnl = realizedPnl;
 
-        AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+        // there is only realizedPnl when it's not increasing the position size
+        if (!isIncreasePosition) {
+            int256 realizedPnl;
+            // closedRatio is based on the position size
+            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
+            int256 deltaAvailableQuote =
+                params.isBaseToQuote
+                    ? response.deltaAvailableQuote.toInt256()
+                    : -response.deltaAvailableQuote.toInt256();
+
+            // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
+            if (closedRatio <= 1 ether) {
+                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
+                // taker:
+                // step 1: long 20 base
+                // openNotionalFraction = 252.53
+                // openNotional = -252.53
+                // step 2: short 10 base (reduce half of the position)
+                // deltaAvailableQuote = 137.5
+                // closeRatio = 10/20 = 0.5
+                // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
+                // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
+                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                //                      = 252.53 - 137.5 + 11.235 = 126.265
+                // openNotional = -openNotionalFraction = 126.265
+                int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
+                realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
+            } else {
+                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
+                // taker:
+                // step 1: long 20 base
+                // openNotionalFraction = 252.53
+                // openNotional = -252.53
+                // step 2: short 30 base (open a larger reverse position)
+                // deltaAvailableQuote = 337.5
+                // closeRatio = 30/20 = 1.5
+                // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
+                // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+                // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
+                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                //                      = 252.53 - 337.5 + -27.53 = -112.5
+                // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
+                int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
+                realizedPnl = oldOpenNotional.add(closedPositionNotional);
+            }
+
+            _realizePnl(params.trader, params.baseToken, realizedPnl);
+            response.realizedPnl = realizedPnl;
+
+            AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+        }
 
         return response;
     }
