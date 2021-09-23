@@ -201,6 +201,10 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // EXTERNAL VIEW
     //
 
+    function getBaseTokens(address trader) external view returns (address[] memory) {
+        return _baseTokensMap[trader];
+    }
+
     function getOwedRealizedPnl(address trader) external view returns (int256) {
         return _owedRealizedPnlMap[trader];
     }
