@@ -39,6 +39,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         uint256 deltaAvailableQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
+        uint160 sqrtPriceX96;
     }
 
     address public marketRegistry;
@@ -89,7 +90,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         {
 
         } catch (bytes memory reason) {
-            (uint256 base, uint256 quote) = _parseRevertReason(reason);
+            (uint256 base, uint256 quote, uint160 sqrtPriceX96) = _parseRevertReason(reason);
 
             uint256 fee;
             int256 exchangedPositionSize;
@@ -125,7 +126,8 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
                 exchangedPositionSize.abs(), // deltaAvailableBase
                 exchangedPositionNotional.sub(fee.toInt256()).abs(), // deltaAvailableQuote
                 exchangedPositionSize,
-                exchangedPositionNotional
+                exchangedPositionNotional,
+                sqrtPriceX96
             );
 
             // if it's exact output with a price limit, ensure that the full output amount has been receive
@@ -154,26 +156,37 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
         require(msg.sender == pool, "Q_FSV");
 
         (uint256 base, uint256 quote) = (amount0Delta.abs(), amount1Delta.abs());
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let ptr := mload(0x40)
             mstore(ptr, base)
             mstore(add(ptr, 0x20), quote)
-            revert(ptr, 64)
+            mstore(add(ptr, 0x40), sqrtPriceX96)
+            revert(ptr, 96)
         }
     }
 
     /// @dev Parses a revert reason that should contain the numeric quote
-    function _parseRevertReason(bytes memory reason) private pure returns (uint256 base, uint256 quote) {
-        if (reason.length != 64) {
-            if (reason.length < 68) revert("Unexpected error");
+    function _parseRevertReason(bytes memory reason)
+        private
+        pure
+        returns (
+            uint256 base,
+            uint256 quote,
+            uint160 sqrtPriceX96
+        )
+    {
+        if (reason.length != 96) {
+            // Q_UE: unexpected error
+            if (reason.length < 68) revert("Q_UE");
             // solhint-disable-next-line no-inline-assembly
             assembly {
                 reason := add(reason, 0x04)
             }
             revert(abi.decode(reason, (string)));
         }
-        return abi.decode(reason, (uint256, uint256));
+        return abi.decode(reason, (uint256, uint256, uint160));
     }
 }
