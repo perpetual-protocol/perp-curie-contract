@@ -309,11 +309,23 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: baseAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                (await pool.slot0())[0],
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
@@ -342,11 +354,23 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: priceLimit,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                (await pool.slot0())[0],
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
@@ -371,11 +395,23 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: baseAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                (await pool.slot0())[0],
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
@@ -401,11 +437,23 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                (await pool.slot0())[0],
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
@@ -434,11 +482,23 @@ describe("Quoter.swap", () => {
                 amount: baseAmount,
                 sqrtPriceLimitX96: priceLimit,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // sell base
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: baseAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                (await pool.slot0())[0],
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
