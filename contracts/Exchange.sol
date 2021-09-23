@@ -100,6 +100,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
 
+    // key: base token
+    // value: a threshold to limit the price impact per block when reducing or closing the position
+    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
     //
     // EVENT
     //
@@ -131,6 +134,20 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
         accountBalance = accountBalanceArg;
+    }
+
+    // solhint-disable-next-line
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
+        // CH_ANC: address is not contract
+        require(baseToken.isContract(), "EX_ANC");
+        // EX_BTNE: base token not exists
+        require(MarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
+
+        // CH_MTO: max tick crossed limit out of range
+        // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
+        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "EX_MTCLOOR");
+
+        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory response) {
@@ -211,37 +228,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return response;
     }
 
-    /// @return the resulting tick (derived from price) after replaying the swap
-    function replaySwap(ReplaySwapParams memory params) external returns (int24) {
-        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
-        uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
-        uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
-        (, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.amount,
-                exchangeFeeRatio,
-                uniswapFeeRatio
-            );
-
-        // globalFundingGrowth can be empty if shouldUpdateState is false
-        OrderBook.ReplaySwapResponse memory response =
-            OrderBook(orderBook).replaySwap(
-                OrderBook.ReplaySwapParams({
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    amount: signedScaledAmountForReplaySwap,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    exchangeFeeRatio: exchangeFeeRatio,
-                    uniswapFeeRatio: uniswapFeeRatio,
-                    shouldUpdateState: false,
-                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
-                })
-            );
-        return response.tick;
-    }
-
     function settleAllFunding(address trader) external {
         address[] memory baseTokens = AccountBalance(accountBalance).getBaseTokens(trader);
         for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -319,13 +305,50 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
+    function isOverPriceLimitByReplaySwap(
+        address baseToken,
+        bool isLong,
+        int256 positionSize
+    ) external returns (bool) {
+        ReplaySwapParams memory replaySwapParams =
+            ReplaySwapParams({
+                baseToken: baseToken,
+                isBaseToQuote: isLong,
+                isExactInput: isLong,
+                amount: positionSize.abs(),
+                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, !isLong)
+            });
+        return isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
+    }
+
     //
     // EXTERNAL VIEW
     //
 
+    function isOverPriceLimitWithTick(address baseToken, int24 tick) public view returns (bool) {
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
+        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
+        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        return (tick < lowerTickBound || tick > upperTickBound);
+    }
+
+    function isOverPriceLimit(address baseToken) external view returns (bool) {
+        int24 tick = getTick(baseToken);
+        return isOverPriceLimitWithTick(baseToken, tick);
+    }
+
     // TODO should be able to remove if we can remove CH._hasPool
     function getPool(address baseToken) external view returns (address) {
         return MarketRegistry(marketRegistry).getPool(baseToken);
+    }
+
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
+        return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
     function getAllPendingFundingPayment(address trader) external view returns (int256 pendingFundingPayment) {
@@ -352,10 +375,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
-    }
-
-    function getLastUpdatedTick(address baseToken) external view returns (int24) {
-        return _lastUpdatedTickMap[baseToken];
     }
 
     /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
@@ -432,6 +451,37 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL NON-VIEW
     //
+
+    /// @return the resulting tick (derived from price) after replaying the swap
+    function replaySwap(ReplaySwapParams memory params) internal returns (int24) {
+        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
+        uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
+        uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
+        (, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                exchangeFeeRatio,
+                uniswapFeeRatio
+            );
+
+        // globalFundingGrowth can be empty if shouldUpdateState is false
+        OrderBook.ReplaySwapResponse memory response =
+            OrderBook(orderBook).replaySwap(
+                OrderBook.ReplaySwapParams({
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    amount: signedScaledAmountForReplaySwap,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    exchangeFeeRatio: exchangeFeeRatio,
+                    uniswapFeeRatio: uniswapFeeRatio,
+                    shouldUpdateState: false,
+                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
+                })
+            );
+        return response.tick;
+    }
 
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function _swap(SwapParams memory params) internal returns (SwapResponse memory) {
@@ -550,6 +600,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL VIEW
     //
+
+    function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        int24 tickBoundary =
+            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+        return TickMath.getSqrtRatioAtTick(tickBoundary);
+    }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
     /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()

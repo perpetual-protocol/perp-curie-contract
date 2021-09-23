@@ -221,6 +221,7 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
     clearingHouseConfig: ClearingHouseConfig
+    exchange: Exchange
     mockedUniV3Factory: MockContract
     mockedVault: MockContract
     mockedQuoteToken: MockContract
@@ -229,6 +230,7 @@ interface MockedClearingHouseFixture {
     mockedExchange: MockContract
     mockedInsuranceFund: MockContract
     mockedAccountBalance: MockContract
+    mockedMarketRegistry: MockContract
 }
 
 export const ADDR_GREATER_THAN = true
@@ -339,6 +341,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     return {
         clearingHouse,
         clearingHouseConfig,
+        exchange,
         mockedExchange,
         mockedUniV3Factory,
         mockedVault,
@@ -347,5 +350,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedBaseToken,
         mockedInsuranceFund,
         mockedAccountBalance,
+        mockedMarketRegistry,
     }
 }

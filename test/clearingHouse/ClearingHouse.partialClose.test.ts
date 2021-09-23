@@ -97,7 +97,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         // price delta for every tick is 0.01%
         // if we want to limit price impact to 1%, and 1% / 0.01% = 100
         // so limiting price impact to 1% means tick should not cross 100 ticks
-        await clearingHouse.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
     })
 

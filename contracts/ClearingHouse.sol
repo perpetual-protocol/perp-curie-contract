@@ -192,11 +192,6 @@ contract ClearingHouse is
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
-    // TODO move to exchange
-    // key: base token
-    // value: a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-
     //
     // EVENT
     //
@@ -285,20 +280,6 @@ contract ClearingHouse is
 
         // we don't use this var
         versionRecipient = "2.0.0";
-    }
-
-    // solhint-disable-next-line
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // CH_ANC: address is not contract
-        require(baseToken.isContract(), "CH_ANC");
-
-        _requireHasBaseToken(baseToken);
-
-        // CH_MTO: max tick crossed limit out of range
-        // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
-        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "CH_MTCLOOR");
-
-        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
@@ -403,7 +384,7 @@ contract ClearingHouse is
         if (isReducePosition) {
             // revert if current price isOverPriceLimit before open position
             // CH_OPIBS: over price impact before swap
-            require(!_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)), "CH_OPIBS");
+            require(!Exchange(exchange).isOverPriceLimit(params.baseToken), "CH_OPIBS");
         }
 
         Exchange.SwapResponse memory response =
@@ -423,7 +404,7 @@ contract ClearingHouse is
         if (isReducePosition) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPIAS: over price impact after swap
-            require(!_isOverPriceLimit(params.baseToken, response.tick), "CH_OPIAS");
+            require(!Exchange(exchange).isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
         }
 
         _checkSlippage(
@@ -600,10 +581,6 @@ contract ClearingHouse is
     // EXTERNAL VIEW
     //
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
-    }
-
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
         return
@@ -736,26 +713,18 @@ contract ClearingHouse is
         // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
 
-        Exchange.ReplaySwapParams memory replaySwapParams =
-            Exchange.ReplaySwapParams({
-                baseToken: params.baseToken,
-                isBaseToQuote: isLong,
-                isExactInput: isLong,
-                amount: positionSize.abs(),
-                sqrtPriceLimitX96: _getSqrtPriceLimit(params.baseToken, !isLong)
-            });
-
+        uint256 positionSizeAbs = positionSize.abs();
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
         if (
-            _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
-            _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
+            Exchange(exchange).isOverPriceLimit(params.baseToken) ||
+            Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, isLong, positionSize)
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
             _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-            replaySwapParams.amount = replaySwapParams.amount.mulRatio(partialCloseRatio);
+            positionSizeAbs = positionSizeAbs.mulRatio(partialCloseRatio);
         }
 
         return
@@ -763,9 +732,9 @@ contract ClearingHouse is
                 InternalOpenPositionParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
-                    isBaseToQuote: replaySwapParams.isBaseToQuote,
-                    isExactInput: replaySwapParams.isExactInput,
-                    amount: replaySwapParams.amount,
+                    isBaseToQuote: isLong,
+                    isExactInput: isLong,
+                    amount: positionSizeAbs,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: true,
                     fundingGrowthGlobal: params.fundingGrowthGlobal
@@ -776,26 +745,6 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW
     //
-
-    function _isOverPriceLimit(address baseToken, int24 tick) internal view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
-        return (tick < lowerTickBound || tick > upperTickBound);
-    }
-
-    function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        int24 tickBoundary =
-            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
-        return TickMath.getSqrtRatioAtTick(tickBoundary);
-    }
 
     /// @dev the return value is in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
