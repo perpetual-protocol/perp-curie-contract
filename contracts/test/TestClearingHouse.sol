@@ -56,15 +56,15 @@ contract TestClearingHouse is ClearingHouse {
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
 
-    function swap(SwapParams memory params) external nonReentrant() returns (SwapResponse memory) {
+    function swap(SwapParams memory params) external nonReentrant() returns (Exchange.SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
         AccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
             TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
-            _swapAndCalculateOpenNotional(
-                InternalSwapParams({
+            Exchange(exchange).swapAndCalculateOpenNotional(
+                Exchange.SwapParams({
                     trader: _msgSender(),
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,

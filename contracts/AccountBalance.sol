@@ -87,8 +87,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         address baseToken,
         int256 base,
         int256 quote,
-        int256 owedRealizedPnl
-    ) external onlyClearingHouse {
+        int256 owedRealizedPnl /*onlyClearingHouse*/
+    ) external {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
@@ -98,8 +98,8 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     function settleQuoteToPnl(
         address trader,
         address baseToken,
-        int256 amount
-    ) external onlyClearingHouse {
+        int256 amount /*onlyClearingHouse*/
+    ) external {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
