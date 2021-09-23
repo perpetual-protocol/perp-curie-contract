@@ -104,11 +104,24 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // buy base
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
+            const sqrtPriceX96 = (await pool.slot0())[0]
             const partialSwapResponse = [
                 swapResponse.deltaAvailableBase,
                 swapResponse.deltaAvailableQuote,
                 swapResponse.exchangedPositionSize,
                 swapResponse.exchangedPositionNotional,
+                sqrtPriceX96,
             ]
             expect(quoteResponse).to.be.deep.eq(partialSwapResponse)
         })
@@ -137,10 +150,22 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: priceLimit,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // buy base
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: priceLimit,
+            })
+
             expect(quoteResponse.deltaAvailableBase).to.be.eq(swapResponse.deltaAvailableBase)
             expect(quoteResponse.deltaAvailableQuote).to.be.closeTo(swapResponse.deltaAvailableQuote, 1)
             expect(quoteResponse.exchangedPositionSize).to.be.eq(swapResponse.exchangedPositionSize)
             expect(quoteResponse.exchangedPositionNotional).to.be.eq(swapResponse.exchangedPositionNotional)
+            expect(quoteResponse.sqrtPriceX96).to.be.eq((await pool.slot0())[0])
         })
 
         it("returns same result with CH.swap when liquidity is not enough", async () => {
@@ -163,10 +188,22 @@ describe("Quoter.swap", () => {
                 amount: quoteAmount,
                 sqrtPriceLimitX96: 0,
             })
+
+            // real tx to trigger price update
+            await clearingHouse.connect(bob).swap({
+                baseToken: baseToken.address,
+                // buy base
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: quoteAmount,
+                sqrtPriceLimitX96: 0,
+            })
+
             expect(quoteResponse.deltaAvailableBase).to.be.eq(swapResponse.deltaAvailableBase)
             expect(quoteResponse.deltaAvailableQuote).to.be.closeTo(swapResponse.deltaAvailableQuote, 1)
             expect(quoteResponse.exchangedPositionSize).to.be.eq(swapResponse.exchangedPositionSize)
             expect(quoteResponse.exchangedPositionNotional).to.be.eq(swapResponse.exchangedPositionNotional)
+            expect(quoteResponse.sqrtPriceX96).to.be.eq((await pool.slot0())[0])
         })
     })
 
