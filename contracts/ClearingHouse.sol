@@ -523,11 +523,11 @@ contract ClearingHouse is
                 ClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
             );
 
-        AccountBalance(accountBalance).addOwedRealizedPnl(trader, -(liquidationFee.toInt256()));
+        AccountBalance(accountBalance).addBalance(trader, address(0), 0, 0, -(liquidationFee.toInt256()));
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        AccountBalance(accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+        AccountBalance(accountBalance).addBalance(liquidator, address(0), 0, 0, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -704,7 +704,13 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
+        AccountBalance(accountBalance).addBalance(
+            insuranceFund,
+            address(0),
+            0,
+            0,
+            response.insuranceFundFee.toInt256()
+        );
         AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         emit PositionChanged(

@@ -274,7 +274,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             );
 
         if (fundingPayment != 0) {
-            AccountBalance(accountBalance).addOwedRealizedPnl(trader, -fundingPayment);
+            AccountBalance(accountBalance).addBalance(trader, address(0), 0, 0, -fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 

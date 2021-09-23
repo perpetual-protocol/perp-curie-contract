@@ -91,9 +91,11 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     ) external {
         // AB_O_EX|CH: only exchange or CH
         require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
-        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
+        if (baseToken != address(0)) {
+            AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+            accountInfo.baseBalance = accountInfo.baseBalance.add(base);
+            accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
+        }
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
     }
 
@@ -107,11 +109,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
-    }
-
-    function addOwedRealizedPnl(address trader, int256 delta) external {
-        require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
     function updateTwPremiumGrowthGlobal(
