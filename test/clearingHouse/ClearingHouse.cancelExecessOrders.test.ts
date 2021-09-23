@@ -4,6 +4,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
@@ -26,6 +27,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
+    let accountBalance: AccountBalance
     let collateral: TestERC20
     let baseToken: BaseToken
     let baseToken2: BaseToken
@@ -33,6 +35,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     let baseAmount: BigNumber
 
@@ -43,11 +46,13 @@ describe("ClearingHouse cancelExcessOrders", () => {
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
+        accountBalance = _clearingHouseFixture.accountBalance
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
         pool = _clearingHouseFixture.pool
         pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
@@ -57,7 +62,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
 
         // mint
-        collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
+        collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
 
         // prepare collateral for alice
         const amount = parseUnits("10", await collateral.decimals())
@@ -230,5 +235,120 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
+    })
+
+    describe("cancel excess orders when account is liquidable", () => {
+        beforeEach(async () => {
+            // mock eth index price = 100
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100", 6), 0, 0, 0]
+            })
+
+            // mock btc index price = 50000
+            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("50000", 6), 0, 0, 0]
+            })
+
+            await collateral.transfer(alice.address, parseUnits("10000", await collateral.decimals()))
+            await deposit(alice, vault, 10000, collateral)
+
+            // alice adds eth liquidity
+            // current price tick: 46054.0044065994
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: 0,
+                quote: parseUnits("1000", await quoteToken.decimals()),
+                lowerTick: 45800, // 97.4920674557
+                upperTick: 46000, // 99.4614384055
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // alice adds btc liquidity
+            // current price tick: 108203.1926430847
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken2.address,
+                base: parseUnits("1", await baseToken.decimals()),
+                quote: 0,
+                lowerTick: 108400, // 50993.7337306258
+                upperTick: 108600, // 52023.8234645706
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // scenario:
+            // 0. bob's collateral: 30
+            // 1. bob short 1 eth
+            // 2. bob long 0.004 btc
+            // 3. eth price increased
+            // 4. bob add btc liquidity
+            // 5. bob account is liquidable
+            // 6. should cancel bob's excess orders
+            await collateral.transfer(bob.address, parseUnits("30", await collateral.decimals()))
+            await deposit(bob, vault, 30, collateral)
+
+            // bob short 1 eth, quote = 98.369476739760354
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long 0.004 btc, quote = -206.043488060393185524
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.004"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob adds liquidity on btc pool
+            await clearingHouse.connect(bob).addLiquidity({
+                baseToken: baseToken2.address,
+                base: 0,
+                quote: parseEther("0.001"),
+                lowerTick: 200,
+                upperTick: 400,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+        })
+
+        it("can cancel orders successfully when account is liquidable", async () => {
+            // x: new eth price
+            // openNotional = openNotional(eth) + openNotional(btc)
+            //              = 98.369476739760354 + (-206.043488060393185524)
+            //              = -107.6740113206
+            // positionValue = -1 * x + 50000*0.004 = -x + 200
+            // unrealizePnL = (-x + 200) + (-107.6740113206) = -x + 92.3259886794
+            // accountValue = 30 + (-x+92.3259886794)
+            // liquidate: accountValue < sum(positionValue) * mmRatio
+            //         => 122.3259886794 - x < (1*x + 50000*0.004) * 0.0625
+            //         => x > 103.3656364041
+            // cancel order: accountValue < totalDebtValue * mmRatio
+            //            => 122.3259886794 - x < (1*x + 107.6740113206) * 0.0625
+            //            => x > 108.7965769147
+            //
+            // when 103.3656364041 < x < 108.7965769147, bob's account is liquidable but can't cancel order
+
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("105", 6), 0, 0, 0]
+            })
+
+            // cancel order successfully
+            await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
+        })
     })
 })

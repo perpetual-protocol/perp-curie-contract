@@ -516,6 +516,7 @@ contract ClearingHouse is
         //   => accountValue < sum(mmRatio * abs(positionValue_market))
         //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
         //
+
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(
