@@ -119,7 +119,12 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
 
         const vaultFactory = await ethers.getContractFactory("Vault")
         const vault = (await vaultFactory.deploy()) as Vault
-        await vault.initialize(insuranceFund.address, clearingHouseConfig.address, accountBalance.address)
+        await vault.initialize(
+            insuranceFund.address,
+            clearingHouseConfig.address,
+            accountBalance.address,
+            exchange.address,
+        )
         await insuranceFund.setBorrower(vault.address)
         await accountBalance.setVault(vault.address)
 

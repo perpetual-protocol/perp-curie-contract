@@ -89,8 +89,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         int256 quote,
         int256 owedRealizedPnl
     ) external {
-        // TODO circular dependency should be fixed in
-        // https://app.asana.com/0/1200338471046334/1201034555932071/f
         // AB_O_EX|CH: only exchange or CH
         require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
@@ -104,23 +102,26 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         address baseToken,
         int256 amount
     ) external {
-        // AB_O_EX|OB: only exchange
+        // AB_OEX: only exchange
         require(_msgSender() == exchange, "AB_OEX");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external onlyClearingHouse {
+    function addOwedRealizedPnl(address trader, int256 delta) external {
+        require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
-    function settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
-        external
-        onlyClearingHouse
-        returns (Funding.Growth memory fundingGrowthGlobal)
-    {
-        return _settleFundingAndUpdateFundingGrowth(trader, baseToken);
+    function updateTwPremiumGrowthGlobal(
+        address trader,
+        address baseToken,
+        int256 lastTwPremiumGrowthGlobalX96
+    ) external {
+        // AB_OEX: only exchange
+        require(_msgSender() == exchange, "AB_OEX");
+        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
     /// @dev this function is expensive
@@ -180,23 +181,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     function settle(address trader) external returns (int256 pnl) {
         // only vault
         require(_msgSender() == vault, "AB_OV");
-
-        // the full process of a trader's withdrawal:
-        // for loop of each order:
-        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
-        //         settle funding payment to owedRealizedPnl
-        //         collect fee to owedRealizedPnl
-        // call Vault.withdraw(token, amount)
-        //     settle pnl to trader balance in Vault
-        //     transfer amount to trader
-
-        // make sure funding payments are always settled,
-        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            _settleFundingAndUpdateFundingGrowth(trader, baseToken);
-        }
-
         pnl = _owedRealizedPnlMap[trader];
         _owedRealizedPnlMap[trader] = 0;
 
@@ -217,14 +201,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
 
     function hasOrder(address trader) external view returns (bool) {
         return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
-    }
-
-    function getOwedRealizedPnlWithPendingFundingPayment(address trader)
-        external
-        view
-        returns (int256 owedRealizedPnl)
-    {
-        return _owedRealizedPnlMap[trader].sub(_getAllPendingFundingPayment(trader));
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
@@ -275,6 +251,10 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     //
     // PUBLIC VIEW
     //
+
+    function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory) {
+        return _accountMarketMap[trader][baseToken];
+    }
 
     function getBase(address trader, address baseToken) public view returns (int256) {
         return _accountMarketMap[trader][baseToken].baseBalance;
@@ -328,46 +308,9 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
-    /// @return the pending funding payment of a trader in one market
-    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
-        return _getPendingFundingPayment(trader, baseToken);
-    }
-
     //
     // Internal VIEW
     //
-
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
-    function _settleFundingAndUpdateFundingGrowth(address trader, address baseToken)
-        internal
-        returns (Funding.Growth memory)
-    {
-        (Funding.Growth memory fundingGrowthGlobal, int256 fundingPayment) =
-            Exchange(exchange).settleFundingAndUpdateFundingGrowth(
-                trader,
-                baseToken,
-                _accountMarketMap[trader][baseToken].baseBalance,
-                _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96
-            );
-        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = fundingGrowthGlobal.twPremiumX96;
-
-        if (fundingPayment != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].sub(fundingPayment);
-        }
-
-        return fundingGrowthGlobal;
-    }
-
-    function _getPendingFundingPayment(address trader, address baseToken) internal view returns (int256) {
-        return
-            Exchange(exchange).getPendingFundingPayment(
-                trader,
-                baseToken,
-                _accountMarketMap[trader][baseToken].baseBalance,
-                _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96
-            );
-    }
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
@@ -375,14 +318,5 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
 
     function _getTwapInterval() internal view returns (uint32) {
         return ClearingHouseConfig(clearingHouseConfig).twapInterval();
-    }
-
-    /// @return pendingFundingPayment the pending funding payment of a trader in all markets
-    function _getAllPendingFundingPayment(address trader) internal view returns (int256 pendingFundingPayment) {
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            pendingFundingPayment = pendingFundingPayment.add(_getPendingFundingPayment(trader, baseToken));
-        }
-        return pendingFundingPayment;
     }
 }

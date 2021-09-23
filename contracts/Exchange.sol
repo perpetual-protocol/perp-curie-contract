@@ -235,34 +235,39 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return response.tick;
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// @dev this function 1. settles personal funding payment 2. updates global funding growth
-    /// @dev personal funding payment is settled whenever there is pending funding payment
-    /// @dev the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
-    /// @return fundingPayment the settled pending funding payment
-    function settleFundingAndUpdateFundingGrowth(
-        address trader,
-        address baseToken,
-        int256 baseBalance,
-        int256 twPremiumGrowthGlobalX96
-    ) external returns (Funding.Growth memory fundingGrowthGlobal, int256 fundingPayment) {
-        // only AccountBalance
-        require(_msgSender() == accountBalance, "E_OAB");
+    function settleAllFunding(address trader) external {
+        address[] memory baseTokens = AccountBalance(accountBalance).getBaseTokens(trader);
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            settleFunding(trader, baseTokens[i]);
+        }
+    }
 
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// this function 1. settles personal funding payment 2. updates global funding growth
+    /// personal funding payment is settled whenever there is pending funding payment
+    /// the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @dev should be fine to be called by anyone
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    function settleFunding(address trader, address baseToken)
+        public
+        returns (Funding.Growth memory fundingGrowthGlobal)
+    {
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        fundingPayment = _updateFundingGrowth(
-            trader,
-            baseToken,
-            baseBalance,
-            twPremiumGrowthGlobalX96,
-            fundingGrowthGlobal
-        );
+        AccountMarket.Info memory accountInfo = AccountBalance(accountBalance).getAccountInfo(trader, baseToken);
+        int256 fundingPayment =
+            _updateFundingGrowth(
+                trader,
+                baseToken,
+                accountInfo.baseBalance,
+                accountInfo.lastTwPremiumGrowthGlobalX96,
+                fundingGrowthGlobal
+            );
 
         if (fundingPayment != 0) {
+            AccountBalance(accountBalance).addOwedRealizedPnl(trader, -fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
@@ -282,7 +287,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
 
-        return (fundingGrowthGlobal, fundingPayment);
+        AccountBalance(accountBalance).updateTwPremiumGrowthGlobal(trader, baseToken, fundingGrowthGlobal.twPremiumX96);
+
+        return fundingGrowthGlobal;
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -314,23 +321,27 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return MarketRegistry(marketRegistry).getPool(baseToken);
     }
 
+    function getAllPendingFundingPayment(address trader) external view returns (int256 pendingFundingPayment) {
+        address[] memory baseTokens = AccountBalance(accountBalance).getBaseTokens(trader);
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
+        }
+        return pendingFundingPayment;
+    }
+
     /// @dev this is the view version of _updateFundingGrowth()
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
-    function getPendingFundingPayment(
-        address trader,
-        address baseToken,
-        int256 baseBalance,
-        int256 twPremiumGrowthGlobalX96
-    ) external view returns (int256) {
+    function getPendingFundingPayment(address trader, address baseToken) public view returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
+        AccountMarket.Info memory accountInfo = AccountBalance(accountBalance).getAccountInfo(trader, baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
             OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _getPendingFundingPaymentWithLiquidityCoefficient(
-                baseBalance,
-                twPremiumGrowthGlobalX96,
+                accountInfo.baseBalance,
+                accountInfo.lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );

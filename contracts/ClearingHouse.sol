@@ -320,8 +320,7 @@ contract ClearingHouse is
         // register token if it's the first time
         AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
@@ -397,8 +396,7 @@ contract ClearingHouse is
         AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must before price impact check
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
         // cache before actual swap
         bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
@@ -452,8 +450,7 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
         Exchange.SwapResponse memory response =
             _closePosition(
@@ -509,8 +506,7 @@ contract ClearingHouse is
         // CH_NEO: not empty order
         require(!AccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, baseToken);
         Exchange.SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
@@ -633,7 +629,7 @@ contract ClearingHouse is
         require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0, "CH_NEFCM");
 
         // must settle funding before getting token info
-        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
+        Exchange(exchange).settleFunding(maker, baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
@@ -664,7 +660,7 @@ contract ClearingHouse is
         returns (RemoveLiquidityResponse memory)
     {
         // must settle funding before getting token info
-        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
+        Exchange(exchange).settleFunding(params.maker, params.baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidity(
                 OrderBook.RemoveLiquidityParams({
@@ -797,8 +793,9 @@ contract ClearingHouse is
 
     /// @dev the return value is in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnlWithPendingFundingPayment(trader);
-        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
+        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
+        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
+        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
     }
 
     function _isIncreasePosition(
