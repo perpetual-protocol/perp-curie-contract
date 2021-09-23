@@ -72,9 +72,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
-        int256 realizedPnl;
-        int24 tick;
         uint256 insuranceFundFee;
+        int24 tick;
+        int256 realizedPnl;
         int256 openNotional;
     }
 
@@ -133,7 +133,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        bool isIncreasePosition = _isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote);
+        // is position increased
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        bool isIncreasePosition = (positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
 
         response = _swap(params);
 
@@ -407,12 +409,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
 
-        int256 openNotional =
+        return
             OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
                 AccountBalance(accountBalance).getQuote(trader, baseToken)
             );
-
-        return openNotional;
     }
 
     //
@@ -536,17 +536,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL VIEW
     //
-
-    function _isIncreasePosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) internal view returns (bool) {
-        // increase position == old/new position are in the same direction
-        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
-        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
-    }
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
