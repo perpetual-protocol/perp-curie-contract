@@ -126,11 +126,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         accountBalance = accountBalanceArg;
     }
 
-    function swapAndCalculateOpenNotional(SwapParams memory params)
-        external
-        onlyClearingHouse
-        returns (SwapResponse memory response)
-    {
+    function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory response) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         // is position increased

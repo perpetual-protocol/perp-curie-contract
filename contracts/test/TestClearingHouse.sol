@@ -63,7 +63,7 @@ contract TestClearingHouse is ClearingHouse {
             TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
-            Exchange(exchange).swapAndCalculateOpenNotional(
+            Exchange(exchange).swap(
                 Exchange.SwapParams({
                     trader: _msgSender(),
                     baseToken: params.baseToken,

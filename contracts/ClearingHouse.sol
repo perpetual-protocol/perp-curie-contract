@@ -691,7 +691,7 @@ contract ClearingHouse is
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (Exchange.SwapResponse memory) {
         Exchange.SwapResponse memory response =
-            Exchange(exchange).swapAndCalculateOpenNotional(
+            Exchange(exchange).swap(
                 Exchange.SwapParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
