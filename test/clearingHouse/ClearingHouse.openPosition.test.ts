@@ -4,6 +4,7 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
@@ -14,14 +15,13 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
-    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
-    const [admin, maker, taker, carol] = waffle.provider.getWallets()
+    const [admin, maker, maker2, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
@@ -77,7 +77,9 @@ describe("ClearingHouse openPosition", () => {
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
+        await collateral.mint(maker2.address, makerCollateralAmount)
         await deposit(maker, vault, 1000000, collateral)
+        await deposit(maker2, vault, 1000000, collateral)
 
         // maker add liquidity
         await clearingHouse.connect(maker).addLiquidity({
@@ -859,9 +861,121 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
         })
-        it("increase position")
-        it("reduce position")
-        it("close position")
+        it("increase position", async () => {
+            const [baseBalanceBefore, quoteBalanceBefore] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+
+            // taker swap ? ETH for 1 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // increase 1 USD debt, increase ? ETH balance
+            const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+            const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
+            const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
+            expect(baseBalanceDelta).be.lt(parseEther("0"))
+            expect(quoteBalanceDelta).be.deep.eq(parseEther("1"))
+
+            // pos size: -0.02002431581853605
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("-20024315818536050")
+            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("3"))
+
+            // ((2 (beforeEach) + 1 (now)) / 0.99 )* 1% = 0.030303030303030304
+            expect(await getMakerFee()).be.closeTo(parseEther("0.030303030303030304"), 1)
+        })
+
+        it("reduce position", async () => {
+            const [baseBalanceBefore, quoteBalanceBefore] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+
+            // baseBalance = -13348304809274554 (< 0 when short)
+            // reducedBase = 6674152404637277
+            const reducedBase = baseBalanceBefore.div(2).mul(-1)
+
+            // taker reduce 50% ETH position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: reducedBase,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // increase ? USD debt, decrease 0.5 ETH balance
+            const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+
+            const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
+            const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
+            expect(baseBalanceDelta).be.deep.eq(reducedBase)
+            expect(quoteBalanceDelta).be.lt(parseEther("0"))
+
+            // pos size: baseBalanceBefore / 2 = reducedBase
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
+            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("1"))
+
+            // fee = 0.030404113776447206
+            expect(await getMakerFee()).be.deep.eq(parseEther("0.030404113776447206"))
+        })
+
+        it("close position", async () => {
+            const [baseBalanceBefore, quoteBalanceBefore] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+
+            // posSize = baseBalance = -13348304809274554 (< 0 when short)
+            const posSize = baseBalanceBefore.mul(-1)
+
+            // taker reduce 50% ETH position
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: posSize,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // increase ? USD debt, decrease 0.5 ETH balance
+            const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
+                taker.address,
+                baseToken.address,
+            )
+
+            const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
+            const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
+            expect(baseBalanceDelta).be.deep.eq(posSize)
+            expect(quoteBalanceDelta).be.lt(parseEther("0"))
+
+            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("0"))
+
+            // fee = 0.040608101214161821
+            expect(await getMakerFee()).be.deep.eq(parseEther("0.040608101214161821"))
+        })
 
         it("open larger reverse position", async () => {
             // taker has 2 USD worth ETH short position
@@ -890,12 +1004,62 @@ describe("ClearingHouse openPosition", () => {
 
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1258612497
     describe("maker has order out of price range", () => {
-        it("will not affect her range order")
+        beforeEach(async () => {
+            await deposit(taker, vault, 1000, collateral)
+            // maker2 add liquidity out of price range
+            await clearingHouse.connect(maker2).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("100"),
+                lowerTick: 50000,
+                upperTick: 50200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+        })
+
+        it("will not affect her range order", async () => {
+            // taker open position will not effect maker2's position
+            const maker2PositionSizeBefore = await accountBalance.getPositionSize(maker2.address, baseToken.address)
+
+            // taker long 1 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            const maker2PositionSizeAfter = await accountBalance.getPositionSize(maker2.address, baseToken.address)
+
+            expect(maker2PositionSizeBefore).to.deep.eq(maker2PositionSizeAfter)
+        })
     })
 
     describe("maker has order within price range", () => {
-        it("will not affect her range order")
-        it("force error if she is going to liquidate herself")
+        it("will not affect her range order", async () => {
+            // maker and trader is the same person, openPosition will not change her positionSize
+            const makerPositionSizeBefore = await accountBalance.getPositionSize(maker.address, baseToken.address)
+
+            // maker long 1 USD
+            await clearingHouse.connect(maker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            const makerPositionSizeAfter = await accountBalance.getPositionSize(maker.address, baseToken.address)
+
+            expect(makerPositionSizeBefore).to.deep.eq(makerPositionSizeAfter)
+        })
     })
 
     describe("markets number exceeded", () => {
