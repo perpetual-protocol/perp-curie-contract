@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2021-09-22
 ### Added
 
 - add `CleaeringHouseConfig` contract
 - add `OrderBook` contract
+- add `AccountBalance` contract
+- add `MarketRegistry` contract
 
 ### Changed
 
@@ -19,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PartialCloseRatioChanged` now emitted by ClearingHouseConfig
 - `ReferredPositionChanged` now emitted by ClearingHouseConfig
 - `MaxMarketsPerAccountChanged` now emitted by ClearingHouseConfig
+- The following function move from ClearingHouse to AccountBalance
+  - `getOwedRealizedPnl`
+  - `getOwedRealizedPnlWithPendingFundingPayment`
+  - `getTotalAbsPositionValue`
+  - `getTotalDebtValue`
+  - `getTotalUnrealizedPnl`
+  - `getNetQuoteBalance`
+  - `getPositionSize`
+  - `getPositionValue`
+  - `getPendingFundingPayment`
 
 ## [0.5.3] - 2021-09-03
 
