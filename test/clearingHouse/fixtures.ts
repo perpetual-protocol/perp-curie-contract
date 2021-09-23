@@ -107,7 +107,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
             exchange = (await exchangeFactory.deploy()) as Exchange
         }
         // deploy exchange
-        await exchange.initialize(marketRegistry.address, orderBook.address)
+        await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
         exchange.setAccountBalance(accountBalance.address)
         await orderBook.setExchange(exchange.address)
 
@@ -312,7 +312,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address)
+    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address, clearingHouseConfig.address)
     const mockedExchange = await smockit(exchange)
 
     const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")

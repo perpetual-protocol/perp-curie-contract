@@ -30,6 +30,7 @@ import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 import { OrderBook } from "./OrderBook.sol";
 import { AccountBalance } from "./AccountBalance.sol";
+import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 
 contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseCallee, ArbBlockContext {
     using AddressUpgradeable for address;
@@ -92,6 +93,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     address public orderBook;
     address public accountBalance;
+    address public clearingHouseConfig;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;
@@ -110,7 +112,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     // EXTERNAL NON-VIEW
     //
 
-    function initialize(address marketRegistryArg, address orderBookArg) external initializer {
+    function initialize(
+        address marketRegistryArg,
+        address orderBookArg,
+        address clearingHouseConfigArg
+    ) external initializer {
         __ClearingHouseCallee_init(marketRegistryArg);
 
         // OrderBook is not contract
@@ -118,6 +124,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
         // update states
         orderBook = orderBookArg;
+        clearingHouseConfig = clearingHouseConfigArg;
     }
 
     function setAccountBalance(address accountBalanceArg) external onlyOwner {
@@ -367,7 +374,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = _getTwapInterval();
+        uint32 twapIntervalArg = ClearingHouseConfig(clearingHouseConfig).twapInterval();
         // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[baseToken] == 0) {
             twapIntervalArg = 0;
@@ -379,7 +386,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = _getIndexPrice(baseToken);
+        indexTwap = AccountBalance(accountBalance).getIndexPrice(baseToken);
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (_blockTimestamp() != lastSettledTimestamp && lastSettledTimestamp != 0) {
@@ -544,21 +551,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     // INTERNAL VIEW
     //
 
-    function _isIncreasePosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) internal view returns (bool) {
-        // increase position == old/new position are in the same direction
-        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
-        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
-    }
-
-    function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
-    }
-
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
     /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()
     /// @dev for UniswapV3Pool.swap(), scaling the amount is necessary to achieve the custom fee effect
@@ -608,9 +600,5 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             );
 
         return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
-    }
-
-    function _getTwapInterval() internal pure returns (uint32) {
-        return 900;
     }
 }
