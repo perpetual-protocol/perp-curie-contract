@@ -91,7 +91,7 @@ describe("ClearingHouse.swap", () => {
                 amount: parseEther("1"),
                 sqrtPriceLimitX96: 0,
             })
-            initOpenNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
+            initOpenNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
         })
 
         it("openNotional++", async () => {
@@ -139,7 +139,7 @@ describe("ClearingHouse.swap", () => {
             })
 
             it("openNotionalAbs--", async () => {
-                const openNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
+                const openNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
                 // expect openNotion are same signed
                 expect(openNotional.mul(initOpenNotional).gt(0))
                 expect(openNotional.abs().lt(initOpenNotional.abs())).be.true
@@ -203,7 +203,7 @@ describe("ClearingHouse.swap", () => {
                 amount: parseEther("250"),
                 sqrtPriceLimitX96: 0,
             })
-            initOpenNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
+            initOpenNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
             posSizeBefore = await accountBalance.getPositionSize(bob.address, baseToken.address)
         })
 
@@ -252,7 +252,7 @@ describe("ClearingHouse.swap", () => {
             })
 
             it("openNotional--", async () => {
-                const openNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
+                const openNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
                 // expect openNotion are same signed
                 expect(openNotional.mul(initOpenNotional).gt(0))
                 expect(openNotional.abs().lt(initOpenNotional.abs())).be.true
@@ -290,7 +290,7 @@ describe("ClearingHouse.swap", () => {
 
             it("reverse open notional 's signed", async () => {
                 // 400 - 206.6686875002 = 193.3313124998
-                const openNotional = await clearingHouse.getOpenNotional(bob.address, baseToken.address)
+                const openNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
                 expect(openNotional).eq(parseEther("193.331312499999999962"))
             })
         })

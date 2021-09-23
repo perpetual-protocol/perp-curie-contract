@@ -66,14 +66,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         Funding.Growth fundingGrowthGlobal;
     }
 
-    struct InternalSwapResponse {
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        uint256 fee;
-        uint256 insuranceFundFee;
-        int24 tick;
-    }
-
     struct SwapResponse {
         uint256 deltaAvailableBase;
         uint256 deltaAvailableQuote;
@@ -143,7 +135,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         bool isIncreasePosition = _isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote);
 
-        response = swap(params);
+        response = _swap(params);
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
@@ -203,137 +195,15 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
             }
 
-            _realizePnl(params.trader, params.baseToken, realizedPnl);
+            if (realizedPnl != 0) {
+                // TODO circular dependency should be fixed in
+                // https://app.asana.com/0/1200338471046334/1201034555932071/f
+                AccountBalance(accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
+            }
             response.realizedPnl = realizedPnl;
         }
 
         return response;
-    }
-
-    function _isIncreasePosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) internal view returns (bool) {
-        // increase position == old/new position are in the same direction
-        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
-        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
-    }
-
-    /// @dev caller of this function must ensure there's enough available and debt of quote
-    function _realizePnl(
-        address trader,
-        address baseToken,
-        int256 deltaPnl
-    ) internal {
-        if (deltaPnl == 0) {
-            return;
-        }
-
-        // TODO circular dependency should be fixed in https://app.asana.com/0/1200338471046334/1201034555932071/f
-        AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
-    }
-
-    /// @dev the amount of quote token paid for a position when opening
-    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
-        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-
-        int256 openNotional =
-            OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                AccountBalance(accountBalance).getQuote(trader, baseToken)
-            );
-
-        return openNotional;
-    }
-
-    /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-    function swap(SwapParams memory params) internal returns (SwapResponse memory) {
-        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
-
-        (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.amount,
-                marketInfo.exchangeFeeRatio,
-                marketInfo.uniswapFeeRatio
-            );
-
-        // simulate the swap to calculate the fees charged in exchange
-        OrderBook.ReplaySwapResponse memory replayResponse =
-            OrderBook(orderBook).replaySwap(
-                OrderBook.ReplaySwapParams({
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    shouldUpdateState: true,
-                    amount: signedScaledAmountForReplaySwap,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    exchangeFeeRatio: marketInfo.exchangeFeeRatio,
-                    uniswapFeeRatio: marketInfo.uniswapFeeRatio,
-                    globalFundingGrowth: params.fundingGrowthGlobal
-                })
-            );
-        UniswapV3Broker.SwapResponse memory response =
-            UniswapV3Broker.swap(
-                UniswapV3Broker.SwapParams(
-                    marketInfo.pool,
-                    clearingHouse,
-                    params.isBaseToQuote,
-                    params.isExactInput,
-                    // mint extra base token before swap
-                    scaledAmountForUniswapV3PoolSwap,
-                    params.sqrtPriceLimitX96,
-                    abi.encode(
-                        SwapCallbackData({
-                            trader: params.trader,
-                            baseToken: params.baseToken,
-                            pool: marketInfo.pool,
-                            fee: replayResponse.fee,
-                            uniswapFeeRatio: marketInfo.uniswapFeeRatio
-                        })
-                    )
-                )
-            );
-
-        // as we charge fees in ClearingHouse instead of in Uniswap pools,
-        // we need to scale up base or quote amounts to get the exact exchanged position size and notional
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        if (params.isBaseToQuote) {
-            // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
-            // due to base to quote fee, exchangedPositionNotional contains the fee
-            // s.t. we can take the fee away from exchangedPositionNotional
-            exchangedPositionNotional = response.quote.toInt256();
-        } else {
-            // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
-            exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
-        }
-
-        // update the timestamp of the first tx in this market
-        if (_firstTradedTimestampMap[params.baseToken] == 0) {
-            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
-        }
-
-        return
-            SwapResponse({
-                deltaAvailableBase: exchangedPositionSize.abs(),
-                deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()).abs(),
-                exchangedPositionSize: exchangedPositionSize,
-                exchangedPositionNotional: exchangedPositionNotional,
-                realizedPnl: 0,
-                fee: replayResponse.fee,
-                insuranceFundFee: replayResponse.insuranceFundFee,
-                tick: replayResponse.tick,
-                openNotional: 0
-            });
     }
 
     /// @return the resulting tick (derived from price) after replaying the swap
@@ -472,10 +342,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return _lastUpdatedTickMap[baseToken];
     }
 
-    //
-    // PUBLIC VIEW
-    //
-
     /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
     /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
@@ -536,9 +402,110 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return UniswapV3Broker.getSqrtMarkTwapX96(MarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
     }
 
+    /// @dev the amount of quote token paid for a position when opening
+    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
+        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
+        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
+
+        int256 openNotional =
+            OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+                AccountBalance(accountBalance).getQuote(trader, baseToken)
+            );
+
+        return openNotional;
+    }
+
     //
     // INTERNAL NON-VIEW
     //
+
+    /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
+    function _swap(SwapParams memory params) internal returns (SwapResponse memory) {
+        MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
+
+        (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
+            _getScaledAmountForSwaps(
+                params.isBaseToQuote,
+                params.isExactInput,
+                params.amount,
+                marketInfo.exchangeFeeRatio,
+                marketInfo.uniswapFeeRatio
+            );
+
+        // simulate the swap to calculate the fees charged in exchange
+        OrderBook.ReplaySwapResponse memory replayResponse =
+            OrderBook(orderBook).replaySwap(
+                OrderBook.ReplaySwapParams({
+                    baseToken: params.baseToken,
+                    isBaseToQuote: params.isBaseToQuote,
+                    shouldUpdateState: true,
+                    amount: signedScaledAmountForReplaySwap,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    exchangeFeeRatio: marketInfo.exchangeFeeRatio,
+                    uniswapFeeRatio: marketInfo.uniswapFeeRatio,
+                    globalFundingGrowth: params.fundingGrowthGlobal
+                })
+            );
+        UniswapV3Broker.SwapResponse memory response =
+            UniswapV3Broker.swap(
+                UniswapV3Broker.SwapParams(
+                    marketInfo.pool,
+                    clearingHouse,
+                    params.isBaseToQuote,
+                    params.isExactInput,
+                    // mint extra base token before swap
+                    scaledAmountForUniswapV3PoolSwap,
+                    params.sqrtPriceLimitX96,
+                    abi.encode(
+                        SwapCallbackData({
+                            trader: params.trader,
+                            baseToken: params.baseToken,
+                            pool: marketInfo.pool,
+                            fee: replayResponse.fee,
+                            uniswapFeeRatio: marketInfo.uniswapFeeRatio
+                        })
+                    )
+                )
+            );
+
+        // as we charge fees in ClearingHouse instead of in Uniswap pools,
+        // we need to scale up base or quote amounts to get the exact exchanged position size and notional
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        if (params.isBaseToQuote) {
+            // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
+            exchangedPositionSize = -(
+                FeeMath.calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false).toInt256()
+            );
+            // due to base to quote fee, exchangedPositionNotional contains the fee
+            // s.t. we can take the fee away from exchangedPositionNotional
+            exchangedPositionNotional = response.quote.toInt256();
+        } else {
+            // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
+            exchangedPositionSize = response.base.toInt256();
+            exchangedPositionNotional = -(
+                FeeMath.calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false).toInt256()
+            );
+        }
+
+        // update the timestamp of the first tx in this market
+        if (_firstTradedTimestampMap[params.baseToken] == 0) {
+            _firstTradedTimestampMap[params.baseToken] = _blockTimestamp();
+        }
+
+        return
+            SwapResponse({
+                deltaAvailableBase: exchangedPositionSize.abs(),
+                deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()).abs(),
+                exchangedPositionSize: exchangedPositionSize,
+                exchangedPositionNotional: exchangedPositionNotional,
+                realizedPnl: 0,
+                fee: replayResponse.fee,
+                insuranceFundFee: replayResponse.insuranceFundFee,
+                tick: replayResponse.tick,
+                openNotional: 0
+            });
+    }
 
     /// @dev this is the non-view version of getPendingFundingPayment()
     /// @return pendingFundingPayment the pending funding payment of a trader in one market,
@@ -569,6 +536,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL VIEW
     //
+
+    function _isIncreasePosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    ) internal view returns (bool) {
+        // increase position == old/new position are in the same direction
+        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
+    }
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());

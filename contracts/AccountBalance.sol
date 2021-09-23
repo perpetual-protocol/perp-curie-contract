@@ -87,8 +87,12 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         address baseToken,
         int256 base,
         int256 quote,
-        int256 owedRealizedPnl /*onlyClearingHouse*/
+        int256 owedRealizedPnl
     ) external {
+        // TODO circular dependency should be fixed in
+        // https://app.asana.com/0/1200338471046334/1201034555932071/f
+        // AB_O_EX|CH: only exchange or CH
+        require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
@@ -98,8 +102,10 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     function settleQuoteToPnl(
         address trader,
         address baseToken,
-        int256 amount /*onlyClearingHouse*/
+        int256 amount
     ) external {
+        // AB_O_EX|OB: only exchange
+        require(_msgSender() == exchange, "AB_OEX");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);

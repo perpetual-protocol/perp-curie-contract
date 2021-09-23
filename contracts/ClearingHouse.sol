@@ -101,28 +101,6 @@ contract ClearingHouse is
         uint256 liquidity;
     }
 
-    /// @param sqrtPriceLimitX96 for price slippage protection
-    struct InternalSwapParams {
-        address trader;
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct SwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        uint256 fee;
-        int256 openNotional;
-        int256 realizedPnl;
-        int24 tick;
-    }
-
     struct OpenPositionParams {
         address baseToken;
         bool isBaseToQuote;
@@ -639,14 +617,7 @@ contract ClearingHouse is
             );
     }
 
-    /// @dev the amount of quote token paid for a position when opening
-    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
-        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-
-        return Exchange(exchange).getOpenNotional(trader, baseToken);
-    }
-
+    //
     // INTERNAL NON-VIEW
     //
 
