@@ -533,6 +533,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     // INTERNAL VIEW
     //
 
+    function _isIncreasePosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    ) internal view returns (bool) {
+        // increase position == old/new position are in the same direction
+        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
+        bool isOldPositionShort = positionSize < 0 ? true : false;
+        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
+    }
+
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(_getTwapInterval());
     }
