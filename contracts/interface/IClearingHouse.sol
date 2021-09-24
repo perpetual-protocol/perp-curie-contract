@@ -102,8 +102,6 @@ interface IClearingHouse {
 
     function cancelAllExcessOrders(address maker, address baseToken) external;
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
-
     function getAccountValue(address trader) external view returns (int256);
 
     function getPositionSize(address trader, address baseToken) external view returns (int256);
@@ -117,10 +115,6 @@ interface IClearingHouse {
     function getTotalInitialMarginRequirement(address trader) external view returns (uint256);
 
     function getNetQuoteBalance(address trader) external view returns (int256);
-
-    function getAllPendingFundingPayment(address trader) external view returns (int256);
-
-    function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
 
     function getTotalUnrealizedPnl(address trader) external view returns (int256);
 }
