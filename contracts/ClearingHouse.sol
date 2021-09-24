@@ -493,7 +493,7 @@ contract ClearingHouse is
         _checkSlippage(
             CheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
-                isExactInput: true,
+                isExactInput: isBaseToQuote,
                 deltaAvailableQuote: response.deltaAvailableQuote,
                 deltaAvailableBase: response.deltaAvailableBase,
                 oppositeAmountBound: params.oppositeAmountBound
