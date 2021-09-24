@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.0] - 2021-09-22
 ### Added
 
-- add `CleaeringHouseConfig` contract
+- add `AccountBalance.getBaseTokens()`
+
+## [0.9.0] - 2021-09-22
+
+### Added
+
+- add `ClearingHouseConfig` contract
 - add `OrderBook` contract
 - add `AccountBalance` contract
 - add `MarketRegistry` contract
