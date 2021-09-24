@@ -919,7 +919,7 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // increase ? USD debt, decrease 0.5 ETH balance
+            // increase ? USD debt, decrease 50% ETH balance
             const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
                 taker.address,
                 baseToken.address,
@@ -928,7 +928,7 @@ describe("ClearingHouse openPosition", () => {
             const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
             const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
             expect(baseBalanceDelta).be.deep.eq(reducedBase)
-            expect(quoteBalanceDelta).be.lt(parseEther("0"))
+            expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
             // pos size: baseBalanceBefore / 2 = reducedBase
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
@@ -947,7 +947,7 @@ describe("ClearingHouse openPosition", () => {
             // posSize = baseBalance = -13348304809274554 (< 0 when short)
             const posSize = baseBalanceBefore.mul(-1)
 
-            // taker reduce 50% ETH position
+            // taker reduce 100% ETH position
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -959,7 +959,7 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // increase ? USD debt, decrease 0.5 ETH balance
+            // increase ? USD debt, decrease 100% ETH balance
             const [baseBalanceAfter, quoteBalanceAfter] = await clearingHouse.getTokenBalance(
                 taker.address,
                 baseToken.address,
@@ -968,7 +968,7 @@ describe("ClearingHouse openPosition", () => {
             const baseBalanceDelta = baseBalanceAfter.sub(baseBalanceBefore)
             const quoteBalanceDelta = quoteBalanceAfter.sub(quoteBalanceBefore)
             expect(baseBalanceDelta).be.deep.eq(posSize)
-            expect(quoteBalanceDelta).be.lt(parseEther("0"))
+            expect(quoteBalanceDelta).be.deep.eq(parseEther("-2"))
 
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("0"))
@@ -1041,7 +1041,7 @@ describe("ClearingHouse openPosition", () => {
     })
 
     describe("maker has order within price range", () => {
-        it("will not affect her range order", async () => {
+        it("will not affect her range order if maker and trader is the same person", async () => {
             // maker and trader is the same person, openPosition will not change her positionSize
             const makerPositionSizeBefore = await accountBalance.getPositionSize(maker.address, baseToken.address)
 
