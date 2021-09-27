@@ -245,14 +245,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return getNetQuoteBalance(trader).add(totalPositionValue);
     }
 
-    //
-    // PUBLIC VIEW
-    //
-
-    function getIndexPrice(address baseToken) public view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(ClearingHouseConfig(clearingHouseConfig).twapInterval());
-    }
-
     function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory) {
         return _accountMarketMap[trader][baseToken];
     }
@@ -309,6 +301,10 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     }
 
     //
-    // Internal VIEW
+    // INTERNAL VIEW
     //
+
+    function getIndexPrice(address baseToken) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(ClearingHouseConfig(clearingHouseConfig).twapInterval());
+    }
 }

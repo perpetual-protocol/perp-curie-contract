@@ -135,10 +135,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         address to = _msgSender();
 
         // the full process of a trader's withdrawal:
-        // for loop of each order:
-        //     call CH.removeLiquidity(baseToke, lowerTick, upperTick, 0)
-        //         settle funding payment to owedRealizedPnl
-        //         collect fee to owedRealizedPnl
+        //     settle funding payment to owedRealizedPnl
+        //     collect fee to owedRealizedPnl
         // call Vault.withdraw(token, amount)
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader

@@ -282,6 +282,7 @@ contract ClearingHouse is
         versionRecipient = "2.0.0";
     }
 
+    // solhint-disable-next-line func-order
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // CH_ANC: address is not contract
         require(trustedForwarderArg.isContract(), "CH_ANC");
@@ -719,7 +720,7 @@ contract ClearingHouse is
         uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
         if (
             Exchange(exchange).isOverPriceLimit(params.baseToken) ||
-            Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, isLong, positionSize)
+            Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, !isLong, positionSize)
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");

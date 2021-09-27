@@ -122,8 +122,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     ) external initializer {
         __ClearingHouseCallee_init(marketRegistryArg);
 
-        // OrderBook is not contract
+        // E_OBNC: OrderBook is not contract
         require(orderBookArg.isContract(), "E_OBNC");
+        // E_CHNC: CH is not contract
+        require(clearingHouseConfigArg.isContract(), "E_CHNC");
 
         // update states
         orderBook = orderBookArg;
@@ -143,8 +145,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         // EX_BTNE: base token not exists
         require(MarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
 
-        // CH_MTO: max tick crossed limit out of range
         // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
+        // EX_MTCLOOR: max tick crossed limit out of range
         require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
@@ -218,7 +220,6 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             }
 
             if (realizedPnl != 0) {
-                // TODO circular dependency should be fixed in
                 // https://app.asana.com/0/1200338471046334/1201034555932071/f
                 AccountBalance(accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
             }
@@ -239,7 +240,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     /// this function 1. settles personal funding payment 2. updates global funding growth
     /// personal funding payment is settled whenever there is pending funding payment
     /// the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @dev should be fine to be called by anyone
+    /// @dev it's fine to be called by anyone
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
@@ -307,16 +308,16 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     function isOverPriceLimitByReplaySwap(
         address baseToken,
-        bool isLong,
+        bool isBaseToQuote,
         int256 positionSize
     ) external returns (bool) {
         ReplaySwapParams memory replaySwapParams =
             ReplaySwapParams({
                 baseToken: baseToken,
-                isBaseToQuote: isLong,
-                isExactInput: isLong,
+                isBaseToQuote: !isBaseToQuote,
+                isExactInput: !isBaseToQuote,
                 amount: positionSize.abs(),
-                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, !isLong)
+                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
         return isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
     }
@@ -405,7 +406,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = AccountBalance(accountBalance).getIndexPrice(baseToken);
+        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapIntervalArg);
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         if (_blockTimestamp() != lastSettledTimestamp && lastSettledTimestamp != 0) {
