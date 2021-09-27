@@ -213,7 +213,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         // bob as a keeper
         await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith(
-            "CH_NEFCM",
+            "CH_NEXO",
         )
 
         const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)

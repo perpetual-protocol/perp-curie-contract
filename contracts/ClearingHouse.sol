@@ -519,13 +519,7 @@ contract ClearingHouse is
 
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(
-                AccountBalance(accountBalance)
-                    .getTotalAbsPositionValue(trader)
-                    .mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio())
-                    .toInt256(),
-                _settlementTokenDecimals
-            ),
+            getAccountValue(trader).lt(IVault(vault).getLiquidateMarginRequirement(trader), _settlementTokenDecimals),
             "CH_EAV"
         );
 
@@ -668,9 +662,13 @@ contract ClearingHouse is
     ) internal {
         _requireHasBaseToken(baseToken);
 
-        // CH_NEFCM: not enough free collateral by mmRatio
-        // only cancel open orders if there are not enough free collateral with mmRatio
-        require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0, "CH_NEFCM");
+        // CH_NEXO: not excess orders
+        // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
+        require(
+            (_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
+                getAccountValue(maker).lt(IVault(vault).getLiquidateMarginRequirement(maker), _settlementTokenDecimals),
+            "CH_NEXO"
+        );
 
         // must settle funding before getting token info
         AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
