@@ -101,28 +101,6 @@ contract ClearingHouse is
         uint256 liquidity;
     }
 
-    /// @param sqrtPriceLimitX96 for price slippage protection
-    struct InternalSwapParams {
-        address trader;
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct SwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        uint256 fee;
-        int256 openNotional;
-        int256 realizedPnl;
-        int24 tick;
-    }
-
     struct OpenPositionParams {
         address baseToken;
         bool isBaseToQuote;
@@ -214,11 +192,6 @@ contract ClearingHouse is
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
-    // TODO move to exchange
-    // key: base token
-    // value: a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-
     //
     // EVENT
     //
@@ -309,20 +282,7 @@ contract ClearingHouse is
         versionRecipient = "2.0.0";
     }
 
-    // solhint-disable-next-line
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // CH_ANC: address is not contract
-        require(baseToken.isContract(), "CH_ANC");
-
-        _requireHasBaseToken(baseToken);
-
-        // CH_MTO: max tick crossed limit out of range
-        // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
-        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "CH_MTCLOOR");
-
-        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-    }
-
+    // solhint-disable-next-line func-order
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // CH_ANC: address is not contract
         require(trustedForwarderArg.isContract(), "CH_ANC");
@@ -342,8 +302,7 @@ contract ClearingHouse is
         // register token if it's the first time
         AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
@@ -419,18 +378,17 @@ contract ClearingHouse is
         AccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must before price impact check
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
         // cache before actual swap
         bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
         if (isReducePosition) {
             // revert if current price isOverPriceLimit before open position
             // CH_OPIBS: over price impact before swap
-            require(!_isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)), "CH_OPIBS");
+            require(!Exchange(exchange).isOverPriceLimit(params.baseToken), "CH_OPIBS");
         }
 
-        SwapResponse memory response =
+        Exchange.SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
                     trader: trader,
@@ -447,7 +405,7 @@ contract ClearingHouse is
         if (isReducePosition) {
             // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
             // CH_OPIAS: over price impact after swap
-            require(!_isOverPriceLimit(params.baseToken, response.tick), "CH_OPIAS");
+            require(!Exchange(exchange).isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
         }
 
         _checkSlippage(
@@ -474,10 +432,9 @@ contract ClearingHouse is
         _requireHasBaseToken(params.baseToken);
 
         address trader = _msgSender();
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
-        SwapResponse memory response =
+        Exchange.SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
                     trader: trader,
@@ -531,9 +488,8 @@ contract ClearingHouse is
         // CH_NEO: not empty order
         require(!AccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
-        Funding.Growth memory fundingGrowthGlobal =
-            AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, baseToken);
-        SwapResponse memory response =
+        Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, baseToken);
+        Exchange.SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
                     trader: trader,
@@ -549,11 +505,11 @@ contract ClearingHouse is
                 ClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
             );
 
-        AccountBalance(accountBalance).addOwedRealizedPnl(trader, -(liquidationFee.toInt256()));
+        AccountBalance(accountBalance).addBalance(trader, address(0), 0, 0, -(liquidationFee.toInt256()));
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        AccountBalance(accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+        AccountBalance(accountBalance).addBalance(liquidator, address(0), 0, 0, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -626,14 +582,6 @@ contract ClearingHouse is
     // EXTERNAL VIEW
     //
 
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24) {
-        return _maxTickCrossedWithinBlockMap[baseToken];
-    }
-
-    //
-    // PUBLIC VIEW
-    //
-
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
         return
@@ -641,19 +589,6 @@ contract ClearingHouse is
                 AccountBalance(accountBalance).getTotalUnrealizedPnl(trader),
                 _settlementTokenDecimals
             );
-    }
-
-    /// @dev the amount of quote token paid for a position when opening
-    function getOpenNotional(address trader, address baseToken) public view returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
-        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-
-        int256 openNotional =
-            OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                AccountBalance(accountBalance).getQuote(trader, baseToken)
-            );
-
-        return openNotional;
     }
 
     //
@@ -672,7 +607,7 @@ contract ClearingHouse is
         require(_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0, "CH_NEFCM");
 
         // must settle funding before getting token info
-        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(maker, baseToken);
+        Exchange(exchange).settleFunding(maker, baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
         _afterRemoveLiquidity(
@@ -698,127 +633,12 @@ contract ClearingHouse is
         AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
     }
 
-    function _swapAndCalculateOpenNotional(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
-        int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-        bool isIncreasePosition = _isIncreasePosition(params.trader, params.baseToken, params.isBaseToQuote);
-
-        SwapResponse memory response = _swap(params);
-        response.openNotional = getOpenNotional(params.trader, params.baseToken);
-
-        // there is only realizedPnl when it's not increasing the position size
-        if (!isIncreasePosition) {
-            int256 realizedPnl;
-            // closedRatio is based on the position size
-            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
-            int256 deltaAvailableQuote =
-                params.isBaseToQuote
-                    ? response.deltaAvailableQuote.toInt256()
-                    : -response.deltaAvailableQuote.toInt256();
-
-            // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
-            if (closedRatio <= 1 ether) {
-                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
-                // taker:
-                // step 1: long 20 base
-                // openNotionalFraction = 252.53
-                // openNotional = -252.53
-                // step 2: short 10 base (reduce half of the position)
-                // deltaAvailableQuote = 137.5
-                // closeRatio = 10/20 = 0.5
-                // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
-                // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
-                //                      = 252.53 - 137.5 + 11.235 = 126.265
-                // openNotional = -openNotionalFraction = 126.265
-                int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
-                realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
-            } else {
-                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
-                // taker:
-                // step 1: long 20 base
-                // openNotionalFraction = 252.53
-                // openNotional = -252.53
-                // step 2: short 30 base (open a larger reverse position)
-                // deltaAvailableQuote = 337.5
-                // closeRatio = 30/20 = 1.5
-                // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
-                // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-                // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
-                //                      = 252.53 - 337.5 + -27.53 = -112.5
-                // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
-                int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
-                realizedPnl = oldOpenNotional.add(closedPositionNotional);
-            }
-
-            _realizePnl(params.trader, params.baseToken, realizedPnl);
-            response.realizedPnl = realizedPnl;
-
-            AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
-        }
-
-        return response;
-    }
-
-    /// @dev caller of this function must ensure there's enough available and debt of quote
-    function _realizePnl(
-        address trader,
-        address baseToken,
-        int256 deltaPnl
-    ) internal {
-        if (deltaPnl == 0) {
-            return;
-        }
-
-        AccountBalance(accountBalance).settleQuoteToPnl(trader, baseToken, deltaPnl);
-    }
-
-    function _swap(InternalSwapParams memory params) internal returns (SwapResponse memory) {
-        Exchange.SwapResponse memory response =
-            Exchange(exchange).swap(
-                Exchange.SwapParams({
-                    trader: params.trader,
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    isExactInput: params.isExactInput,
-                    amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: params.fundingGrowthGlobal
-                })
-            );
-
-        // update internal states
-        // examples:
-        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        AccountBalance(accountBalance).addBalance(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            0
-        );
-        AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
-
-        return
-            SwapResponse({
-                deltaAvailableBase: response.exchangedPositionSize.abs(),
-                deltaAvailableQuote: response.exchangedPositionNotional.sub(response.fee.toInt256()).abs(),
-                exchangedPositionSize: response.exchangedPositionSize,
-                exchangedPositionNotional: response.exchangedPositionNotional,
-                fee: response.fee,
-                openNotional: 0,
-                realizedPnl: 0,
-                tick: response.tick
-            });
-    }
-
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
         internal
         returns (RemoveLiquidityResponse memory)
     {
         // must settle funding before getting token info
-        AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(params.maker, params.baseToken);
+        Exchange(exchange).settleFunding(params.maker, params.baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidity(
                 OrderBook.RemoveLiquidityParams({
@@ -843,10 +663,10 @@ contract ClearingHouse is
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
-    function _openPosition(InternalOpenPositionParams memory params) internal returns (SwapResponse memory) {
-        SwapResponse memory swapResponse =
-            _swapAndCalculateOpenNotional(
-                InternalSwapParams({
+    function _openPosition(InternalOpenPositionParams memory params) internal returns (Exchange.SwapResponse memory) {
+        Exchange.SwapResponse memory response =
+            Exchange(exchange).swap(
+                Exchange.SwapParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
@@ -862,20 +682,29 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
+        AccountBalance(accountBalance).addBalance(
+            insuranceFund,
+            address(0),
+            0,
+            0,
+            response.insuranceFundFee.toInt256()
+        );
+        AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+
         emit PositionChanged(
             params.trader,
             params.baseToken,
-            swapResponse.exchangedPositionSize,
-            swapResponse.exchangedPositionNotional,
-            swapResponse.fee,
-            swapResponse.openNotional,
-            swapResponse.realizedPnl
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional,
+            response.fee,
+            response.openNotional,
+            response.realizedPnl
         );
 
-        return swapResponse;
+        return response;
     }
 
-    function _closePosition(InternalClosePositionParams memory params) internal returns (SwapResponse memory) {
+    function _closePosition(InternalClosePositionParams memory params) internal returns (Exchange.SwapResponse memory) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
@@ -885,26 +714,18 @@ contract ClearingHouse is
         // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
 
-        Exchange.ReplaySwapParams memory replaySwapParams =
-            Exchange.ReplaySwapParams({
-                baseToken: params.baseToken,
-                isBaseToQuote: isLong,
-                isExactInput: isLong,
-                amount: positionSize.abs(),
-                sqrtPriceLimitX96: _getSqrtPriceLimit(params.baseToken, !isLong)
-            });
-
+        uint256 positionSizeAbs = positionSize.abs();
         // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
         if (
-            _isOverPriceLimit(params.baseToken, Exchange(exchange).getTick(params.baseToken)) ||
-            _isOverPriceLimit(params.baseToken, Exchange(exchange).replaySwap(replaySwapParams))
+            Exchange(exchange).isOverPriceLimit(params.baseToken) ||
+            Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, !isLong, positionSize)
         ) {
             // CH_AOPLO: already over price limit once
             require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
             _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-            replaySwapParams.amount = replaySwapParams.amount.mulRatio(partialCloseRatio);
+            positionSizeAbs = positionSizeAbs.mulRatio(partialCloseRatio);
         }
 
         return
@@ -912,9 +733,9 @@ contract ClearingHouse is
                 InternalOpenPositionParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
-                    isBaseToQuote: replaySwapParams.isBaseToQuote,
-                    isExactInput: replaySwapParams.isExactInput,
-                    amount: replaySwapParams.amount,
+                    isBaseToQuote: isLong,
+                    isExactInput: isLong,
+                    amount: positionSizeAbs,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: true,
                     fundingGrowthGlobal: params.fundingGrowthGlobal
@@ -926,30 +747,11 @@ contract ClearingHouse is
     // INTERNAL VIEW
     //
 
-    function _isOverPriceLimit(address baseToken, int24 tick) internal view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
-        return (tick < lowerTickBound || tick > upperTickBound);
-    }
-
-    function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
-        int24 lastUpdatedTick = Exchange(exchange).getLastUpdatedTick(baseToken);
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        int24 tickBoundary =
-            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
-        return TickMath.getSqrtRatioAtTick(tickBoundary);
-    }
-
     /// @dev the return value is in settlement token decimals
     function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnlWithPendingFundingPayment(trader);
-        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl, _settlementTokenDecimals);
+        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
+        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
+        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
     }
 
     function _isIncreasePosition(

@@ -107,7 +107,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
             exchange = (await exchangeFactory.deploy()) as Exchange
         }
         // deploy exchange
-        await exchange.initialize(marketRegistry.address, orderBook.address)
+        await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
         exchange.setAccountBalance(accountBalance.address)
         await orderBook.setExchange(exchange.address)
 
@@ -119,7 +119,12 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
 
         const vaultFactory = await ethers.getContractFactory("Vault")
         const vault = (await vaultFactory.deploy()) as Vault
-        await vault.initialize(insuranceFund.address, clearingHouseConfig.address, accountBalance.address)
+        await vault.initialize(
+            insuranceFund.address,
+            clearingHouseConfig.address,
+            accountBalance.address,
+            exchange.address,
+        )
         await insuranceFund.setBorrower(vault.address)
         await accountBalance.setVault(vault.address)
 
@@ -216,6 +221,7 @@ export async function uniswapV3BrokerFixture(): Promise<UniswapV3BrokerFixture> 
 interface MockedClearingHouseFixture {
     clearingHouse: ClearingHouse
     clearingHouseConfig: ClearingHouseConfig
+    exchange: Exchange
     mockedUniV3Factory: MockContract
     mockedVault: MockContract
     mockedQuoteToken: MockContract
@@ -224,6 +230,7 @@ interface MockedClearingHouseFixture {
     mockedExchange: MockContract
     mockedInsuranceFund: MockContract
     mockedAccountBalance: MockContract
+    mockedMarketRegistry: MockContract
 }
 
 export const ADDR_GREATER_THAN = true
@@ -307,7 +314,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address)
+    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address, clearingHouseConfig.address)
     const mockedExchange = await smockit(exchange)
 
     const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
@@ -334,6 +341,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     return {
         clearingHouse,
         clearingHouseConfig,
+        exchange,
         mockedExchange,
         mockedUniV3Factory,
         mockedVault,
@@ -342,5 +350,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedBaseToken,
         mockedInsuranceFund,
         mockedAccountBalance,
+        mockedMarketRegistry,
     }
 }

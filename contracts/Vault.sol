@@ -19,6 +19,7 @@ import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { AccountBalance } from "./AccountBalance.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
+import { Exchange } from "./Exchange.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -47,6 +48,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     address public clearingHouseConfig;
     address public accountBalance;
     address public insuranceFund;
+    address public exchange;
 
     uint256 public totalDebt;
 
@@ -76,7 +78,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function initialize(
         address insuranceFundArg,
         address clearingHouseConfigArg,
-        address accountBalanceArg
+        address accountBalanceArg,
+        address exchangeArg
     ) external initializer {
         address settlementTokenArg = IInsuranceFund(insuranceFundArg).token();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
@@ -98,6 +101,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         _addCollateralToken(settlementTokenArg);
         clearingHouseConfig = clearingHouseConfigArg;
         accountBalance = accountBalanceArg;
+        exchange = exchangeArg;
 
         // we don't use this var
         versionRecipient = "2.0.0";
@@ -130,6 +134,16 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
         address to = _msgSender();
 
+        // the full process of a trader's withdrawal:
+        //     settle funding payment to owedRealizedPnl
+        //     collect fee to owedRealizedPnl
+        // call Vault.withdraw(token, amount)
+        //     settle pnl to trader balance in Vault
+        //     transfer amount to trader
+
+        // make sure funding payments are always settled,
+        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
+        Exchange(exchange).settleAllFunding(to);
         int256 pnl = AccountBalance(accountBalance).settle(to);
         // V_NEFC: not enough freeCollateral
         require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");

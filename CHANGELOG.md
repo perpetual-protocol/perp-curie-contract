@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `AccountBalance` contract
 - add `MarketRegistry` contract
 
+### Removed
+- remove `getOwedRealizedPnlWithPendingFundingPayment` from AccountBalance
+- remove `getLastUpdatedTick` from Exchange
+
 ### Changed
 
 - `TwapIntervalChanged` now emitted by ClearingHouseConfig
@@ -32,14 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MaxMarketsPerAccountChanged` now emitted by ClearingHouseConfig
 - The following function move from ClearingHouse to AccountBalance
   - `getOwedRealizedPnl`
-  - `getOwedRealizedPnlWithPendingFundingPayment`
   - `getTotalAbsPositionValue`
   - `getTotalDebtValue`
   - `getTotalUnrealizedPnl`
   - `getNetQuoteBalance`
   - `getPositionSize`
   - `getPositionValue`
-  - `getPendingFundingPayment`
+- `getOpenNotional` moved to Exchange
+- `setMaxTickCrossedWithinBlock` and `getMaxTickCrossedWithinBlock` moved to Exchange
+- `getPendingFundingPayment` and `getAllPendingFundingPayment` moved to Exchange
 
 ## [0.5.3] - 2021-09-03
 
