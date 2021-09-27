@@ -213,6 +213,16 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
     }
 
+    /// @dev get margin requirement for determining liquidation.
+    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
+    function getLiquidateMarginRequirement(address trader) public view override returns (int256) {
+        return
+            AccountBalance(accountBalance)
+                .getTotalAbsPositionValue(trader)
+                .mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio())
+                .toInt256();
+    }
+
     //
     // INTERNAL NON-VIEW
     //
