@@ -1,12 +1,13 @@
 import "@nomiclabs/hardhat-ethers"
 import "@nomiclabs/hardhat-waffle"
+import "@tenderly/hardhat-tenderly"
 import "@typechain/hardhat"
 import "hardhat-contract-sizer"
 import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig } from "hardhat/config"
+import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
@@ -15,11 +16,18 @@ import {
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
 import "./mocha-test"
+import { verifyContract } from "./scripts/verify-tenderly"
 
 enum ChainId {
     ARBITRUM_RINKEBY_CHAIN_ID = 421611,
     RINKEBY_CHAIN_ID = 4,
 }
+
+task("verify-tenderly", "Contract verification on Tenderly")
+    .addParam("stage", "stage")
+    .setAction(async ({ stage }, hre) => {
+        await verifyContract(hre, stage)
+    })
 
 const config: HardhatUserConfig = {
     solidity: {
