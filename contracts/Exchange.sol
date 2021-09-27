@@ -140,7 +140,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     // solhint-disable-next-line
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // CH_ANC: address is not contract
+        // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
         // EX_BTNE: base token not exists
         require(MarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
