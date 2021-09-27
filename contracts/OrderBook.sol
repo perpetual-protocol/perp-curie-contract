@@ -576,6 +576,20 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         return liquidityCoefficientInFundingPayment;
     }
 
+    function getOwedFee(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (uint256) {
+        (uint256 owedFee, ) =
+            _getOwedFeeAndFeeGrowthInsideX128ByOrder(
+                baseToken,
+                _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)]
+            );
+        return owedFee;
+    }
+
     function getFeeGrowthGlobal(address baseToken) external view returns (uint256) {
         return _feeGrowthGlobalX128Map[baseToken];
     }
@@ -647,16 +661,10 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     {
         // update token info based on existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         OpenOrder storage openOrder = _openOrderMap[orderId];
-        uint256 feeGrowthInsideX128 =
-            tickMap.getFeeGrowthInsideX128(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                _feeGrowthGlobalX128Map[params.baseToken]
-            );
-        uint256 fee = _calcOwedFee(openOrder.liquidity, feeGrowthInsideX128, openOrder.lastFeeGrowthInsideX128);
+
+        (uint256 fee, uint256 feeGrowthInsideX128) =
+            _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         // update open order with new liquidity
         openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
@@ -693,9 +701,8 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder storage openOrder = _openOrderMap[orderId];
 
-        uint256 feeGrowthInsideX128;
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         uint256 fee;
+        uint256 feeGrowthInsideX128;
         if (openOrder.liquidity == 0) {
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
@@ -707,6 +714,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
 
+            mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     openOrder.lowerTick,
@@ -720,13 +728,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
         } else {
-            feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
-                params.lowerTick,
-                params.upperTick,
-                UniswapV3Broker.getTick(params.pool),
-                params.feeGrowthGlobalX128
-            );
-            fee = _calcOwedFee(openOrder.liquidity, feeGrowthInsideX128, openOrder.lastFeeGrowthInsideX128);
+            (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
         }
 
         // update open order with new liquidity
@@ -791,24 +793,35 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
             }
             tokenAmount = tokenAmount.add(amount);
 
+            // get uncollected fee (only quote)
             if (!fetchBase) {
-                // get uncollected fee (only quote)
-
-                mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-                uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[baseToken];
-                uint256 feeGrowthInsideX128 =
-                    tickMap.getFeeGrowthInsideX128(
-                        order.lowerTick,
-                        order.upperTick,
-                        TickMath.getTickAtSqrtRatio(sqrtMarkPriceX96),
-                        feeGrowthGlobalX128
-                    );
-
-                tokenAmount = tokenAmount.add(
-                    _calcOwedFee(order.liquidity, feeGrowthInsideX128, order.lastFeeGrowthInsideX128)
-                );
+                (uint256 fee, ) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(baseToken, order);
+                tokenAmount = tokenAmount.add(fee);
             }
         }
+    }
+
+    /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
+    ///      the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
+    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder memory order)
+        internal
+        view
+        returns (uint256 owedFee, uint256 feeGrowthInsideX128)
+    {
+        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
+            order.lowerTick,
+            order.upperTick,
+            UniswapV3Broker.getTick(MarketRegistry(marketRegistry).getPool(baseToken)),
+            _feeGrowthGlobalX128Map[baseToken]
+        );
+        owedFee = FullMath.mulDiv(
+            feeGrowthInsideX128 - order.lastFeeGrowthInsideX128,
+            order.liquidity,
+            FixedPoint128.Q128
+        );
+
+        return (owedFee, feeGrowthInsideX128);
     }
 
     /// @dev the funding payment of an order/liquidity is composed of
@@ -854,15 +867,5 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
             );
 
         return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
-    }
-
-    /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
-    /// @dev the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
-    function _calcOwedFee(
-        uint128 liquidity,
-        uint256 newFeeGrowthInside,
-        uint256 oldFeeGrowthInside
-    ) internal pure returns (uint256) {
-        return FullMath.mulDiv(newFeeGrowthInside - oldFeeGrowthInside, liquidity, FixedPoint128.Q128);
     }
 }
