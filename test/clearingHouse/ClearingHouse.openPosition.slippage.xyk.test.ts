@@ -3,6 +3,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     MarketRegistry,
     QuoteToken,
@@ -22,6 +23,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
+    let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -36,6 +38,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         marketRegistry = _clearingHouseFixture.marketRegistry
+        accountBalance = _clearingHouseFixture.accountBalance
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
@@ -95,7 +98,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TLR")
+            ).to.be.revertedWith("CH_TLRS")
         })
 
         it("B2Q + exact output, want less input base as possible, so we set a upper bound of input base", async () => {
@@ -111,7 +114,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRS")
         })
 
         it("Q2B + exact input, want more output base as possible, so we set a lower bound of output base", async () => {
@@ -127,7 +130,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TLR")
+            ).to.be.revertedWith("CH_TLRL")
         })
 
         it("Q2B + exact output want less input quote as possible, so we set a upper bound of input quote", async () => {
@@ -143,12 +146,13 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRL")
         })
     })
 
     describe("closePosition", () => {
         it("open short then close", async () => {
+            // taker shorts 25 ETH with roughly 200 USD
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -160,19 +164,20 @@ describe("ClearingHouse slippage in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            // taker wants to close 25 ETH short for 200 USD but get less bcs of the tx fee
             await expect(
                 clearingHouse.connect(taker).closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: 250,
+                    oppositeAmountBound: parseEther("200"),
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRL")
         })
 
         it("open long then close", async () => {
-            // taker swap exact 250 USD for expected 20 ETH but got less
+            // taker longs for roughly 20 ETH with 250 USD
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -184,15 +189,16 @@ describe("ClearingHouse slippage in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            // taker wants to close 20 ETH long for 250 USD but get less bcs of the tx fee
             await expect(
                 clearingHouse.connect(taker).closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: 250,
+                    oppositeAmountBound: parseEther("250"),
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TLRS")
         })
     })
 })

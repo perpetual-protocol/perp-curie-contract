@@ -476,7 +476,6 @@ contract ClearingHouse is
         address trader = _msgSender();
         Funding.Growth memory fundingGrowthGlobal =
             AccountBalance(accountBalance).settleFundingAndUpdateFundingGrowth(trader, params.baseToken);
-
         SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
@@ -487,9 +486,8 @@ contract ClearingHouse is
                 })
             );
 
-        // if the previous position is long, closing it is short, B2Q; else, closing it is long, Q2B
-        bool isBaseToQuote =
-            AccountBalance(accountBalance).getPositionSize(trader, params.baseToken) > 0 ? true : false;
+        // if exchangedPositionSize < 0, closing it is short, B2Q; else, closing it is long, Q2B
+        bool isBaseToQuote = response.exchangedPositionSize < 0 ? true : false;
         _checkSlippage(
             CheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
@@ -1001,19 +999,19 @@ contract ClearingHouse is
         // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
         if (params.isBaseToQuote) {
             if (params.isExactInput) {
-                // too little received
-                require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLR");
+                // too little received when short
+                require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLRS");
             } else {
-                // too much requested
-                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMR");
+                // too much requested when short
+                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
             }
         } else {
             if (params.isExactInput) {
-                // too little received
-                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLR");
+                // too little received when long
+                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
             } else {
-                // too much requested
-                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMR");
+                // too much requested when long
+                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
             }
         }
     }
