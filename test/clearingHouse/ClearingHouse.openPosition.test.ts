@@ -37,6 +37,7 @@ describe("ClearingHouse openPosition", () => {
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
     const upperTick: number = 100000
@@ -55,6 +56,7 @@ describe("ClearingHouse openPosition", () => {
         baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
         pool = _clearingHouseFixture.pool
         pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
@@ -1157,13 +1159,17 @@ describe("ClearingHouse openPosition", () => {
     describe("taker become maker", () => {
         beforeEach(async () => {
             await deposit(taker, vault, 100, collateral)
+
+            const carolAmount = parseEther("100")
+            await collateral.connect(admin).mint(carol.address, carolAmount)
+            await deposit(carol, vault, 100, collateral)
         })
 
         describe("long first then add liquidity", async () => {
             let freeCollateralBefore: string
 
             beforeEach(async () => {
-                // taker swap 2 USD for 0.01307786649 ETH
+                // taker swap 2 USD for 0.013077866441492721 ETH
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
@@ -1176,31 +1182,29 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
-            })
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                //                 = min(100, 100 + (-0.692213355850727900)) - 0.2
+                //                 = 100 + (-0.692213355850727900) - 0.2
+                //                 = 99.107786
 
-            it("add liquidity below the current tick", async () => {
-                await clearingHouse.connect(taker).addLiquidity({
-                    baseToken: baseToken2.address,
-                    base: "0",
-                    quote: parseEther("10"),
-                    lowerTick: 49800,
-                    upperTick: 50000,
+                // remove other maker liquidity to simplify the following tests
+                const liquidity = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
+                await clearingHouse.connect(maker).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity,
                     minBase: 0,
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 })
-
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-
-                expect(freeCollateral).to.be.eq(freeCollateralBefore)
-                // -98107786
-                // +99107786
             })
 
             it("add liquidity above the current tick", async () => {
                 await clearingHouse.connect(taker).addLiquidity({
-                    baseToken: baseToken2.address,
-                    base: parseEther("1"),
+                    baseToken: baseToken.address,
+                    base: parseEther("0.013077866441492721"),
                     quote: parseEther("0"),
                     lowerTick: 50400,
                     upperTick: 50600,
@@ -1209,42 +1213,33 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
 
                 expect(freeCollateral).to.be.eq(freeCollateralBefore)
-            })
 
-            it("add liquidity around the current tick", async () => {
-                await expect(
-                    clearingHouse.connect(taker).addLiquidity({
-                        baseToken: baseToken2.address,
-                        base: parseEther("0.066061845430469485"),
-                        quote: parseEther("10"),
-                        lowerTick: 50000, // 148.3760629231
-                        upperTick: 50400, // 154.4310960807
-                        minBase: 0,
-                        minQuote: 0,
-                        deadline: ethers.constants.MaxUint256,
-                    }),
-                )
-                    .to.emit(orderBook, "LiquidityChanged")
-                    .withArgs(
-                        taker.address,
-                        baseToken2.address,
-                        quoteToken.address,
-                        50000,
-                        50400,
-                        parseUnits("0.066061845430469485", await baseToken2.decimals()),
-                        parseUnits("10", await quoteToken.decimals()),
-                        "81689571696303801018",
-                        0,
-                    )
+                // swap by carol
+                // swap 2 USD for 0.012697396035898852 ETH
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
 
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-
-                expect(freeCollateral).to.be.eq(freeCollateralBefore)
-                // -98107786
-                // +99107786
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = (-2) + (2) = 0
+                // positionValue = (0.013077866441492721 - 0.013077866441492721 + 0.000380470405593868) * 100 = 0.03804704056
+                // unrealizePnL = positionValue + openNotional = 0.03804704056 + 0 = 0.03804704056
+                // total debt = 2
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.03804704056) - (2) * 0.1
+                //                 = 100 - (2) * 0.1
+                //                 = 99.800000
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.800000", collateralDecimals))
             })
         })
 
@@ -1252,7 +1247,7 @@ describe("ClearingHouse openPosition", () => {
             let freeCollateralBefore: string
 
             beforeEach(async () => {
-                // taker swap ? ETH for 2 USD
+                // taker swap 0.013348304809274554 ETH for 2 USD
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
@@ -1263,14 +1258,35 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
+
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
+                // openNotional = 2
+                // positionValue = (-0.013348304809274554*100) = -1.3348304809
+                // unrealizedPnL = -1.3348304809 + 2 = 0.6651695191
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                //                 = min(100, 100 + (0.6651695191)) - (1.3348304809) * 0.1
+                //                 = 100 - (1.3348304809) * 0.1
+                //                 = 99.866516
+
+                // remove other maker liquidity to simplify the following tests
+                const liquidity = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
+                await clearingHouse.connect(maker).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
             })
 
             it("add liquidity below the current tick", async () => {
                 await clearingHouse.connect(taker).addLiquidity({
-                    baseToken: baseToken2.address,
+                    baseToken: baseToken.address,
                     base: "0",
-                    quote: parseEther("10"),
+                    quote: parseEther("2"),
                     lowerTick: 49800,
                     upperTick: 50000,
                     minBase: 0,
@@ -1278,61 +1294,78 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
 
                 expect(freeCollateral).to.be.eq(freeCollateralBefore)
-                // -99066516
-                // +99866516
+
+                // swap by carol
+                // swap 0.006842090768717812 ETH for 1 USD
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
+                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // total debt = 0.013348304809274554 * 100
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100 - (1.3348304809274554) * 0.1
+                //                 = 99.866516
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
             })
 
-            it("add liquidity above the current tick", async () => {
+            it("add other market liquidity below the current tick", async () => {
+                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("100", 6), 0, 0, 0]
+                })
+
                 await clearingHouse.connect(taker).addLiquidity({
                     baseToken: baseToken2.address,
-                    base: parseEther("1"),
-                    quote: parseEther("0"),
-                    lowerTick: 50400,
-                    upperTick: 50600,
+                    base: "0",
+                    quote: parseEther("2"),
+                    lowerTick: 49800,
+                    upperTick: 50000,
                     minBase: 0,
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
 
                 expect(freeCollateral).to.be.eq(freeCollateralBefore)
-            })
 
-            it("add liquidity around the current tick", async () => {
-                await expect(
-                    clearingHouse.connect(taker).addLiquidity({
-                        baseToken: baseToken2.address,
-                        base: parseEther("0.066061845430469485"),
-                        quote: parseEther("10"),
-                        lowerTick: 50000,
-                        upperTick: 50400,
-                        minBase: 0,
-                        minQuote: 0,
-                        deadline: ethers.constants.MaxUint256,
-                    }),
-                )
-                    .to.emit(orderBook, "LiquidityChanged")
-                    .withArgs(
-                        taker.address,
-                        baseToken2.address,
-                        quoteToken.address,
-                        50000,
-                        50400,
-                        parseUnits("0.066061845430469485", await baseToken2.decimals()),
-                        parseUnits("10", await quoteToken.decimals()),
-                        "81689571696303801018",
-                        0,
-                    )
+                // swap by carol
+                // swap 0.006842090768717812 BTC for 1 USD
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken2.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
 
-                const freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-
-                expect(freeCollateral).to.be.eq(freeCollateralBefore)
-                // -99066516
-                // +99866516
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
+                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // total debt = 0.013348304809274554 * 100
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100 - (1.3348304809274554) * 0.1
+                //                 = 99.866516
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
             })
         })
     })
