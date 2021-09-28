@@ -97,7 +97,10 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external onlyClearingHouse {
+    function addOwedRealizedPnl(address trader, int256 delta) external {
+        // AB_O_EX|CH: only exchange or CH
+        require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
+
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 

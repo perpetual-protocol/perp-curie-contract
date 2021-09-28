@@ -53,29 +53,12 @@ describe("ClearingHouse Spec", () => {
                 clearingHouse.initialize(
                     clearingHouseConfig.address,
                     wallet.address,
-                    insuranceFund.address,
                     quoteToken.address,
                     uniV3Factory.address,
                     exchange.address,
                     accountBalance.address,
                 ),
             ).to.be.revertedWith("CH_VANC")
-        })
-
-        it("force error, invalid insuranceFund address", async () => {
-            const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
-            clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
-            await expect(
-                clearingHouse.initialize(
-                    clearingHouseConfig.address,
-                    vault.address,
-                    wallet.address,
-                    quoteToken.address,
-                    uniV3Factory.address,
-                    exchange.address,
-                    accountBalance.address,
-                ),
-            ).to.be.revertedWith("CH_IFANC")
         })
 
         it("force error, invalid quote token address", async () => {
@@ -85,7 +68,6 @@ describe("ClearingHouse Spec", () => {
                 clearingHouse.initialize(
                     clearingHouseConfig.address,
                     vault.address,
-                    insuranceFund.address,
                     wallet.address,
                     uniV3Factory.address,
                     exchange.address,
@@ -101,7 +83,6 @@ describe("ClearingHouse Spec", () => {
                 clearingHouse.initialize(
                     clearingHouseConfig.address,
                     vault.address,
-                    insuranceFund.address,
                     quoteToken.address,
                     wallet.address,
                     exchange.address,

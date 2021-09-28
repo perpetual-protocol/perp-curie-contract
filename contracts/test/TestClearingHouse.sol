@@ -12,21 +12,12 @@ contract TestClearingHouse is ClearingHouse {
     function __TestClearingHouse_init(
         address configArg,
         address vaultArg,
-        address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
         address accountBalanceArg
     ) external initializer {
-        ClearingHouse.initialize(
-            configArg,
-            vaultArg,
-            insuranceFundArg,
-            quoteTokenArg,
-            uniV3FactoryArg,
-            exchangeArg,
-            accountBalanceArg
-        );
+        ClearingHouse.initialize(configArg, vaultArg, quoteTokenArg, uniV3FactoryArg, exchangeArg, accountBalanceArg);
         _testBlockTimestamp = block.timestamp;
     }
 
@@ -69,6 +60,7 @@ contract TestClearingHouse is ClearingHouse {
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
+                    isClose: false,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     fundingGrowthGlobal: fundingGrowthGlobal
