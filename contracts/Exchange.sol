@@ -199,7 +199,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 );
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
                 uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
-                positionSizeAbs = positionSizeAbs.mulRatio(partialCloseRatio);
+                params.amount = positionSizeAbs.mulRatio(partialCloseRatio);
             }
         } else {
             if (!isIncreasePosition) {
@@ -210,7 +210,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
 
         InternalSwapResponse memory response = _swap(params);
-        if (!params.isClose) {
+        if (!params.isClose && !isIncreasePosition) {
             require(!isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
         }
         // examples:
