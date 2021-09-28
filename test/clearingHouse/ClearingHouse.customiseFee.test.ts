@@ -119,7 +119,7 @@ describe("ClearingHouse customized fee", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -163,7 +163,7 @@ describe("ClearingHouse customized fee", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -207,7 +207,7 @@ describe("ClearingHouse customized fee", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -247,7 +247,7 @@ describe("ClearingHouse customized fee", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -403,7 +403,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -448,7 +448,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -492,7 +492,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -532,7 +532,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -595,7 +595,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -638,7 +638,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken
@@ -695,7 +695,7 @@ describe("ClearingHouse customized fee", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChanged")
+                .to.emit(exchange, "PositionChanged")
                 .withArgs(
                     taker.address, // trader
                     baseToken.address, // baseToken

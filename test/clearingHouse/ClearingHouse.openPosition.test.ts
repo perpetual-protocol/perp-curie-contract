@@ -346,7 +346,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -383,7 +383,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -423,7 +423,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -463,7 +463,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -1053,7 +1053,6 @@ describe("ClearingHouse openPosition", () => {
         it("will not affect her range order if maker and trader is the same person", async () => {
             // maker and trader is the same person, openPosition will not change her positionSize
             const makerPositionSizeBefore = await accountBalance.getPositionSize(maker.address, baseToken.address)
-
             // maker long 1 USD
             await clearingHouse.connect(maker).openPosition({
                 baseToken: baseToken.address,
@@ -1066,7 +1065,7 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
             const makerPositionSizeAfter = await accountBalance.getPositionSize(maker.address, baseToken.address)
-
+            console.log(makerPositionSizeBefore, makerPositionSizeAfter)
             expect(makerPositionSizeBefore).to.deep.eq(makerPositionSizeAfter)
         })
     })
@@ -1122,7 +1121,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(clearingHouse, "PositionChanged")
+            ).to.emit(exchange, "PositionChanged")
         })
 
         it("force error, markets number exceeded", async () => {
@@ -1137,7 +1136,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(clearingHouse, "PositionChanged")
+            ).to.emit(exchange, "PositionChanged")
 
             await expect(
                 clearingHouse.connect(taker).openPosition({
