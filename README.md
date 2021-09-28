@@ -26,13 +26,24 @@ npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
 
 3. Update `version` of `package.json` and `package-lock.json`
 
-4. **Verify what's included in the packed npm package**
+4. Verify contract on tenderly
+   - apply `access_key` from tenderly settings. 
+    (the access token on the Tenderly dashboard, under Settings -> Authorization.)
+   - create a `config.yaml` file at `$HOME/.tenderly/config.yaml` or `%HOMEPATH%\.tenderly\config.yaml` and add an access_key field to it:
+        ```
+        access_key: super_secret_access_key
+        ```
+   - ```run npm verify-tenderly:rinkeby``` 
+
+```
+export ARBITRUM_RINKEBY_WEB3_ENDPOINT="YOUR_RPC_ENDPOINT"
+```
 
 ```bash
 npm pack
 ```
 
-5. Publish npm package
+1. Publish npm package
 
 ```bash
 # push tag to trigger "Publish NPM package" workflow
