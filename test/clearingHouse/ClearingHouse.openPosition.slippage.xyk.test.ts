@@ -95,7 +95,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TLR")
+            ).to.be.revertedWith("CH_TLRS")
         })
 
         it("B2Q + exact output, want less input base as possible, so we set a upper bound of input base", async () => {
@@ -111,7 +111,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRS")
         })
 
         it("Q2B + exact input, want more output base as possible, so we set a lower bound of output base", async () => {
@@ -127,7 +127,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TLR")
+            ).to.be.revertedWith("CH_TLRL")
         })
 
         it("Q2B + exact output want less input quote as possible, so we set a upper bound of input quote", async () => {
@@ -143,7 +143,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRL")
         })
     })
 
@@ -164,11 +164,11 @@ describe("ClearingHouse slippage in xyk pool", () => {
                 clearingHouse.connect(taker).closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: 250,
+                    oppositeAmountBound: parseEther("200"),
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TMRL")
         })
 
         it("open long then close", async () => {
@@ -188,11 +188,11 @@ describe("ClearingHouse slippage in xyk pool", () => {
                 clearingHouse.connect(taker).closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: 250,
+                    oppositeAmountBound: parseEther("250"),
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_TMR")
+            ).to.be.revertedWith("CH_TLRS")
         })
     })
 })
