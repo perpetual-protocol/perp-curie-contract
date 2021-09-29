@@ -197,18 +197,11 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
 
-    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
-    function getTotalAbsPositionValue(address trader) external view returns (uint256) {
-        address[] memory tokens = _baseTokensMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = tokens[i];
-            // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
-            totalPositionValue = totalPositionValue.add(positionValue);
-        }
-        return totalPositionValue;
+    /// @dev get margin requirement for determining liquidation.
+    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
+    function getLiquidateMarginRequirement(address trader) external view returns (int256) {
+        return
+            _getTotalAbsPositionValue(trader).mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
     }
 
     function getTotalDebtValue(address trader) external view returns (uint256) {
@@ -307,5 +300,19 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(ClearingHouseConfig(clearingHouseConfig).twapInterval());
+    }
+
+    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
+    function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
+        address[] memory tokens = _baseTokensMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = tokens[i];
+            // will not use negative value in this case
+            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            totalPositionValue = totalPositionValue.add(positionValue);
+        }
+        return totalPositionValue;
     }
 }

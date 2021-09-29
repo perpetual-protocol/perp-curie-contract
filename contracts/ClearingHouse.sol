@@ -436,7 +436,10 @@ contract ClearingHouse is
 
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(IVault(vault).getLiquidateMarginRequirement(trader), _settlementTokenDecimals),
+            getAccountValue(trader).lt(
+                AccountBalance(accountBalance).getLiquidateMarginRequirement(trader),
+                _settlementTokenDecimals
+            ),
             "CH_EAV"
         );
 
@@ -562,7 +565,10 @@ contract ClearingHouse is
         // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
         require(
             (_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
-                getAccountValue(maker).lt(IVault(vault).getLiquidateMarginRequirement(maker), _settlementTokenDecimals),
+                getAccountValue(maker).lt(
+                    AccountBalance(accountBalance).getLiquidateMarginRequirement(maker),
+                    _settlementTokenDecimals
+                ),
             "CH_NEXO"
         );
 
