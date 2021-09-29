@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
-import { ClearingHouse, ClearingHouseConfig, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, ClearingHouseConfig, Exchange, UniswapV3Pool } from "../../typechain"
 import { mockedClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse Spec", () => {
@@ -18,10 +18,11 @@ describe("ClearingHouse Spec", () => {
     let baseToken: MockContract
     let quoteToken: MockContract
     let uniV3Factory: MockContract
-    let exchange: MockContract
+    let exchange: Exchange
     let insuranceFund: MockContract
     let vault: MockContract
     let accountBalance: MockContract
+    let marketRegistry: MockContract
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(mockedClearingHouseFixture)
@@ -30,10 +31,11 @@ describe("ClearingHouse Spec", () => {
         baseToken = _clearingHouseFixture.mockedBaseToken
         quoteToken = _clearingHouseFixture.mockedQuoteToken
         uniV3Factory = _clearingHouseFixture.mockedUniV3Factory
-        exchange = _clearingHouseFixture.mockedExchange
+        exchange = _clearingHouseFixture.exchange
         insuranceFund = _clearingHouseFixture.mockedInsuranceFund
         vault = _clearingHouseFixture.mockedVault
         accountBalance = _clearingHouseFixture.mockedAccountBalance
+        marketRegistry = _clearingHouseFixture.mockedMarketRegistry
 
         // uniV3Factory.getPool always returns POOL_A_ADDRESS
         uniV3Factory.smocked.getPool.will.return.with((token0: string, token1: string, feeRatio: BigNumber) => {
@@ -111,10 +113,8 @@ describe("ClearingHouse Spec", () => {
 
     describe("onlyOwner setters", () => {
         it("setMaxTickCrossedWithinBlock", async () => {
-            exchange.smocked.getPool.will.return.with(EMPTY_ADDRESS)
-            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith(
-                "CH_BTNE",
-            )
+            marketRegistry.smocked.getPool.will.return.with(EMPTY_ADDRESS)
+            await expect(exchange.setMaxTickCrossedWithinBlock(baseToken.address, 200)).to.be.revertedWith("EX_BTNE")
 
             // add pool
             const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
@@ -122,19 +122,17 @@ describe("ClearingHouse Spec", () => {
             const mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            exchange.smocked.getPool.will.return.with(mockedPool.address)
+            marketRegistry.smocked.getPool.will.return.with(mockedPool.address)
 
-            await clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 200)
-            expect(await clearingHouse.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 200)
+            expect(await exchange.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
 
             // out of range [0, 887272]
-            await expect(clearingHouse.setMaxTickCrossedWithinBlock(baseToken.address, 1e6)).to.be.revertedWith(
-                "CH_MTCLOOR",
-            )
+            await expect(exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1e6)).to.be.revertedWith("EX_MTCLOOR")
         })
 
         it("force error, invalid base token address when setMaxTickCrossedWithinBlock", async () => {
-            await expect(clearingHouse.setMaxTickCrossedWithinBlock(wallet.address, 1)).to.be.revertedWith("CH_ANC")
+            await expect(exchange.setMaxTickCrossedWithinBlock(wallet.address, 1)).to.be.revertedWith("EX_ANC")
         })
 
         it("force error, invalid trustedForwarder address when setTrustedForwarder", async () => {

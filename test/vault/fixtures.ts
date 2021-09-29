@@ -2,7 +2,6 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     AccountBalance,
-    ClearingHouse,
     ClearingHouseConfig,
     Exchange,
     InsuranceFund,
@@ -43,14 +42,15 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
     await orderBook.initialize(marketRegistry.address, USDC.address)
 
-    const exchangeFactory = await ethers.getContractFactory("Exchange")
-    const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(marketRegistry.address, orderBook.address)
-    await orderBook.setExchange(exchange.address)
-
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
     const mockedConfig = await smockit(clearingHouseConfig)
+
+    const exchangeFactory = await ethers.getContractFactory("Exchange")
+    const exchange = (await exchangeFactory.deploy()) as Exchange
+    await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
+    const mockedExchange = await smockit(exchange)
+    await orderBook.setExchange(exchange.address)
 
     const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
     const accountBalance = (await accountBalanceFactory.deploy()) as AccountBalance
@@ -58,7 +58,12 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const vaultFactory = await ethers.getContractFactory("Vault")
     const vault = (await vaultFactory.deploy()) as Vault
-    await vault.initialize(mockedInsuranceFund.address, mockedConfig.address, mockedAccountBalance.address)
+    await vault.initialize(
+        mockedInsuranceFund.address,
+        mockedConfig.address,
+        mockedAccountBalance.address,
+        mockedExchange.address,
+    )
 
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance }
 }

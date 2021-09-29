@@ -4,6 +4,7 @@ import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
@@ -14,7 +15,6 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
-    AccountBalance,
 } from "../../typechain"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"

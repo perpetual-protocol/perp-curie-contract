@@ -650,6 +650,15 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral).deep.eq(parseUnits("999.960199", 6))
 
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+
+            // response.exchangedPositionSize
+            // 13077866441492721
+            // response.exchangedPositionNotional
+            // -1980000000000000000
+            // response.exchangedPositionSize
+            // -13077866441492721
+            // response.exchangedPositionNotional
+            // 1979999999999999957
         })
 
         it("close position with profit", async () => {
@@ -804,7 +813,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
 
             // openNotional = 8.0412624948
-            expect(await clearingHouse.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
+            expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
 
             // realizedPnl = -0.04126249485
             expect(await accountBalance.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
@@ -995,7 +1004,7 @@ describe("ClearingHouse openPosition", () => {
 
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
-            const openNotional = await clearingHouse.getOpenNotional(taker.address, baseToken.address)
+            const openNotional = await exchange.getOpenNotional(taker.address, baseToken.address)
             const realizedPnl = await accountBalance.getOwedRealizedPnl(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
             expect(openNotional).to.eq(parseEther("-8").sub(realizedPnl))
