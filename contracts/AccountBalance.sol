@@ -223,7 +223,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
             address baseToken = _baseTokensMap[trader][i];
             int256 baseBalance = getBase(trader, baseToken);
             uint256 baseDebt = baseBalance > 0 ? 0 : (-baseBalance).toUint256();
-            uint256 baseDebtValue = baseDebt.mul(getIndexPrice(baseToken)).divBy10_18();
+            uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
             // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
             int256 quoteBalance = getQuote(trader, baseToken);
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
@@ -295,7 +295,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = getIndexPrice(baseToken);
+        uint256 indexTwap = _getIndexPrice(baseToken);
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
@@ -304,7 +304,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // INTERNAL VIEW
     //
 
-    function getIndexPrice(address baseToken) internal view returns (uint256) {
+    function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(ClearingHouseConfig(clearingHouseConfig).twapInterval());
     }
 }
