@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove event `PositionChanged` from ClearingHouse
 ### Changed
 - move event `PositionChanged` to Exchange
+- AccountBalance no longer depends on `marketRegistry` contract for `initialize()`
+
 - ## [0.9.4] - 2021-09-28
 ### Changed
 - Error messages emitted by ClearingHouse._checkSlippage()

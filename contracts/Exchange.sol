@@ -25,6 +25,7 @@ import { Tick } from "./lib/Tick.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
+import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
@@ -32,7 +33,13 @@ import { OrderBook } from "./OrderBook.sol";
 import { AccountBalance } from "./AccountBalance.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 
-contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHouseCallee, ArbBlockContext {
+contract Exchange is
+    IUniswapV3MintCallback,
+    IUniswapV3SwapCallback,
+    ClearingHouseCallee,
+    UniswapV3CallbackBridge,
+    ArbBlockContext
+{
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -142,7 +149,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         address clearingHouseConfigArg,
         address insuranceFundArg
     ) external initializer {
-        __ClearingHouseCallee_init(marketRegistryArg);
+        __ClearingHouseCallee_init();
+        __UniswapV3CallbackBridge_init(marketRegistryArg);
 
         // E_OBNC: OrderBook is not contract
         require(orderBookArg.isContract(), "E_OBNC");
