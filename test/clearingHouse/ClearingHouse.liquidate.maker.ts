@@ -150,7 +150,7 @@ describe("ClearingHouse liquidate maker", () => {
         )
     })
 
-    describe("maker hsa multiple orders", async () => {
+    describe("maker has multiple orders", async () => {
         beforeEach(async () => {
             await pool2.initialize(encodePriceSqrt("10", "1"))
             await marketRegistry.addPool(baseToken2.address, "10000")
@@ -184,7 +184,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
         })
 
-        it("should cancel all of her orders and liquidate all of them", async () => {
+        it("maker loss on both pools, should cancel all of her orders and liquidate all of them", async () => {
             // bob long on pool1
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
@@ -232,7 +232,7 @@ describe("ClearingHouse liquidate maker", () => {
             )
         })
 
-        it("should cancel all of her orders and but only one of them can be liquidated", async () => {
+        it("maker loss on pool1, should cancel all of her orders and liquidate on pool1", async () => {
             // bob long on pool1
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
@@ -266,7 +266,7 @@ describe("ClearingHouse liquidate maker", () => {
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
-            // liquidate maker's position on pool2
+            // liquidate maker's position on pool1
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
                 clearingHouse,
                 "PositionLiquidated",
@@ -275,6 +275,53 @@ describe("ClearingHouse liquidate maker", () => {
             // maker's margin ratio goes up, another liquidation will fail
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.be.revertedWith(
                 "CH_EAV",
+            )
+        })
+
+        it("maker loss on pool1, should cancel all of her orders and liquidate on pool2 then pool1", async () => {
+            // bob long on pool1
+            await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
+            await deposit(bob, vault, 10000000, collateral)
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long on pool2
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // only pool1 index price goes up
+            setPool1IndexPrice(100000)
+
+            // cancel maker's order on all markets
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
+
+            // liquidate maker's position on pool2, but the margin ratio is still too low, maker will be liquidated on pool1
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+
+            // liquidate maker's position on pool1
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
             )
         })
     })
