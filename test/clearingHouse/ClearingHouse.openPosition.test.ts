@@ -1067,7 +1067,7 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
             const makerPositionSizeAfter = await accountBalance.getPositionSize(maker.address, baseToken.address)
-            console.log(makerPositionSizeBefore, makerPositionSizeAfter)
+
             expect(makerPositionSizeBefore).to.deep.eq(makerPositionSizeAfter)
         })
     })

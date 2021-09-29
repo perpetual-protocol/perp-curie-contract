@@ -177,7 +177,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_AOPLO")
+            ).to.be.revertedWith("EX_AOPLO")
         })
 
         it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
@@ -193,7 +193,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_OPIAS")
+            ).to.revertedWith("EX_OPIAS")
         })
     })
 
@@ -237,7 +237,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             await expect(
                 clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
-            ).to.be.revertedWith("CH_AOPLO")
+            ).to.be.revertedWith("EX_AOPLO")
         })
     })
 
@@ -356,7 +356,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_OPIBS")
+            ).to.be.revertedWith("EX_OPIBS")
 
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("50.350174276881928348"),
