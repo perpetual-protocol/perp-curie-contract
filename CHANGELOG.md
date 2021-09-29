@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove parameter `insuranceFundArg` from `initialize` of ClearingHouse 
 - remove event `PositionChanged` from ClearingHouse
 ### Changed
-- move event `PositionChanged` to Exchange## [0.9.4] - 2021-09-28
+- move event `PositionChanged` to Exchange
+- ## [0.9.4] - 2021-09-28
 ### Changed
 - Error messages emitted by ClearingHouse._checkSlippage()
     - `CH_TLR` to `CH_TLRS` or `CH_TLRL`, depending on the side

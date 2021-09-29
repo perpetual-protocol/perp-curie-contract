@@ -382,43 +382,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
-    function _isOverPriceLimitByReplaySwap(
-        address baseToken,
-        bool isBaseToQuote,
-        int256 positionSize
-    ) internal returns (bool) {
-        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        ReplaySwapParams memory replaySwapParams =
-            ReplaySwapParams({
-                baseToken: baseToken,
-                isBaseToQuote: !isBaseToQuote,
-                isExactInput: !isBaseToQuote,
-                amount: positionSize.abs(),
-                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
-            });
-        return _isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
-    }
-
     //
     // EXTERNAL VIEW
     //
-
-    function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
-        return (tick < lowerTickBound || tick > upperTickBound);
-    }
-
-    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = getTick(baseToken);
-        return _isOverPriceLimitWithTick(baseToken, tick);
-    }
 
     // TODO should be able to remove if we can remove CH._hasPool
     function getPool(address baseToken) external view returns (address) {
@@ -529,6 +495,23 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL NON-VIEW
     //
+
+    function _isOverPriceLimitByReplaySwap(
+        address baseToken,
+        bool isBaseToQuote,
+        int256 positionSize
+    ) internal returns (bool) {
+        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
+        ReplaySwapParams memory replaySwapParams =
+            ReplaySwapParams({
+                baseToken: baseToken,
+                isBaseToQuote: !isBaseToQuote,
+                isExactInput: !isBaseToQuote,
+                amount: positionSize.abs(),
+                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
+            });
+        return _isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
+    }
 
     /// @return the resulting tick (derived from price) after replaying the swap
     function replaySwap(ReplaySwapParams memory params) internal returns (int24) {
@@ -676,6 +659,23 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL VIEW
     //
+
+    function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
+        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
+        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        return (tick < lowerTickBound || tick > upperTickBound);
+    }
+
+    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
+        int24 tick = getTick(baseToken);
+        return _isOverPriceLimitWithTick(baseToken, tick);
+    }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
