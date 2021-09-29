@@ -134,14 +134,6 @@ contract ClearingHouse is
         Funding.Growth fundingGrowthGlobal;
     }
 
-    struct AfterRemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        uint256 removedBase;
-        uint256 removedQuote;
-        uint256 collectedFee;
-    }
-
     struct ClosePositionParams {
         address baseToken;
         uint160 sqrtPriceLimitX96;
@@ -448,7 +440,6 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
-        // BOYU: using orderBook.has hasOrder directly?
         // CH_NEO: not empty order
         require(!AccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
@@ -579,28 +570,15 @@ contract ClearingHouse is
         Exchange(exchange).settleFunding(maker, baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
-        _afterRemoveLiquidity(
-            AfterRemoveLiquidityParams({
-                maker: maker,
-                baseToken: baseToken,
-                removedBase: response.base,
-                removedQuote: response.quote,
-                collectedFee: response.fee
-            })
-        );
-    }
 
-    // BOYU: remove this function
-    function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
-        // collect fee to owedRealizedPnl
         AccountBalance(accountBalance).addBalance(
-            params.maker,
-            params.baseToken,
-            params.removedBase.toInt256(),
-            params.removedQuote.toInt256(),
-            params.collectedFee.toInt256()
+            maker,
+            baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
         );
-        AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
+        AccountBalance(accountBalance).deregisterBaseToken(maker, baseToken);
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
@@ -619,15 +597,16 @@ contract ClearingHouse is
                     liquidity: params.liquidity
                 })
             );
-        _afterRemoveLiquidity(
-            AfterRemoveLiquidityParams({
-                maker: params.maker,
-                baseToken: params.baseToken,
-                removedBase: response.base,
-                removedQuote: response.quote,
-                collectedFee: response.fee
-            })
+
+        AccountBalance(accountBalance).addBalance(
+            params.maker,
+            params.baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
         );
+        AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
+
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
