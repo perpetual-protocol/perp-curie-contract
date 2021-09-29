@@ -3,6 +3,7 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouse,
     Exchange,
@@ -13,7 +14,6 @@ import {
     TestERC20,
     UniswapV3Pool,
     Vault,
-    AccountBalance,
 } from "../../typechain"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -159,7 +159,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 250 * 1% * 60% * 10% ~= 0.15
             expect(resp2.fee).eq(parseEther("0.149999999999999999"))
 
-            const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
+            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address)
             // 250 * 1% * 40% ~= 1
             expect(owedRealizedPnl).eq(parseEther("1"))
         })
@@ -217,7 +217,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 200 * 1% * 60% * 10% ~= 0.12
             expect(resp2.fee).eq(parseEther("0.119999999999999999"))
 
-            const owedRealizedPnl = await accountBalance.getOwedRealizedPnl(insuranceFund.address)
+            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address)
             // 200 * 1% * 40% ~= 0.8
             expect(owedRealizedPnl).eq(parseEther("0.8"))
         })

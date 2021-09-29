@@ -193,10 +193,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return _baseTokensMap[trader];
     }
 
-    function getOwedRealizedPnl(address trader) external view returns (int256) {
-        return _owedRealizedPnlMap[trader];
-    }
-
     function hasOrder(address trader) external view returns (bool) {
         return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
@@ -236,14 +232,18 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
 
-    function getTotalUnrealizedPnl(address trader) external view returns (int256) {
+    function getOwedAndUnrealizedPnl(address trader) external view returns (int256, int256) {
+        int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
+
+        // unrealized Pnl
         int256 totalPositionValue;
         for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
             address baseToken = _baseTokensMap[trader][i];
             totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken));
         }
+        int256 unrealizedPnl = getNetQuoteBalance(trader).add(totalPositionValue);
 
-        return getNetQuoteBalance(trader).add(totalPositionValue);
+        return (owedRealizedPnl, unrealizedPnl);
     }
 
     function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory) {

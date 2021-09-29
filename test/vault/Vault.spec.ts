@@ -109,8 +109,7 @@ describe("Vault spec", () => {
             await vault.connect(alice).deposit(usdc.address, amount)
 
             accountBalance.smocked.settle.will.return.with(0)
-            accountBalance.smocked.getOwedRealizedPnl.will.return.with(0)
-            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount)
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount])
             accountBalance.smocked.getTotalDebtValue.will.return.with(0)
         })
 
@@ -133,8 +132,8 @@ describe("Vault spec", () => {
         })
 
         it("force error if the freeCollateral is not enough", async () => {
-            // unrealizePnl = -amount, so free collateral is not enough
-            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount.mul(-1))
+            // unrealizedPnl = -amount, so free collateral is not enough
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount.mul(-1)])
 
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })

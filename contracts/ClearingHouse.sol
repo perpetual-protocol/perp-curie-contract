@@ -448,6 +448,7 @@ contract ClearingHouse is
             "CH_EAV"
         );
 
+        // BOYU: using orderBook.has hasOrder directly?
         // CH_NEO: not empty order
         require(!AccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
@@ -547,11 +548,12 @@ contract ClearingHouse is
 
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
-        return
-            _getTotalCollateralValue(trader).addS(
-                AccountBalance(accountBalance).getTotalUnrealizedPnl(trader),
-                _settlementTokenDecimals
-            );
+        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
+        (int256 owedRealizedPnl, int256 unrealizedPnl) = AccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
+        int256 totalCollateral =
+            IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
+
+        return totalCollateral.addS(unrealizedPnl, _settlementTokenDecimals);
     }
 
     //
@@ -588,6 +590,7 @@ contract ClearingHouse is
         );
     }
 
+    // BOYU: remove this function
     function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
         // collect fee to owedRealizedPnl
         AccountBalance(accountBalance).addBalance(
@@ -681,13 +684,6 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW
     //
-
-    /// @dev the return value is in settlement token decimals
-    function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
-    }
 
     /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
