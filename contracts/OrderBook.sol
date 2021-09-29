@@ -21,11 +21,12 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
+import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
 
-contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
+contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3CallbackBridge {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -181,7 +182,8 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee {
     //
 
     function initialize(address marketRegistryArg, address quoteTokenArg) external initializer {
-        __ClearingHouseCallee_init(marketRegistryArg);
+        __ClearingHouseCallee_init();
+        __UniswapV3CallbackBridge_init(marketRegistryArg);
 
         // QuoteToken is 0
         require(quoteTokenArg != address(0), "OB_QT0");

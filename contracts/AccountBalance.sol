@@ -55,11 +55,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     // EXTERNAL NON-VIEW
     //
 
-    function initialize(
-        address clearingHouseConfigArg,
-        address marketRegistryArg,
-        address exchangeArg
-    ) external initializer {
+    function initialize(address clearingHouseConfigArg, address exchangeArg) external initializer {
         // ClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_CHCNC");
         // Exchange is not contract
@@ -69,7 +65,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
-        __ClearingHouseCallee_init(marketRegistryArg);
+        __ClearingHouseCallee_init();
 
         clearingHouseConfig = clearingHouseConfigArg;
         exchange = exchangeArg;

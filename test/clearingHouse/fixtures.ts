@@ -122,7 +122,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
 
         await orderBook.setExchange(exchange.address)
 
-        await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
+        await accountBalance.initialize(clearingHouseConfig.address, exchange.address)
 
         const vaultFactory = await ethers.getContractFactory("Vault")
         const vault = (await vaultFactory.deploy()) as Vault
