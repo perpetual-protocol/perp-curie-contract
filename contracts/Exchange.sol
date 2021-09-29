@@ -148,8 +148,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         require(orderBookArg.isContract(), "E_OBNC");
         // E_CHNC: CH is not contract
         require(clearingHouseConfigArg.isContract(), "E_CHNC");
-        // CH_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "CH_IFANC");
+        // E_IFANC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "E_IFANC");
 
         // update states
         insuranceFund = insuranceFundArg;
@@ -165,7 +165,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     // solhint-disable-next-line
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // CH_ANC: address is not contract
+        // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
         // EX_BTNE: base token not exists
         require(MarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
@@ -179,40 +179,46 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
 
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
-        bool isLong = positionSize > 0 ? true : false;
-        uint256 positionSizeAbs = positionSize.abs();
         // is position increased
         bool isOldPositionShort = positionSize < 0 ? true : false;
-        bool isIncreasePosition = (positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
+        bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
 
+        // if over price limit when
+        // 1. close a position, then partial close the position
+        // 2. reduce a position, then revert
         if (params.isClose) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
+            // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
             if (
                 isOverPriceLimit(params.baseToken) ||
-                isOverPriceLimitByReplaySwap(params.baseToken, !isLong, positionSize)
+                isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
             ) {
-                // CH_AOPLO: already over price limit once
+                // EX_AOPLO: already over price limit once
                 require(
                     _blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken],
-                    "CH_AOPLO"
+                    "EX_AOPLO"
                 );
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-                uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
-                params.amount = positionSizeAbs.mulRatio(partialCloseRatio);
+                params.amount = positionSize.abs().mulRatio(
+                    ClearingHouseConfig(clearingHouseConfig).partialCloseRatio()
+                );
             }
         } else {
-            if (!isIncreasePosition) {
-                require(!isOverPriceLimit(params.baseToken), "CH_OPIBS");
+            if (isReducePosition) {
+                // EX_OPIBS: over price limit before swap
+                require(!isOverPriceLimit(params.baseToken), "EX_OPIBS");
             }
         }
 
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
 
         InternalSwapResponse memory response = _swap(params);
-        if (!params.isClose && !isIncreasePosition) {
-            require(!isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
+
+        if (!params.isClose && isReducePosition) {
+            require(!isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
         }
+
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
         AccountBalance(accountBalance).addBalance(
@@ -227,7 +233,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         int256 realizedPnl;
 
         // there is only realizedPnl when it's not increasing the position size
-        if (!isIncreasePosition) {
+        if (isReducePosition) {
             // closedRatio is based on the position size
             uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
             int256 deltaAvailableQuote =
@@ -245,9 +251,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 // step 2: short 10 base (reduce half of the position)
                 // deltaAvailableQuote = 137.5
                 // closeRatio = 10/20 = 0.5
-                // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
+                // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
                 // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 137.5 + 11.235 = 126.265
                 // openNotional = -openNotionalFraction = 126.265
                 int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
@@ -263,8 +269,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 // closeRatio = 30/20 = 1.5
                 // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
                 // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-                // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                // realizedPnl = closedPositionNotional + openNotional = -252.53 + 225 = -27.53
+                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
                 int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
@@ -381,6 +387,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         bool isBaseToQuote,
         int256 positionSize
     ) internal returns (bool) {
+        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         ReplaySwapParams memory replaySwapParams =
             ReplaySwapParams({
                 baseToken: baseToken,

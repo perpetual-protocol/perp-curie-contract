@@ -362,14 +362,6 @@ contract ClearingHouse is
         // must before price impact check
         Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
-        // cache before actual swap
-        // bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
-        // if (isReducePosition) {
-        //     // revert if current price isOverPriceLimit before open position
-        //     // CH_OPIBS: over price impact before swap
-        //     require(!Exchange(exchange).isOverPriceLimit(params.baseToken), "CH_OPIBS");
-        // }
-
         Exchange.SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
@@ -384,11 +376,6 @@ contract ClearingHouse is
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
-
-        // if (isReducePosition) {
-        //     // CH_OPIAS: over price impact after swap
-        //     require(!Exchange(exchange).isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
-        // }
 
         _checkSlippage(
             CheckSlippageParams({
@@ -674,24 +661,7 @@ contract ClearingHouse is
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
 
-        // if trader is on long side, baseToQuote: true, exactInput: true
-        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
-
-        uint256 positionSizeAbs = positionSize.abs();
-        // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        // uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
-        // if (
-        //     Exchange(exchange).isOverPriceLimit(params.baseToken) ||
-        //     Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, !isLong, positionSize)
-        // ) {
-        //     // CH_AOPLO: already over price limit once
-        //require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
-        //     _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-        //     positionSizeAbs = positionSizeAbs.mulRatio(partialCloseRatio);
-        // }
-
         return
             _openPosition(
                 InternalOpenPositionParams({
@@ -700,7 +670,7 @@ contract ClearingHouse is
                     isBaseToQuote: isLong,
                     isExactInput: isLong,
                     isClose: true,
-                    amount: positionSizeAbs,
+                    amount: positionSize.abs(),
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: true,
                     fundingGrowthGlobal: params.fundingGrowthGlobal
@@ -718,17 +688,6 @@ contract ClearingHouse is
         int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
     }
-
-    // function _isIncreasePosition(
-    //     address trader,
-    //     address baseToken,
-    //     bool isBaseToQuote
-    // ) internal view returns (bool) {
-    //     // increase position == old/new position are in the same direction
-    //     int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-    //     bool isOldPositionShort = positionSize < 0 ? true : false;
-    //     return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
-    // }
 
     /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
