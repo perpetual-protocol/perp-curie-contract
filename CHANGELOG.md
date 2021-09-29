@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.9.4] - 2021-09-28
+### Changed
+- Error messages emitted by ClearingHouse._checkSlippage()
+    - `CH_TLR` to `CH_TLRS` or `CH_TLRL`, depending on the side
+    - `CH_TMR` to `CH_TMRS` or `CH_TMRL`, depending on the side
+
 ## [0.9.3] - 2021-09-27
 - bug fixing
 ## [0.9.2] - 2021-09-24
