@@ -127,6 +127,7 @@ contract ClearingHouse is
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
+        bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         bool skipMarginRequirementCheck;
@@ -183,28 +184,14 @@ contract ClearingHouse is
 
     address public clearingHouseConfig;
     address public vault;
-    address public insuranceFund;
     address public exchange;
     address public orderBook;
     address public accountBalance;
-
-    // first key: trader, second key: baseToken
-    // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
-    mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 
     //
     // EVENT
     //
 
-    event PositionChanged(
-        address indexed trader,
-        address indexed baseToken,
-        int256 exchangedPositionSize,
-        int256 exchangedPositionNotional,
-        uint256 fee,
-        int256 openNotional,
-        int256 realizedPnl
-    );
     event PositionLiquidated(
         address indexed trader,
         address indexed baseToken,
@@ -233,7 +220,6 @@ contract ClearingHouse is
     function initialize(
         address clearingHouseConfigArg,
         address vaultArg,
-        address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
@@ -241,9 +227,6 @@ contract ClearingHouse is
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
-        // CH_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "CH_IFANC");
-
         // TODO check QuoteToken's balance once this is upgradable
         // CH_QANC: QuoteToken address is not contract
         require(quoteTokenArg.isContract(), "CH_QANC");
@@ -269,7 +252,6 @@ contract ClearingHouse is
 
         clearingHouseConfig = clearingHouseConfigArg;
         vault = vaultArg;
-        insuranceFund = insuranceFundArg;
         quoteToken = quoteTokenArg;
         uniswapV3Factory = uniV3FactoryArg;
         exchange = exchangeArg;
@@ -380,14 +362,6 @@ contract ClearingHouse is
         // must before price impact check
         Funding.Growth memory fundingGrowthGlobal = Exchange(exchange).settleFunding(trader, params.baseToken);
 
-        // cache before actual swap
-        bool isReducePosition = !_isIncreasePosition(trader, params.baseToken, params.isBaseToQuote);
-        if (isReducePosition) {
-            // revert if current price isOverPriceLimit before open position
-            // CH_OPIBS: over price impact before swap
-            require(!Exchange(exchange).isOverPriceLimit(params.baseToken), "CH_OPIBS");
-        }
-
         Exchange.SwapResponse memory response =
             _openPosition(
                 InternalOpenPositionParams({
@@ -396,17 +370,12 @@ contract ClearingHouse is
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
                     amount: params.amount,
+                    isClose: false,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: false,
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
-
-        if (isReducePosition) {
-            // revert if isOverPriceLimit to avoid that partially closing a position in openPosition() seems unexpected
-            // CH_OPIAS: over price impact after swap
-            require(!Exchange(exchange).isOverPriceLimitWithTick(params.baseToken, response.tick), "CH_OPIAS");
-        }
 
         _checkSlippage(
             CheckSlippageParams({
@@ -499,11 +468,11 @@ contract ClearingHouse is
                 ClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
             );
 
-        AccountBalance(accountBalance).addBalance(trader, address(0), 0, 0, -(liquidationFee.toInt256()));
+        AccountBalance(accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        AccountBalance(accountBalance).addBalance(liquidator, address(0), 0, 0, liquidationFee.toInt256());
+        AccountBalance(accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -669,6 +638,7 @@ contract ClearingHouse is
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
+                    isClose: params.isClose,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     fundingGrowthGlobal: params.fundingGrowthGlobal
@@ -680,24 +650,7 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        AccountBalance(accountBalance).addBalance(
-            insuranceFund,
-            address(0),
-            0,
-            0,
-            response.insuranceFundFee.toInt256()
-        );
         AccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
-
-        emit PositionChanged(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee,
-            response.openNotional,
-            response.realizedPnl
-        );
 
         return response;
     }
@@ -708,24 +661,7 @@ contract ClearingHouse is
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
 
-        // if trader is on long side, baseToQuote: true, exactInput: true
-        // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
         bool isLong = positionSize > 0 ? true : false;
-
-        uint256 positionSizeAbs = positionSize.abs();
-        // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
-        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        uint24 partialCloseRatio = ClearingHouseConfig(clearingHouseConfig).partialCloseRatio();
-        if (
-            Exchange(exchange).isOverPriceLimit(params.baseToken) ||
-            Exchange(exchange).isOverPriceLimitByReplaySwap(params.baseToken, !isLong, positionSize)
-        ) {
-            // CH_AOPLO: already over price limit once
-            require(_blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "CH_AOPLO");
-            _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-            positionSizeAbs = positionSizeAbs.mulRatio(partialCloseRatio);
-        }
-
         return
             _openPosition(
                 InternalOpenPositionParams({
@@ -733,7 +669,8 @@ contract ClearingHouse is
                     baseToken: params.baseToken,
                     isBaseToQuote: isLong,
                     isExactInput: isLong,
-                    amount: positionSizeAbs,
+                    isClose: true,
+                    amount: positionSize.abs(),
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     skipMarginRequirementCheck: true,
                     fundingGrowthGlobal: params.fundingGrowthGlobal
@@ -750,17 +687,6 @@ contract ClearingHouse is
         int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
         int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
         return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
-    }
-
-    function _isIncreasePosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) internal view returns (bool) {
-        // increase position == old/new position are in the same direction
-        int256 positionSize = AccountBalance(accountBalance).getPositionSize(trader, baseToken);
-        bool isOldPositionShort = positionSize < 0 ? true : false;
-        return (positionSize == 0 || isOldPositionShort == isBaseToQuote);
     }
 
     /// @inheritdoc BaseRelayRecipient

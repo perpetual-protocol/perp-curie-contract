@@ -91,12 +91,17 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     ) external {
         // AB_O_EX|CH: only exchange or CH
         require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
-        if (baseToken != address(0)) {
-            AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-            accountInfo.baseBalance = accountInfo.baseBalance.add(base);
-            accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        }
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
+        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
+    }
+
+    function addOwedRealizedPnl(address trader, int256 delta) external {
+        // AB_O_EX|CH: only exchange or CH
+        require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
+
+        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
     function settleQuoteToPnl(

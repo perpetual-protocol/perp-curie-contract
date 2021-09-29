@@ -62,6 +62,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
+        bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         Funding.Growth fundingGrowthGlobal;
@@ -72,11 +73,17 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         uint256 deltaAvailableQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
+        int24 tick;
+    }
+
+    struct InternalSwapResponse {
+        uint256 deltaAvailableBase;
+        uint256 deltaAvailableQuote;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
         uint256 fee;
         uint256 insuranceFundFee;
         int24 tick;
-        int256 realizedPnl;
-        int256 openNotional;
     }
 
     struct SwapCallbackData {
@@ -94,6 +101,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     address public orderBook;
     address public accountBalance;
     address public clearingHouseConfig;
+    address public insuranceFund;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;
@@ -103,9 +111,22 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     // key: base token
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
+
+    // first key: trader, second key: baseToken
+    // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
+    mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
     //
     // EVENT
     //
+    event PositionChanged(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl
+    );
 
     /// @param fundingPayment > 0: payment, < 0 : receipt
     event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
@@ -118,7 +139,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     function initialize(
         address marketRegistryArg,
         address orderBookArg,
-        address clearingHouseConfigArg
+        address clearingHouseConfigArg,
+        address insuranceFundArg
     ) external initializer {
         __ClearingHouseCallee_init(marketRegistryArg);
 
@@ -126,8 +148,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         require(orderBookArg.isContract(), "E_OBNC");
         // E_CHNC: CH is not contract
         require(clearingHouseConfigArg.isContract(), "E_CHNC");
+        // E_IFANC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "E_IFANC");
 
         // update states
+        insuranceFund = insuranceFundArg;
         orderBook = orderBookArg;
         clearingHouseConfig = clearingHouseConfigArg;
     }
@@ -152,14 +177,47 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
-    function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory response) {
+    function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
-        int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0 ? true : false;
-        bool isIncreasePosition = (positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
+        bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
 
-        response = _swap(params);
+        // if over price limit when
+        // 1. close a position, then partial close the position
+        // 2. reduce a position, then revert
+        if (params.isClose) {
+            // if trader is on long side, baseToQuote: true, exactInput: true
+            // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
+            // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
+            if (
+                _isOverPriceLimit(params.baseToken) ||
+                _isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
+            ) {
+                // EX_AOPLO: already over price limit once
+                require(
+                    _blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken],
+                    "EX_AOPLO"
+                );
+                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
+                params.amount = positionSize.abs().mulRatio(
+                    ClearingHouseConfig(clearingHouseConfig).partialCloseRatio()
+                );
+            }
+        } else {
+            if (isReducePosition) {
+                // EX_OPIBS: over price limit before swap
+                require(!_isOverPriceLimit(params.baseToken), "EX_OPIBS");
+            }
+        }
+
+        int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
+
+        InternalSwapResponse memory response = _swap(params);
+
+        if (!params.isClose && isReducePosition) {
+            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
+        }
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
@@ -171,11 +229,11 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
             0
         );
 
-        response.openNotional = getOpenNotional(params.trader, params.baseToken);
+        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
+        int256 realizedPnl;
 
         // there is only realizedPnl when it's not increasing the position size
-        if (!isIncreasePosition) {
-            int256 realizedPnl;
+        if (isReducePosition) {
             // closedRatio is based on the position size
             uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
             int256 deltaAvailableQuote =
@@ -193,9 +251,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 // step 2: short 10 base (reduce half of the position)
                 // deltaAvailableQuote = 137.5
                 // closeRatio = 10/20 = 0.5
-                // reducedOpenNotional = oldOpenNotional * closedRatio = -252.53 * 0.5 = -126.265
+                // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
                 // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 137.5 + 11.235 = 126.265
                 // openNotional = -openNotionalFraction = 126.265
                 int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
@@ -211,8 +269,8 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 // closeRatio = 30/20 = 1.5
                 // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
                 // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-                // realizedPnl = closedPositionNotional + oldOpenNotional = -252.53 + 225 = -27.53
-                // openNotionalFraction = oldOpenNotionalFraction - deltaAvailableQuote + realizedPnl
+                // realizedPnl = closedPositionNotional + openNotional = -252.53 + 225 = -27.53
+                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
                 int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
@@ -223,10 +281,28 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 // https://app.asana.com/0/1200338471046334/1201034555932071/f
                 AccountBalance(accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
             }
-            response.realizedPnl = realizedPnl;
         }
 
-        return response;
+        AccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
+
+        emit PositionChanged(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional,
+            response.fee,
+            openNotional,
+            realizedPnl
+        );
+
+        return
+            SwapResponse({
+                deltaAvailableBase: response.deltaAvailableBase,
+                deltaAvailableQuote: response.deltaAvailableQuote,
+                exchangedPositionSize: response.exchangedPositionSize,
+                exchangedPositionNotional: response.exchangedPositionNotional,
+                tick: response.tick
+            });
     }
 
     function settleAllFunding(address trader) external {
@@ -306,42 +382,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
-    function isOverPriceLimitByReplaySwap(
-        address baseToken,
-        bool isBaseToQuote,
-        int256 positionSize
-    ) external returns (bool) {
-        ReplaySwapParams memory replaySwapParams =
-            ReplaySwapParams({
-                baseToken: baseToken,
-                isBaseToQuote: !isBaseToQuote,
-                isExactInput: !isBaseToQuote,
-                amount: positionSize.abs(),
-                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
-            });
-        return isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
-    }
-
     //
     // EXTERNAL VIEW
     //
-
-    function isOverPriceLimitWithTick(address baseToken, int24 tick) public view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
-            return false;
-        }
-        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
-        return (tick < lowerTickBound || tick > upperTickBound);
-    }
-
-    function isOverPriceLimit(address baseToken) external view returns (bool) {
-        int24 tick = getTick(baseToken);
-        return isOverPriceLimitWithTick(baseToken, tick);
-    }
 
     // TODO should be able to remove if we can remove CH._hasPool
     function getPool(address baseToken) external view returns (address) {
@@ -453,6 +496,23 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     // INTERNAL NON-VIEW
     //
 
+    function _isOverPriceLimitByReplaySwap(
+        address baseToken,
+        bool isBaseToQuote,
+        int256 positionSize
+    ) internal returns (bool) {
+        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
+        ReplaySwapParams memory replaySwapParams =
+            ReplaySwapParams({
+                baseToken: baseToken,
+                isBaseToQuote: !isBaseToQuote,
+                isExactInput: !isBaseToQuote,
+                amount: positionSize.abs(),
+                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
+            });
+        return _isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
+    }
+
     /// @return the resulting tick (derived from price) after replaying the swap
     function replaySwap(ReplaySwapParams memory params) internal returns (int24) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
@@ -485,7 +545,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     }
 
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
-    function _swap(SwapParams memory params) internal returns (SwapResponse memory) {
+    function _swap(SwapParams memory params) internal returns (InternalSwapResponse memory) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
@@ -559,16 +619,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         }
 
         return
-            SwapResponse({
+            InternalSwapResponse({
                 deltaAvailableBase: exchangedPositionSize.abs(),
                 deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()).abs(),
                 exchangedPositionSize: exchangedPositionSize,
                 exchangedPositionNotional: exchangedPositionNotional,
-                realizedPnl: 0,
                 fee: replayResponse.fee,
                 insuranceFundFee: replayResponse.insuranceFundFee,
-                tick: replayResponse.tick,
-                openNotional: 0
+                tick: replayResponse.tick
             });
     }
 
@@ -601,6 +659,23 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
     //
     // INTERNAL VIEW
     //
+
+    function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
+        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxTickDelta == 0) {
+            return false;
+        }
+        int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
+        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
+        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        return (tick < lowerTickBound || tick > upperTickBound);
+    }
+
+    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
+        int24 tick = getTick(baseToken);
+        return _isOverPriceLimitWithTick(baseToken, tick);
+    }
 
     function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
