@@ -189,10 +189,10 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         if (params.isClose) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-            // simulate the tx to see if it isOverPriceLimit; if true, can partially close the position only once
+            // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
-                isOverPriceLimit(params.baseToken) ||
-                isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
+                _isOverPriceLimit(params.baseToken) ||
+                _isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
             ) {
                 // EX_AOPLO: already over price limit once
                 require(
@@ -207,7 +207,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         } else {
             if (isReducePosition) {
                 // EX_OPIBS: over price limit before swap
-                require(!isOverPriceLimit(params.baseToken), "EX_OPIBS");
+                require(!_isOverPriceLimit(params.baseToken), "EX_OPIBS");
             }
         }
 
@@ -216,7 +216,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducePosition) {
-            require(!isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
+            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
         }
 
         // examples:
@@ -382,7 +382,7 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
-    function isOverPriceLimitByReplaySwap(
+    function _isOverPriceLimitByReplaySwap(
         address baseToken,
         bool isBaseToQuote,
         int256 positionSize
@@ -396,14 +396,14 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
                 amount: positionSize.abs(),
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
-        return isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
+        return _isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
     }
 
     //
     // EXTERNAL VIEW
     //
 
-    function isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
+    function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         if (maxTickDelta == 0) {
             return false;
@@ -415,9 +415,9 @@ contract Exchange is IUniswapV3MintCallback, IUniswapV3SwapCallback, ClearingHou
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
-    function isOverPriceLimit(address baseToken) internal view returns (bool) {
+    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
         int24 tick = getTick(baseToken);
-        return isOverPriceLimitWithTick(baseToken, tick);
+        return _isOverPriceLimitWithTick(baseToken, tick);
     }
 
     // TODO should be able to remove if we can remove CH._hasPool
