@@ -185,6 +185,26 @@ contract Exchange is
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
 
+    /// @inheritdoc IUniswapV3MintCallback
+    function uniswapV3MintCallback(
+        uint256 amount0Owed,
+        uint256 amount1Owed,
+        bytes calldata data
+    ) external override {
+        // not order book
+        require(_msgSender() == orderBook, "E_NOB");
+        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    /// @inheritdoc IUniswapV3SwapCallback
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external override checkCallback {
+        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
     function swap(SwapParams memory params) external onlyClearingHouse returns (SwapResponse memory) {
         int256 positionSize = AccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
@@ -370,26 +390,6 @@ contract Exchange is
         return fundingGrowthGlobal;
     }
 
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        // not order book
-        require(_msgSender() == orderBook, "E_NOB");
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    /// @inheritdoc IUniswapV3SwapCallback
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override checkCallback {
-        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
-    }
-
     //
     // EXTERNAL VIEW
     //
@@ -518,11 +518,11 @@ contract Exchange is
                 amount: positionSize.abs(),
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
-        return _isOverPriceLimitWithTick(baseToken, replaySwap(replaySwapParams));
+        return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));
     }
 
     /// @return the resulting tick (derived from price) after replaying the swap
-    function replaySwap(ReplaySwapParams memory params) internal returns (int24) {
+    function _replaySwap(ReplaySwapParams memory params) internal returns (int24) {
         MarketRegistry.MarketInfo memory marketInfo = MarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;

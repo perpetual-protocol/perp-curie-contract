@@ -23,6 +23,15 @@ contract ClearingHouseConfig is SafeOwnable {
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
     //
+    // MODIFIER
+    //
+    modifier checkRatio(uint24 ratio) {
+        // CHC_RO: ratio overflow
+        require(ratio <= 1e6, "CHC_RO");
+        _;
+    }
+
+    //
     // CONSTRUCTOR
     //
     function initialize() public initializer {
@@ -33,15 +42,6 @@ contract ClearingHouseConfig is SafeOwnable {
         liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
         partialCloseRatio = 25e4; // partial close ratio, 25%
         twapInterval = 15 minutes;
-    }
-
-    //
-    // MODIFIER
-    //
-    modifier checkRatio(uint24 ratio) {
-        // CHC_RO: ratio overflow
-        require(ratio <= 1e6, "CHC_RO");
-        _;
     }
 
     //

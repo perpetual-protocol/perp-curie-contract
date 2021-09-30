@@ -13,6 +13,15 @@ abstract contract SafeOwnable is ContextUpgradeable {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        // caller not owner
+        require(owner() == _msgSender(), "SO_CNO");
+        _;
+    }
+
+    /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
 
@@ -21,29 +30,6 @@ abstract contract SafeOwnable is ContextUpgradeable {
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view virtual returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Returns the candidate that can become the owner.
-     */
-    function candidate() public view returns (address) {
-        return _candidate;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        // caller not owner
-        require(owner() == _msgSender(), "SO_CNO");
-        _;
     }
 
     /**
@@ -89,5 +75,19 @@ abstract contract SafeOwnable is ContextUpgradeable {
         emit OwnershipTransferred(_owner, _candidate);
         _owner = _candidate;
         _candidate = address(0);
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Returns the candidate that can become the owner.
+     */
+    function candidate() public view returns (address) {
+        return _candidate;
     }
 }
