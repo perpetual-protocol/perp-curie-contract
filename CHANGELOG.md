@@ -8,12 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - add parameter `insuranceFundArg` to `initialize` of Exchange 
+
 ### Removed
 - remove parameter `insuranceFundArg` from `initialize` of ClearingHouse 
 - remove event `PositionChanged` from ClearingHouse
+- remove `getTotalAbsPositionValue` from `AccountBalance`
+- remove parameter `marketRegistryArg` from `initialize` of AccountBalance 
+
 ### Changed
 - move event `PositionChanged` to Exchange
-- AccountBalance no longer depends on `marketRegistry` contract for `initialize()`
+- combine `getTotalUnrealizedPnl` and `getOwedRealizedPnl` to `getOwedAndUnrealizedPnl`
+- move `getLiquidateMarginRequirement` from `Vault` to `AccountBalance`
 
 - ## [0.9.4] - 2021-09-28
 ### Changed
