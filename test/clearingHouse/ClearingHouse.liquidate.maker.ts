@@ -149,4 +149,180 @@ describe("ClearingHouse liquidate maker", () => {
             "PositionLiquidated",
         )
     })
+
+    describe("maker has multiple orders", async () => {
+        beforeEach(async () => {
+            await pool2.initialize(encodePriceSqrt("10", "1"))
+            await marketRegistry.addPool(baseToken2.address, "10000")
+
+            // alice add v2 style liquidity on pool2
+            await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
+            await deposit(alice, vault, 200, collateral)
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken2.address,
+                base: parseEther("10"),
+                quote: parseEther("100"),
+                lowerTick,
+                upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // so do carol (to avoid liquidity is 0 when any of the maker remove 100% liquidity)
+            await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
+            await deposit(carol, vault, 1000, collateral)
+            await clearingHouse.connect(carol).addLiquidity({
+                baseToken: baseToken2.address,
+                base: parseEther("90"),
+                quote: parseEther("900"),
+                lowerTick,
+                upperTick,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+        })
+
+        it("maker loss on both pools, should cancel all of her orders and liquidate all of them", async () => {
+            // bob long on pool1
+            await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
+            await deposit(bob, vault, 10000000, collateral)
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long on pool2
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // pool1 and pool2 index price goes up so that alice can be liquidated
+            setPool1IndexPrice(100000)
+            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100000", 6), 0, 0, 0]
+            })
+
+            // cancel maker's order on all markets
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
+
+            // liquidate maker's position on pool2
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+        })
+
+        it("maker loss on pool1, should cancel all of her orders and liquidate on pool1", async () => {
+            // bob long on pool1
+            await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
+            await deposit(bob, vault, 10000000, collateral)
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long on pool2
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // only pool1 index price goes up
+            setPool1IndexPrice(100000)
+
+            // cancel maker's order on all markets
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
+
+            // liquidate maker's position on pool1
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+
+            // maker's margin ratio goes up, another liquidation will fail
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.be.revertedWith(
+                "CH_EAV",
+            )
+        })
+
+        it("maker loss on pool1, should cancel all of her orders and liquidate on pool2 then pool1", async () => {
+            // bob long on pool1
+            await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
+            await deposit(bob, vault, 10000000, collateral)
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // bob long on pool2
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken2.address,
+                isBaseToQuote: false, // quote to base
+                isExactInput: true,
+                oppositeAmountBound: 0, // exact input (quote)
+                amount: parseEther("1000"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // only pool1 index price goes up
+            setPool1IndexPrice(100000)
+
+            // cancel maker's order on all markets
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+            await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
+
+            // liquidate maker's position on pool2, but the margin ratio is still too low, maker will be liquidated on pool1
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+
+            // liquidate maker's position on pool1
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "PositionLiquidated",
+            )
+        })
+    })
 })
