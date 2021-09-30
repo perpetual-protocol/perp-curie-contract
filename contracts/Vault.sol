@@ -193,8 +193,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) = AccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
-        int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl, decimals);
+        int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), decimals);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValue = totalCollateralValue.addS(unrealizedPnl, decimals);
