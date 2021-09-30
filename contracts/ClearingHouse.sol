@@ -14,7 +14,6 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
@@ -26,11 +25,13 @@ import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { Exchange } from "./Exchange.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
-import { OrderBook } from "./OrderBook.sol";
+import { IOrderBook } from "./interface/IOrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 import { AccountBalance } from "./AccountBalance.sol";
+import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -38,7 +39,7 @@ contract ClearingHouse is
     ReentrancyGuardUpgradeable,
     Validation,
     OwnerPausable,
-    BaseRelayRecipient
+    ClearingHouseStorageV1
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -158,29 +159,6 @@ contract ClearingHouse is
     }
 
     //
-    // STATE
-    //
-
-    // --------- IMMUTABLE ---------
-
-    address public quoteToken;
-    address public uniswapV3Factory;
-
-    // cache the settlement token's decimals for gas optimization
-    uint8 internal _settlementTokenDecimals;
-
-    // --------- ^^^^^^^^^ ---------
-
-    // not used in CH, due to inherit from BaseRelayRecipient
-    string public override versionRecipient;
-
-    address public clearingHouseConfig;
-    address public vault;
-    address public exchange;
-    address public orderBook;
-    address public accountBalance;
-
-    //
     // EVENT
     //
 
@@ -280,9 +258,9 @@ contract ClearingHouse is
 
         // note that we no longer check available tokens here because CH will always auto-mint
         // when requested by UniswapV3MintCallback
-        OrderBook.AddLiquidityResponse memory response =
-            OrderBook(orderBook).addLiquidity(
-                OrderBook.AddLiquidityParams({
+        IOrderBook.AddLiquidityResponse memory response =
+            IOrderBook(orderBook).addLiquidity(
+                IOrderBook.AddLiquidityParams({
                     trader: trader,
                     baseToken: params.baseToken,
                     base: params.base,
@@ -488,7 +466,7 @@ contract ClearingHouse is
     }
 
     function cancelAllExcessOrders(address maker, address baseToken) external whenNotPaused nonReentrant {
-        bytes32[] memory orderIds = OrderBook(orderBook).getOpenOrderIds(maker, baseToken);
+        bytes32[] memory orderIds = IOrderBook(orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -501,7 +479,7 @@ contract ClearingHouse is
         // not orderBook
         require(_msgSender() == orderBook, "CH_NOB");
 
-        OrderBook.MintCallbackData memory callbackData = abi.decode(data, (OrderBook.MintCallbackData));
+        IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));
 
         if (amount0Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token0();
@@ -574,8 +552,8 @@ contract ClearingHouse is
 
         // must settle funding before getting token info
         Exchange(exchange).settleFunding(maker, baseToken);
-        OrderBook.RemoveLiquidityResponse memory response =
-            OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
+        IOrderBook.RemoveLiquidityResponse memory response =
+            IOrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
         AccountBalance(accountBalance).addBalance(
             maker,
@@ -593,9 +571,9 @@ contract ClearingHouse is
     {
         // must settle funding before getting token info
         Exchange(exchange).settleFunding(params.maker, params.baseToken);
-        OrderBook.RemoveLiquidityResponse memory response =
-            OrderBook(orderBook).removeLiquidity(
-                OrderBook.RemoveLiquidityParams({
+        IOrderBook.RemoveLiquidityResponse memory response =
+            IOrderBook(orderBook).removeLiquidity(
+                IOrderBook.RemoveLiquidityParams({
                     maker: params.maker,
                     baseToken: params.baseToken,
                     lowerTick: params.lowerTick,

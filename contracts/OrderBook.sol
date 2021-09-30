@@ -25,8 +25,16 @@ import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
+import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
+import { IOrderBook } from "./interface/IOrderBook.sol";
 
-contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3CallbackBridge {
+contract OrderBook is
+    IOrderBook,
+    IUniswapV3MintCallback,
+    ClearingHouseCallee,
+    UniswapV3CallbackBridge,
+    OrderBookStorageV1
+{
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -39,41 +47,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     using PerpSafeCast for int256;
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
-    //
-    // STRUCT
-    //
-
-    struct AddLiquidityParams {
-        address trader;
-        address baseToken;
-        uint256 base;
-        uint256 quote;
-        int24 lowerTick;
-        int24 upperTick;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct AddLiquidityResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 fee;
-        uint128 liquidity;
-    }
-
-    struct RemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 liquidity;
-    }
-
-    struct RemoveLiquidityResponse {
-        uint256 base;
-        uint256 quote;
-        uint256 fee;
-    }
-
     struct InternalAddLiquidityToOrderParams {
         address maker;
         address baseToken;
@@ -83,23 +56,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         uint256 feeGrowthGlobalX128;
         uint128 liquidity;
         Funding.Growth globalFundingGrowth;
-    }
-
-    /// @param lastFeeGrowthInsideX128 fees in quote token recorded in Exchange
-    ///        because of block-based funding, quote-only and customized fee, all fees are in quote token
-    struct OpenOrder {
-        uint128 liquidity;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 lastFeeGrowthInsideX128;
-        int256 lastTwPremiumGrowthInsideX96;
-        int256 lastTwPremiumGrowthBelowX96;
-        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
-    }
-
-    struct MintCallbackData {
-        address trader;
-        address pool;
     }
 
     struct InternalRemoveLiquidityFromOrderParams {
@@ -120,62 +76,6 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         uint256 amountOut;
         uint256 feeAmount;
     }
-
-    struct ReplaySwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool shouldUpdateState;
-        int256 amount;
-        uint160 sqrtPriceLimitX96;
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        Funding.Growth globalFundingGrowth;
-    }
-
-    struct ReplaySwapResponse {
-        int24 tick;
-        uint256 fee; // exchangeFeeRatio
-        uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
-    }
-
-    //
-    // STATE
-    //
-
-    address public exchange;
-    address public quoteToken;
-
-    // first key: trader, second key: base token
-    mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
-
-    // key: openOrderId
-    mapping(bytes32 => OpenOrder) internal _openOrderMap;
-
-    // first key: base token, second key: tick index
-    // value: the accumulator of **Tick.GrowthInfo** outside each tick of each pool
-    mapping(address => mapping(int24 => Tick.GrowthInfo)) internal _growthOutsideTickMap;
-
-    // key: base token
-    // value: the global accumulator of **quote fee transformed from base fee** of each pool
-    mapping(address => uint256) internal _feeGrowthGlobalX128Map;
-
-    //
-    // EVENT
-    //
-
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
 
     //
     // EXTERNAL NON-VIEW
@@ -200,6 +100,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
 
     function addLiquidity(AddLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
@@ -289,6 +190,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
+        override
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
@@ -299,7 +201,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
@@ -332,7 +234,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
-    ) external returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = MarketRegistry(marketRegistry).getPool(baseToken);
@@ -373,7 +275,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
-    function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory) {
+    function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
         require(_msgSender() == exchange, "OB_OEX");
         address pool = MarketRegistry(marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
@@ -497,11 +399,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     // EXTERNAL VIEW
     //
 
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory) {
+    function getOpenOrderIds(address trader, address baseToken) external view override returns (bytes32[] memory) {
         return _openOrderIdsMap[trader][baseToken];
     }
 
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory) {
+    function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder memory) {
         return _openOrderMap[orderId];
     }
 
@@ -510,11 +412,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (OpenOrder memory) {
+    ) external view override returns (OpenOrder memory) {
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
-    function hasOrder(address trader, address[] calldata tokens) external view returns (bool) {
+    function hasOrder(address trader, address[] calldata tokens) external view override returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
             if (_openOrderIdsMap[trader][tokens[i]].length > 0) {
                 return true;
@@ -525,7 +427,12 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
 
     /// @dev note the return value includes maker fee.
     ///      For more details please refer to _getTotalTokenAmountInPool() docstring
-    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256) {
+    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens)
+        external
+        view
+        override
+        returns (uint256)
+    {
         uint256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
@@ -542,7 +449,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address trader,
         address baseToken,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view returns (uint256 tokenAmount) {
+    ) external view override returns (uint256 tokenAmount) {
         return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
     }
 
@@ -552,7 +459,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
-    ) external view returns (int256 liquidityCoefficientInFundingPayment) {
+    ) external view override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = MarketRegistry(marketRegistry).getPool(baseToken);
@@ -583,7 +490,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (uint256) {
+    ) external view override returns (uint256) {
         (uint256 owedFee, ) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(
                 baseToken,
@@ -592,7 +499,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         return owedFee;
     }
 
-    function getFeeGrowthGlobal(address baseToken) external view returns (uint256) {
+    function getFeeGrowthGlobal(address baseToken) external view override returns (uint256) {
         return _feeGrowthGlobalX128Map[baseToken];
     }
 

@@ -2,18 +2,9 @@
 pragma solidity 0.7.6;
 
 import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
 
-contract ClearingHouseConfig is SafeOwnable {
-    //
-    // STATE
-    //
-    uint8 public maxMarketsPerAccount;
-    uint24 public imRatio;
-    uint24 public mmRatio;
-    uint24 public liquidationPenaltyRatio;
-    uint24 public partialCloseRatio;
-    uint32 public twapInterval;
-
+contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // EVENT
     //

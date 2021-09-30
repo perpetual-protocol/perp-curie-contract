@@ -7,17 +7,10 @@ import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
+import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 
-contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable {
+contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
-
-    // --------- IMMUTABLE ---------
-
-    address public override token;
-
-    // --------- ^^^^^^^^^ ---------
-
-    address public borrower;
 
     event Borrowed(address borrower, uint256 amount);
 

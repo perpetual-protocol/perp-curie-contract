@@ -27,18 +27,20 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { IOrderBook } from "./interface/IOrderBook.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { MarketRegistry } from "./MarketRegistry.sol";
-import { OrderBook } from "./OrderBook.sol";
 import { AccountBalance } from "./AccountBalance.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
+import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 
 contract Exchange is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ArbBlockContext
+    ArbBlockContext,
+    ExchangeStorageV1
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -101,27 +103,6 @@ contract Exchange is
         uint256 fee;
     }
 
-    //
-    // STATE
-    //
-
-    address public orderBook;
-    address public accountBalance;
-    address public clearingHouseConfig;
-    address public insuranceFund;
-
-    mapping(address => int24) internal _lastUpdatedTickMap;
-    mapping(address => uint256) internal _firstTradedTimestampMap;
-    mapping(address => uint256) internal _lastSettledTimestampMap;
-    mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
-
-    // key: base token
-    // value: a threshold to limit the price impact per block when reducing or closing the position
-    mapping(address => uint24) private _maxTickCrossedWithinBlockMap;
-
-    // first key: trader, second key: baseToken
-    // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
-    mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
     //
     // EVENT
     //
@@ -418,7 +399,7 @@ contract Exchange is
         AccountMarket.Info memory accountInfo = AccountBalance(accountBalance).getAccountInfo(trader, baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+            IOrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _getPendingFundingPaymentWithLiquidityCoefficient(
@@ -495,7 +476,7 @@ contract Exchange is
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
 
         return
-            OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+            IOrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
                 AccountBalance(accountBalance).getQuote(trader, baseToken)
             );
     }
@@ -536,9 +517,9 @@ contract Exchange is
             );
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
-        OrderBook.ReplaySwapResponse memory response =
-            OrderBook(orderBook).replaySwap(
-                OrderBook.ReplaySwapParams({
+        IOrderBook.ReplaySwapResponse memory response =
+            IOrderBook(orderBook).replaySwap(
+                IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     amount: signedScaledAmountForReplaySwap,
@@ -566,9 +547,9 @@ contract Exchange is
             );
 
         // simulate the swap to calculate the fees charged in exchange
-        OrderBook.ReplaySwapResponse memory replayResponse =
-            OrderBook(orderBook).replaySwap(
-                OrderBook.ReplaySwapParams({
+        IOrderBook.ReplaySwapResponse memory replayResponse =
+            IOrderBook(orderBook).replaySwap(
+                IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
@@ -649,7 +630,7 @@ contract Exchange is
         Funding.Growth memory fundingGrowthGlobal
     ) internal returns (int256 pendingFundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
-            OrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+            IOrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 fundingGrowthGlobal

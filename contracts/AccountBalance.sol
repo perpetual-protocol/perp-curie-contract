@@ -17,8 +17,9 @@ import { OrderBook } from "./OrderBook.sol";
 import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
 import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { AccountBalanceStorageV1 } from "./storage/AccountBalanceStorage.sol";
 
-contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
+contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
@@ -28,28 +29,6 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext {
     using PerpMath for int256;
     using PerpMath for uint160;
     using AccountMarket for AccountMarket.Info;
-
-    //
-    // STATE
-    //
-
-    // 10 wei
-    uint256 internal constant _DUST = 10;
-
-    address public clearingHouseConfig;
-    address public exchange;
-    address public orderBook;
-    address public vault;
-
-    // trader => owedRealizedPnl
-    mapping(address => int256) internal _owedRealizedPnlMap;
-
-    // trader => baseTokens
-    // base token registry of each trader
-    mapping(address => address[]) internal _baseTokensMap;
-
-    // first key: trader, second key: baseToken
-    mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 
     //
     // EXTERNAL NON-VIEW

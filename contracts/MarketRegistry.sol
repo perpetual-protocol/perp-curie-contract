@@ -7,8 +7,9 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
 
-contract MarketRegistry is SafeOwnable {
+contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
 
     //
@@ -20,26 +21,6 @@ contract MarketRegistry is SafeOwnable {
         uint24 uniswapFeeRatio;
         uint24 insuranceFundFeeRatio;
     }
-
-    //
-    // STATE
-    //
-    address public uniswapV3Factory;
-    address public quoteToken;
-    address public clearingHouse;
-    uint8 public maxOrdersPerMarket;
-
-    // key: baseToken, value: pool
-    mapping(address => address) internal _poolMap;
-
-    // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
-    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
-
-    // key: baseToken , uniswap fee will be ignored and use the exchangeFeeRatio instead
-    mapping(address => uint24) internal _exchangeFeeRatioMap;
-
-    // key: baseToken, _uniswapFeeRatioMap cache only
-    mapping(address => uint24) internal _uniswapFeeRatioMap;
 
     //
     // EVENT
