@@ -13,25 +13,6 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
 
     //
-    // STRUCT
-    //
-    struct MarketInfo {
-        address pool;
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        uint24 insuranceFundFeeRatio;
-    }
-
-    //
-    // EVENT
-    //
-    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event ClearingHouseChanged(address indexed clearingHouse);
-    event FeeRatioChanged(address baseToken, uint24 feeRatio);
-    event InsuranceFundFeeRatioChanged(uint24 feeRatio);
-    event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
-
-    //
     // CONSTRUCTOR
     //
     function initialize(address uniswapV3FactoryArg, address quoteTokenArg) external initializer {
@@ -67,7 +48,7 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
     // EXTERNAL ADMIN FUNCTIONS
     //
 
-    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
         // baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "MR_BDN18");
         // clearingHouse base token balance not enough
@@ -106,7 +87,7 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
         return pool;
     }
 
-    function setClearingHouse(address clearingHouseArg) external onlyOwner {
+    function setClearingHouse(address clearingHouseArg) external override onlyOwner {
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "MR_CHNC");
         clearingHouse = clearingHouseArg;
@@ -115,6 +96,7 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
 
     function setFeeRatio(address baseToken, uint24 feeRatio)
         external
+        override
         checkPool(baseToken)
         checkRatio(feeRatio)
         onlyOwner
@@ -125,6 +107,7 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
         external
+        override
         checkPool(baseToken)
         checkRatio(insuranceFundFeeRatioArg)
         onlyOwner
@@ -133,7 +116,7 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
         emit InsuranceFundFeeRatioChanged(insuranceFundFeeRatioArg);
     }
 
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external override onlyOwner {
         maxOrdersPerMarket = maxOrdersPerMarketArg;
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
     }
@@ -141,19 +124,19 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
     //
     // EXTERNAL VIEW
     //
-    function getPool(address baseToken) external view returns (address) {
+    function getPool(address baseToken) external view override returns (address) {
         return _poolMap[baseToken];
     }
 
-    function getFeeRatio(address baseToken) external view returns (uint24) {
+    function getFeeRatio(address baseToken) external view override returns (uint24) {
         return _exchangeFeeRatioMap[baseToken];
     }
 
-    function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24) {
+    function getInsuranceFundFeeRatio(address baseToken) external view override returns (uint24) {
         return _insuranceFundFeeRatioMap[baseToken];
     }
 
-    function getMarketInfo(address baseToken) external view returns (MarketInfo memory) {
+    function getMarketInfo(address baseToken) external view override returns (MarketInfo memory) {
         return
             MarketInfo({
                 pool: _poolMap[baseToken],

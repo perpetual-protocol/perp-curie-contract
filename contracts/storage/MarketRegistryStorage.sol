@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
+pragma abicoder v2;
 
-abstract contract MarketRegistryStorageV1 {
-    address public uniswapV3Factory;
-    address public quoteToken;
-    address public clearingHouse;
-    uint8 public maxOrdersPerMarket;
+import { IMarketRegistry } from "../interface/IMarketRegistry.sol";
+
+abstract contract MarketRegistryStorageV1 is IMarketRegistry {
+    address internal uniswapV3Factory;
+    address internal quoteToken;
+    address public override clearingHouse;
+    uint8 public override maxOrdersPerMarket;
 
     // key: baseToken, value: pool
     mapping(address => address) internal _poolMap;

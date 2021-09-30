@@ -9,17 +9,17 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
-import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { ISettlement } from "./interface/ISettlement.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
+import { ISettlement } from "./interface/ISettlement.sol";
 import { IVault } from "./interface/IVault.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
-import { AccountBalance } from "./AccountBalance.sol";
-import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
-import { Exchange } from "./Exchange.sol";
+import { IExchange } from "./interface/IExchange.sol";
+import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 
 contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
     using SafeMathUpgradeable for uint256;
@@ -143,8 +143,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         // make sure funding payments are always settled,
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
-        Exchange(exchange).settleAllFunding(to);
-        int256 pnl = AccountBalance(accountBalance).settle(to);
+        IExchange(exchange).settleAllFunding(to);
+        int256 pnl = IAccountBalance(accountBalance).settle(to);
         // V_NEFC: not enough freeCollateral
         require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
@@ -158,7 +158,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
             }
         }
 
-        // settle AccountBalance's owedRealizedPnl to collateral
+        // settle IAccountBalance's owedRealizedPnl to collateral
         _modifyBalance(to, token, pnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
 
@@ -170,7 +170,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     //
 
     function getFreeCollateral(address trader) public view returns (uint256) {
-        return PerpMath.max(getFreeCollateralByRatio(trader, _getImRatio()), 0).toUint256();
+        return
+            PerpMath
+                .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()), 0)
+                .toUint256();
     }
 
     /// @dev this function is expensive
@@ -238,16 +241,12 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
     /// @return totalMarginRequirement with decimals == 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
-        uint256 totalDebtValue = AccountBalance(accountBalance).getTotalDebtValue(trader);
+        uint256 totalDebtValue = IAccountBalance(accountBalance).getTotalDebtValue(trader);
         return totalDebtValue.mulRatio(ratio);
     }
 
     function _getBalance(address trader, address token) internal view returns (int256) {
         return _balance[trader][token];
-    }
-
-    function _getImRatio() internal view returns (uint24) {
-        return ClearingHouseConfig(clearingHouseConfig).imRatio();
     }
 
     /// @inheritdoc BaseRelayRecipient

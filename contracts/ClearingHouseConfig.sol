@@ -6,14 +6,6 @@ import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStora
 
 contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
-    // EVENT
-    //
-    event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint24 partialCloseRatio);
-    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
-
-    //
     // MODIFIER
     //
     modifier checkRatio(uint24 ratio) {
@@ -40,6 +32,7 @@ contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
         external
+        override
         checkRatio(liquidationPenaltyRatioArg)
         onlyOwner
     {
@@ -47,7 +40,12 @@ contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+    function setPartialCloseRatio(uint24 partialCloseRatioArg)
+        external
+        override
+        checkRatio(partialCloseRatioArg)
+        onlyOwner
+    {
         // CHC_IPCR: invalid partialCloseRatio
         require(partialCloseRatioArg > 0, "CHC_IPCR");
 
@@ -55,7 +53,7 @@ contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+    function setTwapInterval(uint32 twapIntervalArg) external override onlyOwner {
         // CHC_ITI: invalid twapInterval
         require(twapIntervalArg != 0, "CHC_ITI");
 
@@ -63,7 +61,7 @@ contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
         emit TwapIntervalChanged(twapIntervalArg);
     }
 
-    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
+    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external override onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
         emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }

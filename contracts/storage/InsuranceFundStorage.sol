@@ -10,5 +10,5 @@ abstract contract InsuranceFundStorageV1 is IInsuranceFund {
 
     // --------- ^^^^^^^^^ ---------
 
-    address public borrower;
+    address internal borrower;
 }

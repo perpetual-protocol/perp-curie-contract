@@ -6,8 +6,8 @@ import { Tick } from "../lib/Tick.sol";
 import { IOrderBook } from "../interface/IOrderBook.sol";
 
 abstract contract OrderBookStorageV1 is IOrderBook {
-    address public exchange;
-    address public quoteToken;
+    address internal exchange;
+    address internal quoteToken;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;

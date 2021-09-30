@@ -3,21 +3,21 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
+import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { Funding } from "./lib/Funding.sol";
-import { Exchange } from "./Exchange.sol";
-import { OrderBook } from "./OrderBook.sol";
-import { ClearingHouseConfig } from "./ClearingHouseConfig.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
+import { Funding } from "./lib/Funding.sol";
+import { IExchange } from "./interface/IExchange.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { IOrderBook } from "./interface/IOrderBook.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { AccountBalanceStorageV1 } from "./storage/AccountBalanceStorage.sol";
+import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
 
 contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
@@ -35,13 +35,13 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
     //
 
     function initialize(address clearingHouseConfigArg, address exchangeArg) external initializer {
-        // ClearingHouseConfig address is not contract
+        // IClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_CHCNC");
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = Exchange(exchangeArg).orderBook();
-        // OrderBook is not contarct
+        address orderBookArg = IExchange(exchangeArg).orderBook();
+        // IOrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
@@ -63,7 +63,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         int256 base,
         int256 quote,
         int256 owedRealizedPnl
-    ) external {
+    ) external override {
         // AB_O_EX|CH: only exchange or CH
         require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
@@ -72,7 +72,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external {
+    function addOwedRealizedPnl(address trader, int256 delta) external override {
         // AB_O_EX|CH: only exchange or CH
         require(_msgSender() == exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
 
@@ -83,7 +83,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         address trader,
         address baseToken,
         int256 amount
-    ) external {
+    ) external override {
         // AB_OEX: only exchange
         require(_msgSender() == exchange, "AB_OEX");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
@@ -95,20 +95,20 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         address trader,
         address baseToken,
         int256 lastTwPremiumGrowthGlobalX96
-    ) external {
+    ) external override {
         // AB_OEX: only exchange
         require(_msgSender() == exchange, "AB_OEX");
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
     /// @dev this function is expensive
-    function deregisterBaseToken(address trader, address baseToken) external onlyClearingHouse {
+    function deregisterBaseToken(address trader, address baseToken) external override onlyClearingHouse {
         if (getBase(trader, baseToken).abs() >= _DUST || getQuote(trader, baseToken).abs() >= _DUST) {
             return;
         }
 
-        uint256 baseInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
-        uint256 quoteInPool = OrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
+        uint256 baseInPool = IOrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = IOrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
         if (baseInPool > 0 || quoteInPool > 0) {
             return;
         }
@@ -129,7 +129,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         }
     }
 
-    function registerBaseToken(address trader, address baseToken) external onlyClearingHouse {
+    function registerBaseToken(address trader, address baseToken) external override onlyClearingHouse {
         address[] memory tokens = _baseTokensMap[trader];
         if (tokens.length == 0) {
             _baseTokensMap[trader].push(baseToken);
@@ -147,7 +147,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
             }
             if (!hit) {
                 // markets number exceeded
-                uint8 maxMarketsPerAccount = ClearingHouseConfig(clearingHouseConfig).maxMarketsPerAccount();
+                uint8 maxMarketsPerAccount = IClearingHouseConfig(clearingHouseConfig).maxMarketsPerAccount();
                 require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "AB_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
@@ -155,7 +155,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
     }
 
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external returns (int256 pnl) {
+    function settle(address trader) external override returns (int256 pnl) {
         // only vault
         require(_msgSender() == vault, "AB_OV");
         pnl = _owedRealizedPnlMap[trader];
@@ -168,22 +168,22 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
     // EXTERNAL VIEW
     //
 
-    function getBaseTokens(address trader) external view returns (address[] memory) {
+    function getBaseTokens(address trader) external view override returns (address[] memory) {
         return _baseTokensMap[trader];
     }
 
-    function hasOrder(address trader) external view returns (bool) {
-        return OrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
+    function hasOrder(address trader) external view override returns (bool) {
+        return IOrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
 
     /// @dev get margin requirement for determining liquidation.
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
-    function getLiquidateMarginRequirement(address trader) external view returns (int256) {
+    function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
         return
-            _getTotalAbsPositionValue(trader).mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
+            _getTotalAbsPositionValue(trader).mulRatio(IClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
     }
 
-    function getTotalDebtValue(address trader) external view returns (uint256) {
+    function getTotalDebtValue(address trader) external view override returns (uint256) {
         int256 totalQuoteBalance;
         uint256 totalBaseDebtValue;
         uint256 tokenLen = _baseTokensMap[trader].length;
@@ -204,7 +204,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
 
-    function getOwedAndUnrealizedPnl(address trader) external view returns (int256, int256) {
+    function getOwedAndUnrealizedPnl(address trader) external view override returns (int256, int256) {
         int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
 
         // unrealized Pnl
@@ -218,20 +218,25 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         return (owedRealizedPnl, unrealizedPnl);
     }
 
-    function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory) {
+    function getAccountInfo(address trader, address baseToken)
+        external
+        view
+        override
+        returns (AccountMarket.Info memory)
+    {
         return _accountMarketMap[trader][baseToken];
     }
 
-    function getBase(address trader, address baseToken) public view returns (int256) {
+    function getBase(address trader, address baseToken) public view override returns (int256) {
         return _accountMarketMap[trader][baseToken].baseBalance;
     }
 
-    function getQuote(address trader, address baseToken) public view returns (int256) {
+    function getQuote(address trader, address baseToken) public view override returns (int256) {
         return _accountMarketMap[trader][baseToken].quoteBalance;
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
-    function getNetQuoteBalance(address trader) public view returns (int256) {
+    function getNetQuoteBalance(address trader) public view override returns (int256) {
         uint256 tokenLen = _baseTokensMap[trader].length;
         int256 totalQuoteBalance;
         for (uint256 i = 0; i < tokenLen; i++) {
@@ -240,18 +245,18 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
         }
 
         // owedFee is included
-        uint256 totalQuoteInPools = OrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
+        uint256 totalQuoteInPools = IOrderBook(orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
         int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
 
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
-    function getPositionSize(address trader, address baseToken) public view returns (int256) {
+    function getPositionSize(address trader, address baseToken) public view override returns (int256) {
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
         int256 positionSize =
-            OrderBook(orderBook)
+            IOrderBook(orderBook)
                 .getTotalTokenAmountInPool(
                 trader,
                 baseToken,
@@ -264,7 +269,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
 
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
-    function getPositionValue(address trader, address baseToken) public view returns (int256) {
+    function getPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
@@ -278,7 +283,7 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
     //
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(ClearingHouseConfig(clearingHouseConfig).twapInterval());
+        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(clearingHouseConfig).twapInterval());
     }
 
     // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
