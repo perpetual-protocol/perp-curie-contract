@@ -193,12 +193,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-        int256 totalCollateralValue = _getTotalCollateralValue(trader);
+        (int256 owedRealizedPnl, int256 unrealizedPnl) = AccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
+        int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl, decimals);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
-
-        int256 accountValue =
-            totalCollateralValue.addS(AccountBalance(accountBalance).getTotalUnrealizedPnl(trader), decimals);
+        int256 accountValue = totalCollateralValue.addS(unrealizedPnl, decimals);
         uint256 totalInitialMarginRequirement = _getTotalMarginRequirement(trader, ratio);
         return
             PerpMath.min(totalCollateralValue, accountValue).subS(totalInitialMarginRequirement.toInt256(), decimals);
@@ -211,16 +210,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         //  calculating freeCollateral. We should implement some sort of safety check before using this model;
         //  otherwise a trader could drain the entire vault if the index price deviates significantly.
         // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
-    }
-
-    /// @dev get margin requirement for determining liquidation.
-    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
-    function getLiquidateMarginRequirement(address trader) public view override returns (int256) {
-        return
-            AccountBalance(accountBalance)
-                .getTotalAbsPositionValue(trader)
-                .mulRatio(ClearingHouseConfig(clearingHouseConfig).mmRatio())
-                .toInt256();
     }
 
     //
@@ -245,12 +234,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     //
     // INTERNAL VIEW
     //
-
-    function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 balance = balanceOf(trader);
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-        return balance.addS(owedRealizedPnl, decimals);
-    }
 
     /// @return totalMarginRequirement with decimals == 18
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {

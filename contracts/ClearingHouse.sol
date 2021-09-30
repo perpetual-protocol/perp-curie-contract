@@ -134,14 +134,6 @@ contract ClearingHouse is
         Funding.Growth fundingGrowthGlobal;
     }
 
-    struct AfterRemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        uint256 removedBase;
-        uint256 removedQuote;
-        uint256 collectedFee;
-    }
-
     struct ClosePositionParams {
         address baseToken;
         uint160 sqrtPriceLimitX96;
@@ -444,7 +436,10 @@ contract ClearingHouse is
 
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(IVault(vault).getLiquidateMarginRequirement(trader), _settlementTokenDecimals),
+            getAccountValue(trader).lt(
+                AccountBalance(accountBalance).getLiquidateMarginRequirement(trader),
+                _settlementTokenDecimals
+            ),
             "CH_EAV"
         );
 
@@ -547,11 +542,12 @@ contract ClearingHouse is
 
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
     function getAccountValue(address trader) public view returns (int256) {
-        return
-            _getTotalCollateralValue(trader).addS(
-                AccountBalance(accountBalance).getTotalUnrealizedPnl(trader),
-                _settlementTokenDecimals
-            );
+        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
+        (int256 owedRealizedPnl, int256 unrealizedPnl) = AccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
+        int256 totalCollateral =
+            IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
+
+        return totalCollateral.addS(unrealizedPnl, _settlementTokenDecimals);
     }
 
     //
@@ -569,7 +565,10 @@ contract ClearingHouse is
         // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
         require(
             (_getFreeCollateralByRatio(maker, ClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
-                getAccountValue(maker).lt(IVault(vault).getLiquidateMarginRequirement(maker), _settlementTokenDecimals),
+                getAccountValue(maker).lt(
+                    AccountBalance(accountBalance).getLiquidateMarginRequirement(maker),
+                    _settlementTokenDecimals
+                ),
             "CH_NEXO"
         );
 
@@ -577,27 +576,15 @@ contract ClearingHouse is
         Exchange(exchange).settleFunding(maker, baseToken);
         OrderBook.RemoveLiquidityResponse memory response =
             OrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
-        _afterRemoveLiquidity(
-            AfterRemoveLiquidityParams({
-                maker: maker,
-                baseToken: baseToken,
-                removedBase: response.base,
-                removedQuote: response.quote,
-                collectedFee: response.fee
-            })
-        );
-    }
 
-    function _afterRemoveLiquidity(AfterRemoveLiquidityParams memory params) internal {
-        // collect fee to owedRealizedPnl
         AccountBalance(accountBalance).addBalance(
-            params.maker,
-            params.baseToken,
-            params.removedBase.toInt256(),
-            params.removedQuote.toInt256(),
-            params.collectedFee.toInt256()
+            maker,
+            baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
         );
-        AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
+        AccountBalance(accountBalance).deregisterBaseToken(maker, baseToken);
     }
 
     function _removeLiquidity(InternalRemoveLiquidityParams memory params)
@@ -616,15 +603,16 @@ contract ClearingHouse is
                     liquidity: params.liquidity
                 })
             );
-        _afterRemoveLiquidity(
-            AfterRemoveLiquidityParams({
-                maker: params.maker,
-                baseToken: params.baseToken,
-                removedBase: response.base,
-                removedQuote: response.quote,
-                collectedFee: response.fee
-            })
+
+        AccountBalance(accountBalance).addBalance(
+            params.maker,
+            params.baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
         );
+        AccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
+
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
@@ -681,13 +669,6 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW
     //
-
-    /// @dev the return value is in settlement token decimals
-    function _getTotalCollateralValue(address trader) internal view returns (int256) {
-        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
-        int256 owedRealizedPnl = AccountBalance(accountBalance).getOwedRealizedPnl(trader);
-        return IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
-    }
 
     /// @inheritdoc BaseRelayRecipient
     function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
