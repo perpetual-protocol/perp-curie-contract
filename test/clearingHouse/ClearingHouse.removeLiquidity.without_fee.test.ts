@@ -144,7 +144,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.be.revertedWith("CH_BTNE")
+            ).to.be.revertedWith("EX_BTNE")
         })
 
         describe("initialized price = 151.373306858723226652", () => {

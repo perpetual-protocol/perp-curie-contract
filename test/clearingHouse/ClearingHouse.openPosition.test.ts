@@ -140,7 +140,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_BTNE")
+                ).to.be.revertedWith("EX_BTNE")
             })
 
             it("force error due to invalid amount (0)", async () => {

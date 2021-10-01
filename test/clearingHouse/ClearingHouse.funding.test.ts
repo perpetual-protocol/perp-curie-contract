@@ -122,7 +122,7 @@ describe("ClearingHouse funding", () => {
         // TODO change spec
         it.skip("force error, base token does not exist", async () => {
             await expect(exchange.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.revertedWith(
-                "CH_BTNE",
+                "EX_BTNE",
             )
         })
     })
