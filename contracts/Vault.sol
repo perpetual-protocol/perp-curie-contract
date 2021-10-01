@@ -172,9 +172,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValue = totalCollateralValue.addS(unrealizedPnl, decimals);
-        uint256 totalInitialMarginRequirement = _getTotalMarginRequirement(trader, ratio);
-        return
-            PerpMath.min(totalCollateralValue, accountValue).subS(totalInitialMarginRequirement.toInt256(), decimals);
+        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
+        return PerpMath.min(totalCollateralValue, accountValue).subS(totalMarginRequirement.toInt256(), decimals);
 
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
         // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
