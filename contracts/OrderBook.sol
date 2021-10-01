@@ -12,9 +12,8 @@ import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMat
 import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
-import { UniswapV3Broker, IUniswapV3Pool } from "./lib/UniswapV3Broker.sol";
+import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { FeeMath } from "./lib/FeeMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -22,11 +21,8 @@ import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
-import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
-import { VirtualToken } from "./VirtualToken.sol";
 
 contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3CallbackBridge, OrderBookStorageV1 {
     using AddressUpgradeable for address;
