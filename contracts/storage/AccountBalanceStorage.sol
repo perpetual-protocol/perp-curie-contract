@@ -5,9 +5,6 @@ pragma abicoder v2;
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
 abstract contract AccountBalanceStorageV1 {
-    // 10 wei
-    uint256 internal constant _DUST = 10;
-
     address internal clearingHouseConfig;
     address internal exchange;
     address internal orderBook;
