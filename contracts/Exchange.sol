@@ -8,7 +8,7 @@ import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/m
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
@@ -29,7 +29,7 @@ contract Exchange is
     IUniswapV3SwapCallback,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ArbBlockContext,
+    BlockContext,
     ExchangeStorageV1
 {
     using AddressUpgradeable for address;

@@ -14,9 +14,9 @@ import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { AccountBalanceStorageV1 } from "./storage/AccountBalanceStorage.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 
-contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceStorageV1 {
+contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;

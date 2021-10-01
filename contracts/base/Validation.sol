@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
+import { BlockContext } from "../base/BlockContext.sol";
 
-abstract contract Validation is ArbBlockContext {
+abstract contract Validation is BlockContext {
     // __gap is reserved storage
     uint256[50] private __gap;
 
