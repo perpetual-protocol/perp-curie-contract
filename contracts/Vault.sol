@@ -39,6 +39,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
     //
+    // MODIFIER
+    //
+    modifier onlySettlementToken(address token) {
+        // only settlement token
+        require(settlementToken == token, "V_OST");
+        _;
+    }
+
+    //
     // EXTERNAL NON-VIEW
     //
 
@@ -65,7 +74,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         decimals = decimalsArg;
         settlementToken = settlementTokenArg;
         insuranceFund = insuranceFundArg;
-        _addCollateralToken(settlementTokenArg);
         clearingHouseConfig = clearingHouseConfigArg;
         accountBalance = accountBalanceArg;
         exchange = exchangeArg;
@@ -80,10 +88,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         _setTrustedForwarder(trustedForwarderArg);
     }
 
-    function deposit(address token, uint256 amount) external whenNotPaused nonReentrant {
-        // collateralToken not found
-        require(_collateralTokenMap[token], "V_CNF");
-
+    /// @param token The address of the token sender is going to deposit
+    /// @param amount The amount of the token sender is going to deposit
+    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
+    function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address from = _msgSender();
 
         _modifyBalance(from, token, amount.toInt256());
@@ -98,7 +106,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         emit Deposited(token, from, amount);
     }
 
-    function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant {
+    /// @param token The address of the token sender is going to withdraw
+    /// @param amount The amount of the token sender is going to withdraw
+    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
+    function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address to = _msgSender();
 
         // the full process of a trader's withdrawal:
@@ -116,13 +127,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
 
         // borrow settlement token from insurance fund if token balance is not enough
-        if (token == settlementToken) {
-            uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
-            if (vaultBalance < amount) {
-                uint256 borrowAmount = amount - vaultBalance;
-                IInsuranceFund(insuranceFund).borrow(borrowAmount);
-                totalDebt += borrowAmount;
-            }
+        uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
+        if (vaultBalance < amount) {
+            uint256 borrowAmount = amount - vaultBalance;
+            IInsuranceFund(insuranceFund).borrow(borrowAmount);
+            totalDebt += borrowAmount;
         }
 
         // settle IAccountBalance's owedRealizedPnl to collateral
@@ -136,6 +145,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // PUBLIC VIEW
     //
 
+    /// @param trader The address of the trader to query
+    /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
     function getFreeCollateral(address trader) public view returns (uint256) {
         return
             PerpMath
@@ -143,24 +154,15 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
                 .toUint256();
     }
 
-    /// @dev this function is expensive
     function balanceOf(address trader) public view override returns (int256) {
-        int256 settlementTokenValue;
-        for (uint256 i = 0; i < _collateralTokens.length; i++) {
-            address token = _collateralTokens[i];
-            if (settlementToken != token) {
-                revert("TBD - token twap * trader's balance");
-            }
-            // is settlement token
-            settlementTokenValue = settlementTokenValue.add(_getBalance(trader, token));
-        }
-
-        return settlementTokenValue;
+        return _getBalance(trader, settlementToken);
     }
 
-    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    // we will start with the conservative one, then gradually change it to more aggressive ones
-    // to increase capital efficiency.
+    /// @param trader The address of the trader to query
+    /// @param ratio The margin requirement ratio
+    /// @dev there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    /// we will start with the conservative one, then gradually change it to more aggressive ones
+    /// to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
@@ -187,13 +189,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     //
     // INTERNAL NON-VIEW
     //
-
-    function _addCollateralToken(address token) internal {
-        // collateral token existed
-        require(!_collateralTokenMap[token], "V_CTE");
-        _collateralTokenMap[token] = true;
-        _collateralTokens.push(token);
-    }
 
     function _modifyBalance(
         address trader,
