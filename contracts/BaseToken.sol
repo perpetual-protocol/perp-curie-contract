@@ -4,10 +4,9 @@ pragma solidity 0.7.6;
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { VirtualToken } from "./VirtualToken.sol";
 import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
 
-contract BaseToken is IIndexPrice, VirtualToken, BaseTokenStorageV1 {
+contract BaseToken is IIndexPrice, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
 
     function initialize(
