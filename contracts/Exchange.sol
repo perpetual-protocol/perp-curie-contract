@@ -28,6 +28,7 @@ import { IExchange } from "./interface/IExchange.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
     IUniswapV3SwapCallback,
     IExchange,

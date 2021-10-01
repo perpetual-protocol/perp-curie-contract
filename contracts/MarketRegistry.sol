@@ -10,6 +10,7 @@ import { IVirtualToken } from "./interface/IVirtualToken.sol";
 import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
 

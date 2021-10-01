@@ -18,6 +18,7 @@ import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1, BaseRelayRecipient } from "./storage/VaultStorage.sol";
 import { IVault } from "./interface/IVault.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, VaultStorageV1 {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;

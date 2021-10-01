@@ -9,6 +9,7 @@ import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
 

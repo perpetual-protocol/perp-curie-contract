@@ -26,6 +26,7 @@ import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract OrderBook is
     IOrderBook,
     IUniswapV3MintCallback,
