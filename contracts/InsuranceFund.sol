@@ -5,7 +5,6 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 
