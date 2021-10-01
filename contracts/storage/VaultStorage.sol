@@ -2,27 +2,32 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { IVault } from "../interface/IVault.sol";
-import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
+import { IVaultStorageV1 } from "../interface/IVaultStorage.sol";
+import { BaseRelayRecipient, IRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
 
-abstract contract VaultStorageV1 is BaseRelayRecipient, IVault {
+abstract contract VaultStorageV1 is BaseRelayRecipient, IVaultStorageV1 {
     // --------- IMMUTABLE ---------
 
-    // cached the settlement token's decimal for gas optimization
+    /// @inheritdoc IVaultStorageV1
     uint8 public override decimals;
 
-    address public settlementToken;
+    /// @inheritdoc IVaultStorageV1
+    address public override settlementToken;
 
     // --------- ^^^^^^^^^ ---------
 
-    address public clearingHouseConfig;
-    address public accountBalance;
-    address public insuranceFund;
-    address public exchange;
+    /// @inheritdoc IVaultStorageV1
+    address public override clearingHouseConfig;
+    /// @inheritdoc IVaultStorageV1
+    address public override accountBalance;
+    /// @inheritdoc IVaultStorageV1
+    address public override insuranceFund;
+    /// @inheritdoc IVaultStorageV1
+    address public override exchange;
+    /// @inheritdoc IVaultStorageV1
+    uint256 public override totalDebt;
 
-    uint256 public totalDebt;
-
-    // not used here, due to inherit from BaseRelayRecipient
+    /// @inheritdoc IRelayRecipient
     string public override versionRecipient;
 
     // key: trader, token address

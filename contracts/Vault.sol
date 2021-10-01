@@ -15,11 +15,11 @@ import { IInsuranceFundStorageV1 } from "./interface/IInsuranceFundStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfigStorageV1 } from "./interface/IClearingHouseConfigStorage.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { VaultStorageV1 } from "./storage/VaultStorage.sol";
+import { VaultStorageV1, BaseRelayRecipient } from "./storage/VaultStorage.sol";
+import { IVault } from "./interface/IVault.sol";
 
-contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV1 {
+contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, VaultStorageV1 {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;

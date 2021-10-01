@@ -16,6 +16,7 @@ import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
+import { IVaultStorage } from "./interface/IVaultStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IExchangeStorageV1 } from "./interface/IExchangeStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
@@ -138,7 +139,7 @@ contract ClearingHouse is
         orderBook = orderBookArg;
         accountBalance = accountBalanceArg;
 
-        _settlementTokenDecimals = IVault(vault).decimals();
+        _settlementTokenDecimals = IVaultStorage(vault).decimals();
 
         // we don't use this var
         versionRecipient = "2.0.0";
