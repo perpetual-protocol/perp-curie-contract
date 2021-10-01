@@ -5,7 +5,6 @@ pragma abicoder v2;
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
@@ -14,23 +13,21 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
-import { Validation } from "./base/Validation.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
+import { BlockContext } from "./base/BlockContext.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
-    ReentrancyGuardUpgradeable,
-    Validation,
-    OwnerPausable,
+    IClearingHouse,
+    BlockContext,
     ClearingHouseStorageV1
 {
     using AddressUpgradeable for address;
@@ -47,12 +44,48 @@ contract ClearingHouse is
     using SettlementTokenMath for int256;
 
     //
+    // STRUCT
+    //
+    struct InternalOpenPositionParams {
+        address trader;
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        bool isClose;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+        bool skipMarginRequirementCheck;
+        Funding.Growth fundingGrowthGlobal;
+    }
+
+    struct InternalClosePositionParams {
+        address trader;
+        address baseToken;
+        uint160 sqrtPriceLimitX96;
+        Funding.Growth fundingGrowthGlobal;
+    }
+
+    struct InternalCheckSlippageParams {
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 deltaAvailableQuote;
+        uint256 deltaAvailableBase;
+        uint256 oppositeAmountBound;
+    }
+
+    //
     // MODIFIER
     //
 
     modifier onlyExchange() {
         // only exchange
         require(_msgSender() == exchange, "CH_OE");
+        _;
+    }
+
+    modifier checkDeadline(uint256 deadline) {
+        // transaction expires
+        require(_blockTimestamp() <= deadline, "CH_TE");
         _;
     }
 
@@ -112,6 +145,7 @@ contract ClearingHouse is
         _setTrustedForwarder(trustedForwarderArg);
     }
 
+    /// @inheritdoc IClearingHouse
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
@@ -164,6 +198,7 @@ contract ClearingHouse is
             });
     }
 
+    /// @inheritdoc IClearingHouse
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
@@ -203,6 +238,7 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    /// @inheritdoc IClearingHouse
     function openPosition(OpenPositionParams memory params)
         external
         override
@@ -246,6 +282,7 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
+    /// @inheritdoc IClearingHouse
     function closePosition(ClosePositionParams calldata params)
         external
         override
@@ -285,6 +322,7 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
+    /// @inheritdoc IClearingHouse
     function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
         // per liquidation specs:
         //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
@@ -343,6 +381,7 @@ contract ClearingHouse is
         );
     }
 
+    /// @inheritdoc IClearingHouse
     function cancelExcessOrders(
         address maker,
         address baseToken,
@@ -351,6 +390,7 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
+    /// @inheritdoc IClearingHouse
     function cancelAllExcessOrders(address maker, address baseToken) external override whenNotPaused nonReentrant {
         bytes32[] memory orderIds = IOrderBook(orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
@@ -404,7 +444,7 @@ contract ClearingHouse is
     // EXTERNAL VIEW
     //
 
-    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in settlement token's decimals
+    /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
@@ -509,16 +549,6 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW
     //
-
-    /// @inheritdoc BaseRelayRecipient
-    function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
-        return super._msgSender();
-    }
-
-    /// @inheritdoc BaseRelayRecipient
-    function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
-        return super._msgData();
-    }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
         return IVault(vault).getFreeCollateralByRatio(trader, ratio);

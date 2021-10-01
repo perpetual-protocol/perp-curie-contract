@@ -106,5 +106,6 @@ interface IClearingHouse {
 
     function cancelAllExcessOrders(address maker, address baseToken) external;
 
+    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in settlement token's decimals
     function getAccountValue(address trader) external view returns (int256);
 }

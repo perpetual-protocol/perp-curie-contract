@@ -92,7 +92,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     minQuote: 0,
                     deadline: now,
                 }),
-            ).to.revertedWith("V_TE")
+            ).to.revertedWith("CH_TE")
         })
     })
 

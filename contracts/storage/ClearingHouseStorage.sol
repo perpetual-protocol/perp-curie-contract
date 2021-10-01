@@ -1,42 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
-pragma abicoder v2;
 
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { OwnerPausable } from "../base/OwnerPausable.sol";
 import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
-import { Funding } from "../lib/Funding.sol";
-import { IClearingHouse } from "../interface/IClearingHouse.sol";
 
-abstract contract ClearingHouseStorageV1 is BaseRelayRecipient, IClearingHouse {
-    //
-    // STRUCT
-    //
-    struct InternalOpenPositionParams {
-        address trader;
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        bool isClose;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
-        bool skipMarginRequirementCheck;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct InternalClosePositionParams {
-        address trader;
-        address baseToken;
-        uint160 sqrtPriceLimitX96;
-        Funding.Growth fundingGrowthGlobal;
-    }
-
-    struct InternalCheckSlippageParams {
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 deltaAvailableQuote;
-        uint256 deltaAvailableBase;
-        uint256 oppositeAmountBound;
-    }
-
+abstract contract ClearingHouseStorageV1 is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient {
     // --------- IMMUTABLE ---------
     address internal quoteToken;
     address internal uniswapV3Factory;
@@ -53,4 +22,18 @@ abstract contract ClearingHouseStorageV1 is BaseRelayRecipient, IClearingHouse {
     address internal exchange;
     address internal orderBook;
     address internal accountBalance;
+
+    //
+    // INTERNAL VIEW
+    //
+
+    /// @inheritdoc BaseRelayRecipient
+    function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
+        return super._msgSender();
+    }
+
+    /// @inheritdoc BaseRelayRecipient
+    function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
+        return super._msgData();
+    }
 }
