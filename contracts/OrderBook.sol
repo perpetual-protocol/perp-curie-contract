@@ -28,13 +28,7 @@ import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 
-contract OrderBook is
-    IOrderBook,
-    IUniswapV3MintCallback,
-    ClearingHouseCallee,
-    UniswapV3CallbackBridge,
-    OrderBookStorageV1
-{
+contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3CallbackBridge, OrderBookStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -46,36 +40,6 @@ contract OrderBook is
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
     using Tick for mapping(int24 => Tick.GrowthInfo);
-
-    struct InternalAddLiquidityToOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 feeGrowthGlobalX128;
-        uint128 liquidity;
-        Funding.Growth globalFundingGrowth;
-    }
-
-    struct InternalRemoveLiquidityFromOrderParams {
-        address maker;
-        address baseToken;
-        address pool;
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 liquidity;
-    }
-
-    struct SwapStep {
-        uint160 initialSqrtPriceX96;
-        int24 nextTick;
-        bool isNextTickInitialized;
-        uint160 nextSqrtPriceX96;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
-    }
 
     //
     // EXTERNAL NON-VIEW
@@ -294,7 +258,7 @@ contract OrderBook is
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
         while (swapState.amountSpecifiedRemaining != 0 && swapState.sqrtPriceX96 != params.sqrtPriceLimitX96) {
-            SwapStep memory step;
+            InternalSwapStep memory step;
             step.initialSqrtPriceX96 = swapState.sqrtPriceX96;
 
             // find next tick

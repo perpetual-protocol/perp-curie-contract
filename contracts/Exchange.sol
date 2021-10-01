@@ -55,28 +55,6 @@ contract Exchange is
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
     //
-    // STRUCT
-    //
-
-    struct InternalReplaySwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    struct InternalSwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        uint256 fee;
-        uint256 insuranceFundFee;
-        int24 tick;
-    }
-
-    //
     // EXTERNAL NON-VIEW
     //
 

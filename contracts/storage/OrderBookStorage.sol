@@ -3,9 +3,40 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Tick } from "../lib/Tick.sol";
+import { Funding } from "../lib/Funding.sol";
 import { IOrderBook } from "../interface/IOrderBook.sol";
 
 abstract contract OrderBookStorageV1 is IOrderBook {
+    struct InternalAddLiquidityToOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthGlobalX128;
+        uint128 liquidity;
+        Funding.Growth globalFundingGrowth;
+    }
+
+    struct InternalRemoveLiquidityFromOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+    }
+
+    struct InternalSwapStep {
+        uint160 initialSqrtPriceX96;
+        int24 nextTick;
+        bool isNextTickInitialized;
+        uint160 nextSqrtPriceX96;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 feeAmount;
+    }
+
     address internal exchange;
     address internal quoteToken;
 
