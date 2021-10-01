@@ -25,12 +25,6 @@ abstract contract VaultStorageV1 is BaseRelayRecipient, IVault {
     // not used here, due to inherit from BaseRelayRecipient
     string public override versionRecipient;
 
-    address[] internal _collateralTokens;
-
     // key: trader, token address
     mapping(address => mapping(address => int256)) internal _balance;
-
-    // key: token
-    // TODO: change bool to collateral factor
-    mapping(address => bool) internal _collateralTokenMap;
 }
