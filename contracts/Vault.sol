@@ -123,8 +123,10 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         IExchange(exchange).settleAllFunding(to);
         int256 pnl = IAccountBalance(accountBalance).settle(to);
+        int256 freeCollateralByImRatio =
+            getFreeCollateralByRatio(to, IClearingHouseConfig(clearingHouseConfig).imRatio());
         // V_NEFC: not enough freeCollateral
-        require(getFreeCollateral(to).toInt256().add(pnl) >= amount.toInt256(), "V_NEFC");
+        require(freeCollateralByImRatio.add(pnl) >= amount.toInt256(), "V_NEFC");
 
         // borrow settlement token from insurance fund if token balance is not enough
         uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
@@ -147,7 +149,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
 
     /// @param trader The address of the trader to query
     /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
-    function getFreeCollateral(address trader) public view returns (uint256) {
+    function getFreeCollateral(address trader) external view returns (uint256) {
         return
             PerpMath
                 .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()), 0)
@@ -164,7 +166,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     /// we will start with the conservative one, then gradually change it to more aggressive ones
     /// to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
-        // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
+        // conservative config: freeCollateral = min(collateral, accountValue) - imReq, freeCollateral could be negative
         int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
