@@ -2,12 +2,16 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { IMarketRegistry } from "../interface/IMarketRegistry.sol";
+import { IMarketRegistryStorageV1 } from "../interface/IMarketRegistryStorage.sol";
 
-abstract contract MarketRegistryStorageV1 is IMarketRegistry {
+abstract contract MarketRegistryStorageV1 is IMarketRegistryStorageV1 {
     address internal uniswapV3Factory;
     address internal quoteToken;
+
+    /// @inheritdoc IMarketRegistryStorageV1
     address public override clearingHouse;
+
+    /// @inheritdoc IMarketRegistryStorageV1
     uint8 public override maxOrdersPerMarket;
 
     // key: baseToken, value: pool

@@ -8,8 +8,9 @@ import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
 import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
+import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 
-contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
+contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
 
     //

@@ -2,7 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-interface IMarketRegistry {
+import { IMarketRegistryStorage } from "./IMarketRegistryStorage.sol";
+
+interface IMarketRegistry is IMarketRegistryStorage {
     //
     // STRUCT
     //
@@ -46,9 +48,4 @@ interface IMarketRegistry {
     function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24);
 
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory);
-
-    function maxOrdersPerMarket() external view returns (uint8);
-
-    // for test
-    function clearingHouse() external view returns (address);
 }
