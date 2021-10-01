@@ -155,13 +155,13 @@ contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceS
     }
 
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external override returns (int256 pnl) {
+    function settle(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == vault, "AB_OV");
-        pnl = _owedRealizedPnlMap[trader];
+        int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
         _owedRealizedPnlMap[trader] = 0;
 
-        return pnl;
+        return owedRealizedPnl;
     }
 
     //
