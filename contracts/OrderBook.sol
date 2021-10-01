@@ -22,11 +22,11 @@ import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
-import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
-import { VirtualToken } from "./VirtualToken.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
+import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
+import { VirtualToken } from "./VirtualToken.sol";
 
 contract OrderBook is
     IOrderBook,

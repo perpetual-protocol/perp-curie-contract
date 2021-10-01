@@ -23,7 +23,6 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
@@ -31,6 +30,7 @@ import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 
 contract ClearingHouse is

@@ -49,7 +49,7 @@ contract TestClearingHouse is ClearingHouse {
 
     function swap(SwapParams memory params) external nonReentrant() returns (IExchange.SwapResponse memory) {
         _requireHasBaseToken(params.baseToken);
-        AccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
+        IAccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
             TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
@@ -69,8 +69,8 @@ contract TestClearingHouse is ClearingHouse {
     }
 
     function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
-        int256 base = AccountBalance(accountBalance).getBase(trader, baseToken);
-        int256 quote = AccountBalance(accountBalance).getQuote(trader, baseToken);
+        int256 base = IAccountBalance(accountBalance).getBase(trader, baseToken);
+        int256 quote = IAccountBalance(accountBalance).getQuote(trader, baseToken);
         return (base, quote);
     }
 }

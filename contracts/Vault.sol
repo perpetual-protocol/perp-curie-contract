@@ -8,20 +8,20 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ISettlement } from "./interface/ISettlement.sol";
-import { IVault } from "./interface/IVault.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { VaultStorageV1 } from "./storage/VaultStorage.sol";
 
-contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, IVault {
+contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV1 {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
@@ -31,39 +31,6 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     using PerpMath for int256;
     using PerpMath for uint256;
     using AddressUpgradeable for address;
-
-    //
-    // STATE
-    //
-
-    // --------- IMMUTABLE ---------
-
-    // cached the settlement token's decimal for gas optimization
-    uint8 public override decimals;
-
-    address public settlementToken;
-
-    // --------- ^^^^^^^^^ ---------
-
-    address public clearingHouseConfig;
-    address public accountBalance;
-    address public insuranceFund;
-    address public exchange;
-
-    uint256 public totalDebt;
-
-    // not used here, due to inherit from BaseRelayRecipient
-    string public override versionRecipient;
-
-    address[] internal _collateralTokens;
-
-    // key: trader, token address
-    mapping(address => mapping(address => int256)) internal _balance;
-
-    // key: token
-    // TODO: change bool to collateral factor
-    mapping(address => bool) internal _collateralTokenMap;
-
     //
     // EVENT
     //
@@ -196,8 +163,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
-        int256 fundingPayment = Exchange(exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnl, int256 unrealizedPnl) = AccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
+        int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
+        (int256 owedRealizedPnl, int256 unrealizedPnl) =
+            IAccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
         int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), decimals);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
