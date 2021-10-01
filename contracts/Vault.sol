@@ -15,11 +15,12 @@ import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { VaultStorageV1, BaseRelayRecipient } from "./storage/VaultStorage.sol";
+import { VaultStorageV1 } from "./storage/VaultStorage.sol";
 import { IVault } from "./interface/IVault.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, VaultStorageV1 {
+contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV1 {
     using SafeMathUpgradeable for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
@@ -79,7 +80,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, VaultStorag
         exchange = exchangeArg;
 
         // we don't use this var
-        versionRecipient = "2.0.0";
+        _versionRecipient = "2.0.0";
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {

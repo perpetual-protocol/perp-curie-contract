@@ -16,6 +16,8 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      */
     address public trustedForwarder;
 
+    string internal _versionRecipient;
+
     // __gap is reserved storage
     uint256[50] private __gap;
 
@@ -23,6 +25,11 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
 
     function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return forwarder == trustedForwarder;
+    }
+
+    /// @inheritdoc IRelayRecipient
+    function versionRecipient() external view override returns (string memory) {
+        return _versionRecipient;
     }
 
     function _setTrustedForwarder(address trustedForwarderArg) internal {

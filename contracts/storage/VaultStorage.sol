@@ -2,9 +2,8 @@
 pragma solidity 0.7.6;
 
 import { IVaultStorageV1 } from "../interface/IVaultStorage.sol";
-import { BaseRelayRecipient, IRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
 
-abstract contract VaultStorageV1 is BaseRelayRecipient, IVaultStorageV1 {
+abstract contract VaultStorageV1 is IVaultStorageV1 {
     // --------- IMMUTABLE ---------
 
     /// @inheritdoc IVaultStorageV1
@@ -25,9 +24,6 @@ abstract contract VaultStorageV1 is BaseRelayRecipient, IVaultStorageV1 {
     address public override exchange;
     /// @inheritdoc IVaultStorageV1
     uint256 public override totalDebt;
-
-    /// @inheritdoc IRelayRecipient
-    string public override versionRecipient;
 
     // key: trader, token address
     mapping(address => mapping(address => int256)) internal _balance;

@@ -6,9 +6,10 @@ import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract BaseToken is IIndexPrice, VirtualToken, BaseTokenStorageV1 {
+contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
 
     function initialize(

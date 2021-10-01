@@ -21,10 +21,11 @@ import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { ClearingHouseStorageV1, BaseRelayRecipient } from "./storage/ClearingHouseStorage.sol";
+import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -34,6 +35,7 @@ contract ClearingHouse is
     BlockContext,
     ReentrancyGuardUpgradeable,
     OwnerPausable,
+    BaseRelayRecipient,
     ClearingHouseStorageV1
 {
     using AddressUpgradeable for address;
@@ -141,7 +143,7 @@ contract ClearingHouse is
         _settlementTokenDecimals = IVaultStorage(vault).decimals();
 
         // we don't use this var
-        versionRecipient = "2.0.0";
+        _versionRecipient = "2.0.0";
     }
 
     // solhint-disable-next-line func-order

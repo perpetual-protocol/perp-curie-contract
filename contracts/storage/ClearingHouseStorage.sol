@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { BaseRelayRecipient, IRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
-
-abstract contract ClearingHouseStorageV1 is BaseRelayRecipient {
+abstract contract ClearingHouseStorageV1 {
     // --------- IMMUTABLE ---------
     address public quoteToken;
     address public uniswapV3Factory;
@@ -11,9 +9,6 @@ abstract contract ClearingHouseStorageV1 is BaseRelayRecipient {
     // cache the settlement token's decimals for gas optimization
     uint8 internal _settlementTokenDecimals;
     // --------- ^^^^^^^^^ ---------
-
-    /// @inheritdoc IRelayRecipient
-    string public override versionRecipient;
 
     address public clearingHouseConfig;
     address public vault;
