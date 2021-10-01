@@ -6,7 +6,9 @@ import { Funding } from "../lib/Funding.sol";
 import { IExchangeState } from "../interface/IExchangeState.sol";
 
 abstract contract ExchangeStorageV1 is IExchangeState {
+    /// @inheritdoc IExchangeState
     address public override orderBook;
+
     address internal accountBalance;
     address internal clearingHouseConfig;
     address internal insuranceFund;

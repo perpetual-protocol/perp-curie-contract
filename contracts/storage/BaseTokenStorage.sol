@@ -10,5 +10,6 @@ abstract contract BaseTokenStorageV1 is IBaseTokenState {
 
     // --------- ^^^^^^^^^ ---------
 
+    /// @inheritdoc IBaseTokenState
     address public override priceFeed;
 }

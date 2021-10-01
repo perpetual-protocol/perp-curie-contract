@@ -12,7 +12,7 @@ abstract contract ClearingHouseStorageV1 is BaseRelayRecipient {
     uint8 internal _settlementTokenDecimals;
     // --------- ^^^^^^^^^ ---------
 
-    // not used in CH, due to inherit from BaseRelayRecipient
+    /// @inheritdoc BaseRelayRecipient
     string public override versionRecipient;
 
     address internal clearingHouseConfig;
