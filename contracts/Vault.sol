@@ -88,6 +88,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         _setTrustedForwarder(trustedForwarderArg);
     }
 
+    /// @param token The address of the token sender is going to deposit
+    /// @param amount The amount of the token sender is going to deposit
+    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
     function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address from = _msgSender();
 
@@ -103,6 +106,9 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         emit Deposited(token, from, amount);
     }
 
+    /// @param token The address of the token sender is going to withdraw
+    /// @param amount The amount of the token sender is going to withdraw
+    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
     function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address to = _msgSender();
 
@@ -139,6 +145,8 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     // PUBLIC VIEW
     //
 
+    /// @param trader The address of the trader to query
+    /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
     function getFreeCollateral(address trader) public view returns (uint256) {
         return
             PerpMath
@@ -150,9 +158,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         return _getBalance(trader, settlementToken);
     }
 
-    // there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    // we will start with the conservative one, then gradually change it to more aggressive ones
-    // to increase capital efficiency.
+    /// @param trader The address of the trader to query
+    /// @param ratio The margin requirement ratio
+    /// @dev there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
+    /// we will start with the conservative one, then gradually change it to more aggressive ones
+    /// to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = max(min(collateral, accountValue) - imReq, 0)
         int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
