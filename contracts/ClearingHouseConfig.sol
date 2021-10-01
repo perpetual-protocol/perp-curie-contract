@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
+import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
 
-contract ClearingHouseConfig is ClearingHouseConfigStorageV1 {
+// never inherit any new stateful contract. never change the ordering of parent stateful contracts
+contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // EVENT
     //
