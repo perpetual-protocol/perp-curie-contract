@@ -5,8 +5,8 @@ import { BaseRelayRecipient, IRelayRecipient } from "../gsn/BaseRelayRecipient.s
 
 abstract contract ClearingHouseStorageV1 is BaseRelayRecipient {
     // --------- IMMUTABLE ---------
-    address internal quoteToken;
-    address internal uniswapV3Factory;
+    address public quoteToken;
+    address public uniswapV3Factory;
 
     // cache the settlement token's decimals for gas optimization
     uint8 internal _settlementTokenDecimals;
@@ -15,9 +15,9 @@ abstract contract ClearingHouseStorageV1 is BaseRelayRecipient {
     /// @inheritdoc IRelayRecipient
     string public override versionRecipient;
 
-    address internal clearingHouseConfig;
-    address internal vault;
-    address internal exchange;
-    address internal orderBook;
-    address internal accountBalance;
+    address public clearingHouseConfig;
+    address public vault;
+    address public exchange;
+    address public orderBook;
+    address public accountBalance;
 }

@@ -4,10 +4,10 @@ pragma solidity 0.7.6;
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
 abstract contract AccountBalanceStorageV1 {
-    address internal clearingHouseConfig;
-    address internal exchange;
-    address internal orderBook;
-    address internal vault;
+    address public clearingHouseConfig;
+    address public exchange;
+    address public orderBook;
+    address public vault;
 
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;

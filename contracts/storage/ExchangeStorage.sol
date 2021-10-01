@@ -8,9 +8,9 @@ abstract contract ExchangeStorageV1 is IExchangeStorageV1 {
     /// @inheritdoc IExchangeStorageV1
     address public override orderBook;
 
-    address internal accountBalance;
-    address internal clearingHouseConfig;
-    address internal insuranceFund;
+    address public accountBalance;
+    address public clearingHouseConfig;
+    address public insuranceFund;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;

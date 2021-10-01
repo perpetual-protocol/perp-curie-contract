@@ -6,8 +6,8 @@ import { Funding } from "../lib/Funding.sol";
 import { OpenOrder } from "../lib/OpenOrder.sol";
 
 abstract contract OrderBookStorageV1 {
-    address internal exchange;
-    address internal quoteToken;
+    address public exchange;
+    address public quoteToken;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;

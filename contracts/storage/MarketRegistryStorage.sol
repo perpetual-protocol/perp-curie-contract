@@ -4,8 +4,8 @@ pragma solidity 0.7.6;
 import { IMarketRegistryStorageV1 } from "../interface/IMarketRegistryStorage.sol";
 
 abstract contract MarketRegistryStorageV1 is IMarketRegistryStorageV1 {
-    address internal uniswapV3Factory;
-    address internal quoteToken;
+    address public uniswapV3Factory;
+    address public quoteToken;
 
     /// @inheritdoc IMarketRegistryStorageV1
     address public override clearingHouse;
