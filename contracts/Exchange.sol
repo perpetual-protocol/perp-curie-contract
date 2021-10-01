@@ -22,7 +22,7 @@ import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 
 contract Exchange is
@@ -122,7 +122,7 @@ contract Exchange is
                 );
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
                 params.amount = positionSize.abs().mulRatio(
-                    IClearingHouseConfig(clearingHouseConfig).partialCloseRatio()
+                    IClearingHouseConfigState(clearingHouseConfig).partialCloseRatio()
                 );
             }
         } else {
@@ -342,7 +342,7 @@ contract Exchange is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = IClearingHouseConfig(clearingHouseConfig).twapInterval();
+        uint32 twapIntervalArg = IClearingHouseConfigState(clearingHouseConfig).twapInterval();
         // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[baseToken] == 0) {
             twapIntervalArg = 0;

@@ -13,7 +13,7 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
@@ -123,7 +123,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         IExchange(exchange).settleAllFunding(to);
         int256 owedRealizedPnl = IAccountBalance(accountBalance).settle(to);
         int256 freeCollateralByImRatio =
-            getFreeCollateralByRatio(to, IClearingHouseConfig(clearingHouseConfig).imRatio());
+            getFreeCollateralByRatio(to, IClearingHouseConfigState(clearingHouseConfig).imRatio());
         // V_NEFC: not enough freeCollateral
         require(freeCollateralByImRatio.add(owedRealizedPnl) >= amount.toInt256(), "V_NEFC");
 
@@ -151,7 +151,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function getFreeCollateral(address trader) external view returns (uint256) {
         return
             PerpMath
-                .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()), 0)
+                .max(getFreeCollateralByRatio(trader, IClearingHouseConfigState(clearingHouseConfig).imRatio()), 0)
                 .toUint256();
     }
 

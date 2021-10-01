@@ -10,7 +10,7 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
-import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
@@ -143,7 +143,7 @@ contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV
             }
             if (!hit) {
                 // markets number exceeded
-                uint8 maxMarketsPerAccount = IClearingHouseConfig(clearingHouseConfig).maxMarketsPerAccount();
+                uint8 maxMarketsPerAccount = IClearingHouseConfigState(clearingHouseConfig).maxMarketsPerAccount();
                 require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "AB_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
@@ -179,7 +179,9 @@ contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
     function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
         return
-            _getTotalAbsPositionValue(trader).mulRatio(IClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
+            _getTotalAbsPositionValue(trader)
+                .mulRatio(IClearingHouseConfigState(clearingHouseConfig).mmRatio())
+                .toInt256();
     }
 
     /// @inheritdoc IAccountBalance
@@ -287,7 +289,7 @@ contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV
     //
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(clearingHouseConfig).twapInterval());
+        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfigState(clearingHouseConfig).twapInterval());
     }
 
     function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
