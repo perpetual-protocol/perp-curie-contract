@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -20,15 +21,19 @@ import { IExchangeState } from "./interface/IExchangeState.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
+import { ClearingHouseStorageV1, BaseRelayRecipient } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     IClearingHouse,
     BlockContext,
+    ReentrancyGuardUpgradeable,
+    OwnerPausable,
     ClearingHouseStorageV1
 {
     using AddressUpgradeable for address;
@@ -550,6 +555,16 @@ contract ClearingHouse is
     //
     // INTERNAL VIEW
     //
+
+    /// @inheritdoc BaseRelayRecipient
+    function _msgSender() internal view override(BaseRelayRecipient, OwnerPausable) returns (address payable) {
+        return super._msgSender();
+    }
+
+    /// @inheritdoc BaseRelayRecipient
+    function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
+        return super._msgData();
+    }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
         return IVault(vault).getFreeCollateralByRatio(trader, ratio);
