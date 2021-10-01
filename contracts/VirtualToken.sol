@@ -3,8 +3,9 @@ pragma solidity 0.7.6;
 
 import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { IVirtualToken } from "./interface/IVirtualToken.sol";
 
-contract VirtualToken is SafeOwnable, ERC20Upgradeable {
+contract VirtualToken is SafeOwnable, ERC20Upgradeable, IVirtualToken {
     mapping(address => bool) internal _whitelistMap;
 
     // __gap is reserved storage
@@ -34,7 +35,8 @@ contract VirtualToken is SafeOwnable, ERC20Upgradeable {
         emit WhitelistRemoved(account);
     }
 
-    function isInWhitelist(address account) external view returns (bool) {
+    /// @inheritdoc IVirtualToken
+    function isInWhitelist(address account) external view override returns (bool) {
         return _whitelistMap[account];
     }
 

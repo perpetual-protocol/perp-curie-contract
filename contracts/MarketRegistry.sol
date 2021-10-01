@@ -6,7 +6,7 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
-import { VirtualToken } from "./VirtualToken.sol";
+import { IVirtualToken } from "./interface/IVirtualToken.sol";
 import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
 
 contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
@@ -70,14 +70,14 @@ contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "MR_PNI");
 
         // clearingHouse not in baseToken whitelist
-        require(VirtualToken(baseToken).isInWhitelist(clearingHouse), "MR_CNBWL");
+        require(IVirtualToken(baseToken).isInWhitelist(clearingHouse), "MR_CNBWL");
         // pool not in baseToken whitelist
-        require(VirtualToken(baseToken).isInWhitelist(pool), "MR_PNBWL");
+        require(IVirtualToken(baseToken).isInWhitelist(pool), "MR_PNBWL");
 
         // clearingHouse not in quoteToken whitelist
-        require(VirtualToken(quoteToken).isInWhitelist(clearingHouse), "MR_CHNQWL");
+        require(IVirtualToken(quoteToken).isInWhitelist(clearingHouse), "MR_CHNQWL");
         // pool not in quoteToken whitelist
-        require(VirtualToken(quoteToken).isInWhitelist(pool), "MR_PNQWL");
+        require(IVirtualToken(quoteToken).isInWhitelist(pool), "MR_PNQWL");
 
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[baseToken] = feeRatio;
