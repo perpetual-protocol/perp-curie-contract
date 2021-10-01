@@ -64,14 +64,14 @@ interface IClearingHouse {
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
         // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
-        // when it's 0 in exactInput, means ignore slippage protection
-        // when it's maxUint in exactOutput = ignore
+        // when it's set to 0, it will disable slippage protection entirely regardless of exact input or output
         // when it's over or under the bound, it will be reverted
         uint256 oppositeAmountBound;
         uint256 deadline;
         // B2Q: the price cannot be less than this value after the swap
         // Q2B: The price cannot be greater than this value after the swap
         // it will fill the trade until it reach the price limit instead of reverted
+        // when it's set to 0, it will disable price limit entirely regardless of B2Q or Q2B
         uint160 sqrtPriceLimitX96;
         bytes32 referralCode;
     }
