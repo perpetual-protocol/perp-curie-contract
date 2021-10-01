@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
 
-// never inherit any new stateful contract. never change the ordering of parent stateful contracts
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // EVENT

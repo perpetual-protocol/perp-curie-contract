@@ -5,8 +5,10 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
+import { VirtualToken } from "./VirtualToken.sol";
 
-contract BaseToken is IIndexPrice, BaseTokenStorageV1 {
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract BaseToken is IIndexPrice, VirtualToken, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
 
     function initialize(
