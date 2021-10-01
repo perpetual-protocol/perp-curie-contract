@@ -85,7 +85,7 @@ contract ClearingHouse is
         require(exchangeArg.isContract(), "CH_ANC");
 
         address orderBookArg = IExchange(exchangeArg).orderBook();
-        // orderbook is not contarct
+        // orderBook is not contract
         require(orderBookArg.isContract(), "CH_OBNC");
 
         __ReentrancyGuard_init();
@@ -124,6 +124,7 @@ contract ClearingHouse is
         // register token if it's the first time
         IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
+        // must settle funding first
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint in UniswapV3MintCallback
@@ -173,7 +174,7 @@ contract ClearingHouse is
     {
         address trader = _msgSender();
 
-        // must settle funding before getting token info
+        // must settle funding first
         IExchange(exchange).settleFunding(trader, params.baseToken);
 
         IOrderBook.RemoveLiquidityResponse memory response =
@@ -213,7 +214,7 @@ contract ClearingHouse is
         address trader = _msgSender();
         IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
-        // must before price impact check
+        // must settle funding first
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
@@ -251,9 +252,11 @@ contract ClearingHouse is
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (uint256 deltaBase, uint256 deltaQuote)
+        returns (uint256, uint256)
     {
         address trader = _msgSender();
+
+        // must settle funding first
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
@@ -306,6 +309,7 @@ contract ClearingHouse is
         // CH_NEO: not empty order
         require(!IAccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
 
+        // must settle funding first
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
             _closePosition(
@@ -400,7 +404,7 @@ contract ClearingHouse is
     // EXTERNAL VIEW
     //
 
-    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
+    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in settlement token's decimals
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
@@ -420,8 +424,9 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
+        // only cancel open orders if there are not enough free collateral with mmRatio
+        // or account is able to being liquidated.
         // CH_NEXO: not excess orders
-        // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
                 getAccountValue(maker).lt(
@@ -431,7 +436,7 @@ contract ClearingHouse is
             "CH_NEXO"
         );
 
-        // must settle funding before getting token info
+        // must settle funding first
         IExchange(exchange).settleFunding(maker, baseToken);
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
@@ -482,6 +487,8 @@ contract ClearingHouse is
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
 
+        // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
+        // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
         bool isLong = positionSize > 0 ? true : false;
         return
             _openPosition(
@@ -518,8 +525,8 @@ contract ClearingHouse is
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
+        // freeCollateral is calculated based on imRatio
         // CH_NEFCI: not enough account value by imRatio
-        // freeCollateral is calculated with imRatio
         require(
             _getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()) >= 0,
             "CH_NEFCI"
