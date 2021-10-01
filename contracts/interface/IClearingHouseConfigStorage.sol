@@ -17,3 +17,5 @@ interface IClearingHouseConfigStorageV1 {
 
     function twapInterval() external view returns (uint32);
 }
+
+interface IClearingHouseConfigStorage is IClearingHouseConfigStorageV1 {}

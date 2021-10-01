@@ -4,3 +4,5 @@ pragma solidity 0.7.6;
 interface IInsuranceFundStorageV1 {
     function token() external returns (address);
 }
+
+interface IInsuranceFundStorage is IInsuranceFundStorageV1 {}

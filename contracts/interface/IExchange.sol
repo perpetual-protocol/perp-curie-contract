@@ -3,8 +3,9 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
+import { IExchangeStorage } from "./IExchangeStorage.sol";
 
-interface IExchange {
+interface IExchange is IExchangeStorage {
     struct SwapParams {
         address trader;
         address baseToken;

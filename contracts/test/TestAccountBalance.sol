@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import "../AccountBalance.sol";
 import "../lib/Funding.sol";
-import "../interface/IExchange.sol";
 
 contract TestAccountBalance is AccountBalance {
     using AddressUpgradeable for address;
@@ -18,7 +17,7 @@ contract TestAccountBalance is AccountBalance {
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchangeStorageV1(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).orderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 

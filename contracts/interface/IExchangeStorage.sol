@@ -4,3 +4,5 @@ pragma solidity 0.7.6;
 interface IExchangeStorageV1 {
     function orderBook() external view returns (address);
 }
+
+interface IExchangeStorage is IExchangeStorageV1 {}

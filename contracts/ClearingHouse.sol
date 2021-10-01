@@ -18,9 +18,8 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IVaultStorage } from "./interface/IVaultStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
-import { IExchangeStorageV1 } from "./interface/IExchangeStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
-import { IClearingHouseConfigStorageV1 } from "./interface/IClearingHouseConfigStorage.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { ClearingHouseStorageV1, BaseRelayRecipient } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
@@ -124,7 +123,7 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
 
-        address orderBookArg = IExchangeStorageV1(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).orderBook();
         // orderBook is not contract
         require(orderBookArg.isContract(), "CH_OBNC");
 
@@ -369,7 +368,7 @@ contract ClearingHouse is
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
             response.exchangedPositionNotional.abs().mulRatio(
-                IClearingHouseConfigStorageV1(clearingHouseConfig).liquidationPenaltyRatio()
+                IClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
             );
 
         IAccountBalance(accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
@@ -475,7 +474,7 @@ contract ClearingHouse is
         // or account is able to being liquidated.
         // CH_NEXO: not excess orders
         require(
-            (_getFreeCollateralByRatio(maker, IClearingHouseConfigStorageV1(clearingHouseConfig).mmRatio()) < 0) ||
+            (_getFreeCollateralByRatio(maker, IClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
                 getAccountValue(maker).lt(
                     IAccountBalance(accountBalance).getLiquidateMarginRequirement(maker),
                     _settlementTokenDecimals
@@ -575,7 +574,7 @@ contract ClearingHouse is
         // freeCollateral is calculated based on imRatio
         // CH_NEFCI: not enough account value by imRatio
         require(
-            _getFreeCollateralByRatio(trader, IClearingHouseConfigStorageV1(clearingHouseConfig).imRatio()) >= 0,
+            _getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()) >= 0,
             "CH_NEFCI"
         );
     }
