@@ -3,6 +3,9 @@ pragma solidity 0.7.6;
 
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
+/// @notice For future upgrades, do not change AccountBalanceStorageV1. Create a new
+/// contract which implements AccountBalanceStorageV1 and following the naming convention
+/// AccountBalanceStorageVX.
 abstract contract AccountBalanceStorageV1 {
     address public clearingHouseConfig;
     address public exchange;

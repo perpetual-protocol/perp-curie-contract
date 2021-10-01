@@ -3,6 +3,9 @@ pragma solidity 0.7.6;
 
 import { IClearingHouseConfigStorageV1 } from "../interface/IClearingHouseConfigStorage.sol";
 
+/// @notice For future upgrades, do not change ClearingHouseConfigStorageV1. Create a new
+/// contract which implements ClearingHouseConfigStorageV1 and following the naming convention
+/// ClearingHouseConfigStorageVX.
 abstract contract ClearingHouseConfigStorageV1 is IClearingHouseConfigStorageV1 {
     /// @inheritdoc IClearingHouseConfigStorageV1
     uint8 public override maxMarketsPerAccount;

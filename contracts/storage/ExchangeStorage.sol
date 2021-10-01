@@ -4,6 +4,9 @@ pragma solidity 0.7.6;
 import { Funding } from "../lib/Funding.sol";
 import { IExchangeStorageV1 } from "../interface/IExchangeStorage.sol";
 
+/// @notice For future upgrades, do not change ExchangeStorageV1. Create a new
+/// contract which implements ExchangeStorageV1 and following the naming convention
+/// ExchangeStorageVX.
 abstract contract ExchangeStorageV1 is IExchangeStorageV1 {
     /// @inheritdoc IExchangeStorageV1
     address public override orderBook;

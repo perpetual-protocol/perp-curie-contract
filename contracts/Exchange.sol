@@ -25,8 +25,6 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
-import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is

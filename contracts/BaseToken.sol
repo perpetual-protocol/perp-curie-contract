@@ -4,8 +4,8 @@ pragma solidity 0.7.6;
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
-import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts

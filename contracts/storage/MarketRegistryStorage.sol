@@ -3,6 +3,9 @@ pragma solidity 0.7.6;
 
 import { IMarketRegistryStorageV1 } from "../interface/IMarketRegistryStorage.sol";
 
+/// @notice For future upgrades, do not change MarketRegistryStorageV1. Create a new
+/// contract which implements MarketRegistryStorageV1 and following the naming convention
+/// MarketRegistryStorageVX.
 abstract contract MarketRegistryStorageV1 is IMarketRegistryStorageV1 {
     address public uniswapV3Factory;
     address public quoteToken;

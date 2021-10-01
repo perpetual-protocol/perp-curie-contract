@@ -3,6 +3,9 @@ pragma solidity 0.7.6;
 
 import { IVaultStorageV1 } from "../interface/IVaultStorage.sol";
 
+/// @notice For future upgrades, do not change VaultStorageV1. Create a new
+/// contract which implements VaultStorageV1 and following the naming convention
+/// VaultStorageVX.
 abstract contract VaultStorageV1 is IVaultStorageV1 {
     // --------- IMMUTABLE ---------
 
