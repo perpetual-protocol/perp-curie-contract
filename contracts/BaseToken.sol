@@ -5,17 +5,10 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
 
-contract BaseToken is IIndexPrice, VirtualToken {
+contract BaseToken is IIndexPrice, VirtualToken, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
-
-    // --------- IMMUTABLE ---------
-
-    uint8 private _priceFeedDecimals;
-
-    // --------- ^^^^^^^^^ ---------
-
-    address public priceFeed;
 
     function initialize(
         string memory nameArg,

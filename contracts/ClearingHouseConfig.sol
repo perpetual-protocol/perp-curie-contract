@@ -2,26 +2,9 @@
 pragma solidity 0.7.6;
 
 import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
 
-contract ClearingHouseConfig is SafeOwnable {
-    //
-    // STATE
-    //
-    uint8 public maxMarketsPerAccount;
-    uint24 public imRatio;
-    uint24 public mmRatio;
-    uint24 public liquidationPenaltyRatio;
-    uint24 public partialCloseRatio;
-    uint32 public twapInterval;
-
-    //
-    // EVENT
-    //
-    event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint24 partialCloseRatio);
-    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
-
+contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // MODIFIER
     //
@@ -49,6 +32,7 @@ contract ClearingHouseConfig is SafeOwnable {
     //
     function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
         external
+        override
         checkRatio(liquidationPenaltyRatioArg)
         onlyOwner
     {
@@ -56,7 +40,12 @@ contract ClearingHouseConfig is SafeOwnable {
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
+    function setPartialCloseRatio(uint24 partialCloseRatioArg)
+        external
+        override
+        checkRatio(partialCloseRatioArg)
+        onlyOwner
+    {
         // CHC_IPCR: invalid partialCloseRatio
         require(partialCloseRatioArg > 0, "CHC_IPCR");
 
@@ -64,7 +53,7 @@ contract ClearingHouseConfig is SafeOwnable {
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
-    function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+    function setTwapInterval(uint32 twapIntervalArg) external override onlyOwner {
         // CHC_ITI: invalid twapInterval
         require(twapIntervalArg != 0, "CHC_ITI");
 
@@ -72,7 +61,7 @@ contract ClearingHouseConfig is SafeOwnable {
         emit TwapIntervalChanged(twapIntervalArg);
     }
 
-    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
+    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external override onlyOwner {
         maxMarketsPerAccount = maxMarketsPerAccountArg;
         emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }

@@ -16,6 +16,10 @@ interface IClearingHouse {
 
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
+    //
+    // STRUCT
+    //
+
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -103,18 +107,4 @@ interface IClearingHouse {
     function cancelAllExcessOrders(address maker, address baseToken) external;
 
     function getAccountValue(address trader) external view returns (int256);
-
-    function getPositionSize(address trader, address baseToken) external view returns (int256);
-
-    function getPositionValue(address trader, address baseToken) external view returns (int256);
-
-    function getOpenNotional(address trader, address baseToken) external view returns (int256);
-
-    function getOwedRealizedPnl(address trader) external view returns (int256);
-
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256);
-
-    function getNetQuoteBalance(address trader) external view returns (int256);
-
-    function getTotalUnrealizedPnl(address trader) external view returns (int256);
 }

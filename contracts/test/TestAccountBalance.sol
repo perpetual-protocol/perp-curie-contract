@@ -16,7 +16,7 @@ contract TestAccountBalance is AccountBalance {
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = Exchange(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).orderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
@@ -48,6 +48,6 @@ contract TestAccountBalance is AccountBalance {
             uint256 indexTwap
         )
     {
-        return Exchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
+        return IExchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 }

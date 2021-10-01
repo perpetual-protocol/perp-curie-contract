@@ -5,7 +5,7 @@ pragma abicoder v2;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeOwnable } from "./SafeOwnable.sol";
-import { MarketRegistry } from "../MarketRegistry.sol";
+import { IMarketRegistry } from "../interface/IMarketRegistry.sol";
 
 abstract contract UniswapV3CallbackBridge is SafeOwnable {
     using AddressUpgradeable for address;
@@ -23,7 +23,7 @@ abstract contract UniswapV3CallbackBridge is SafeOwnable {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
         // UCB_FCV: failed callback validation
-        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "UCB_FCV");
+        require(pool == IMarketRegistry(marketRegistry).getPool(baseToken), "UCB_FCV");
         _;
     }
 

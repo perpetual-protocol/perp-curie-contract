@@ -79,6 +79,11 @@ interface IOrderBook {
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
     }
 
+    struct MintCallbackData {
+        address trader;
+        address pool;
+    }
+
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external returns (RemoveLiquidityResponse memory);
@@ -125,4 +130,11 @@ interface IOrderBook {
     ) external view returns (int256 liquidityCoefficientInFundingPayment);
 
     function getFeeGrowthGlobal(address baseToken) external view returns (uint256);
+
+    function getOwedFee(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (uint256);
 }

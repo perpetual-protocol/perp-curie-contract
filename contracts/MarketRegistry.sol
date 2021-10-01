@@ -7,48 +7,10 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
 
-contract MarketRegistry is SafeOwnable {
+contract MarketRegistry is SafeOwnable, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
-
-    //
-    // STRUCT
-    //
-    struct MarketInfo {
-        address pool;
-        uint24 exchangeFeeRatio;
-        uint24 uniswapFeeRatio;
-        uint24 insuranceFundFeeRatio;
-    }
-
-    //
-    // STATE
-    //
-    address public uniswapV3Factory;
-    address public quoteToken;
-    address public clearingHouse;
-    uint8 public maxOrdersPerMarket;
-
-    // key: baseToken, value: pool
-    mapping(address => address) internal _poolMap;
-
-    // key: baseToken, what insurance fund get = exchangeFee * insuranceFundFeeRatio
-    mapping(address => uint24) internal _insuranceFundFeeRatioMap;
-
-    // key: baseToken , uniswap fee will be ignored and use the exchangeFeeRatio instead
-    mapping(address => uint24) internal _exchangeFeeRatioMap;
-
-    // key: baseToken, _uniswapFeeRatioMap cache only
-    mapping(address => uint24) internal _uniswapFeeRatioMap;
-
-    //
-    // EVENT
-    //
-    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event ClearingHouseChanged(address indexed clearingHouse);
-    event FeeRatioChanged(address baseToken, uint24 feeRatio);
-    event InsuranceFundFeeRatioChanged(uint24 feeRatio);
-    event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
 
     //
     // CONSTRUCTOR
@@ -86,7 +48,7 @@ contract MarketRegistry is SafeOwnable {
     // EXTERNAL ADMIN FUNCTIONS
     //
 
-    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
         // baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "MR_BDN18");
         // clearingHouse base token balance not enough
@@ -125,7 +87,7 @@ contract MarketRegistry is SafeOwnable {
         return pool;
     }
 
-    function setClearingHouse(address clearingHouseArg) external onlyOwner {
+    function setClearingHouse(address clearingHouseArg) external override onlyOwner {
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "MR_CHNC");
         clearingHouse = clearingHouseArg;
@@ -134,6 +96,7 @@ contract MarketRegistry is SafeOwnable {
 
     function setFeeRatio(address baseToken, uint24 feeRatio)
         external
+        override
         checkPool(baseToken)
         checkRatio(feeRatio)
         onlyOwner
@@ -144,6 +107,7 @@ contract MarketRegistry is SafeOwnable {
 
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
         external
+        override
         checkPool(baseToken)
         checkRatio(insuranceFundFeeRatioArg)
         onlyOwner
@@ -152,7 +116,7 @@ contract MarketRegistry is SafeOwnable {
         emit InsuranceFundFeeRatioChanged(insuranceFundFeeRatioArg);
     }
 
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external override onlyOwner {
         maxOrdersPerMarket = maxOrdersPerMarketArg;
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
     }
@@ -160,19 +124,19 @@ contract MarketRegistry is SafeOwnable {
     //
     // EXTERNAL VIEW
     //
-    function getPool(address baseToken) external view returns (address) {
+    function getPool(address baseToken) external view override returns (address) {
         return _poolMap[baseToken];
     }
 
-    function getFeeRatio(address baseToken) external view returns (uint24) {
+    function getFeeRatio(address baseToken) external view override returns (uint24) {
         return _exchangeFeeRatioMap[baseToken];
     }
 
-    function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24) {
+    function getInsuranceFundFeeRatio(address baseToken) external view override returns (uint24) {
         return _insuranceFundFeeRatioMap[baseToken];
     }
 
-    function getMarketInfo(address baseToken) external view returns (MarketInfo memory) {
+    function getMarketInfo(address baseToken) external view override returns (MarketInfo memory) {
         return
             MarketInfo({
                 pool: _poolMap[baseToken],
