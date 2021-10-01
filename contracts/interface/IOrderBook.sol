@@ -3,9 +3,9 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
-import { OpenOrder } from "../lib/OpenOrder.sol";
+import { IOrderBookStorageV1 } from "./IOrderBookStorage.sol";
 
-interface IOrderBook {
+interface IOrderBook is IOrderBookStorageV1 {
     event LiquidityChanged(
         address indexed maker,
         address indexed baseToken,
@@ -93,14 +93,14 @@ interface IOrderBook {
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);
 
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder.Info memory);
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory);
 
     function getOpenOrder(
         address trader,
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (OpenOrder.Info memory);
+    ) external view returns (OpenOrder memory);
 
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool);
 

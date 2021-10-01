@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-library OpenOrder {
+interface IOrderBookStorageV1 {
     /// @param lastFeeGrowthInsideX128 fees in quote token recorded in Exchange
     ///        because of block-based funding, quote-only and customized fee, all fees are in quote token
-    struct Info {
+    struct OpenOrder {
         uint128 liquidity;
         int24 lowerTick;
         int24 upperTick;
@@ -14,3 +14,5 @@ library OpenOrder {
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
     }
 }
+
+interface IOrderBookStorage is IOrderBookStorageV1 {}
