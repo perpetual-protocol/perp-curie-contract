@@ -57,8 +57,6 @@ interface IExchange {
         external
         returns (Funding.Growth memory fundingGrowthGlobal);
 
-    function getPool(address baseToken) external view returns (address);
-
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
 
     function getAllPendingFundingPayment(address trader) external view returns (int256);

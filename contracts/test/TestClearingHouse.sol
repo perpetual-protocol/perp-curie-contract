@@ -48,7 +48,6 @@ contract TestClearingHouse is ClearingHouse {
     }
 
     function swap(SwapParams memory params) external nonReentrant() returns (IExchange.SwapResponse memory) {
-        _requireHasBaseToken(params.baseToken);
         IAccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
             TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);

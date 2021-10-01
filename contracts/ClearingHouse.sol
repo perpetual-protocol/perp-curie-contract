@@ -71,7 +71,6 @@ contract ClearingHouse is
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
-        // TODO check QuoteToken's balance once this is upgradable
         // CH_QANC: QuoteToken address is not contract
         require(quoteTokenArg.isContract(), "CH_QANC");
         // CH_QDN18: QuoteToken decimals is not 18
@@ -82,12 +81,10 @@ contract ClearingHouse is
         require(clearingHouseConfigArg.isContract(), "CH_CCNC");
         // AccountBalance is not contract
         require(accountBalanceArg.isContract(), "CH_ABNC");
-
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
 
         address orderBookArg = IExchange(exchangeArg).orderBook();
-
         // orderbook is not contarct
         require(orderBookArg.isContract(), "CH_OBNC");
 
@@ -123,16 +120,13 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
-        _requireHasBaseToken(params.baseToken);
-
         address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
 
-        // note that we no longer check available tokens here because CH will always auto-mint
-        // when requested by UniswapV3MintCallback
+        // note that we no longer check available tokens here because CH will always auto-mint in UniswapV3MintCallback
         IOrderBook.AddLiquidityResponse memory response =
             IOrderBook(orderBook).addLiquidity(
                 IOrderBook.AddLiquidityParams({
@@ -157,8 +151,7 @@ contract ClearingHouse is
             response.fee.toInt256()
         );
 
-        // TODO : WIP
-        // must after token info is updated to ensure free collateral is positive after updated
+        // must after token balance is updated, then we can check if free collateral is enough after balance updated
         _requireEnoughFreeCollateral(trader);
 
         return
@@ -176,21 +169,22 @@ contract ClearingHouse is
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (RemoveLiquidityResponse memory response)
+        returns (RemoveLiquidityResponse memory)
     {
-        _requireHasBaseToken(params.baseToken);
-        response = _removeLiquidity(
-            InternalRemoveLiquidityParams({
-                maker: _msgSender(),
-                baseToken: params.baseToken,
-                lowerTick: params.lowerTick,
-                upperTick: params.upperTick,
-                liquidity: params.liquidity
-            })
-        );
+        RemoveLiquidityResponse memory response =
+            _removeLiquidity(
+                InternalRemoveLiquidityParams({
+                    maker: _msgSender(),
+                    baseToken: params.baseToken,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: params.liquidity
+                })
+            );
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
+        return response;
     }
 
     function openPosition(OpenPositionParams memory params)
@@ -202,8 +196,6 @@ contract ClearingHouse is
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
         address trader = _msgSender();
-
-        _requireHasBaseToken(params.baseToken);
         IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must before price impact check
@@ -246,8 +238,6 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
-        _requireHasBaseToken(params.baseToken);
-
         address trader = _msgSender();
         Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
 
@@ -278,7 +268,6 @@ contract ClearingHouse is
     }
 
     function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
-        _requireHasBaseToken(baseToken);
         // per liquidation specs:
         //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
         //
@@ -416,8 +405,6 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
-        _requireHasBaseToken(baseToken);
-
         // CH_NEXO: not excess orders
         // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
         require(
@@ -538,12 +525,6 @@ contract ClearingHouse is
     /// @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
         return super._msgData();
-    }
-
-    // TODO remove, should check in exchange
-    function _requireHasBaseToken(address baseToken) internal view {
-        // CH_BTNE: base token not exists
-        require(IExchange(exchange).getPool(baseToken) != address(0), "CH_BTNE");
     }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {

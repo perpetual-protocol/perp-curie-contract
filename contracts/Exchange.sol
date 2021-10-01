@@ -244,6 +244,10 @@ contract Exchange is
         override
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
+        // TODO remove, should check in exchange
+        // CH_BTNE: base token not exists
+        require(IMarketRegistry(marketRegistry).getPool(baseToken) != address(0), "CH_BTNE");
+
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
@@ -291,11 +295,6 @@ contract Exchange is
     //
     // EXTERNAL VIEW
     //
-
-    // TODO should be able to remove if we can remove CH._hasPool
-    function getPool(address baseToken) external view override returns (address) {
-        return IMarketRegistry(marketRegistry).getPool(baseToken);
-    }
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
