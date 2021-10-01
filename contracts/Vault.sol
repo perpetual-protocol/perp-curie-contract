@@ -11,6 +11,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
+import { IInsuranceFundState } from "./interface/IInsuranceFundState.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
@@ -54,7 +55,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         address accountBalanceArg,
         address exchangeArg
     ) external initializer {
-        address settlementTokenArg = IInsuranceFund(insuranceFundArg).token();
+        address settlementTokenArg = IInsuranceFundState(insuranceFundArg).token();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
 
         // invalid settlementToken decimals

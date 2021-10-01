@@ -7,8 +7,9 @@ import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC
 import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 
-contract InsuranceFund is ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
+contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
 
     event Borrowed(address borrower, uint256 amount);
