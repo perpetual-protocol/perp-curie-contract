@@ -16,6 +16,7 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import { IExchangeState } from "./interface/IExchangeState.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
@@ -117,7 +118,7 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
+        address orderBookArg = IExchangeState(exchangeArg).orderBook();
         // orderBook is not contract
         require(orderBookArg.isContract(), "CH_OBNC");
 

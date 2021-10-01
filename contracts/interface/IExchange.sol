@@ -77,6 +77,4 @@ interface IExchange {
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
     function getOpenNotional(address trader, address baseToken) external view returns (int256);
-
-    function orderBook() external view returns (address);
 }

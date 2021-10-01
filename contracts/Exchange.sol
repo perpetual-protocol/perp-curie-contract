@@ -24,12 +24,16 @@ import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
+import { IExchange } from "./interface/IExchange.sol";
+import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
+import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 
 contract Exchange is
     IUniswapV3SwapCallback,
+    IExchange,
+    BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    BlockContext,
     ExchangeStorageV1
 {
     using AddressUpgradeable for address;
@@ -42,6 +46,28 @@ contract Exchange is
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
+
+    //
+    // STRUCT
+    //
+
+    struct InternalReplaySwapParams {
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    struct InternalSwapResponse {
+        uint256 deltaAvailableBase;
+        uint256 deltaAvailableQuote;
+        int256 exchangedPositionSize;
+        int256 exchangedPositionNotional;
+        uint256 fee;
+        uint256 insuranceFundFee;
+        int24 tick;
+    }
 
     //
     // EXTERNAL NON-VIEW

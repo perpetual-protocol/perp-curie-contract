@@ -7,7 +7,7 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { IExchange } from "./interface/IExchange.sol";
+import { IExchangeState } from "./interface/IExchangeState.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
@@ -36,7 +36,7 @@ contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
+        address orderBookArg = IExchangeState(exchangeArg).orderBook();
         // IOrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
