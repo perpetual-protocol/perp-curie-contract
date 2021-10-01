@@ -14,8 +14,10 @@ import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState
 import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 
-contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV1 {
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
