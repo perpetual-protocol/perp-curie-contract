@@ -39,7 +39,7 @@ abstract contract SafeOwnable is ContextUpgradeable {
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function renounceOwnership() public virtual onlyOwner {
+    function renounceOwnership() external virtual onlyOwner {
         // emitting event first to avoid caching values
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
@@ -50,7 +50,7 @@ abstract contract SafeOwnable is ContextUpgradeable {
      * @dev Set ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function setOwner(address newOwner) public onlyOwner {
+    function setOwner(address newOwner) external onlyOwner {
         // newOwner is 0
         require(newOwner != address(0), "SO_NW0");
         // same as original
@@ -65,7 +65,7 @@ abstract contract SafeOwnable is ContextUpgradeable {
      * @dev Transfers ownership of the contract to a new account (`_candidate`).
      * Can only be called by the new owner.
      */
-    function updateOwner() public {
+    function updateOwner() external {
         // candidate is zero
         require(_candidate != address(0), "SO_C0");
         // caller is not candidate
@@ -87,7 +87,7 @@ abstract contract SafeOwnable is ContextUpgradeable {
     /**
      * @dev Returns the candidate that can become the owner.
      */
-    function candidate() public view returns (address) {
+    function candidate() external view returns (address) {
         return _candidate;
     }
 }

@@ -33,7 +33,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedArbSys: MockContract
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let lowerTick: number
@@ -53,7 +52,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
-        mockedArbSys = _clearingHouseFixture.mockedArbSys
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]

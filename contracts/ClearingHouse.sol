@@ -3,28 +3,20 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { Funding } from "./lib/Funding.sol";
-import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
-import { AccountMarket } from "./lib/AccountMarket.sol";
 import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
@@ -53,7 +45,6 @@ contract ClearingHouse is
     using PerpMath for uint160;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
-    using AccountMarket for AccountMarket.Info;
 
     //
     // MODIFIER

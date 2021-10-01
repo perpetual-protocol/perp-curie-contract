@@ -41,7 +41,6 @@ interface ClearingHouseFixture {
     baseToken2: BaseToken
     mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
-    mockedArbSys: MockContract
 }
 
 interface UniswapV3BrokerFixture {
@@ -152,8 +151,6 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         await baseToken2.addWhitelist(pool2.address)
         await quoteToken.addWhitelist(pool2.address)
 
-        const mockedArbSys = await getMockedArbSys()
-
         // deploy clearingHouse
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
@@ -210,7 +207,6 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
             baseToken2,
             mockedBaseAggregator2,
             pool2,
-            mockedArbSys,
         }
     }
 }
@@ -266,16 +262,6 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         })
     }
     return mockedToken
-}
-
-async function getMockedArbSys(): Promise<MockContract> {
-    const arbSysFactory = await ethers.getContractFactory("TestArbSys")
-    const arbSys = await arbSysFactory.deploy()
-    const mockedArbSys = await smockit(arbSys, { address: "0x0000000000000000000000000000000000000064" })
-    mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
-        return 1
-    })
-    return mockedArbSys
 }
 
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {

@@ -6,20 +6,17 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
-import { Funding } from "./lib/Funding.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { AccountBalanceStorageV1 } from "./storage/AccountBalanceStorage.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 
-contract AccountBalance is ClearingHouseCallee, ArbBlockContext, AccountBalanceStorageV1 {
+contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;

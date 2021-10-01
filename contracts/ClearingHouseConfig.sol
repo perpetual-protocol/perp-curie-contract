@@ -17,7 +17,7 @@ contract ClearingHouseConfig is SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // CONSTRUCTOR
     //
-    function initialize() public initializer {
+    function initialize() external initializer {
         __SafeOwnable_init();
 
         imRatio = 10e4; // initial-margin ratio, 10%

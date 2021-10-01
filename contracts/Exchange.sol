@@ -7,27 +7,18 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import { SwapMath } from "@uniswap/v3-core/contracts/libraries/SwapMath.sol";
-import { LiquidityMath } from "@uniswap/v3-core/contracts/libraries/LiquidityMath.sol";
-import { FixedPoint128 } from "@uniswap/v3-core/contracts/libraries/FixedPoint128.sol";
-import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
-import { ArbBlockContext } from "./arbitrum/ArbBlockContext.sol";
-import { UniswapV3Broker, IUniswapV3Pool } from "./lib/UniswapV3Broker.sol";
+import { BlockContext } from "./base/BlockContext.sol";
+import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { OrderKey } from "./lib/OrderKey.sol";
-import { Tick } from "./lib/Tick.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
-import { VirtualToken } from "./VirtualToken.sol";
-import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
@@ -35,11 +26,10 @@ import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 
 contract Exchange is
-    IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ArbBlockContext,
+    BlockContext,
     ExchangeStorageV1
 {
     using AddressUpgradeable for address;
@@ -52,7 +42,6 @@ contract Exchange is
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
-    using Tick for mapping(int24 => Tick.GrowthInfo);
 
     //
     // EXTERNAL NON-VIEW
@@ -98,17 +87,6 @@ contract Exchange is
         require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-    }
-
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        // not order book
-        require(_msgSender() == orderBook, "E_NOB");
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
