@@ -10,13 +10,6 @@ abstract contract ClearingHouseStorageV1 is BaseRelayRecipient, IClearingHouse {
     //
     // STRUCT
     //
-    struct InternalRemoveLiquidityParams {
-        address maker;
-        address baseToken;
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 liquidity;
-    }
     struct InternalOpenPositionParams {
         address trader;
         address baseToken;

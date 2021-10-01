@@ -171,10 +171,15 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (RemoveLiquidityResponse memory)
     {
-        RemoveLiquidityResponse memory response =
-            _removeLiquidity(
-                InternalRemoveLiquidityParams({
-                    maker: _msgSender(),
+        address trader = _msgSender();
+
+        // must settle funding before getting token info
+        IExchange(exchange).settleFunding(trader, params.baseToken);
+
+        IOrderBook.RemoveLiquidityResponse memory response =
+            IOrderBook(orderBook).removeLiquidity(
+                IOrderBook.RemoveLiquidityParams({
+                    maker: trader,
                     baseToken: params.baseToken,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
@@ -182,9 +187,19 @@ contract ClearingHouse is
                 })
             );
 
+        IAccountBalance(accountBalance).addBalance(
+            trader,
+            params.baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
+        );
+        IAccountBalance(accountBalance).deregisterBaseToken(trader, params.baseToken);
+
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
-        return response;
+
+        return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
     function openPosition(OpenPositionParams memory params)
@@ -429,35 +444,6 @@ contract ClearingHouse is
             response.fee.toInt256()
         );
         IAccountBalance(accountBalance).deregisterBaseToken(maker, baseToken);
-    }
-
-    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
-        internal
-        returns (RemoveLiquidityResponse memory)
-    {
-        // must settle funding before getting token info
-        IExchange(exchange).settleFunding(params.maker, params.baseToken);
-        IOrderBook.RemoveLiquidityResponse memory response =
-            IOrderBook(orderBook).removeLiquidity(
-                IOrderBook.RemoveLiquidityParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
-
-        IAccountBalance(accountBalance).addBalance(
-            params.maker,
-            params.baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.fee.toInt256()
-        );
-        IAccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
-
-        return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
