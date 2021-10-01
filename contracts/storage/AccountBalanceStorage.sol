@@ -3,9 +3,9 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { AccountMarket } from "../lib/AccountMarket.sol";
-import { IAccountBalance } from "../interface/IAccountBalance.sol";
+import { ClearingHouseCallee } from "../base/ClearingHouseCallee.sol";
 
-abstract contract AccountBalanceStorageV1 is IAccountBalance {
+abstract contract AccountBalanceStorageV1 is ClearingHouseCallee {
     // 10 wei
     uint256 internal constant _DUST = 10;
 

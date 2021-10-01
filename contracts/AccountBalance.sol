@@ -5,18 +5,17 @@ pragma abicoder v2;
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
-import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { AccountMarket } from "./lib/AccountMarket.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { AccountBalanceStorageV1 } from "./storage/AccountBalanceStorage.sol";
+import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
+import { IAccountBalance } from "./interface/IAccountBalance.sol";
 
-contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStorageV1 {
+contract AccountBalance is IAccountBalance, BlockContext, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
@@ -165,14 +164,17 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
     // EXTERNAL VIEW
     //
 
+    /// @inheritdoc IAccountBalance
     function getBaseTokens(address trader) external view override returns (address[] memory) {
         return _baseTokensMap[trader];
     }
 
+    /// @inheritdoc IAccountBalance
     function hasOrder(address trader) external view override returns (bool) {
         return IOrderBook(orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
 
+    /// @inheritdoc IAccountBalance
     /// @dev get margin requirement for determining liquidation.
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
     function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
@@ -180,6 +182,7 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
             _getTotalAbsPositionValue(trader).mulRatio(IClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
     }
 
+    /// @inheritdoc IAccountBalance
     function getTotalDebtValue(address trader) external view override returns (uint256) {
         int256 totalQuoteBalance;
         uint256 totalBaseDebtValue;
@@ -201,6 +204,7 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
 
+    /// @inheritdoc IAccountBalance
     function getOwedAndUnrealizedPnl(address trader) external view override returns (int256, int256) {
         int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
 
@@ -215,6 +219,7 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return (owedRealizedPnl, unrealizedPnl);
     }
 
+    /// @inheritdoc IAccountBalance
     function getAccountInfo(address trader, address baseToken)
         external
         view
@@ -224,15 +229,17 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return _accountMarketMap[trader][baseToken];
     }
 
+    /// @inheritdoc IAccountBalance
     function getBase(address trader, address baseToken) public view override returns (int256) {
         return _accountMarketMap[trader][baseToken].baseBalance;
     }
 
+    /// @inheritdoc IAccountBalance
     function getQuote(address trader, address baseToken) public view override returns (int256) {
         return _accountMarketMap[trader][baseToken].quoteBalance;
     }
 
-    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
+    /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
         uint256 tokenLen = _baseTokensMap[trader].length;
         int256 totalQuoteBalance;
@@ -248,6 +255,7 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
 
+    /// @inheritdoc IAccountBalance
     function getPositionSize(address trader, address baseToken) public view override returns (int256) {
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
@@ -264,8 +272,7 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
-    /// @dev a negative returned value is only be used when calculating pnl
-    /// @dev we use 15 mins twap to calc position value
+    /// @inheritdoc IAccountBalance
     function getPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
@@ -283,7 +290,6 @@ contract AccountBalance is ClearingHouseCallee, BlockContext, AccountBalanceStor
         return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(clearingHouseConfig).twapInterval());
     }
 
-    // TODO refactor with _getTotalBaseDebtValue and getTotalUnrealizedPnl
     function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
         address[] memory tokens = _baseTokensMap[trader];
         uint256 totalPositionValue;
