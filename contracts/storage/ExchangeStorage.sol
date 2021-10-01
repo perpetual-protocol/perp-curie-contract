@@ -3,10 +3,10 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
-import { IExchangeState } from "../interface/IExchangeState.sol";
+import { IExchangeStorageV1 } from "../interface/IExchangeStorage.sol";
 
-abstract contract ExchangeStorageV1 is IExchangeState {
-    /// @inheritdoc IExchangeState
+abstract contract ExchangeStorageV1 is IExchangeStorageV1 {
+    /// @inheritdoc IExchangeStorageV1
     address public override orderBook;
 
     address internal accountBalance;

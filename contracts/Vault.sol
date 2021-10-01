@@ -11,10 +11,10 @@ import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
-import { IInsuranceFundState } from "./interface/IInsuranceFundState.sol";
+import { IInsuranceFundStorageV1 } from "./interface/IInsuranceFundStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { IClearingHouseConfigState } from "./interface/IClearingHouseConfigState.sol";
+import { IClearingHouseConfigStorageV1 } from "./interface/IClearingHouseConfigStorage.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
@@ -55,7 +55,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         address accountBalanceArg,
         address exchangeArg
     ) external initializer {
-        address settlementTokenArg = IInsuranceFundState(insuranceFundArg).token();
+        address settlementTokenArg = IInsuranceFundStorageV1(insuranceFundArg).token();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
 
         // invalid settlementToken decimals
@@ -124,7 +124,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         IExchange(exchange).settleAllFunding(to);
         int256 owedRealizedPnl = IAccountBalance(accountBalance).settle(to);
         int256 freeCollateralByImRatio =
-            getFreeCollateralByRatio(to, IClearingHouseConfigState(clearingHouseConfig).imRatio());
+            getFreeCollateralByRatio(to, IClearingHouseConfigStorageV1(clearingHouseConfig).imRatio());
         // V_NEFC: not enough freeCollateral
         require(freeCollateralByImRatio.add(owedRealizedPnl) >= amount.toInt256(), "V_NEFC");
 
@@ -152,7 +152,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
     function getFreeCollateral(address trader) external view returns (uint256) {
         return
             PerpMath
-                .max(getFreeCollateralByRatio(trader, IClearingHouseConfigState(clearingHouseConfig).imRatio()), 0)
+                .max(getFreeCollateralByRatio(trader, IClearingHouseConfigStorageV1(clearingHouseConfig).imRatio()), 0)
                 .toUint256();
     }
 

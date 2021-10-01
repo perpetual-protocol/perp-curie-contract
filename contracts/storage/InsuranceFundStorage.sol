@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { IInsuranceFundState } from "../interface/IInsuranceFundState.sol";
+import { IInsuranceFundStorageV1 } from "../interface/IInsuranceFundStorage.sol";
 
-abstract contract InsuranceFundStorageV1 is IInsuranceFundState {
+abstract contract InsuranceFundStorageV1 is IInsuranceFundStorageV1 {
     // --------- IMMUTABLE ---------
 
-    /// @inheritdoc IInsuranceFundState
+    /// @inheritdoc IInsuranceFundStorageV1
     address public override token;
 
     // --------- ^^^^^^^^^ ---------

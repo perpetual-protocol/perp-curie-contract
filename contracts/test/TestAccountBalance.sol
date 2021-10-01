@@ -18,7 +18,7 @@ contract TestAccountBalance is AccountBalance {
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchangeState(exchangeArg).orderBook();
+        address orderBookArg = IExchangeStorageV1(exchangeArg).orderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 

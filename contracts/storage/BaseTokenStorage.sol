@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { IBaseTokenState } from "../interface/IBaseTokenState.sol";
+import { IBaseTokenStorageV1 } from "../interface/IBaseTokenStorage.sol";
 
-abstract contract BaseTokenStorageV1 is IBaseTokenState {
+abstract contract BaseTokenStorageV1 is IBaseTokenStorageV1 {
     // --------- IMMUTABLE ---------
 
     uint8 internal _priceFeedDecimals;
 
     // --------- ^^^^^^^^^ ---------
 
-    /// @inheritdoc IBaseTokenState
+    /// @inheritdoc IBaseTokenStorageV1
     address public override priceFeed;
 }
