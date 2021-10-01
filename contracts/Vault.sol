@@ -122,11 +122,11 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         // make sure funding payments are always settled,
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         IExchange(exchange).settleAllFunding(to);
-        int256 pnl = IAccountBalance(accountBalance).settle(to);
+        int256 owedRealizedPnl = IAccountBalance(accountBalance).settle(to);
         int256 freeCollateralByImRatio =
             getFreeCollateralByRatio(to, IClearingHouseConfig(clearingHouseConfig).imRatio());
         // V_NEFC: not enough freeCollateral
-        require(freeCollateralByImRatio.add(pnl) >= amount.toInt256(), "V_NEFC");
+        require(freeCollateralByImRatio.add(owedRealizedPnl) >= amount.toInt256(), "V_NEFC");
 
         // borrow settlement token from insurance fund if token balance is not enough
         uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
@@ -137,7 +137,7 @@ contract Vault is ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient,
         }
 
         // settle IAccountBalance's owedRealizedPnl to collateral
-        _modifyBalance(to, token, pnl.sub(amount.toInt256()));
+        _modifyBalance(to, token, owedRealizedPnl.sub(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
 
         emit Withdrawn(token, to, amount);
