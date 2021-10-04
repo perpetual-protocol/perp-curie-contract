@@ -95,9 +95,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address from = _msgSender();
 
-        // greater than settlement token balance cap
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
         if (settlementTokenBalanceCap > 0) {
+            // greater than settlement token balance cap
             require(
                 IERC20Metadata(token).balanceOf(address(this)).add(amount) <= settlementTokenBalanceCap,
                 "V_GTSTBC"

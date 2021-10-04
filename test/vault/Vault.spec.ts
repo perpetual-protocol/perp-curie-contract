@@ -188,7 +188,7 @@ describe("Vault spec", () => {
         })
 
         it("force error when the the total balance is over cap", async () => {
-            await vault.connect(alice).deposit(usdc.address, 100)
+            await expect(vault.connect(alice).deposit(usdc.address, 100)).not.be.reverted
             await expect(vault.connect(alice).deposit(usdc.address, 1)).to.be.revertedWith("V_GTSTBC")
         })
 
