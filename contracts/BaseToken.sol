@@ -24,13 +24,18 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
         // invalid price feed decimals
         require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "BT_IPFD");
 
-        priceFeed = priceFeedArg;
+        _priceFeed = priceFeedArg;
         _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
     }
 
     /// @inheritdoc IIndexPrice
     function getIndexPrice(uint256 interval) external view override returns (uint256) {
-        return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
+        return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
+    }
+
+    /// @inheritdoc IBaseToken
+    function getPriceFeed() external view override returns (address) {
+        return _priceFeed;
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
