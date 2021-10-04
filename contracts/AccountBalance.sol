@@ -149,7 +149,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             }
             if (!hit) {
                 // markets number exceeded
-                uint8 maxMarketsPerAccount = IClearingHouseConfig(clearingHouseConfig).maxMarketsPerAccount();
+                uint8 maxMarketsPerAccount = IClearingHouseConfig(clearingHouseConfig).getMaxMarketsPerAccount();
                 require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "AB_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
@@ -185,7 +185,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
     function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
         return
-            _getTotalAbsPositionValue(trader).mulRatio(IClearingHouseConfig(clearingHouseConfig).mmRatio()).toInt256();
+            _getTotalAbsPositionValue(trader)
+                .mulRatio(IClearingHouseConfig(clearingHouseConfig).getMmRatio())
+                .toInt256();
     }
 
     /// @inheritdoc IAccountBalance
@@ -293,7 +295,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(clearingHouseConfig).twapInterval());
+        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(clearingHouseConfig).getTwapInterval());
     }
 
     function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {

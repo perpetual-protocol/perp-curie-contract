@@ -125,7 +125,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         IExchange(exchange).settleAllFunding(to);
         int256 owedRealizedPnl = IAccountBalance(accountBalance).settle(to);
         int256 freeCollateralByImRatio =
-            getFreeCollateralByRatio(to, IClearingHouseConfig(clearingHouseConfig).imRatio());
+            getFreeCollateralByRatio(to, IClearingHouseConfig(clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
         require(freeCollateralByImRatio.add(owedRealizedPnl) >= amount.toInt256(), "V_NEFC");
 
@@ -153,7 +153,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function getFreeCollateral(address trader) external view returns (uint256) {
         return
             PerpMath
-                .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()), 0)
+                .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).getImRatio()), 0)
                 .toUint256();
     }
 

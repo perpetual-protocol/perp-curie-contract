@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { IClearingHouseConfigStorage } from "./IClearingHouseConfigStorage.sol";
+interface IClearingHouseConfig {
+    function getMaxMarketsPerAccount() external view returns (uint8);
 
-interface IClearingHouseConfig is IClearingHouseConfigStorage {}
+    function getImRatio() external view returns (uint24);
+
+    function getMmRatio() external view returns (uint24);
+
+    function getLiquidationPenaltyRatio() external view returns (uint24);
+
+    function getPartialCloseRatio() external view returns (uint24);
+
+    function getTwapInterval() external view returns (uint32);
+}

@@ -147,7 +147,7 @@ contract Exchange is
                 );
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
                 params.amount = positionSize.abs().mulRatio(
-                    IClearingHouseConfig(_clearingHouseConfig).partialCloseRatio()
+                    IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio()
                 );
             }
         } else {
@@ -387,7 +387,7 @@ contract Exchange is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).twapInterval();
+        uint32 twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
         // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[baseToken] == 0) {
             twapIntervalArg = 0;
