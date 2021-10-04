@@ -7,8 +7,8 @@ import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
 contract TestMetaTxRecipient is BaseRelayRecipient, Initializable {
     address public pokedBy;
 
-    function __TestMetaTxRecipient_init(address _trustedForwarder) external initializer {
-        _trustedForwarder = _trustedForwarder;
+    function __TestMetaTxRecipient_init(address trustedForwarderArg) external initializer {
+        _trustedForwarder = trustedForwarderArg;
     }
 
     function poke() external {
