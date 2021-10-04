@@ -17,15 +17,15 @@ contract TestAccountBalance is AccountBalance {
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
 
-        clearingHouseConfig = clearingHouseConfigArg;
-        exchange = exchangeArg;
-        orderBook = orderBookArg;
+        _clearingHouseConfig = clearingHouseConfigArg;
+        _exchange = exchangeArg;
+        _orderBook = orderBookArg;
     }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
@@ -49,6 +49,6 @@ contract TestAccountBalance is AccountBalance {
             uint256 indexTwap
         )
     {
-        return IExchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
+        return IExchange(_exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 }

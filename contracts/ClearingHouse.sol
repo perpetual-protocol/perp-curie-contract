@@ -14,7 +14,6 @@ import { PerpMath } from "./lib/PerpMath.sol";
 import { FeeMath } from "./lib/FeeMath.sol";
 import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
-import { Validation } from "./base/Validation.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
@@ -24,13 +23,18 @@ import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
+import { BlockContext } from "./base/BlockContext.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
+    IClearingHouse,
+    BlockContext,
     ReentrancyGuardUpgradeable,
-    Validation,
     OwnerPausable,
+    BaseRelayRecipient,
     ClearingHouseStorageV1
 {
     using AddressUpgradeable for address;
@@ -47,12 +51,48 @@ contract ClearingHouse is
     using SettlementTokenMath for int256;
 
     //
+    // STRUCT
+    //
+    struct InternalOpenPositionParams {
+        address trader;
+        address baseToken;
+        bool isBaseToQuote;
+        bool isExactInput;
+        bool isClose;
+        uint256 amount;
+        uint160 sqrtPriceLimitX96; // price slippage protection
+        bool skipMarginRequirementCheck;
+        Funding.Growth fundingGrowthGlobal;
+    }
+
+    struct InternalClosePositionParams {
+        address trader;
+        address baseToken;
+        uint160 sqrtPriceLimitX96;
+        Funding.Growth fundingGrowthGlobal;
+    }
+
+    struct InternalCheckSlippageParams {
+        bool isBaseToQuote;
+        bool isExactInput;
+        uint256 deltaAvailableQuote;
+        uint256 deltaAvailableBase;
+        uint256 oppositeAmountBound;
+    }
+
+    //
     // MODIFIER
     //
 
     modifier onlyExchange() {
         // only exchange
-        require(_msgSender() == exchange, "CH_OE");
+        require(_msgSender() == _exchange, "CH_OE");
+        _;
+    }
+
+    modifier checkDeadline(uint256 deadline) {
+        // transaction expires
+        require(_blockTimestamp() <= deadline, "CH_TE");
         _;
     }
 
@@ -71,7 +111,6 @@ contract ClearingHouse is
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
-        // TODO check QuoteToken's balance once this is upgradable
         // CH_QANC: QuoteToken address is not contract
         require(quoteTokenArg.isContract(), "CH_QANC");
         // CH_QDN18: QuoteToken decimals is not 18
@@ -82,30 +121,28 @@ contract ClearingHouse is
         require(clearingHouseConfigArg.isContract(), "CH_CCNC");
         // AccountBalance is not contract
         require(accountBalanceArg.isContract(), "CH_ABNC");
-
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
-
-        // orderbook is not contarct
+        address orderBookArg = IExchange(exchangeArg).getOrderBook();
+        // orderBook is not contract
         require(orderBookArg.isContract(), "CH_OBNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        clearingHouseConfig = clearingHouseConfigArg;
-        vault = vaultArg;
-        quoteToken = quoteTokenArg;
-        uniswapV3Factory = uniV3FactoryArg;
-        exchange = exchangeArg;
-        orderBook = orderBookArg;
-        accountBalance = accountBalanceArg;
+        _clearingHouseConfig = clearingHouseConfigArg;
+        _vault = vaultArg;
+        _quoteToken = quoteTokenArg;
+        _uniswapV3Factory = uniV3FactoryArg;
+        _exchange = exchangeArg;
+        _orderBook = orderBookArg;
+        _accountBalance = accountBalanceArg;
 
-        _settlementTokenDecimals = IVault(vault).decimals();
+        _settlementTokenDecimals = IVault(_vault).decimals();
 
         // we don't use this var
-        versionRecipient = "2.0.0";
+        _versionRecipient = "2.0.0";
     }
 
     // solhint-disable-next-line func-order
@@ -115,6 +152,7 @@ contract ClearingHouse is
         _setTrustedForwarder(trustedForwarderArg);
     }
 
+    /// @inheritdoc IClearingHouse
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
@@ -123,18 +161,16 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
-        _requireHasBaseToken(params.baseToken);
-
         address trader = _msgSender();
         // register token if it's the first time
-        IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
+        IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
-        Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
+        // must settle funding first
+        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
 
-        // note that we no longer check available tokens here because CH will always auto-mint
-        // when requested by UniswapV3MintCallback
+        // note that we no longer check available tokens here because CH will always auto-mint in UniswapV3MintCallback
         IOrderBook.AddLiquidityResponse memory response =
-            IOrderBook(orderBook).addLiquidity(
+            IOrderBook(_orderBook).addLiquidity(
                 IOrderBook.AddLiquidityParams({
                     trader: trader,
                     baseToken: params.baseToken,
@@ -149,7 +185,7 @@ contract ClearingHouse is
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // collect fee to owedRealizedPnl
-        IAccountBalance(accountBalance).addBalance(
+        IAccountBalance(_accountBalance).addBalance(
             trader,
             params.baseToken,
             -(response.base.toInt256()),
@@ -157,8 +193,7 @@ contract ClearingHouse is
             response.fee.toInt256()
         );
 
-        // TODO : WIP
-        // must after token info is updated to ensure free collateral is positive after updated
+        // must after token balance is updated, then we can check if free collateral is enough after balance updated
         _requireEnoughFreeCollateral(trader);
 
         return
@@ -170,29 +205,47 @@ contract ClearingHouse is
             });
     }
 
+    /// @inheritdoc IClearingHouse
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (RemoveLiquidityResponse memory response)
+        returns (RemoveLiquidityResponse memory)
     {
-        _requireHasBaseToken(params.baseToken);
-        response = _removeLiquidity(
-            InternalRemoveLiquidityParams({
-                maker: _msgSender(),
-                baseToken: params.baseToken,
-                lowerTick: params.lowerTick,
-                upperTick: params.upperTick,
-                liquidity: params.liquidity
-            })
+        address trader = _msgSender();
+
+        // must settle funding first
+        IExchange(_exchange).settleFunding(trader, params.baseToken);
+
+        IOrderBook.RemoveLiquidityResponse memory response =
+            IOrderBook(_orderBook).removeLiquidity(
+                IOrderBook.RemoveLiquidityParams({
+                    maker: trader,
+                    baseToken: params.baseToken,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: params.liquidity
+                })
+            );
+
+        IAccountBalance(_accountBalance).addBalance(
+            trader,
+            params.baseToken,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.fee.toInt256()
         );
+        IAccountBalance(_accountBalance).deregisterBaseToken(trader, params.baseToken);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
+
+        return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    /// @inheritdoc IClearingHouse
     function openPosition(OpenPositionParams memory params)
         external
         override
@@ -202,12 +255,10 @@ contract ClearingHouse is
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
         address trader = _msgSender();
+        IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
-        _requireHasBaseToken(params.baseToken);
-        IAccountBalance(accountBalance).registerBaseToken(trader, params.baseToken);
-
-        // must before price impact check
-        Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
+        // must settle funding first
+        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _openPosition(
@@ -238,18 +289,19 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
+    /// @inheritdoc IClearingHouse
     function closePosition(ClosePositionParams calldata params)
         external
         override
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (uint256 deltaBase, uint256 deltaQuote)
+        returns (uint256, uint256)
     {
-        _requireHasBaseToken(params.baseToken);
-
         address trader = _msgSender();
-        Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, params.baseToken);
+
+        // must settle funding first
+        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _closePosition(
@@ -277,8 +329,8 @@ contract ClearingHouse is
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
+    /// @inheritdoc IClearingHouse
     function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
-        _requireHasBaseToken(baseToken);
         // per liquidation specs:
         //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
         //
@@ -293,16 +345,17 @@ contract ClearingHouse is
         // CH_EAV: enough account value
         require(
             getAccountValue(trader).lt(
-                IAccountBalance(accountBalance).getLiquidateMarginRequirement(trader),
+                IAccountBalance(_accountBalance).getLiquidateMarginRequirement(trader),
                 _settlementTokenDecimals
             ),
             "CH_EAV"
         );
 
         // CH_NEO: not empty order
-        require(!IAccountBalance(accountBalance).hasOrder(trader), "CH_NEO");
+        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_NEO");
 
-        Funding.Growth memory fundingGrowthGlobal = IExchange(exchange).settleFunding(trader, baseToken);
+        // must settle funding first
+        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
@@ -316,14 +369,14 @@ contract ClearingHouse is
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
             response.exchangedPositionNotional.abs().mulRatio(
-                IClearingHouseConfig(clearingHouseConfig).liquidationPenaltyRatio()
+                IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
             );
 
-        IAccountBalance(accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        IAccountBalance(accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -335,6 +388,7 @@ contract ClearingHouse is
         );
     }
 
+    /// @inheritdoc IClearingHouse
     function cancelExcessOrders(
         address maker,
         address baseToken,
@@ -343,8 +397,9 @@ contract ClearingHouse is
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
+    /// @inheritdoc IClearingHouse
     function cancelAllExcessOrders(address maker, address baseToken) external override whenNotPaused nonReentrant {
-        bytes32[] memory orderIds = IOrderBook(orderBook).getOpenOrderIds(maker, baseToken);
+        bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -355,7 +410,7 @@ contract ClearingHouse is
         bytes calldata data
     ) external override {
         // not orderBook
-        require(_msgSender() == orderBook, "CH_NOB");
+        require(_msgSender() == _orderBook, "CH_NOB");
 
         IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));
 
@@ -396,13 +451,48 @@ contract ClearingHouse is
     // EXTERNAL VIEW
     //
 
-    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
+    /// @inheritdoc IClearingHouse
+    function getQuoteToken() external view override returns (address) {
+        return _quoteToken;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getUniswapV3Factory() external view override returns (address) {
+        return _uniswapV3Factory;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getClearingHouseConfig() external view override returns (address) {
+        return _clearingHouseConfig;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getVault() external view override returns (address) {
+        return _vault;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getExchange() external view override returns (address) {
+        return _exchange;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getOrderBook() external view override returns (address) {
+        return _orderBook;
+    }
+
+    /// @inheritdoc IClearingHouse
+    function getAccountBalance() external view override returns (address) {
+        return _accountBalance;
+    }
+
+    /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
-        int256 fundingPayment = IExchange(exchange).getAllPendingFundingPayment(trader);
+        int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
-            IAccountBalance(accountBalance).getOwedAndUnrealizedPnl(trader);
+            IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
         int256 totalCollateral =
-            IVault(vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
+            IVault(_vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
 
         return totalCollateral.addS(unrealizedPnl, _settlementTokenDecimals);
     }
@@ -416,68 +506,38 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
-        _requireHasBaseToken(baseToken);
-
+        // only cancel open orders if there are not enough free collateral with mmRatio
+        // or account is able to being liquidated.
         // CH_NEXO: not excess orders
-        // only cancel open orders if there are not enough free collateral with mmRatio or account is liquidable.
         require(
-            (_getFreeCollateralByRatio(maker, IClearingHouseConfig(clearingHouseConfig).mmRatio()) < 0) ||
+            (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
                 getAccountValue(maker).lt(
-                    IAccountBalance(accountBalance).getLiquidateMarginRequirement(maker),
+                    IAccountBalance(_accountBalance).getLiquidateMarginRequirement(maker),
                     _settlementTokenDecimals
                 ),
             "CH_NEXO"
         );
 
-        // must settle funding before getting token info
-        IExchange(exchange).settleFunding(maker, baseToken);
+        // must settle funding first
+        IExchange(_exchange).settleFunding(maker, baseToken);
         IOrderBook.RemoveLiquidityResponse memory response =
-            IOrderBook(orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
+            IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
-        IAccountBalance(accountBalance).addBalance(
+        IAccountBalance(_accountBalance).addBalance(
             maker,
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
             response.fee.toInt256()
         );
-        IAccountBalance(accountBalance).deregisterBaseToken(maker, baseToken);
-    }
-
-    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
-        internal
-        returns (RemoveLiquidityResponse memory)
-    {
-        // must settle funding before getting token info
-        IExchange(exchange).settleFunding(params.maker, params.baseToken);
-        IOrderBook.RemoveLiquidityResponse memory response =
-            IOrderBook(orderBook).removeLiquidity(
-                IOrderBook.RemoveLiquidityParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
-
-        IAccountBalance(accountBalance).addBalance(
-            params.maker,
-            params.baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.fee.toInt256()
-        );
-        IAccountBalance(accountBalance).deregisterBaseToken(params.maker, params.baseToken);
-
-        return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
+        IAccountBalance(_accountBalance).deregisterBaseToken(maker, baseToken);
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (IExchange.SwapResponse memory) {
         IExchange.SwapResponse memory response =
-            IExchange(exchange).swap(
+            IExchange(_exchange).swap(
                 IExchange.SwapParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
@@ -495,7 +555,7 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        IAccountBalance(accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
     }
@@ -504,11 +564,13 @@ contract ClearingHouse is
         internal
         returns (IExchange.SwapResponse memory)
     {
-        int256 positionSize = IAccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
 
+        // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
+        // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
         bool isLong = positionSize > 0 ? true : false;
         return
             _openPosition(
@@ -540,21 +602,15 @@ contract ClearingHouse is
         return super._msgData();
     }
 
-    // TODO remove, should check in exchange
-    function _requireHasBaseToken(address baseToken) internal view {
-        // CH_BTNE: base token not exists
-        require(IExchange(exchange).getPool(baseToken) != address(0), "CH_BTNE");
-    }
-
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
-        return IVault(vault).getFreeCollateralByRatio(trader, ratio);
+        return IVault(_vault).getFreeCollateralByRatio(trader, ratio);
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
+        // freeCollateral is calculated based on imRatio
         // CH_NEFCI: not enough account value by imRatio
-        // freeCollateral is calculated with imRatio
         require(
-            _getFreeCollateralByRatio(trader, IClearingHouseConfig(clearingHouseConfig).imRatio()) >= 0,
+            _getFreeCollateralByRatio(trader, IClearingHouseConfig(_clearingHouseConfig).getImRatio()) >= 0,
             "CH_NEFCI"
         );
     }

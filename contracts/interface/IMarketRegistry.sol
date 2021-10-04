@@ -47,8 +47,7 @@ interface IMarketRegistry {
 
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory);
 
-    function maxOrdersPerMarket() external view returns (uint8);
+    function getClearingHouse() external view returns (address);
 
-    // for test
-    function clearingHouse() external view returns (address);
+    function getMaxOrdersPerMarket() external view returns (uint8);
 }

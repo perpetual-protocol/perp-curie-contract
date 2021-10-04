@@ -23,8 +23,17 @@ import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
+import { IOrderBook } from "./interface/IOrderBook.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
-contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3CallbackBridge, OrderBookStorageV1 {
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract OrderBook is
+    IOrderBook,
+    IUniswapV3MintCallback,
+    ClearingHouseCallee,
+    UniswapV3CallbackBridge,
+    OrderBookStorageV1
+{
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
@@ -38,6 +47,40 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
     //
+    // Struct
+    //
+
+    struct InternalAddLiquidityToOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint256 feeGrowthGlobalX128;
+        uint128 liquidity;
+        Funding.Growth globalFundingGrowth;
+    }
+
+    struct InternalRemoveLiquidityFromOrderParams {
+        address maker;
+        address baseToken;
+        address pool;
+        int24 lowerTick;
+        int24 upperTick;
+        uint128 liquidity;
+    }
+
+    struct InternalSwapStep {
+        uint160 initialSqrtPriceX96;
+        int24 nextTick;
+        bool isNextTickInitialized;
+        uint160 nextSqrtPriceX96;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 feeAmount;
+    }
+
+    //
     // EXTERNAL NON-VIEW
     //
 
@@ -49,13 +92,13 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         require(quoteTokenArg != address(0), "OB_QT0");
 
         // update states
-        quoteToken = quoteTokenArg;
+        _quoteToken = quoteTokenArg;
     }
 
     function setExchange(address exchangeArg) external onlyOwner {
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
-        exchange = exchangeArg;
+        _exchange = exchangeArg;
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
@@ -64,7 +107,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
@@ -130,7 +173,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         emit LiquidityChanged(
             params.trader,
             params.baseToken,
-            quoteToken,
+            _quoteToken,
             params.lowerTick,
             params.upperTick,
             response.base.toInt256(),
@@ -167,7 +210,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         uint256 totalFee;
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-            OpenOrder memory order = _openOrderMap[orderId];
+            OpenOrder.Info memory order = _openOrderMap[orderId];
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -197,11 +240,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     ) external override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder storage order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -232,15 +275,15 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         uint256 amount1Owed,
         bytes calldata data
     ) external override checkCallback {
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+        IUniswapV3MintCallback(_clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
-        require(_msgSender() == exchange, "OB_OEX");
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        require(_msgSender() == _exchange, "OB_OEX");
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
-            IMarketRegistry(marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
+            IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 feeResult; // exchangeFeeRatio
         uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 
@@ -359,11 +402,21 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     // EXTERNAL VIEW
     //
 
+    /// @inheritdoc IOrderBook
+    function getExchange() external view override returns (address) {
+        return _exchange;
+    }
+
+    /// @inheritdoc IOrderBook
+    function getQuoteToken() external view override returns (address) {
+        return _quoteToken;
+    }
+
     function getOpenOrderIds(address trader, address baseToken) external view override returns (bytes32[] memory) {
         return _openOrderIdsMap[trader][baseToken];
     }
 
-    function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder memory) {
+    function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder.Info memory) {
         return _openOrderMap[orderId];
     }
 
@@ -372,7 +425,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view override returns (OpenOrder memory) {
+    ) external view override returns (OpenOrder.Info memory) {
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
@@ -422,11 +475,11 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     ) external view override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -470,18 +523,18 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
         // non-existent openOrder
         require(openOrder.liquidity > 0, "OB_NEO");
         // not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "OB_NEL");
 
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
                     pool,
-                    exchange,
+                    _exchange,
                     params.lowerTick,
                     params.upperTick,
                     params.liquidity
@@ -512,7 +565,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         emit LiquidityChanged(
             params.maker,
             params.baseToken,
-            quoteToken,
+            _quoteToken,
             params.lowerTick,
             params.upperTick,
             -response.base.toInt256(),
@@ -530,7 +583,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     {
         // update token info based on existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
         (uint256 fee, uint256 feeGrowthInsideX128) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
@@ -568,7 +621,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
         uint256 fee;
         uint256 feeGrowthInsideX128;
@@ -576,7 +629,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // OB_ONE: orders number exceeded
-            uint8 maxOrdersPerMarket = IMarketRegistry(marketRegistry).maxOrdersPerMarket();
+            uint8 maxOrdersPerMarket = IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket();
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "OB_ONE");
             orderIds.push(orderId);
 
@@ -638,10 +691,10 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(marketRegistry).getPool(baseToken));
+            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(baseToken));
         uint256 tokenAmount;
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
 
             uint256 amount;
             {
@@ -674,7 +727,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
 
     /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
     ///      the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
-    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder memory order)
+    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder.Info memory order)
         internal
         view
         returns (uint256 owedFee, uint256 feeGrowthInsideX128)
@@ -683,7 +736,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
         feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
             order.lowerTick,
             order.upperTick,
-            UniswapV3Broker.getTick(IMarketRegistry(marketRegistry).getPool(baseToken)),
+            UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken)),
             _feeGrowthGlobalX128Map[baseToken]
         );
         owedFee = FullMath.mulDiv(
@@ -700,7 +753,7 @@ contract OrderBook is IUniswapV3MintCallback, ClearingHouseCallee, UniswapV3Call
     ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
     /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
     function _getLiquidityCoefficientInFundingPaymentByOrder(
-        OpenOrder memory order,
+        OpenOrder.Info memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import { IClearingHouseConfig } from "../interface/IClearingHouseConfig.sol";
-
-abstract contract ClearingHouseConfigStorageV1 is IClearingHouseConfig {
-    uint8 public override maxMarketsPerAccount;
-    uint24 public override imRatio;
-    uint24 public override mmRatio;
-    uint24 public override liquidationPenaltyRatio;
-    uint24 public override partialCloseRatio;
-    uint32 public override twapInterval;
+/// @notice For future upgrades, do not change ClearingHouseConfigStorageV1. Create a new
+/// contract which implements ClearingHouseConfigStorageV1 and following the naming convention
+/// ClearingHouseConfigStorageVX.
+abstract contract ClearingHouseConfigStorageV1 {
+    uint8 internal _maxMarketsPerAccount;
+    uint24 internal _imRatio;
+    uint24 internal _mmRatio;
+    uint24 internal _liquidationPenaltyRatio;
+    uint24 internal _partialCloseRatio;
+    uint32 internal _twapInterval;
 }

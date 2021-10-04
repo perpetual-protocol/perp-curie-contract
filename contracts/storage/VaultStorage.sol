@@ -1,29 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
-pragma abicoder v2;
 
-import { IVault } from "../interface/IVault.sol";
-import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
-
-abstract contract VaultStorageV1 is BaseRelayRecipient, IVault {
+/// @notice For future upgrades, do not change VaultStorageV1. Create a new
+/// contract which implements VaultStorageV1 and following the naming convention
+/// VaultStorageVX.
+abstract contract VaultStorageV1 {
     // --------- IMMUTABLE ---------
 
-    // cached the settlement token's decimal for gas optimization
-    uint8 public override decimals;
+    uint8 internal _decimals;
 
-    address public settlementToken;
+    address internal _settlementToken;
 
     // --------- ^^^^^^^^^ ---------
 
-    address public clearingHouseConfig;
-    address public accountBalance;
-    address public insuranceFund;
-    address public exchange;
-
-    uint256 public totalDebt;
-
-    // not used here, due to inherit from BaseRelayRecipient
-    string public override versionRecipient;
+    address internal _clearingHouseConfig;
+    address internal _accountBalance;
+    address internal _insuranceFund;
+    address internal _exchange;
+    uint256 internal _totalDebt;
 
     // key: trader, token address
     mapping(address => mapping(address => int256)) internal _balance;

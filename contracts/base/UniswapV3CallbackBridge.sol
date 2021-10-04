@@ -2,18 +2,21 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { SafeOwnable } from "./SafeOwnable.sol";
 import { IMarketRegistry } from "../interface/IMarketRegistry.sol";
 
-abstract contract UniswapV3CallbackBridge is SafeOwnable {
+abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
     using AddressUpgradeable for address;
 
     //
     // STATE
     //
-    address public marketRegistry;
+    address internal _marketRegistry;
+
+    // __gap is reserved storage
+    uint256[50] private __gap;
 
     //
     // MODIFIER
@@ -23,7 +26,7 @@ abstract contract UniswapV3CallbackBridge is SafeOwnable {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
         // UCB_FCV: failed callback validation
-        require(pool == IMarketRegistry(marketRegistry).getPool(baseToken), "UCB_FCV");
+        require(pool == IMarketRegistry(_marketRegistry).getPool(baseToken), "UCB_FCV");
         _;
     }
 
@@ -31,10 +34,14 @@ abstract contract UniswapV3CallbackBridge is SafeOwnable {
     // CONSTRUCTOR
     //
     function __UniswapV3CallbackBridge_init(address marketRegistryArg) internal initializer {
-        __SafeOwnable_init();
+        __Context_init();
 
         // UCB_MRNC: MarketRegistry is not contract
         require(marketRegistryArg.isContract(), "UCB_MRNC");
-        marketRegistry = marketRegistryArg;
+        _marketRegistry = marketRegistryArg;
+    }
+
+    function getMarketRegistry() external view returns (address) {
+        return _marketRegistry;
     }
 }

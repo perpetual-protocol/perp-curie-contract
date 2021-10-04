@@ -2,37 +2,15 @@
 pragma solidity 0.7.6;
 
 interface IClearingHouseConfig {
-    //
-    // EVENT
-    //
-    event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint24 partialCloseRatio);
-    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
+    function getMaxMarketsPerAccount() external view returns (uint8);
 
-    //
-    // FUNCTIONS
-    //
-    function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg) external;
+    function getImRatio() external view returns (uint24);
 
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external;
+    function getMmRatio() external view returns (uint24);
 
-    function setTwapInterval(uint32 twapIntervalArg) external;
+    function getLiquidationPenaltyRatio() external view returns (uint24);
 
-    function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external;
+    function getPartialCloseRatio() external view returns (uint24);
 
-    //
-    // VIEW
-    //
-    function maxMarketsPerAccount() external view returns (uint8);
-
-    function imRatio() external view returns (uint24);
-
-    function mmRatio() external view returns (uint24);
-
-    function liquidationPenaltyRatio() external view returns (uint24);
-
-    function partialCloseRatio() external view returns (uint24);
-
-    function twapInterval() external view returns (uint32);
+    function getTwapInterval() external view returns (uint32);
 }

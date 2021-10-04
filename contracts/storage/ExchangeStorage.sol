@@ -1,37 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
-pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
-import { IExchange } from "../interface/IExchange.sol";
 
-abstract contract ExchangeStorageV1 is IExchange {
-    //
-    // STRUCT
-    //
+/// @notice For future upgrades, do not change ExchangeStorageV1. Create a new
+/// contract which implements ExchangeStorageV1 and following the naming convention
+/// ExchangeStorageVX.
+abstract contract ExchangeStorageV1 {
+    address internal _orderBook;
 
-    struct InternalReplaySwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    struct InternalSwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
-        int256 exchangedPositionSize;
-        int256 exchangedPositionNotional;
-        uint256 fee;
-        uint256 insuranceFundFee;
-        int24 tick;
-    }
-
-    address public override orderBook;
-    address internal accountBalance;
-    address internal clearingHouseConfig;
-    address internal insuranceFund;
+    address internal _accountBalance;
+    address internal _clearingHouseConfig;
+    address internal _insuranceFund;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;

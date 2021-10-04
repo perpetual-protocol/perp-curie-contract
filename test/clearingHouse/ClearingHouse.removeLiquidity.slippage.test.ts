@@ -104,7 +104,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
                     minQuote: 0,
                     deadline: now,
                 }),
-            ).to.revertedWith("V_TE")
+            ).to.revertedWith("CH_TE")
         })
     })
 

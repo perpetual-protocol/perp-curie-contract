@@ -28,7 +28,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     const mockedInsuranceFund = await smockit(insuranceFund)
-    mockedInsuranceFund.smocked.token.will.return.with(USDC.address)
+    mockedInsuranceFund.smocked.getToken.will.return.with(USDC.address)
 
     // deploy clearingHouse
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")

@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - move event `PositionChanged` to Exchange
 - combine `getTotalUnrealizedPnl` and `getOwedRealizedPnl` to `getOwedAndUnrealizedPnl`
 - move `getLiquidateMarginRequirement` from `Vault` to `AccountBalance`
+- rename `CleairngHouseConfig.liquidationPenaltyRatio` to `ClearingHouseConfig.getLiquidationPenaltyRatio`
+- rename `CleairngHouseConfig.partialCloseRatio` to `ClearingHouseConfig.getPartialCloseRatio`
+- rename `CleairngHouseConfig.twapInterval` to `ClearingHouseConfig.getTwapInterval`
+- rename `CleairngHouseConfig.maxMarketsPerAccount` to `ClearingHouseConfig.getMaxMarketsPerAccount`
+- rename `MarketRegistry.clearingHouse` to `MarketRegistry.getClearingHouse`
+- rename `MarketRegistry.maxOrdersPerMarket` to `MarketRegistry.getMaxOrdersPerMarket`
+- rename `Vault.totalDebt` to `Vault.getTotalDebt`
 
 - ## [0.9.4] - 2021-09-28
 ### Changed

@@ -320,7 +320,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
 
-    mockedExchange.smocked.orderBook.will.return.with(mockedOrderBook.address)
+    mockedExchange.smocked.getOrderBook.will.return.with(mockedOrderBook.address)
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")

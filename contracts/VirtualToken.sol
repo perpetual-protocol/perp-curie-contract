@@ -5,7 +5,7 @@ import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC2
 import { SafeOwnable } from "./base/SafeOwnable.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
 
-contract VirtualToken is SafeOwnable, ERC20Upgradeable, IVirtualToken {
+contract VirtualToken is IVirtualToken, SafeOwnable, ERC20Upgradeable {
     mapping(address => bool) internal _whitelistMap;
 
     // __gap is reserved storage
