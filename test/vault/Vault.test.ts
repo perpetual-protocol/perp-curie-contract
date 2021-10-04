@@ -133,7 +133,7 @@ describe("Vault test", () => {
                     .to.emit(vault, "Withdrawn")
                     .withArgs(usdc.address, alice.address, amount)
 
-                expect(await vault.totalDebt()).to.eq(borrowedAmount)
+                expect(await vault.getTotalDebt()).to.eq(borrowedAmount)
                 expect(await usdc.balanceOf(vault.address)).to.eq("0")
                 expect(await usdc.balanceOf(insuranceFund.address)).to.eq(parseUnits("80", usdcDecimals))
             })

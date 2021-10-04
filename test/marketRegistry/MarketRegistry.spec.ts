@@ -140,7 +140,7 @@ describe("MarketRegistry Spec", () => {
 
         it("setClearingHouse", async () => {
             await marketRegistry.setClearingHouse(mockedClearingHouse.address)
-            expect(await marketRegistry.clearingHouse()).eq(mockedClearingHouse.address)
+            expect(await marketRegistry.getClearingHouse()).eq(mockedClearingHouse.address)
         })
 
         describe("after addPool", () => {
@@ -198,7 +198,7 @@ describe("MarketRegistry Spec", () => {
 
         it("setMaxOrdersPerMarket", async () => {
             await marketRegistry.setMaxOrdersPerMarket(1)
-            expect(await marketRegistry.maxOrdersPerMarket()).eq(1)
+            expect(await marketRegistry.getMaxOrdersPerMarket()).eq(1)
         })
     })
 })
