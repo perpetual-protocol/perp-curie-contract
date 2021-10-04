@@ -10,7 +10,7 @@ import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 import "../lib/UniswapV3Broker.sol";
-import "../interface/IMintableERC20.sol";
+import "../interface/IERC20Metadata.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback, Initializable {
     using Path for bytes;
@@ -35,10 +35,10 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback, 
         require(msg.sender == pool, "CH_FMV");
 
         if (amount0Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token0()).transfer(msg.sender, amount0Owed);
+            IERC20Metadata(IUniswapV3Pool(pool).token0()).transfer(msg.sender, amount0Owed);
         }
         if (amount1Owed > 0) {
-            IMintableERC20(IUniswapV3Pool(pool).token1()).transfer(msg.sender, amount1Owed);
+            IERC20Metadata(IUniswapV3Pool(pool).token1()).transfer(msg.sender, amount1Owed);
         }
     }
 
@@ -66,7 +66,7 @@ contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback, 
         // amount0Delta & amount1Delta are guaranteed to be positive when being the amount to be paid
         (address token, uint256 amountToPay) =
             amount0Delta > 0 ? (pool.token0(), uint256(amount0Delta)) : (pool.token1(), uint256(amount1Delta));
-        IMintableERC20(token).transfer(msg.sender, amountToPay);
+        IERC20Metadata(token).transfer(msg.sender, amountToPay);
     }
 
     function addLiquidity(UniswapV3Broker.AddLiquidityParams calldata params)
