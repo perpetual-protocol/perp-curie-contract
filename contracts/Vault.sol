@@ -95,6 +95,15 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address from = _msgSender();
 
+        // greater than settlement token balance cap
+        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
+        if (settlementTokenBalanceCap > 0) {
+            require(
+                IERC20Metadata(token).balanceOf(address(this)).add(amount) <= settlementTokenBalanceCap,
+                "V_GTSTBC"
+            );
+        }
+
         _modifyBalance(from, token, amount.toInt256());
 
         // for deflationary token,
@@ -149,7 +158,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
 
     /// @inheritdoc IVault
-    function getSettlementToken() external override returns (address) {
+    function getSettlementToken() external view override returns (address) {
         return _settlementToken;
     }
 
@@ -165,22 +174,22 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @inheritdoc IVault
-    function getClearingHouseConfig() external override returns (address) {
+    function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
     }
 
     /// @inheritdoc IVault
-    function getAccountBalance() external override returns (address) {
+    function getAccountBalance() external view override returns (address) {
         return _accountBalance;
     }
 
     /// @inheritdoc IVault
-    function getInsuranceFund() external override returns (address) {
+    function getInsuranceFund() external view override returns (address) {
         return _insuranceFund;
     }
 
     /// @inheritdoc IVault
-    function getExchange() external override returns (address) {
+    function getExchange() external view override returns (address) {
         return _exchange;
     }
 
