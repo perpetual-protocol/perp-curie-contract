@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- add parameter `insuranceFundArg` to `initialize` of Exchange 
+- add parameter `insuranceFundArg` to `initialize` of Exchange
+- add event `SettlementTokenBalanceCapChanged` to ClearingHouseConfig
+- add `ClearingHouseConfig.getSettlementTokenBalanceCap()`
 
 ### Removed
 - remove parameter `insuranceFundArg` from `initialize` of ClearingHouse 

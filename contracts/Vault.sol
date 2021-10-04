@@ -104,6 +104,12 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // balance amount inconsistent
         require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
 
+        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
+        if (settlementTokenBalanceCap > 0) {
+            // greater than settlement token balance cap
+            require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
+        }
+
         emit Deposited(token, from, amount);
     }
 
@@ -149,7 +155,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
 
     /// @inheritdoc IVault
-    function getSettlementToken() external override returns (address) {
+    function getSettlementToken() external view override returns (address) {
         return _settlementToken;
     }
 
@@ -165,22 +171,22 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @inheritdoc IVault
-    function getClearingHouseConfig() external override returns (address) {
+    function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
     }
 
     /// @inheritdoc IVault
-    function getAccountBalance() external override returns (address) {
+    function getAccountBalance() external view override returns (address) {
         return _accountBalance;
     }
 
     /// @inheritdoc IVault
-    function getInsuranceFund() external override returns (address) {
+    function getInsuranceFund() external view override returns (address) {
         return _insuranceFund;
     }
 
     /// @inheritdoc IVault
-    function getExchange() external override returns (address) {
+    function getExchange() external view override returns (address) {
         return _exchange;
     }
 
