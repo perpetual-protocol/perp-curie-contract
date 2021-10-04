@@ -3,9 +3,8 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
-import { IOrderBookStorageV1 } from "./IOrderBookStorage.sol";
 
-interface IOrderBook is IOrderBookStorageV1 {
+interface IOrderBook {
     event LiquidityChanged(
         address indexed maker,
         address indexed baseToken,

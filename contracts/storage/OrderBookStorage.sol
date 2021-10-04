@@ -3,12 +3,11 @@ pragma solidity 0.7.6;
 
 import { Tick } from "../lib/Tick.sol";
 import { Funding } from "../lib/Funding.sol";
-import { IOrderBookStorageV1 } from "../interface/IOrderBookStorage.sol";
 
 /// @notice For future upgrades, do not change OrderBookStorageV1. Create a new
 /// contract which implements OrderBookStorageV1 and following the naming convention
 /// OrderBookStorageVX.
-abstract contract OrderBookStorageV1 is IOrderBookStorageV1 {
+abstract contract OrderBookStorageV1 {
     address public exchange;
     address public quoteToken;
 
