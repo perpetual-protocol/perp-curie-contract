@@ -24,6 +24,7 @@ import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract OrderBook is
@@ -209,7 +210,7 @@ contract OrderBook is
         uint256 totalFee;
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
-            OpenOrder memory order = _openOrderMap[orderId];
+            OpenOrder.Info memory order = _openOrderMap[orderId];
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -243,7 +244,7 @@ contract OrderBook is
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder storage order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -405,7 +406,7 @@ contract OrderBook is
         return _openOrderIdsMap[trader][baseToken];
     }
 
-    function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder memory) {
+    function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder.Info memory) {
         return _openOrderMap[orderId];
     }
 
@@ -414,7 +415,7 @@ contract OrderBook is
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view override returns (OpenOrder memory) {
+    ) external view override returns (OpenOrder.Info memory) {
         return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
     }
 
@@ -468,7 +469,7 @@ contract OrderBook is
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
@@ -512,7 +513,7 @@ contract OrderBook is
     function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
         // non-existent openOrder
         require(openOrder.liquidity > 0, "OB_NEO");
         // not enough liquidity
@@ -572,7 +573,7 @@ contract OrderBook is
     {
         // update token info based on existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
         (uint256 fee, uint256 feeGrowthInsideX128) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
@@ -610,7 +611,7 @@ contract OrderBook is
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
         uint256 fee;
         uint256 feeGrowthInsideX128;
@@ -682,7 +683,7 @@ contract OrderBook is
         uint160 sqrtMarkPriceX96 =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(marketRegistry).getPool(baseToken));
         for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder memory order = _openOrderMap[orderIds[i]];
+            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
 
             uint256 amount;
             {
@@ -714,7 +715,7 @@ contract OrderBook is
 
     /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
     ///      the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
-    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder memory order)
+    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder.Info memory order)
         internal
         view
         returns (uint256 owedFee, uint256 feeGrowthInsideX128)
@@ -740,7 +741,7 @@ contract OrderBook is
     ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
     /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
     function _getLiquidityCoefficientInFundingPaymentByOrder(
-        OpenOrder memory order,
+        OpenOrder.Info memory order,
         Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);

@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 
 import { Tick } from "../lib/Tick.sol";
 import { Funding } from "../lib/Funding.sol";
+import { OpenOrder } from "../lib/OpenOrder.sol";
 
 /// @notice For future upgrades, do not change OrderBookStorageV1. Create a new
 /// contract which implements OrderBookStorageV1 and following the naming convention
@@ -15,7 +16,7 @@ abstract contract OrderBookStorageV1 {
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
 
     // key: openOrderId
-    mapping(bytes32 => OpenOrder) internal _openOrderMap;
+    mapping(bytes32 => OpenOrder.Info) internal _openOrderMap;
 
     // first key: base token, second key: tick index
     // value: the accumulator of **Tick.GrowthInfo** outside each tick of each pool
