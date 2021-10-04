@@ -56,7 +56,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address accountBalanceArg,
         address exchangeArg
     ) external initializer {
-        address settlementTokenArg = IInsuranceFund(insuranceFundArg).token();
+        address settlementTokenArg = IInsuranceFund(insuranceFundArg).getToken();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
 
         // invalid settlementToken decimals
