@@ -7,10 +7,10 @@ import { AccountMarket } from "../lib/AccountMarket.sol";
 /// contract which implements AccountBalanceStorageV1 and following the naming convention
 /// AccountBalanceStorageVX.
 abstract contract AccountBalanceStorageV1 {
-    address public clearingHouseConfig;
-    address public exchange;
-    address public orderBook;
-    address public vault;
+    address internal _clearingHouseConfig;
+    address internal _exchange;
+    address internal _orderBook;
+    address internal _vault;
 
     // trader => owedRealizedPnl
     mapping(address => int256) internal _owedRealizedPnlMap;

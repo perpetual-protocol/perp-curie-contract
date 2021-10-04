@@ -92,13 +92,13 @@ contract OrderBook is
         require(quoteTokenArg != address(0), "OB_QT0");
 
         // update states
-        quoteToken = quoteTokenArg;
+        _quoteToken = quoteTokenArg;
     }
 
     function setExchange(address exchangeArg) external onlyOwner {
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
-        exchange = exchangeArg;
+        _exchange = exchangeArg;
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
@@ -173,7 +173,7 @@ contract OrderBook is
         emit LiquidityChanged(
             params.trader,
             params.baseToken,
-            quoteToken,
+            _quoteToken,
             params.lowerTick,
             params.upperTick,
             response.base.toInt256(),
@@ -279,7 +279,7 @@ contract OrderBook is
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
-        require(_msgSender() == exchange, "OB_OEX");
+        require(_msgSender() == _exchange, "OB_OEX");
         address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
@@ -401,6 +401,16 @@ contract OrderBook is
     //
     // EXTERNAL VIEW
     //
+
+    /// @inheritdoc IOrderBook
+    function getExchange() external view override returns (address) {
+        return _exchange;
+    }
+
+    /// @inheritdoc IOrderBook
+    function getQuoteToken() external view override returns (address) {
+        return _quoteToken;
+    }
 
     function getOpenOrderIds(address trader, address baseToken) external view override returns (bytes32[] memory) {
         return _openOrderIdsMap[trader][baseToken];
@@ -524,7 +534,7 @@ contract OrderBook is
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
                     pool,
-                    exchange,
+                    _exchange,
                     params.lowerTick,
                     params.upperTick,
                     params.liquidity
@@ -555,7 +565,7 @@ contract OrderBook is
         emit LiquidityChanged(
             params.maker,
             params.baseToken,
-            quoteToken,
+            _quoteToken,
             params.lowerTick,
             params.upperTick,
             -response.base.toInt256(),

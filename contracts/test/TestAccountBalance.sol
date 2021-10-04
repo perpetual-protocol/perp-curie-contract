@@ -23,9 +23,9 @@ contract TestAccountBalance is AccountBalance {
 
         __ClearingHouseCallee_init();
 
-        clearingHouseConfig = clearingHouseConfigArg;
-        exchange = exchangeArg;
-        orderBook = orderBookArg;
+        _clearingHouseConfig = clearingHouseConfigArg;
+        _exchange = exchangeArg;
+        _orderBook = orderBookArg;
     }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
@@ -49,6 +49,6 @@ contract TestAccountBalance is AccountBalance {
             uint256 indexTwap
         )
     {
-        return IExchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
+        return IExchange(_exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 }

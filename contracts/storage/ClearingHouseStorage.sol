@@ -6,16 +6,16 @@ pragma solidity 0.7.6;
 /// ClearingHouseStorageVX.
 abstract contract ClearingHouseStorageV1 {
     // --------- IMMUTABLE ---------
-    address public quoteToken;
-    address public uniswapV3Factory;
+    address internal _quoteToken;
+    address internal _uniswapV3Factory;
 
     // cache the settlement token's decimals for gas optimization
     uint8 internal _settlementTokenDecimals;
     // --------- ^^^^^^^^^ ---------
 
-    address public clearingHouseConfig;
-    address public vault;
-    address public exchange;
-    address public orderBook;
-    address public accountBalance;
+    address internal _clearingHouseConfig;
+    address internal _vault;
+    address internal _exchange;
+    address internal _orderBook;
+    address internal _accountBalance;
 }

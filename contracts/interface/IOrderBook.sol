@@ -126,4 +126,8 @@ interface IOrderBook {
         int24 lowerTick,
         int24 upperTick
     ) external view returns (uint256);
+
+    function getExchange() external view returns (address);
+
+    function getQuoteToken() external view returns (address);
 }
