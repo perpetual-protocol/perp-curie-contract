@@ -8,7 +8,7 @@ contract TestMetaTxRecipient is BaseRelayRecipient, Initializable {
     address public pokedBy;
 
     function __TestMetaTxRecipient_init(address _trustedForwarder) external initializer {
-        trustedForwarder = _trustedForwarder;
+        _trustedForwarder = _trustedForwarder;
     }
 
     function poke() external {
