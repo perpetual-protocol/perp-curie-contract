@@ -619,7 +619,7 @@ contract OrderBook is
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // OB_ONE: orders number exceeded
-            uint8 maxOrdersPerMarket = IMarketRegistry(marketRegistry).maxOrdersPerMarket();
+            uint8 maxOrdersPerMarket = IMarketRegistry(marketRegistry).getMaxOrdersPerMarket();
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "OB_ONE");
             orderIds.push(orderId);
 

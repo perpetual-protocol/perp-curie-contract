@@ -26,8 +26,8 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         require(quoteTokenArg.isContract(), "MR_QTNC");
 
         // update states
-        uniswapV3Factory = uniswapV3FactoryArg;
-        quoteToken = quoteTokenArg;
+        _uniswapV3Factory = uniswapV3FactoryArg;
+        _quoteToken = quoteTokenArg;
     }
 
     //
@@ -54,16 +54,16 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         // baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "MR_BDN18");
         // clearingHouse base token balance not enough
-        require(IERC20Metadata(baseToken).balanceOf(clearingHouse) == type(uint256).max, "MR_CHBNE");
+        require(IERC20Metadata(baseToken).balanceOf(_clearingHouse) == type(uint256).max, "MR_CHBNE");
 
         // quote token total supply not enough
-        require(IERC20Metadata(quoteToken).totalSupply() == type(uint256).max, "MR_QTSNE");
+        require(IERC20Metadata(_quoteToken).totalSupply() == type(uint256).max, "MR_QTSNE");
 
         // to ensure the base is always token0 and quote is always token1
         // invalid baseToken
-        require(baseToken < quoteToken, "MR_IB");
+        require(baseToken < _quoteToken, "MR_IB");
 
-        address pool = UniswapV3Broker.getPool(uniswapV3Factory, quoteToken, baseToken, feeRatio);
+        address pool = UniswapV3Broker.getPool(_uniswapV3Factory, _quoteToken, baseToken, feeRatio);
         // non-existent pool in uniswapV3 factory
         require(pool != address(0), "MR_NEP");
         // existent pool
@@ -72,14 +72,14 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "MR_PNI");
 
         // clearingHouse not in baseToken whitelist
-        require(IVirtualToken(baseToken).isInWhitelist(clearingHouse), "MR_CNBWL");
+        require(IVirtualToken(baseToken).isInWhitelist(_clearingHouse), "MR_CNBWL");
         // pool not in baseToken whitelist
         require(IVirtualToken(baseToken).isInWhitelist(pool), "MR_PNBWL");
 
         // clearingHouse not in quoteToken whitelist
-        require(IVirtualToken(quoteToken).isInWhitelist(clearingHouse), "MR_CHNQWL");
+        require(IVirtualToken(_quoteToken).isInWhitelist(_clearingHouse), "MR_CHNQWL");
         // pool not in quoteToken whitelist
-        require(IVirtualToken(quoteToken).isInWhitelist(pool), "MR_PNQWL");
+        require(IVirtualToken(_quoteToken).isInWhitelist(pool), "MR_PNQWL");
 
         _poolMap[baseToken] = pool;
         _uniswapFeeRatioMap[baseToken] = feeRatio;
@@ -92,7 +92,7 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
     function setClearingHouse(address clearingHouseArg) external override onlyOwner {
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "MR_CHNC");
-        clearingHouse = clearingHouseArg;
+        _clearingHouse = clearingHouseArg;
         emit ClearingHouseChanged(clearingHouseArg);
     }
 
@@ -119,13 +119,22 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
     }
 
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external override onlyOwner {
-        maxOrdersPerMarket = maxOrdersPerMarketArg;
+        _maxOrdersPerMarket = maxOrdersPerMarketArg;
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
     }
 
     //
     // EXTERNAL VIEW
     //
+
+    function getClearingHouse() external view override returns (address) {
+        return _clearingHouse;
+    }
+
+    function getMaxOrdersPerMarket() external view override returns (uint8) {
+        return _maxOrdersPerMarket;
+    }
+
     function getPool(address baseToken) external view override returns (address) {
         return _poolMap[baseToken];
     }
