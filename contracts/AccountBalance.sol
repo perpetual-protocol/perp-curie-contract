@@ -33,6 +33,21 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     uint256 internal constant _DUST = 10;
 
     //
+    // MODIFIER
+    //
+    modifier onlyExchange() {
+        // only Exchange
+        require(_msgSender() == _exchange, "AB_OEX");
+        _;
+    }
+
+    modifier onlyExchangeOrClearingHouse() {
+        // only Exchange or ClearingHouse
+        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
+        _;
+    }
+
+    //
     // EXTERNAL NON-VIEW
     //
 
@@ -65,19 +80,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 base,
         int256 quote,
         int256 owedRealizedPnl
-    ) external override {
-        // AB_O_EX|CH: only exchange or CH
-        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
+    ) external override onlyExchangeOrClearingHouse {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external override {
-        // AB_O_EX|CH: only exchange or CH
-        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
-
+    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }
 
@@ -85,9 +95,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 amount
-    ) external override {
-        // AB_OEX: only exchange
-        require(_msgSender() == _exchange, "AB_OEX");
+    ) external override onlyExchange {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
@@ -97,9 +105,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 lastTwPremiumGrowthGlobalX96
-    ) external override {
-        // AB_OEX: only exchange
-        require(_msgSender() == _exchange, "AB_OEX");
+    ) external override onlyExchange {
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
