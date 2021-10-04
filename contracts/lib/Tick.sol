@@ -41,10 +41,11 @@ library Tick {
         int24 currentTick,
         int256 twPremiumGrowthGlobalX96,
         int256 twPremiumDivBySqrtPriceGrowthGlobalX96
-    ) internal view returns (FundingGrowthRangeInfo memory fundingGrowthRangeInfo) {
+    ) internal view returns (FundingGrowthRangeInfo memory) {
         int256 lowerTwPremiumGrowthOutsideX96 = self[lowerTick].twPremiumX96;
         int256 upperTwPremiumGrowthOutsideX96 = self[upperTick].twPremiumX96;
 
+        FundingGrowthRangeInfo memory fundingGrowthRangeInfo;
         fundingGrowthRangeInfo.twPremiumGrowthBelowX96 = currentTick >= lowerTick
             ? lowerTwPremiumGrowthOutsideX96
             : twPremiumGrowthGlobalX96 - lowerTwPremiumGrowthOutsideX96;
@@ -75,6 +76,7 @@ library Tick {
             twPremiumDivBySqrtPriceGrowthGlobalX96 -
             twPremiumDivBySqrtPriceGrowthBelowX96 -
             twPremiumDivBySqrtPriceGrowthAboveX96;
+        return fundingGrowthRangeInfo;
     }
 
     // if (liquidityGrossBefore == 0 && liquidityDelta != 0), call this function
