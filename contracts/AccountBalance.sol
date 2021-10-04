@@ -67,7 +67,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 owedRealizedPnl
     ) external override {
         // AB_O_EX|CH: only exchange or CH
-        require(_msgSender() == _exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
+        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
@@ -76,7 +76,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function addOwedRealizedPnl(address trader, int256 delta) external override {
         // AB_O_EX|CH: only exchange or CH
-        require(_msgSender() == _exchange || _msgSender() == clearingHouse, "AB_O_EX|CH");
+        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
 
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
     }

@@ -105,7 +105,7 @@ contract Exchange is
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
         // EX_BTNE: base token not exists
-        require(IMarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
+        require(IMarketRegistry(_marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
 
         // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
@@ -120,7 +120,7 @@ contract Exchange is
         int256 amount1Delta,
         bytes calldata data
     ) external override checkCallback {
-        IUniswapV3SwapCallback(clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
+        IUniswapV3SwapCallback(_clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
@@ -270,7 +270,7 @@ contract Exchange is
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
         // EX_BTNE: base token not exists
-        require(IMarketRegistry(marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
+        require(IMarketRegistry(_marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
 
         uint256 markTwap;
         uint256 indexTwap;
@@ -424,11 +424,11 @@ contract Exchange is
     }
 
     function getTick(address baseToken) public view override returns (int24) {
-        return UniswapV3Broker.getTick(IMarketRegistry(marketRegistry).getPool(baseToken));
+        return UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken));
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(marketRegistry).getPool(baseToken), twapInterval);
+        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
     /// @dev the amount of quote token paid for a position when opening
@@ -465,7 +465,7 @@ contract Exchange is
 
     /// @return the resulting tick (derived from price) after replaying the swap
     function _replaySwap(InternalReplaySwapParams memory params) internal returns (int24) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
+        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
@@ -496,7 +496,7 @@ contract Exchange is
 
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function _swap(SwapParams memory params) internal returns (InternalSwapResponse memory) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
+        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             _getScaledAmountForSwaps(
@@ -525,7 +525,7 @@ contract Exchange is
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
                     marketInfo.pool,
-                    clearingHouse,
+                    _clearingHouse,
                     params.isBaseToQuote,
                     params.isExactInput,
                     // mint extra base token before swap

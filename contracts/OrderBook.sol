@@ -107,7 +107,7 @@ contract OrderBook is
         onlyClearingHouse
         returns (AddLiquidityResponse memory)
     {
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
@@ -240,7 +240,7 @@ contract OrderBook is
     ) external override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -275,15 +275,15 @@ contract OrderBook is
         uint256 amount1Owed,
         bytes calldata data
     ) external override checkCallback {
-        IUniswapV3MintCallback(clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
+        IUniswapV3MintCallback(_clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
         require(_msgSender() == _exchange, "OB_OEX");
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
-            IMarketRegistry(marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
+            IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 feeResult; // exchangeFeeRatio
         uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
 
@@ -475,7 +475,7 @@ contract OrderBook is
     ) external view override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
-        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         for (uint256 i = 0; i < orderIds.length; i++) {
@@ -529,7 +529,7 @@ contract OrderBook is
         // not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "OB_NEL");
 
-        address pool = IMarketRegistry(marketRegistry).getPool(params.baseToken);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
@@ -629,7 +629,7 @@ contract OrderBook is
             // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // OB_ONE: orders number exceeded
-            uint8 maxOrdersPerMarket = IMarketRegistry(marketRegistry).getMaxOrdersPerMarket();
+            uint8 maxOrdersPerMarket = IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket();
             require(maxOrdersPerMarket == 0 || orderIds.length < maxOrdersPerMarket, "OB_ONE");
             orderIds.push(orderId);
 
@@ -691,7 +691,7 @@ contract OrderBook is
         // case 2 : current price > upper tick
         //  --> maker only has quote token
         uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(marketRegistry).getPool(baseToken));
+            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(baseToken));
         uint256 tokenAmount;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
@@ -736,7 +736,7 @@ contract OrderBook is
         feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
             order.lowerTick,
             order.upperTick,
-            UniswapV3Broker.getTick(IMarketRegistry(marketRegistry).getPool(baseToken)),
+            UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken)),
             _feeGrowthGlobalX128Map[baseToken]
         );
         owedFee = FullMath.mulDiv(

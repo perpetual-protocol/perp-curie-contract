@@ -11,7 +11,7 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     //
     // STATE
     //
-    address public clearingHouse;
+    address internal _clearingHouse;
 
     // __gap is reserved storage
     uint256[50] private __gap;
@@ -26,7 +26,7 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     //
     modifier onlyClearingHouse() {
         // only ClearingHouse
-        require(_msgSender() == clearingHouse, "CHD_OCH");
+        require(_msgSender() == _clearingHouse, "CHD_OCH");
         _;
     }
 
@@ -40,7 +40,11 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "CHD_CHNC");
-        clearingHouse = clearingHouseArg;
+        _clearingHouse = clearingHouseArg;
         emit ClearingHouseChanged(clearingHouseArg);
+    }
+
+    function getClearingHouse() external view returns (address) {
+        return _clearingHouse;
     }
 }

@@ -13,7 +13,7 @@ abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
     //
     // STATE
     //
-    address public marketRegistry;
+    address internal _marketRegistry;
 
     // __gap is reserved storage
     uint256[50] private __gap;
@@ -26,7 +26,7 @@ abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
         address pool = _msgSender();
         address baseToken = IUniswapV3Pool(pool).token0();
         // UCB_FCV: failed callback validation
-        require(pool == IMarketRegistry(marketRegistry).getPool(baseToken), "UCB_FCV");
+        require(pool == IMarketRegistry(_marketRegistry).getPool(baseToken), "UCB_FCV");
         _;
     }
 
@@ -38,6 +38,10 @@ abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
 
         // UCB_MRNC: MarketRegistry is not contract
         require(marketRegistryArg.isContract(), "UCB_MRNC");
-        marketRegistry = marketRegistryArg;
+        _marketRegistry = marketRegistryArg;
+    }
+
+    function getMarketRegistry() external view returns (address) {
+        return _marketRegistry;
     }
 }
