@@ -56,6 +56,16 @@ describe("ClearingHouseConfig Spec", () => {
             expect(await clearingHouseConfig.getMaxMarketsPerAccount()).eq(10)
         })
 
+        it("setSettlementTokenBalanceCap", async () => {
+            await expect(clearingHouseConfig.connect(alice).setSettlementTokenBalanceCap(100)).to.be.revertedWith(
+                "SO_CNO",
+            )
+            await expect(clearingHouseConfig.setSettlementTokenBalanceCap(100))
+                .to.emit(clearingHouseConfig, "SettlementTokenBalanceCapChanged")
+                .withArgs(100)
+            expect(await clearingHouseConfig.getSettlementTokenBalanceCap()).eq(100)
+        })
+
         it("fore error, partialCloseRatio should not be 0", async () => {
             await expect(clearingHouseConfig.setPartialCloseRatio(0)).to.be.revertedWith("CHC_IPCR")
         })

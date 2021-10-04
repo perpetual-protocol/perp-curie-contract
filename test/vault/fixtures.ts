@@ -17,6 +17,7 @@ interface MockedVaultFixture {
     USDC: TestERC20
     mockedInsuranceFund: MockContract
     mockedAccountBalance: MockContract
+    mockedClearingHouseConfig: MockContract
 }
 
 export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
@@ -44,7 +45,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
-    const mockedConfig = await smockit(clearingHouseConfig)
+    const mockedClearingHouseConfig = await smockit(clearingHouseConfig)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
@@ -65,10 +66,10 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const vault = (await vaultFactory.deploy()) as Vault
     await vault.initialize(
         mockedInsuranceFund.address,
-        mockedConfig.address,
+        mockedClearingHouseConfig.address,
         mockedAccountBalance.address,
         mockedExchange.address,
     )
 
-    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance }
+    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }
