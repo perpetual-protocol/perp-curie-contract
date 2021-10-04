@@ -675,7 +675,7 @@ contract OrderBook is
         address trader,
         address baseToken, // this argument is only for specifying which pool to get base or quote amounts
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) internal view returns (uint256 tokenAmount) {
+    ) internal view returns (uint256) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
 
         //
@@ -692,6 +692,7 @@ contract OrderBook is
         //  --> maker only has quote token
         uint160 sqrtMarkPriceX96 =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(marketRegistry).getPool(baseToken));
+        uint256 tokenAmount;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
 
@@ -721,6 +722,7 @@ contract OrderBook is
                 tokenAmount = tokenAmount.add(fee);
             }
         }
+        return tokenAmount;
     }
 
     /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
