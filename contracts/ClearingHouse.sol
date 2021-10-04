@@ -124,7 +124,7 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
         require(orderBookArg.isContract(), "CH_OBNC");
 

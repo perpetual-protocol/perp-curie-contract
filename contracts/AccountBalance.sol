@@ -42,7 +42,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // IOrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 

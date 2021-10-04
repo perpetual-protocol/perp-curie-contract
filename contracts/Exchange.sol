@@ -89,15 +89,15 @@ contract Exchange is
         require(insuranceFundArg.isContract(), "E_IFANC");
 
         // update states
-        insuranceFund = insuranceFundArg;
-        orderBook = orderBookArg;
-        clearingHouseConfig = clearingHouseConfigArg;
+        _insuranceFund = insuranceFundArg;
+        _orderBook = orderBookArg;
+        _clearingHouseConfig = clearingHouseConfigArg;
     }
 
     function setAccountBalance(address accountBalanceArg) external onlyOwner {
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
-        accountBalance = accountBalanceArg;
+        _accountBalance = accountBalanceArg;
     }
 
     // solhint-disable-next-line
@@ -124,7 +124,7 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
-        int256 positionSize = IAccountBalance(accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0 ? true : false;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
@@ -147,7 +147,7 @@ contract Exchange is
                 );
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
                 params.amount = positionSize.abs().mulRatio(
-                    IClearingHouseConfig(clearingHouseConfig).partialCloseRatio()
+                    IClearingHouseConfig(_clearingHouseConfig).partialCloseRatio()
                 );
             }
         } else {
@@ -167,7 +167,7 @@ contract Exchange is
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        IAccountBalance(accountBalance).addBalance(
+        IAccountBalance(_accountBalance).addBalance(
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,
@@ -225,11 +225,11 @@ contract Exchange is
 
             if (realizedPnl != 0) {
                 // https://app.asana.com/0/1200338471046334/1201034555932071/f
-                IAccountBalance(accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
+                IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
             }
         }
 
-        IAccountBalance(accountBalance).addOwedRealizedPnl(insuranceFund, response.insuranceFundFee.toInt256());
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
         emit PositionChanged(
             params.trader,
@@ -252,7 +252,7 @@ contract Exchange is
     }
 
     function settleAllFunding(address trader) external override {
-        address[] memory baseTokens = IAccountBalance(accountBalance).getBaseTokens(trader);
+        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         for (uint256 i = 0; i < baseTokens.length; i++) {
             settleFunding(trader, baseTokens[i]);
         }
@@ -276,7 +276,7 @@ contract Exchange is
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        AccountMarket.Info memory accountInfo = IAccountBalance(accountBalance).getAccountInfo(trader, baseToken);
+        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
         int256 fundingPayment =
             _updateFundingGrowth(
                 trader,
@@ -287,7 +287,7 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(accountBalance).addBalance(trader, address(0), 0, 0, -fundingPayment);
+            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, -fundingPayment);
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
@@ -307,7 +307,7 @@ contract Exchange is
             emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
 
-        IAccountBalance(accountBalance).updateTwPremiumGrowthGlobal(
+        IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
             trader,
             baseToken,
             fundingGrowthGlobal.twPremiumX96
@@ -320,12 +320,32 @@ contract Exchange is
     // EXTERNAL VIEW
     //
 
+    /// @inheritdoc IExchange
+    function getOrderBook() external view override returns (address) {
+        return _orderBook;
+    }
+
+    /// @inheritdoc IExchange
+    function getAccountBalance() external view override returns (address) {
+        return _accountBalance;
+    }
+
+    /// @inheritdoc IExchange
+    function getClearingHouseConfig() external view override returns (address) {
+        return _clearingHouseConfig;
+    }
+
+    /// @inheritdoc IExchange
+    function getInsuranceFund() external view override returns (address) {
+        return _insuranceFund;
+    }
+
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
     function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
-        address[] memory baseTokens = IAccountBalance(accountBalance).getBaseTokens(trader);
+        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         for (uint256 i = 0; i < baseTokens.length; i++) {
             pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
         }
@@ -336,10 +356,10 @@ contract Exchange is
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
-        AccountMarket.Info memory accountInfo = IAccountBalance(accountBalance).getAccountInfo(trader, baseToken);
+        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
-            IOrderBook(orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+            IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _getPendingFundingPaymentWithLiquidityCoefficient(
@@ -367,7 +387,7 @@ contract Exchange is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = IClearingHouseConfig(clearingHouseConfig).twapInterval();
+        uint32 twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).twapInterval();
         // shorten twapInterval if prior observations are not enough for twapInterval
         if (_firstTradedTimestampMap[baseToken] == 0) {
             twapIntervalArg = 0;
@@ -417,8 +437,8 @@ contract Exchange is
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
 
         return
-            IOrderBook(orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                IAccountBalance(accountBalance).getQuote(trader, baseToken)
+            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+                IAccountBalance(_accountBalance).getQuote(trader, baseToken)
             );
     }
 
@@ -459,7 +479,7 @@ contract Exchange is
 
         // globalFundingGrowth can be empty if shouldUpdateState is false
         IOrderBook.ReplaySwapResponse memory response =
-            IOrderBook(orderBook).replaySwap(
+            IOrderBook(_orderBook).replaySwap(
                 IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
@@ -489,7 +509,7 @@ contract Exchange is
 
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
-            IOrderBook(orderBook).replaySwap(
+            IOrderBook(_orderBook).replaySwap(
                 IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
@@ -571,7 +591,7 @@ contract Exchange is
         Funding.Growth memory fundingGrowthGlobal
     ) internal returns (int256 pendingFundingPayment) {
         int256 liquidityCoefficientInFundingPayment =
-            IOrderBook(orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
+            IOrderBook(_orderBook).updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
                 trader,
                 baseToken,
                 fundingGrowthGlobal

@@ -3,9 +3,8 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
-import { IExchangeStorage } from "./IExchangeStorage.sol";
 
-interface IExchange is IExchangeStorage {
+interface IExchange {
     struct SwapParams {
         address trader;
         address baseToken;
@@ -78,4 +77,12 @@ interface IExchange is IExchangeStorage {
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
     function getOpenNotional(address trader, address baseToken) external view returns (int256);
+
+    function getOrderBook() external view returns (address);
+
+    function getAccountBalance() external view returns (address);
+
+    function getClearingHouseConfig() external view returns (address);
+
+    function getInsuranceFund() external view returns (address);
 }

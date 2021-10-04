@@ -2,18 +2,16 @@
 pragma solidity 0.7.6;
 
 import { Funding } from "../lib/Funding.sol";
-import { IExchangeStorageV1 } from "../interface/IExchangeStorage.sol";
 
 /// @notice For future upgrades, do not change ExchangeStorageV1. Create a new
 /// contract which implements ExchangeStorageV1 and following the naming convention
 /// ExchangeStorageVX.
-abstract contract ExchangeStorageV1 is IExchangeStorageV1 {
-    /// @inheritdoc IExchangeStorageV1
-    address public override orderBook;
+abstract contract ExchangeStorageV1 {
+    address internal _orderBook;
 
-    address public accountBalance;
-    address public clearingHouseConfig;
-    address public insuranceFund;
+    address internal _accountBalance;
+    address internal _clearingHouseConfig;
+    address internal _insuranceFund;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;
