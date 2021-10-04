@@ -4,7 +4,6 @@ import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
-import { mockedClearingHouseFixture } from "../clearingHouse/fixtures"
 
 describe("Vault spec", () => {
     const [admin, alice] = waffle.provider.getWallets()

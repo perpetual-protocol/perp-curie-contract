@@ -95,15 +95,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
         address from = _msgSender();
 
-        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
-        if (settlementTokenBalanceCap > 0) {
-            // greater than settlement token balance cap
-            require(
-                IERC20Metadata(token).balanceOf(address(this)).add(amount) <= settlementTokenBalanceCap,
-                "V_GTSTBC"
-            );
-        }
-
         _modifyBalance(from, token, amount.toInt256());
 
         // for deflationary token,
@@ -112,6 +103,12 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         TransferHelper.safeTransferFrom(token, from, address(this), amount);
         // balance amount inconsistent
         require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
+
+        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
+        if (settlementTokenBalanceCap > 0) {
+            // greater than settlement token balance cap
+            require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
+        }
 
         emit Deposited(token, from, amount);
     }
