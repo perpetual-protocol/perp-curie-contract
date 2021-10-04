@@ -6,18 +6,18 @@ interface IVault {
 
     function getFreeCollateralByRatio(address trader, uint24 ratio) external view returns (int256);
 
-    function getSettlementToken() external returns (address);
+    function getSettlementToken() external view returns (address);
 
     /// @dev cached the settlement token's decimal for gas optimization
     function decimals() external view returns (uint8);
 
     function getTotalDebt() external view returns (uint256);
 
-    function getClearingHouseConfig() external returns (address);
+    function getClearingHouseConfig() external view returns (address);
 
-    function getAccountBalance() external returns (address);
+    function getAccountBalance() external view returns (address);
 
-    function getInsuranceFund() external returns (address);
+    function getInsuranceFund() external view returns (address);
 
-    function getExchange() external returns (address);
+    function getExchange() external view returns (address);
 }

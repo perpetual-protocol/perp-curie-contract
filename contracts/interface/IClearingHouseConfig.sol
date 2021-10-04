@@ -13,4 +13,6 @@ interface IClearingHouseConfig {
     function getPartialCloseRatio() external view returns (uint24);
 
     function getTwapInterval() external view returns (uint32);
+
+    function getSettlementTokenBalanceCap() external view returns (uint256);
 }
