@@ -14,6 +14,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
+    event SettlementTokenBalanceCapChanged(uint256 cap);
 
     //
     // MODIFIER
@@ -70,6 +71,11 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
     }
 
+    function setSettlementTokenBalanceCap(uint256 cap) external onlyOwner {
+        _settlementTokenBalanceCap = cap;
+        emit SettlementTokenBalanceCapChanged(cap);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -102,5 +108,10 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function getTwapInterval() external view override returns (uint32) {
         return _twapInterval;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getSettlementTokenBalanceCap() external view override returns (uint256) {
+        return _settlementTokenBalanceCap;
     }
 }

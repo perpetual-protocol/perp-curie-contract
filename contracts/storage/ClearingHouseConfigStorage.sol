@@ -11,4 +11,5 @@ abstract contract ClearingHouseConfigStorageV1 {
     uint24 internal _liquidationPenaltyRatio;
     uint24 internal _partialCloseRatio;
     uint32 internal _twapInterval;
+    uint256 internal _settlementTokenBalanceCap;
 }
