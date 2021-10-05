@@ -128,7 +128,7 @@ contract Exchange is
         // is position increased
         bool isOldPositionShort = positionSize < 0 ? true : false;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
-        bool isPartialClose = false;
+        bool isPartialClose;
 
         // if over price limit when
         // 1. close a position, then partial close the position

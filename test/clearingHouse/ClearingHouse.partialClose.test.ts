@@ -209,8 +209,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("25"))
-
             // move to next block to simplify test case
             // otherwise we need to bring another trader to move the price further away
 
@@ -218,8 +216,12 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("carol's position is partially closed with given oppositeAmountBound", async () => {
-            const slippage = 0.01
-            const oppositeAmountBound = 25 * 10 * (1 - slippage)
+            // Calculate oppositeAmountBound roughly by using position size and init market price here instead of querying from Quoter contract.
+            // if can full close the position, the expected received quote is:
+            // positionSize * market price * (1-slippage)
+            // = 25 * 10 * (1 - 0.01)
+            // = 247.5
+            const oppositeAmountBound = 247.5
             // remaining position size = 25 - (25 * 1/4) = 18.75
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
