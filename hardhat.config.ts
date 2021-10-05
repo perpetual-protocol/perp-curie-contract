@@ -87,7 +87,11 @@ const config: HardhatUserConfig = {
         // TODO add USDC for production
     },
     dependencyCompiler: {
-        paths: ["@uniswap/v3-core/contracts/UniswapV3Factory.sol", "@uniswap/v3-core/contracts/UniswapV3Pool.sol"],
+        paths: [
+            "@uniswap/v3-core/contracts/UniswapV3Factory.sol",
+            "@uniswap/v3-core/contracts/UniswapV3Pool.sol",
+            "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        ],
     },
     external: {
         contracts: [
