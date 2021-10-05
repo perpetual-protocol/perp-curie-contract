@@ -195,6 +195,43 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
     })
 
+    describe("partial close with given oppositeAmountBound", () => {
+        beforeEach(async () => {
+            // carol first long 25 eth
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("25"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("25"))
+
+            // move to next block to simplify test case
+            // otherwise we need to bring another trader to move the price further away
+
+            await forwardTimestamp(clearingHouse)
+        })
+
+        it("carol's position is partially closed with given oppositeAmountBound", async () => {
+            const slippage = 0.01
+            const oppositeAmountBound = 25 * 10 * (1 - slippage)
+            // remaining position size = 25 - (25 * 1/4) = 18.75
+            await clearingHouse.connect(carol).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: parseEther(oppositeAmountBound.toString()),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("18.75"))
+        })
+    })
+
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159
     describe("partial liquidate", () => {
         beforeEach(async () => {

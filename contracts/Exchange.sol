@@ -128,6 +128,7 @@ contract Exchange is
         // is position increased
         bool isOldPositionShort = positionSize < 0 ? true : false;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
+        bool isPartialClose = false;
 
         // if over price limit when
         // 1. close a position, then partial close the position
@@ -149,6 +150,7 @@ contract Exchange is
                 params.amount = positionSize.abs().mulRatio(
                     IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio()
                 );
+                isPartialClose = true;
             }
         } else {
             if (isReducePosition) {
@@ -247,7 +249,8 @@ contract Exchange is
                 deltaAvailableQuote: response.deltaAvailableQuote,
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
-                tick: response.tick
+                tick: response.tick,
+                isPartialClose: isPartialClose
             });
     }
 
