@@ -71,11 +71,6 @@ const config: HardhatUserConfig = {
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
-        usdcUsdChainlinkAggregator: {
-            [ChainId.RINKEBY_CHAIN_ID]: "0xa24de01df22b63d23Ebc1882a5E3d4ec0d907bFB",
-            // there's only USDT for now, TODO change when there's a USDC aggregator
-            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xb1Ac85E779d05C2901812d812210F6dE144b2df0",
-        },
         ethUsdChainlinkAggregator: {
             [ChainId.RINKEBY_CHAIN_ID]: "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x5f0423B1a6935dc5596e7A24d98532b67A0AeFd8",
@@ -91,6 +86,7 @@ const config: HardhatUserConfig = {
         },
     },
     dependencyCompiler: {
+        // We have to compile from source since UniswapV3 doesn't provide artifacts in their npm package
         paths: ["@uniswap/v3-core/contracts/UniswapV3Factory.sol", "@uniswap/v3-core/contracts/UniswapV3Pool.sol"],
     },
     external: {
