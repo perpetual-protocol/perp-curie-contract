@@ -22,9 +22,9 @@
     "dev": "hardhat deploy --network hardhat",
     "verify-tenderly:rinkeby": "hardhat verify-tenderly --network rinkeby --stage staging",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
-    "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && hardhat deploy --network rinkeby",
+    "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
     "deploy:arbitrumRinkeby": "hardhat deploy --network arbitrumRinkeby",
-    "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && hardhat deploy --network arbitrumRinkeby",
+    "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && rm -f .openzeppelin/unknown-421611.json && hardhat deploy --network arbitrumRinkeby",
     "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
