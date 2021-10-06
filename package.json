@@ -10,6 +10,7 @@
   "scripts": {
     "typechain": "npm run typechain-openzeppelin",
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin ./node_modules/@openzeppelin/contracts/build/contracts/**/*.json",
+    "typechain-hardhat-deploy": "typechain --target ethers-v5 --out-dir ./typechain/hardhat-deploy ./node_modules/hardhat-deploy/extendedArtifacts/**/*.json",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "rm -rf deployments/hardhat | hardhat test",
     "parallel-test": "rm -rf deployments/hardhat | hardhat test --parallel",
