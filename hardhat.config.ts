@@ -20,6 +20,7 @@ import "./mocha-test"
 import { verifyContract } from "./scripts/verify-tenderly"
 
 enum ChainId {
+    ARBITRUM_ONE_CHAIN_ID = 42161,
     ARBITRUM_RINKEBY_CHAIN_ID = 421611,
     RINKEBY_CHAIN_ID = 4,
 }
@@ -83,15 +84,14 @@ const config: HardhatUserConfig = {
             [ChainId.RINKEBY_CHAIN_ID]: "0xECe365B379E1dD183B20fc5f022230C044d51404",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x0c9973e7a27d00e656B9f153348dA46CaD70d03d",
         },
-
-        // TODO add USDC for production
+        // USDC addresses (only needed for production)
+        // Arbitrum: https://arbiscan.io/token/0xff970a61a04b1ca14834a43f5de4533ebddb5cc8
+        usdc: {
+            [ChainId.ARBITRUM_ONE_CHAIN_ID]: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+        },
     },
     dependencyCompiler: {
-        paths: [
-            "@uniswap/v3-core/contracts/UniswapV3Factory.sol",
-            "@uniswap/v3-core/contracts/UniswapV3Pool.sol",
-            "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        ],
+        paths: ["@uniswap/v3-core/contracts/UniswapV3Factory.sol", "@uniswap/v3-core/contracts/UniswapV3Pool.sol"],
     },
     external: {
         contracts: [
