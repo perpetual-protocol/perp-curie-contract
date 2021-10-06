@@ -22,6 +22,7 @@ interface IExchange {
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         int24 tick;
+        bool isPartialClose;
     }
 
     struct SwapCallbackData {

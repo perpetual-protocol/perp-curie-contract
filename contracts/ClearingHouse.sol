@@ -315,13 +315,17 @@ contract ClearingHouse is
 
         // if exchangedPositionSize < 0, closing it is short, B2Q; else, closing it is long, Q2B
         bool isBaseToQuote = response.exchangedPositionSize < 0 ? true : false;
+        uint256 oppositeAmountBound =
+            response.isPartialClose
+                ? params.oppositeAmountBound.mulRatio(IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio())
+                : params.oppositeAmountBound;
         _checkSlippage(
             InternalCheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
                 isExactInput: isBaseToQuote,
                 deltaAvailableQuote: response.deltaAvailableQuote,
                 deltaAvailableBase: response.deltaAvailableBase,
-                oppositeAmountBound: params.oppositeAmountBound
+                oppositeAmountBound: oppositeAmountBound
             })
         );
 
