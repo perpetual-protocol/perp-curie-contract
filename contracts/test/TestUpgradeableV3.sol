@@ -8,6 +8,7 @@ contract TestUpgradeableV3 is ERC20Upgradeable {
     struct struct1 {
         uint256 structNum;
     }
+    struct1 structTest;
     int256 num1; // uint256 -> int256
     uint256 num2;
 

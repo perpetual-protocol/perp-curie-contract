@@ -7,6 +7,7 @@ contract TestUpgradeable is ERC20Upgradeable {
     struct struct1 {
         uint256 structNum;
     }
+    struct1 structTest;
     uint256 num1;
     uint256 num2;
 

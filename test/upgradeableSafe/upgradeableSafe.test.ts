@@ -53,28 +53,12 @@ describe("upgradeable safe test", () => {
                 "contracts/test/TestUpgradeableV2.sol:TestUpgradeableV2",
                 proxyExecuteV2,
             ).catch(async e => {
-                kind = e.report.ops[3].kind
-                updated = e.report.ops[3].updated.label
-                expect(kind).to.be.eq("insert")
-                expect(updated).to.be.eq("num1")
-
-                kind = e.report.ops[4].kind
-                original = e.report.ops[4].original.label
-                updated = e.report.ops[4].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("_whitelistMap")
-                expect(updated).to.be.eq("str1")
-
-                kind = e.report.ops[5].kind
-                original = e.report.ops[5].original.label
-                updated = e.report.ops[5].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("__gap")
-                expect(updated).to.be.eq("num2")
+                expect(e.report.pass).to.be.false
+                expect(String(e)).contains("New variables should be placed after all existing inherited variables")
             })
         })
 
-        it("replace variable type of origin contract", async () => {
+        it("change variable type of origin contract", async () => {
             const proxyExecuteV3 = {
                 init: {
                     methodName: "initialize",
@@ -86,19 +70,8 @@ describe("upgradeable safe test", () => {
                 "contracts/test/TestUpgradeableV3.sol:TestUpgradeableV3",
                 proxyExecuteV3,
             ).catch(async e => {
-                kind = e.report.ops[3].kind
-                original = e.report.ops[3].original.label
-                updated = e.report.ops[3].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("_whitelistMap")
-                expect(updated).to.be.eq("num1")
-
-                kind = e.report.ops[4].kind
-                original = e.report.ops[4].original.label
-                updated = e.report.ops[4].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("__gap")
-                expect(updated).to.be.eq("num2")
+                expect(e.report.pass).to.be.false
+                expect(String(e)).contains("Bad upgrade from uint256 to int256")
             })
         })
 
@@ -114,19 +87,9 @@ describe("upgradeable safe test", () => {
                 "contracts/test/TestUpgradeableV4.sol:TestUpgradeableV4",
                 proxyExecuteV4,
             ).catch(async e => {
-                kind = e.report.ops[3].kind
-                original = e.report.ops[3].original.label
-                updated = e.report.ops[3].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("_whitelistMap")
-                expect(updated).to.be.eq("num1")
-
-                kind = e.report.ops[4].kind
-                original = e.report.ops[4].original.label
-                updated = e.report.ops[4].updated.label
-                expect(kind).to.be.eq("replace")
-                expect(original).to.be.eq("__gap")
-                expect(updated).to.be.eq("num2")
+                expect(String(e)).contains(
+                    "Bad upgrade from struct TestUpgradeable.struct1 to struct TestUpgradeableV4.struct1",
+                )
             })
         })
     })
