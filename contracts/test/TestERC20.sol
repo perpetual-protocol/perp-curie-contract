@@ -3,10 +3,12 @@ pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
+import "./TestWhitelist.sol";
 
-contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
+contract TestERC20 is ERC20PresetMinterPauserUpgradeable, Whitelist {
     function __TestERC20_init(string memory name, string memory symbol) external initializer {
         __ERC20PresetMinterPauser_init(name, symbol);
+        __Ownable_init();
     }
 
     function setMinter(address minter) external {
@@ -19,5 +21,17 @@ contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
 
     function burnWithoutApproval(address user, uint256 amount) external {
         _burn(user, amount);
+    }
+
+    function transfer(address recipient, uint256 amount) public override whitelistCheck(recipient) returns (bool) {
+        super.transfer(recipient, amount);
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public override whitelistCheck(recipient) returns (bool) {
+        super.transferFrom(sender, recipient, amount);
     }
 }
