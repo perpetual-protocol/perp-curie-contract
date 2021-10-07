@@ -43,7 +43,8 @@ interface IExchange {
         int256 exchangedPositionNotional,
         uint256 fee,
         int256 openNotional,
-        int256 realizedPnl
+        int256 realizedPnl,
+        uint256 sqrtPriceAfter
     );
 
     /// @param fundingPayment > 0: payment, < 0 : receipt

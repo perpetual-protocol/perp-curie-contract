@@ -232,7 +232,8 @@ contract Exchange is
         }
 
         IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
-
+        uint256 sqrtPrice =
+            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
             params.trader,
             params.baseToken,
@@ -240,7 +241,8 @@ contract Exchange is
             response.exchangedPositionNotional,
             response.fee,
             openNotional,
-            realizedPnl
+            realizedPnl,
+            sqrtPrice
         );
 
         return
