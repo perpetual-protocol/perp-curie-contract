@@ -12,6 +12,16 @@ npm i
 npm run build
 ```
 
+Since there are some runtime environment dependencies, if the installation failed on your machine, 
+please try a vanilla install instead:
+```
+npm run clean
+rm -rf node_modules/
+rm package-lock.json
+npm install
+npm run build
+``` 
+
 ### Testing
 To run all the test cases,
 ```
