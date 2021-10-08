@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
 import "./TestWhitelist.sol";
 
-contract TestERC20 is ERC20PresetMinterPauserUpgradeable, Whitelist {
+contract TestERC20 is ERC20PresetMinterPauserUpgradeable, TestWhitelist {
     function __TestERC20_init(string memory name, string memory symbol) external initializer {
         __ERC20PresetMinterPauser_init(name, symbol);
         __Ownable_init();
@@ -23,15 +23,20 @@ contract TestERC20 is ERC20PresetMinterPauserUpgradeable, Whitelist {
         _burn(user, amount);
     }
 
-    function transfer(address recipient, uint256 amount) public override whitelistCheck(recipient) returns (bool) {
-        super.transfer(recipient, amount);
+    function transfer(address recipient, uint256 amount)
+        public
+        override
+        whitelistCheck(msg.sender, recipient)
+        returns (bool)
+    {
+        return super.transfer(recipient, amount);
     }
 
     function transferFrom(
         address sender,
         address recipient,
         uint256 amount
-    ) public override whitelistCheck(recipient) returns (bool) {
-        super.transferFrom(sender, recipient, amount);
+    ) public override whitelistCheck(msg.sender, recipient) returns (bool) {
+        return super.transferFrom(sender, recipient, amount);
     }
 }

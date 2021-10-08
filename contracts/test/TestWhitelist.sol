@@ -3,13 +3,15 @@ pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract Whitelist is OwnableUpgradeable {
+contract TestWhitelist is OwnableUpgradeable {
     mapping(address => bool) internal _whitelist;
 
     event WhitelistEvent(address indexed addr, bool isInWhitelist);
 
-    modifier whitelistCheck(address recipient) {
-        require(_whitelist[recipient], "The address of recipient is not in whitelist");
+    modifier whitelistCheck(address sender, address recipient) {
+        if (!_whitelist[sender]) {
+            require(_whitelist[recipient], "The address of recipient is not in whitelist.");
+        }
         _;
     }
 
