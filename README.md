@@ -64,7 +64,7 @@ npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
         access_key: super_secret_access_key
         ```
    - run `export RINKEBY_WEB3_ENDPOINT=YOUR_RPC_ENDPOINT`
-   - run `npm verify-tenderly:rinkeby`
+   - run `npm run verify-tenderly:rinkeby`
 
 5. Verify what's included in the packed npm package
 

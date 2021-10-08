@@ -6,18 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.11.0] - 2021-10-08
+
 ### Added
-- add parameter `insuranceFundArg` to `initialize` of Exchange
-- add event `SettlementTokenBalanceCapChanged` to ClearingHouseConfig
+
 - add `ClearingHouseConfig.getSettlementTokenBalanceCap()`
+- add a new parameter `insuranceFundArg` to `initialize` of Exchange
+- add a new event `SettlementTokenBalanceCapChanged` to ClearingHouseConfig
+- add a new field `sqrtPriceAfter` to `PositionChanged` of Exchange
 
 ### Removed
-- remove parameter `insuranceFundArg` from `initialize` of ClearingHouse 
+
+- remove parameter `insuranceFundArg` from `initialize` of ClearingHouse
 - remove event `PositionChanged` from ClearingHouse
 - remove `getTotalAbsPositionValue` from `AccountBalance`
-- remove parameter `marketRegistryArg` from `initialize` of AccountBalance 
+- remove parameter `marketRegistryArg` from `initialize` of AccountBalance
 
 ### Changed
+
 - move event `PositionChanged` to Exchange
 - combine `getTotalUnrealizedPnl` and `getOwedRealizedPnl` to `getOwedAndUnrealizedPnl`
 - move `getLiquidateMarginRequirement` from `Vault` to `AccountBalance`
@@ -29,18 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `MarketRegistry.maxOrdersPerMarket` to `MarketRegistry.getMaxOrdersPerMarket`
 - rename `Vault.totalDebt` to `Vault.getTotalDebt`
 
-- ## [0.9.4] - 2021-09-28
+## [0.9.4] - 2021-09-28
+
 ### Changed
+
 - Error messages emitted by ClearingHouse._checkSlippage()
     - `CH_TLR` to `CH_TLRS` or `CH_TLRL`, depending on the side
     - `CH_TMR` to `CH_TMRS` or `CH_TMRL`, depending on the side
+
 ## [0.9.3] - 2021-09-27
+
 - bug fixing
+
 ## [0.9.2] - 2021-09-24
+
 ### Added
 
 - add `AccountBalance.getBaseTokens()`
-- add a new parameter `sqrtPriceX96` to `SwapResponse` of `Quoter.swap()` 
+- add a new parameter `sqrtPriceX96` to `SwapResponse` of `Quoter.swap()`
 
 ## [0.9.0] - 2021-09-22
 
