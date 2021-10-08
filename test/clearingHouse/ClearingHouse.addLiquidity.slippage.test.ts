@@ -52,7 +52,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
         collateral.mint(admin.address, parseEther("10000"))
 
         // prepare collateral for alice
-        await collateral.mint(alice.address, parseUnits("100", collateralDecimals))
+        await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
     })
 

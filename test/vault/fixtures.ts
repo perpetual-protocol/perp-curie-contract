@@ -24,7 +24,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy()) as TestERC20
-    await USDC.initialize("TestUSDC", "USDC")
+    await USDC.__TestERC20_init("TestUSDC", "USDC")
 
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
@@ -70,6 +70,12 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedAccountBalance.address,
         mockedExchange.address,
     )
+
+    // add vault, insuranceFund, deployer to USDC whitelist
+    const deployer = await ethers.getNamedSigner("deployer")
+    await USDC.addToWhitelist(vault.address)
+    await USDC.addToWhitelist(insuranceFund.address)
+    await USDC.addToWhitelist(deployer.address)
 
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }
