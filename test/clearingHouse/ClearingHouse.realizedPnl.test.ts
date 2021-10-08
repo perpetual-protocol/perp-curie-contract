@@ -82,7 +82,6 @@ describe("ClearingHouse realizedPnl", () => {
         await deposit(maker, vault, 1000000, collateral)
 
         // maker add liquidity
-        // console.log("==== maker add liquidity ====")
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("100"),
