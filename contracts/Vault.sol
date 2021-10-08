@@ -19,6 +19,7 @@ import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
 import { IVault } from "./interface/IVault.sol";
 import "hardhat/console.sol";
+import "./AccountBalance.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV1 {
@@ -127,14 +128,22 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader
 
-        // make sure funding payments are always settled,
+        // settle funding payments to owedRealizedPnl,
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
-        console.log("withdrawAmount:", amount);
+        //        console.log("withdrawAmount:", amount);
         IExchange(_exchange).settleAllFunding(to);
+
+        // owedRealizedPnl must settle first so that the numbers would match without precision errors when
+        // we update collateral balance and transfer tokens.
+        // In addition, it should be settled in the same way as it is used in calculating free collateral,
+        // so the settled freeCollateral remain the same.
+        _settleOwedRealizedPnl(to, token);
+
+        // by this time free collateral should see zero funding payment and zero owedRealizedPnl
         int256 freeCollateralByImRatio =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
-        console.log("freeCollateralByImRatio:");
-        console.logInt(freeCollateralByImRatio);
+        //        console.log("freeCollateralByImRatio:");
+        //        console.logInt(freeCollateralByImRatio);
         // V_NEFC: not enough freeCollateral
         require(freeCollateralByImRatio >= amount.toInt256(), "V_NEFC");
 
@@ -146,7 +155,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             _totalDebt += borrowAmount;
         }
 
-        _modifyBalance(to, token, -amount.toInt256());
+        // settle withdraw amount to collateral balance
+        _modifyBalance(to, token, -(amount.toInt256()));
         TransferHelper.safeTransfer(token, to, amount);
 
         emit Withdrawn(token, to, amount);
@@ -211,26 +221,28 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// we will start with the conservative one, then gradually change it to more aggressive ones
     /// to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
+        //        console.log("vault.balanceOf (before):");
+        //        console.logInt(balanceOf(trader));
         // conservative config: freeCollateral = min(collateral, accountValue) - imReq, freeCollateral could be negative
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
-        console.log("owedRealizedPnl:");
-        console.logInt(owedRealizedPnl);
-        console.log("unrealizedPnl:");
-        console.logInt(unrealizedPnl);
-        console.log("vault.balanceOf:");
-        console.logInt(balanceOf(trader));
+        //        console.log("owedRealizedPnl:");
+        //        console.logInt(owedRealizedPnl);
+        //        console.log("unrealizedPnl:");
+        //        console.logInt(unrealizedPnl);
+        //        console.log("vault.balanceOf:");
+        //        console.logInt(balanceOf(trader));
         int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _decimals);
-        console.log("totalCollateralValue:");
-        console.logInt(totalCollateralValue);
+        //        console.log("totalCollateralValue:");
+        //        console.logInt(totalCollateralValue);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValue = totalCollateralValue.addS(unrealizedPnl, _decimals);
-        console.log("accountValue:");
-        console.logInt(accountValue);
+        //        console.log("accountValue:");
+        //        console.logInt(accountValue);
         uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
-        console.log("totalMarginRequirement:", totalMarginRequirement);
+        //        console.log("totalMarginRequirement:", totalMarginRequirement);
         return PerpMath.min(totalCollateralValue, accountValue).subS(totalMarginRequirement.toInt256(), _decimals);
 
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
@@ -253,6 +265,16 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         int256 amount
     ) internal {
         _balance[trader][token] = _getBalance(trader, token).add(amount);
+    }
+
+    function _settleOwedRealizedPnl(address trader, address token) internal {
+        // settle owedRealizedPnl in AccountBalance
+        int256 owedRealizedPnlIn10_18 = IAccountBalance(_accountBalance).settle(trader);
+        //        console.log("owedRealizedPnlIn10_18:");
+        //        console.logInt(owedRealizedPnlIn10_18);
+        // settle owedRealizedPnl to collateral balance
+        // note we can't use _modifyBalance() here due to decimal difference
+        _balance[trader][token] = _getBalance(trader, token).addS(owedRealizedPnlIn10_18, _decimals);
     }
 
     //

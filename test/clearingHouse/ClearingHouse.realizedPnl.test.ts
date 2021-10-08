@@ -179,6 +179,9 @@ describe("ClearingHouse realizedPnl", () => {
         )
 
         console.log("==== maker remove liquidity ====")
+        console.log(
+            `  maker.getNetQuoteBalance: ${formatEther(await accountBalance.getNetQuoteBalance(maker.address))}`,
+        )
         await clearingHouse.connect(maker).removeLiquidity({
             baseToken: baseToken.address,
             lowerTick,
@@ -189,12 +192,15 @@ describe("ClearingHouse realizedPnl", () => {
             deadline: ethers.constants.MaxUint256,
         })
         console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
+            `  maker.getNetQuoteBalance(after): ${formatEther(await accountBalance.getNetQuoteBalance(maker.address))}`,
+        )
+        console.log(
+            `  maker.positionSize: ${formatEther(
+                await accountBalance.getPositionSize(maker.address, baseToken.address),
             )}`,
         )
         console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
+            `  maker.openNotional: ${formatEther(await exchange.getOpenNotional(maker.address, baseToken.address))}`,
         )
         console.log(
             `  maker.positionSize: ${formatEther(
@@ -220,20 +226,48 @@ describe("ClearingHouse realizedPnl", () => {
         console.log(
             `  taker.owedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(taker.address))[0])}`,
         )
-        await vault.withdraw(collateral.address, takerFreeCollateral)
         console.log(
             `  taker.USDCbalance: ${formatUnits(await collateral.balanceOf(taker.address), collateralDecimals)}`,
         )
+        await vault.connect(taker).withdraw(collateral.address, takerFreeCollateral)
+        console.log(
+            `  taker.USDCbalance(after): ${formatUnits(await collateral.balanceOf(taker.address), collateralDecimals)}`,
+        )
+        console.log(
+            `  taker.vaultBalanceOf(after): ${formatUnits(await vault.balanceOf(taker.address), collateralDecimals)}`,
+        )
+        console.log(
+            `  taker.freeCollateral(after): ${formatUnits(
+                await vault.getFreeCollateral(taker.address),
+                collateralDecimals,
+            )}`,
+        )
 
         console.log("==== maker withdraw all ====")
+        console.log(
+            `  maker.getNetQuoteBalance: ${formatEther(await accountBalance.getNetQuoteBalance(maker.address))}`,
+        )
         const makerFreeCollateral = await vault.getFreeCollateral(maker.address)
+        console.log(`  maker.vaultBalanceOf: ${formatUnits(await vault.balanceOf(maker.address), collateralDecimals)}`)
         console.log(`  maker.freeCollateral: ${formatUnits(makerFreeCollateral, collateralDecimals)}`)
         console.log(
             `  maker.owedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(maker.address))[0])}`,
         )
-        await vault.withdraw(collateral.address, makerFreeCollateral)
         console.log(
             `  maker.USDCbalance: ${formatUnits(await collateral.balanceOf(maker.address), collateralDecimals)}`,
+        )
+        await vault.connect(maker).withdraw(collateral.address, makerFreeCollateral)
+        console.log(
+            `  maker.USDCbalance(after): ${formatUnits(await collateral.balanceOf(maker.address), collateralDecimals)}`,
+        )
+        console.log(
+            `  maker.vaultBalanceOf(after): ${formatUnits(await vault.balanceOf(maker.address), collateralDecimals)}`,
+        )
+        console.log(
+            `  maker.freeCollateral(after): ${formatUnits(
+                await vault.getFreeCollateral(maker.address),
+                collateralDecimals,
+            )}`,
         )
     })
 })
