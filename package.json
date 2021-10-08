@@ -55,7 +55,7 @@
     "@types/lodash": "4.14.170",
     "@types/mocha": "9.0.0",
     "@types/node": "15.6.1",
-    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/main",
+    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/v1.0.0",
     "@uniswap/v3-periphery": "1.0.1",
     "bignumber.js": "9.0.1",
     "chai": "4.3.4",
