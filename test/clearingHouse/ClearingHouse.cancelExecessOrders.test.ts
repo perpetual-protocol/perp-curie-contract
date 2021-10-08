@@ -67,6 +67,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         // prepare collateral for alice
         const amount = parseUnits("10", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
+        await deposit(alice, vault, 10, collateral)
 
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized
