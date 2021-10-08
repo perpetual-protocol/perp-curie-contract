@@ -58,7 +58,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.initialize("TestUSDC", "USDC")
+        await USDC.__TestERC20_init("TestUSDC", "USDC")
         await USDC.setupDecimals(6)
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
@@ -133,6 +133,10 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         )
         await insuranceFund.setBorrower(vault.address)
         await accountBalance.setVault(vault.address)
+
+        // add vault, insuranceFund to USDC whitelist
+        await USDC.addToWhitelist(vault.address)
+        await USDC.addToWhitelist(insuranceFund.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
