@@ -2,11 +2,10 @@
 pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./TestERC20.sol";
 
-contract TestWhitelist is OwnableUpgradeable {
+contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
     mapping(address => bool) internal _whitelist;
-
-    event WhitelistEvent(address indexed addr, bool isInWhitelist);
 
     modifier whitelistCheck(address sender, address recipient) {
         if (!_whitelist[sender]) {
@@ -17,15 +16,30 @@ contract TestWhitelist is OwnableUpgradeable {
 
     function addToWhitelist(address addr) external onlyOwner {
         _whitelist[addr] = true;
-        emit WhitelistEvent(addr, _whitelist[addr]);
     }
 
     function removeFromWhitelist(address addr) external onlyOwner {
         _whitelist[addr] = false;
-        emit WhitelistEvent(addr, _whitelist[addr]);
     }
 
     function isInWhitelist(address addr) external view returns (bool) {
         return _whitelist[addr];
+    }
+
+    function transfer(address recipient, uint256 amount)
+        public
+        override
+        whitelistCheck(msg.sender, recipient)
+        returns (bool)
+    {
+        return super.transfer(recipient, amount);
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public override whitelistCheck(msg.sender, recipient) returns (bool) {
+        return super.transferFrom(sender, recipient, amount);
     }
 }

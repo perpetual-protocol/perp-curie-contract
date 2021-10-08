@@ -71,11 +71,5 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedExchange.address,
     )
 
-    // add vault, insuranceFund, deployer to USDC whitelist
-    const deployer = await ethers.getNamedSigner("deployer")
-    await USDC.addToWhitelist(vault.address)
-    await USDC.addToWhitelist(insuranceFund.address)
-    await USDC.addToWhitelist(deployer.address)
-
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }

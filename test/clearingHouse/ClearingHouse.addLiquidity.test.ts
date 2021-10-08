@@ -61,8 +61,8 @@ describe("ClearingHouse addLiquidity", () => {
         collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
 
         // prepare collateral for alice
-        await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
-        await deposit(alice, vault, 1000, collateral)
+        const amount = parseUnits("1000", await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
     })
 
     // simulation results:

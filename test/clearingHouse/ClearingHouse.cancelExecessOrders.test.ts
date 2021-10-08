@@ -65,8 +65,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
 
         // prepare collateral for alice
-        await collateral.mint(alice.address, parseUnits("10", collateralDecimals))
-        await deposit(alice, vault, 10, collateral)
+        const amount = parseUnits("10", await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
 
         await pool.initialize(encodePriceSqrt("100", "1"))
         // add pool after it's initialized

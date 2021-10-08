@@ -29,7 +29,6 @@ describe("ClearingHouse addLiquidity slippage", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let collateralDecimals: number
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
 
@@ -44,7 +43,6 @@ describe("ClearingHouse addLiquidity slippage", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
-        collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
@@ -52,7 +50,8 @@ describe("ClearingHouse addLiquidity slippage", () => {
         collateral.mint(admin.address, parseEther("10000"))
 
         // prepare collateral for alice
-        await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
+        const amount = parseUnits("1000", await collateral.decimals())
+        await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
     })
 

@@ -26,6 +26,7 @@ describe("Vault spec", () => {
         const amount = parseUnits("1000", await usdc.decimals())
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
+
         await usdc.mint(admin.address, amount)
     })
 
