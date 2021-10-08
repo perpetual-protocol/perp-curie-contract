@@ -134,9 +134,11 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         await insuranceFund.setBorrower(vault.address)
         await accountBalance.setVault(vault.address)
 
-        // add vault, insuranceFund to USDC whitelist
+        // add vault, insuranceFund, deployer to USDC whitelist
+        const deployer = await ethers.getNamedSigner("deployer")
         await USDC.addToWhitelist(vault.address)
         await USDC.addToWhitelist(insuranceFund.address)
+        await USDC.addToWhitelist(deployer.address)
 
         // deploy a pool
         const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)

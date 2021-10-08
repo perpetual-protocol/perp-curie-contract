@@ -29,6 +29,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let collateralDecimals: number
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
 
@@ -43,6 +44,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
