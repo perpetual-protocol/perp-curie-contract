@@ -17,7 +17,7 @@ import {
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
 import "./mocha-test"
-import { verifyContract } from "./scripts/verify-tenderly"
+import { verifyAndPushContract } from "./scripts/tenderly"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -25,10 +25,10 @@ enum ChainId {
     RINKEBY_CHAIN_ID = 4,
 }
 
-task("verify-tenderly", "Contract verification on Tenderly")
+task("tenderly", "Contract verification and push on Tenderly")
     .addParam("stage", "stage")
     .setAction(async ({ stage }, hre) => {
-        await verifyContract(hre, stage)
+        await verifyAndPushContract(hre, stage)
     })
 
 const config: HardhatUserConfig = {
@@ -114,6 +114,10 @@ const config: HardhatUserConfig = {
         jobs: 4,
         timeout: 120000,
         color: true,
+    },
+    tenderly: {
+        project: "lushan-staging-0-7-0",
+        username: "perpprotocol",
     },
 }
 

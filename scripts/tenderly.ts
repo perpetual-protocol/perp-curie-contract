@@ -33,17 +33,23 @@ function getContractsInfo(network: String, stage: String): Array<ContractInfo> {
     return contractsInfo
 }
 
-export async function verifyContract(hre: HardhatRuntimeEnvironment, stage: String): Promise<void> {
+export async function verifyAndPushContract(hre: HardhatRuntimeEnvironment, stage: String): Promise<void> {
     const network = hre.network.name
-    console.log(`verifying on ${network}`)
-
-    const contractsInfo = await getContractsInfo(network, stage)
+    const contractsInfo = getContractsInfo(network, stage)
 
     for (const { name, address } of contractsInfo) {
-        console.log(`verifying , ${name} ${address}...`)
-
+        console.log(`verifying contract ${name} on ${address}`)
         await hre.tenderly
             .verify({
+                name,
+                address,
+            })
+            .catch(e => {
+                console.log(e)
+            })
+        console.log(`pushing contract ${name}`)
+        await hre.tenderly
+            .push({
                 name,
                 address,
             })
