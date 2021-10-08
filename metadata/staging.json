@@ -60,11 +60,6 @@
             "createdBlockNumber": 9422704,
             "name": "contracts/lens/Quoter.sol:Quoter"
         },
-        "USDC": {
-            "address": "0x40DFcFEB94575Aaf4a97EBE020850e13f84a46E5",
-            "createdBlockNumber": 9422570,
-            "name": "contracts/test/TestERC20.sol:TestERC20"
-        },
         "Vault": {
             "address": "0x20c2554429dD269FB7785a1FCA08a04a70484E5a",
             "createdBlockNumber": 9422632,
@@ -83,6 +78,7 @@
     },
     "externalContracts": {
         "DefaultProxyAdmin": "0x021b066A7eF9F4F2413D28B6369638b1b05c8047",
+        "USDC": "0x40DFcFEB94575Aaf4a97EBE020850e13f84a46E5",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         "vBTCvUSDUniswapV3Pool": "0xCcDE9a2Bb65054b163bad4448EB99491BaA05713",
         "vETHvUSDUniswapV3Pool": "0x43f29d4E13CFD9c4A93A2b01CD1E7A390bf4dd2e"
