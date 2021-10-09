@@ -14,6 +14,11 @@ contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
         _;
     }
 
+    function __TestWhitelistERC20_init(string memory name, string memory symbol) external initializer {
+        __ERC20PresetMinterPauser_init(name, symbol);
+        __Ownable_init();
+    }
+
     function addToWhitelist(address addr) external onlyOwner {
         _whitelist[addr] = true;
     }
