@@ -130,17 +130,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         IExchange(_exchange).settleAllFunding(to);
 
-        // owedRealizedPnl must settle first so that the numbers would match without precision errors when
-        // we update collateral balance and transfer tokens.
-        // In addition, it should be settled in the same way as it is used in calculating free collateral,
-        // so the settled freeCollateral remain the same.
-        _settleOwedRealizedPnl(to, token);
+        // settle owedRealizedPnl in AccountBalance
+        int256 owedRealizedPnl = IAccountBalance(_accountBalance).settle(to);
 
         // by this time free collateral should see zero funding payment and zero owedRealizedPnl
         int256 freeCollateralByImRatio =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
-        require(freeCollateralByImRatio >= amount.toInt256(), "V_NEFC");
+        require(freeCollateralByImRatio.addS(owedRealizedPnl, _decimals) >= amount.toInt256(), "V_NEFC");
 
         // borrow settlement token from insurance fund if token balance is not enough
         uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
@@ -150,8 +147,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             _totalDebt += borrowAmount;
         }
 
-        // settle withdraw amount to collateral balance
-        _modifyBalance(to, token, -(amount.toInt256()));
+        // settle withdraw amount and owedRealizedPnl to collateral balance
+        _modifyBalance(to, token, (-(amount.toInt256())).addS(owedRealizedPnl, _decimals));
         TransferHelper.safeTransfer(token, to, amount);
 
         emit Withdrawn(token, to, amount);
@@ -247,14 +244,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         int256 amount
     ) internal {
         _balance[trader][token] = _getBalance(trader, token).add(amount);
-    }
-
-    function _settleOwedRealizedPnl(address trader, address token) internal {
-        // settle owedRealizedPnl in AccountBalance
-        int256 owedRealizedPnlIn10_18 = IAccountBalance(_accountBalance).settle(trader);
-        // settle owedRealizedPnl to collateral balance
-        // note we can't use _modifyBalance() here due to decimal difference
-        _balance[trader][token] = _getBalance(trader, token).addS(owedRealizedPnlIn10_18, _decimals);
     }
 
     //
