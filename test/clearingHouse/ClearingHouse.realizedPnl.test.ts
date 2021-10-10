@@ -101,17 +101,15 @@ describe("ClearingHouse realizedPnl", () => {
         await deposit(taker, vault, 1000, collateral)
     })
 
-    function findPositionChangedEvent(receipt: TransactionReceipt): LogDescription {
-        const positionChangedTopic = exchange.interface.getEventTopic("PositionChanged")
-        return exchange.interface.parseLog(receipt.logs.find(log => log.topics[0] === positionChangedTopic))
+    function findPnlRealizedEvent(receipt: TransactionReceipt): LogDescription {
+        const pnlRealizedTopic = accountBalance.interface.getEventTopic("PnlRealized")
+        return accountBalance.interface.parseLog(receipt.logs.find(log => log.topics[0] === pnlRealizedTopic))
     }
 
-    function findLiquidityChangedEvent(receipt: TransactionReceipt): LogDescription {
-        const liquidityChangedTopic = orderBook.interface.getEventTopic("LiquidityChanged")
-        return orderBook.interface.parseLog(receipt.logs.find(log => log.topics[0] === liquidityChangedTopic))
-    }
+    it("has balanced realized PnL", async () => {
+        let takerRealizedPnl = BigNumber.from(0)
+        let makerRealizedPnl = BigNumber.from(0)
 
-    it.only("has balanced realized PnL", async () => {
         // taker long $100 ETH
         await clearingHouse.connect(taker).openPosition({
             baseToken: baseToken.address,
@@ -142,8 +140,8 @@ describe("ClearingHouse realizedPnl", () => {
                 deadline: ethers.constants.MaxUint256,
             })
         ).wait()
-        const takerOpenFee = findLiquidityChangedEvent(makerMoveLiquidityRemoveReceipt).args.quoteFee
-        // maker.collectedFee = 0.999999999999999999
+        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerMoveLiquidityRemoveReceipt).args.amount)
+        // maker.realizedPnlDelta = 0.999999999999999999
 
         // maker move liquidity range down 10% (second step: add liquidity)
         await clearingHouse.connect(maker).addLiquidity({
@@ -171,10 +169,10 @@ describe("ClearingHouse realizedPnl", () => {
                 referralCode: ethers.constants.HashZero,
             })
         ).wait()
-        const takerRealizedPnl = findPositionChangedEvent(takerCloseReceipt).args.realizedPnl
+        takerRealizedPnl = takerRealizedPnl.add(findPnlRealizedEvent(takerCloseReceipt).args.amount)
+        // taker.realizedPnlDelta: -9.542011399247233633
         // taker.positionSize: 0.0
         // taker.openNotional: 0.0
-        // taker.owedRealizedPnl: -9.542011399247233633
         // maker.positionSize: 0.0
         // maker.openNotional: 8.54201139924723363
 
@@ -192,25 +190,25 @@ describe("ClearingHouse realizedPnl", () => {
                 deadline: ethers.constants.MaxUint256,
             })
         ).wait()
-        const takerCloseFee = findLiquidityChangedEvent(makerRemoveLiquidityReceipt).args.quoteFee
+        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerRemoveLiquidityReceipt).args.amount)
+        // maker.realizedPnlDelta: 0.913717056573260266
         // maker.positionSize: 0.0
         // maker.liquidity: 0.0
-        // maker.collectedFee: 0.913717056573260266
         // maker.openNotional: 7.628294342673973364
         // maker.owedRealizedPnl: 1.913717056573260265
 
         // maker settle remaining quote balance
-        // TODO WIP: need an event or otherwise the indexer won't be notified
-        await exchange.connect(maker).settleQuoteBalance(maker.address, baseToken.address)
+        const makerSettleQuoteBalanceReceipt = await (
+            await exchange.connect(maker).settleQuoteBalance(maker.address, baseToken.address)
+        ).wait()
+        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerSettleQuoteBalanceReceipt).args.amount)
+        // maker.realizedPnlDelta: 7.628294342673973364
         // maker.positionSize: 0.0
         // maker.openNotional: 0.0
         // maker.owedRealizedPnl: 9.542011399247233629
 
-        // TODO WIP: should use maker's realized PnL settlement events
-        // taker and maker's realized PnL (plus fee) should balance out each other (with some precision errors)
-        // expect(takerRealizedPnl.add(takerOpenFee).add(takerCloseFee).add(makerRemainingOpenNotional)).to.be.eq(
-        //     parseEther("-0.000000000000000004"),
-        // )
+        // taker and maker's realized PnL should balance out each other (with some precision errors)
+        expect(takerRealizedPnl.add(makerRealizedPnl)).to.be.eq(parseEther("-0.000000000000000004"))
 
         // taker withdraw all collaterals
         const takerFreeCollateral = await vault.getFreeCollateral(taker.address)

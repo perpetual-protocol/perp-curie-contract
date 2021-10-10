@@ -5,6 +5,15 @@ pragma abicoder v2;
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
 interface IAccountBalance {
+    //
+    // EVENT
+    //
+
+    /// @dev Emit whenever a trader's `owedRealizedPnl` is updated
+    /// @param trader The address of the trader
+    /// @param amount The amount changed
+    event PnlRealized(address indexed trader, int256 amount);
+
     function addBalance(
         address trader,
         address baseToken,
