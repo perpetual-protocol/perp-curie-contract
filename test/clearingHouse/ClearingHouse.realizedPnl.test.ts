@@ -128,8 +128,7 @@ describe("ClearingHouse realizedPnl", () => {
         // maker.positionSize: -0.975557443213784207
         // maker.openNotional: 99.999999999999999998
 
-        // maker move all liquidity and collect fee
-        console.log("==== maker move liquidity (remove) ====")
+        // maker move liquidity range down 10% and collect fee (first step: remove liquidity)
         const makerMoveLiquidityRemoveReceipt = await (
             await clearingHouse.connect(maker).removeLiquidity({
                 baseToken: baseToken.address,
@@ -144,24 +143,9 @@ describe("ClearingHouse realizedPnl", () => {
             })
         ).wait()
         const takerOpenFee = findLiquidityChangedEvent(makerMoveLiquidityRemoveReceipt).args.quoteFee
-        console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
-        )
-        console.log(`  maker.takerOpenFee: ${formatEther(takerOpenFee)}`)
-        console.log(
-            `  maker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(maker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  maker.openNotional: ${formatEther(await exchange.getOpenNotional(maker.address, baseToken.address))}`,
-        )
-        console.log("==== maker move liquidity (add) ====")
+        // maker.collectedFee = 0.999999999999999999
+
+        // maker move liquidity range down 10% (second step: add liquidity)
         await clearingHouse.connect(maker).addLiquidity({
             baseToken: baseToken.address,
             base: parseEther("0"),
@@ -172,25 +156,12 @@ describe("ClearingHouse realizedPnl", () => {
             minQuote: parseEther("0"),
             deadline: ethers.constants.MaxUint256,
         })
-        console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
-        )
-        console.log(
-            `  maker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(maker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  maker.openNotional: ${formatEther(await exchange.getOpenNotional(maker.address, baseToken.address))}`,
-        )
+        // taker.positionSize: 0.975557443213784206
+        // taker.openNotional: -100.0
+        // maker.positionSize: -0.975557443213784207
+        // maker.openNotional: 98.999999999999999998
 
         // taker close position
-        console.log("==== taker close position ====")
         const takerCloseReceipt = await (
             await clearingHouse.connect(taker).closePosition({
                 baseToken: baseToken.address,
@@ -203,29 +174,11 @@ describe("ClearingHouse realizedPnl", () => {
         const takerRealizedPnl = findPositionChangedEvent(takerCloseReceipt).args.realizedPnl
         // taker.positionSize: 0.0
         // taker.openNotional: 0.0
-        // taker.owedRealizedPnl: -1.990000000000000016
+        // taker.owedRealizedPnl: -9.542011399247233633
         // maker.positionSize: 0.0
-        // maker.openNotional: 1.990000000000000014
-        console.log(`  taker.realizedPnl: ${formatEther(takerRealizedPnl)}`)
-        console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
-        )
-        console.log(
-            `  maker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(maker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  maker.openNotional: ${formatEther(await exchange.getOpenNotional(maker.address, baseToken.address))}`,
-        )
+        // maker.openNotional: 8.54201139924723363
 
         // maker remove all liquidity and collect fee
-        console.log("==== maker remove liquidity ====")
         const makerRemoveLiquidityReceipt = await (
             await clearingHouse.connect(maker).removeLiquidity({
                 baseToken: baseToken.address,
@@ -242,58 +195,22 @@ describe("ClearingHouse realizedPnl", () => {
         const takerCloseFee = findLiquidityChangedEvent(makerRemoveLiquidityReceipt).args.quoteFee
         // maker.positionSize: 0.0
         // maker.liquidity: 0.0
-        // maker.openNotional: 0.000000000000000015
-        // maker.owedRealizedPnl: 1.989999999999999999
-        console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
-        )
-        console.log(`  maker.takerCloseFee: ${formatEther(takerCloseFee)}`)
-        console.log(
-            `  maker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(maker.address, baseToken.address),
-            )}`,
-        )
-        const makerRemainingOpenNotional = await exchange.getOpenNotional(maker.address, baseToken.address)
-        console.log(`  maker.openNotional: ${formatEther(makerRemainingOpenNotional)}`)
-        console.log(
-            `  maker.owedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(maker.address))[0])}`,
-        )
+        // maker.collectedFee: 0.913717056573260266
+        // maker.openNotional: 7.628294342673973364
+        // maker.owedRealizedPnl: 1.913717056573260265
 
         // maker settle remaining quote balance
-        // TODO need an event or otherwise the indexer won't be notified
-        console.log("==== maker settle remaining quote balance ====")
+        // TODO WIP: need an event or otherwise the indexer won't be notified
         await exchange.connect(maker).settleQuoteBalance(maker.address, baseToken.address)
-        console.log(
-            `  taker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(taker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  taker.openNotional: ${formatEther(await exchange.getOpenNotional(taker.address, baseToken.address))}`,
-        )
-        console.log(`  maker.takerCloseFee: ${formatEther(takerCloseFee)}`)
-        console.log(
-            `  maker.positionSize: ${formatEther(
-                await accountBalance.getPositionSize(maker.address, baseToken.address),
-            )}`,
-        )
-        console.log(
-            `  maker.openNotional: ${formatEther(await exchange.getOpenNotional(maker.address, baseToken.address))}`,
-        )
-        console.log(
-            `  maker.owedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(maker.address))[0])}`,
-        )
+        // maker.positionSize: 0.0
+        // maker.openNotional: 0.0
+        // maker.owedRealizedPnl: 9.542011399247233629
 
+        // TODO WIP: should use maker's realized PnL settlement events
         // taker and maker's realized PnL (plus fee) should balance out each other (with some precision errors)
-        // TODO WIP how to deal with maker's remaining open notional?
-        expect(takerRealizedPnl.add(takerOpenFee).add(takerCloseFee).add(makerRemainingOpenNotional)).to.be.eq(
-            parseEther("-0.000000000000000004"),
-        )
+        // expect(takerRealizedPnl.add(takerOpenFee).add(takerCloseFee).add(makerRemainingOpenNotional)).to.be.eq(
+        //     parseEther("-0.000000000000000004"),
+        // )
 
         // taker withdraw all collaterals
         const takerFreeCollateral = await vault.getFreeCollateral(taker.address)
@@ -312,7 +229,6 @@ describe("ClearingHouse realizedPnl", () => {
         expect(takerUsdcBalance).to.deep.eq(parseUnits("990.457988", collateralDecimals))
 
         // maker withdraw all
-        // TODO WIP maker free collateral lower than expected due to remaining open notional
         const makerFreeCollateral = await vault.getFreeCollateral(maker.address)
         // maker.vaultBalanceOf: 1000000.0
         // maker.freeCollateral: 1000001.989998
