@@ -131,6 +131,14 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         return _clearingHouse;
     }
 
+    function getQuoteToken() external view override returns (address) {
+        return _quoteToken;
+    }
+
+    function getUniswapV3Factory() external view override returns (address) {
+        return _uniswapV3Factory;
+    }
+
     function getMaxOrdersPerMarket() external view override returns (uint8) {
         return _maxOrdersPerMarket;
     }
