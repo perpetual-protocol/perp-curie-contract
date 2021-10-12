@@ -1,4 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
@@ -87,7 +88,7 @@ describe("ClearingHouse customized fee", () => {
         //   virtual quote liquidity = 884.6906588359 * sqrt(151.373306858723226652) = 10884.6906588362
 
         // prepare collateral for taker
-        const takerCollateral = parseUnits("1000", collateralDecimals)
+        const takerCollateral = parseUnits("2000", collateralDecimals)
         await collateral.mint(taker.address, takerCollateral)
         await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
         await collateral.mint(taker2.address, takerCollateral)
@@ -734,30 +735,74 @@ describe("ClearingHouse customized fee", () => {
         })
     })
 
-    describe("cross many ticks to make sure CH mint enough token to transfer to Uniswap pool", async () => {
+    describe("CH fee with multiple makers", async () => {
+        let liquidity1: BigNumber
+        let liquidity2: BigNumber
+        let liquidity3: BigNumber
+        let totalLiquidity: BigNumber
         beforeEach(async () => {
-            const takerCollateral = parseUnits("9000", collateralDecimals)
-            await collateral.mint(taker.address, takerCollateral)
-            await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
-            await deposit(taker, vault, 10000, collateral)
-
-            // set fee ratio to 2%
-            await marketRegistry.setFeeRatio(baseToken.address, 20000)
-        })
-
-        it("Q2B and exact in", async () => {
-            await clearingHouse.connect(taker).openPosition({
+            // current tick of pool is at 50201
+            // maker's 2nd liquidity in range [50000, 50400]
+            await clearingHouse.connect(maker).addLiquidity({
                 baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                oppositeAmountBound: 0,
-                amount: parseEther("8000"),
-                sqrtPriceLimitX96: 0,
+                base: parseEther("2"),
+                quote: parseEther("201"),
+                lowerTick: 50000,
+                upperTick: 50400,
+                minBase: 0,
+                minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
             })
 
-            const fee = (
+            // maker's 3rd liquidity in range [49800, 50600]
+            await clearingHouse.connect(maker).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("2"),
+                quote: parseEther("201"),
+                lowerTick: 49800,
+                upperTick: 50600,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await deposit(taker, vault, 2000, collateral)
+
+            liquidity1 = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
+                .liquidity
+            liquidity2 = (await orderBook.getOpenOrder(maker.address, baseToken.address, 50000, 50400)).liquidity
+            liquidity3 = (await orderBook.getOpenOrder(maker.address, baseToken.address, 49800, 50600)).liquidity
+            totalLiquidity = liquidity1.add(liquidity2).add(liquidity3)
+        })
+
+        it("long and exact in, 3 makers get their fees", async () => {
+            const totalFee = parseEther("1") // fee = 100 * 0.01
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("100"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(exchange, "PositionChanged")
+                .withArgs(
+                    taker.address,
+                    baseToken.address,
+                    "652445932493383066", // exchangedPositionSize
+                    parseEther("-99"), // exchangedPositionNotional
+                    totalFee, // fee
+                    parseEther("-100"), // openNotional
+                    parseEther("0"), // realizedPnl
+                    "977114821773012427278909819665",
+                )
+
+            // all orders get their fee by liquidity ratio
+            const fee1 = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick: lowerTick,
@@ -768,23 +813,242 @@ describe("ClearingHouse customized fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
             ).fee
-            // 8000 * 2% = 160
-            expect(fee).to.be.eq(parseEther("160"))
+            expect(fee1).to.be.closeTo(totalFee.mul(liquidity1).div(totalLiquidity), 1)
+
+            const fee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee2).to.be.closeTo(totalFee.mul(liquidity2).div(totalLiquidity), 1)
+
+            const fee3 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 49800,
+                    upperTick: 50600,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee3).to.be.closeTo(totalFee.mul(liquidity3).div(totalLiquidity), 1)
+
+            // The three maker fees should be no more than the total fee
+            expect(fee1.add(fee2).add(fee3)).lte(totalFee)
         })
 
-        it("Q2B and exact out", async () => {
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                oppositeAmountBound: ethers.constants.MaxUint256,
-                amount: parseEther("30"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
+        it("short and exact out, 3 makers get their fees", async () => {
+            const totalFee = parseEther("1.010101010101010102") // 100 / 0.99 * 0.01
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("100"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(exchange, "PositionChanged")
+                .withArgs(
+                    taker.address,
+                    baseToken.address,
+                    "-668929885027494518", // exchangedPositionSize
+                    parseEther("101.010101010101010102"), // exchangedPositionNotional
+                    totalFee, // fee
+                    parseEther("100"), // openNotional
+                    parseEther("0"), // realizedPnl
+                    "972386993200923694471960483504",
+                )
 
-            const fee = (
+            // all orders get their fee by liquidity ratio
+            const fee1 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee1).to.be.closeTo(totalFee.mul(liquidity1).div(totalLiquidity), 1)
+
+            const fee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee2).to.be.closeTo(totalFee.mul(liquidity2).div(totalLiquidity), 1)
+
+            const fee3 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 49800,
+                    upperTick: 50600,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee3).to.be.closeTo(totalFee.mul(liquidity3).div(totalLiquidity), 1)
+
+            // The three maker fees should be no more than the total fee
+            expect(fee1.add(fee2).add(fee3)).lte(totalFee)
+        })
+
+        it("long and exact in, 3 makers get their fees", async () => {
+            const totalFee = parseEther("1") // fee = 100 * 0.01
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("100"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(exchange, "PositionChanged")
+                .withArgs(
+                    taker.address,
+                    baseToken.address,
+                    "652445932493383066", // exchangedPositionSize
+                    parseEther("-99"), // exchangedPositionNotional
+                    totalFee, // fee
+                    parseEther("-100"), // openNotional
+                    parseEther("0"), // realizedPnl
+                    "977114821773012427278909819665",
+                )
+
+            // all orders get their fee by liquidity ratio
+            const fee1 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee1).to.be.closeTo(totalFee.mul(liquidity1).div(totalLiquidity), 1)
+
+            const fee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee2).to.be.closeTo(totalFee.mul(liquidity2).div(totalLiquidity), 1)
+
+            const fee3 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 49800,
+                    upperTick: 50600,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee3).to.be.closeTo(totalFee.mul(liquidity3).div(totalLiquidity), 1)
+
+            // The three maker fees should be no more than the total fee
+            expect(fee1.add(fee2).add(fee3)).lte(totalFee)
+        })
+
+        it("long and exact in, cross 2 ranges, 3 makers get their fees", async () => {
+            const totalFee = parseEther("20").add(2) // fee = 1000 * 0.01 + 2wei (rounding up)
+
+            // taker open a large position, crossed 2 ranges
+            // making the price becomes ~= 198.2516818352, tick ~= 52898.018163
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2000"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(exchange, "PositionChanged")
+                .withArgs(
+                    taker.address,
+                    baseToken.address,
+                    "11729654997396309954", // exchangedPositionSize
+                    parseEther("-1980"), // exchangedPositionNotional
+                    totalFee, // fee
+                    "-2000000000000000000002", // openNotional
+                    parseEther("0"), // realizedPnl
+                    "1115547388545533386227414561311",
+                )
+
+            // range2 and range3 get fees less than totalFee * liquidity ratio (out of range)
+            // liquidity2     ~= 1,641.9603910957
+            // liquidity3     ~=   825.0848570922
+            // totalLiquidity ~= 3,351.7359070238
+            // however, the price leaves range2 earlier than range3, thus
+            // fee2 ~= 2.0507068897
+            // fee3 ~= 2.0713158009
+            const fee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee2).to.be.lt(totalFee.mul(liquidity2).div(totalLiquidity))
+
+            const fee3 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 49800,
+                    upperTick: 50600,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee3).to.be.lt(totalFee.mul(liquidity3).div(totalLiquidity))
+
+            // range1 gets the rest of the fees (still in range)
+            const fee1 = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick: lowerTick,
@@ -796,8 +1060,80 @@ describe("ClearingHouse customized fee", () => {
                 })
             ).fee
 
-            // TODO need spreadsheet
-            expect(fee).is.gt(0)
+            // The three maker fees should be no more than the total fee
+            expect(fee1.add(fee2).add(fee3)).lte(totalFee)
+        })
+
+        it("short and exact out, cross 2 ranges, 3 makers get their fees", async () => {
+            const totalFee = parseEther("20.202020202020202022") // fee = 2000 / 0.99 * 0.01
+
+            // taker open a large position, crossed 2 ranges
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2000"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(exchange, "PositionChanged")
+                .withArgs(
+                    taker.address,
+                    baseToken.address,
+                    "-15252808300295787035", // exchangedPositionSize
+                    "2020202020202020202021", // exchangedPositionNotional
+                    totalFee, // fee
+                    "1999999999999999999999", // openNotional
+                    parseEther("0"), // realizedPnl
+                    "829857148898043164180052942590",
+                )
+
+            // range2 and range3 get fess less than totalFee * liquidity ratio (out of range)
+            const fee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee2).to.be.lt(totalFee.mul(liquidity2).div(totalLiquidity))
+
+            const fee3 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 49800,
+                    upperTick: 50600,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee3).to.be.lt(totalFee.mul(liquidity3).div(totalLiquidity))
+
+            // range1 get all the rest fees (still in range)
+            const fee1 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+
+            // The three maker fees should be no more than the total fee
+            expect(fee1.add(fee2).add(fee3)).lte(totalFee)
         })
     })
 })
