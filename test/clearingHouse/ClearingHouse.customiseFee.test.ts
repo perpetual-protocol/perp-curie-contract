@@ -989,6 +989,7 @@ describe("ClearingHouse customized fee", () => {
             const totalFee = parseEther("20").add(2) // fee = 1000 * 0.01 + 2wei (rounding up)
 
             // taker open a large position, crossed 2 ranges
+            // making the price becomes ~= 198.2516818352, tick ~= 52898.018163
             await expect(
                 clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
@@ -1013,7 +1014,13 @@ describe("ClearingHouse customized fee", () => {
                     "1115547388545533386227414561311",
                 )
 
-            // range2 and range3 get fess less than totalFee * liquidity ratio (out of range)
+            // range2 and range3 get fees less than totalFee * liquidity ratio (out of range)
+            // liquidity2     ~= 1,641.9603910957
+            // liquidity3     ~=   825.0848570922
+            // totalLiquidity ~= 3,351.7359070238
+            // however, the price leaves range2 earlier than range3, thus
+            // fee2 ~= 2.0507068897
+            // fee3 ~= 2.0713158009
             const fee2 = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
                     baseToken: baseToken.address,
