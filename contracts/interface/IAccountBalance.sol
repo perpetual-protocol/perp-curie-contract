@@ -64,4 +64,12 @@ interface IAccountBalance {
 
     /// @return sum up positions value of every market, it calls `getPositionValue` internally
     function getTotalAbsPositionValue(address trader) external view returns (uint256);
+
+    function getClearingHouseConfig() external view returns (address);
+
+    function getExchange() external view returns (address);
+
+    function getOrderBook() external view returns (address);
+
+    function getVault() external view returns (address);
 }
