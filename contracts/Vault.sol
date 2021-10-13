@@ -114,9 +114,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @param token The address of the token sender is going to withdraw
-    /// @param amountIn10_X The amount in decimal X (X = _decimals) of the token sender is going to withdraw
+    /// @param amountX10_D The amount in decimal D (D = _decimals) of the token sender is going to withdraw
     /// @dev The token can be other than settlementToken once multi collateral feature is implemented
-    function withdraw(address token, uint256 amountIn10_X)
+    function withdraw(address token, uint256 amountX10_D)
         external
         whenNotPaused
         nonReentrant
@@ -136,30 +136,30 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         IExchange(_exchange).settleAllFunding(to);
 
         // settle owedRealizedPnl in AccountBalance
-        int256 owedRealizedPnlIn10_18 = IAccountBalance(_accountBalance).settle(to);
+        int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settle(to);
 
         // by this time free collateral should see zero funding payment and zero owedRealizedPnl
-        int256 freeCollateralByImRatioIn10_X =
+        int256 freeCollateralByImRatioX10_D =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
         require(
-            freeCollateralByImRatioIn10_X.addS(owedRealizedPnlIn10_18, _decimals) >= amountIn10_X.toInt256(),
+            freeCollateralByImRatioX10_D.addS(owedRealizedPnlX10_18, _decimals) >= amountX10_D.toInt256(),
             "V_NEFC"
         );
 
         // borrow settlement token from insurance fund if token balance is not enough
-        uint256 vaultBalanceIn10_X = IERC20Metadata(token).balanceOf(address(this));
-        if (vaultBalanceIn10_X < amountIn10_X) {
-            uint256 borrowAmountIn10_X = amountIn10_X - vaultBalanceIn10_X;
-            IInsuranceFund(_insuranceFund).borrow(borrowAmountIn10_X);
-            _totalDebt += borrowAmountIn10_X;
+        uint256 vaultBalanceX10_D = IERC20Metadata(token).balanceOf(address(this));
+        if (vaultBalanceX10_D < amountX10_D) {
+            uint256 borrowAmountX10_D = amountX10_D - vaultBalanceX10_D;
+            IInsuranceFund(_insuranceFund).borrow(borrowAmountX10_D);
+            _totalDebt += borrowAmountX10_D;
         }
 
         // settle withdraw amount and owedRealizedPnl to collateral balance
-        _modifyBalance(to, token, (-(amountIn10_X.toInt256())).addS(owedRealizedPnlIn10_18, _decimals));
-        TransferHelper.safeTransfer(token, to, amountIn10_X);
+        _modifyBalance(to, token, (-(amountX10_D.toInt256())).addS(owedRealizedPnlX10_18, _decimals));
+        TransferHelper.safeTransfer(token, to, amountX10_D);
 
-        emit Withdrawn(token, to, amountIn10_X);
+        emit Withdrawn(token, to, amountX10_D);
     }
 
     //
