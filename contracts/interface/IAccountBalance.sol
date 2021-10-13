@@ -14,24 +14,19 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
-    /// @dev Settle account balance after removed liquidity
+    /// @dev Settle account balance and deregister base token
     /// @param maker The address of the maker
     /// @param baseToken The address of the market's base token
     /// @param base Amount of base token removed from pool
     /// @param quote Amount of quote token removed from pool
     /// @param fee Amount of fee collected from pool
-    function settleRemoveLiquidity(
+    function settleBalanceAndDeregister(
         address maker,
         address baseToken,
         int256 base,
         int256 quote,
         int256 fee
     ) external;
-
-    /// @dev Settle account balance after open position
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the trader's base token
-    function settleOpenPosition(address trader, address baseToken) external;
 
     function addBalance(
         address trader,
@@ -55,10 +50,15 @@ interface IAccountBalance {
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
 
+    /// @dev Deregister base token and this function is expensive
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
+    function deregisterBaseToken(address trader, address baseToken) external;
+
     function registerBaseToken(address trader, address baseToken) external;
 
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external returns (int256 pnl);
+    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
     function getBaseTokens(address trader) external view returns (address[] memory);
 

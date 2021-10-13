@@ -136,7 +136,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         IExchange(_exchange).settleAllFunding(to);
 
         // settle owedRealizedPnl in AccountBalance
-        int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settle(to);
+        int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
 
         // by this time free collateral should see zero funding payment and zero owedRealizedPnl
         int256 freeCollateralByImRatioX10_D =

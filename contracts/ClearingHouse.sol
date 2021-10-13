@@ -230,7 +230,7 @@ contract ClearingHouse is
                 })
             );
 
-        IAccountBalance(_accountBalance).settleRemoveLiquidity(
+        IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             trader,
             params.baseToken,
             response.base.toInt256(),
@@ -526,7 +526,7 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
-        IAccountBalance(_accountBalance).settleRemoveLiquidity(
+        IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
             response.base.toInt256(),
@@ -557,7 +557,7 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        IAccountBalance(_accountBalance).settleOpenPosition(params.trader, params.baseToken);
+        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
     }

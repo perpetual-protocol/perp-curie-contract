@@ -74,7 +74,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _vault = vaultArg;
     }
 
-    function settleRemoveLiquidity(
+    function settleBalanceAndDeregister(
         address maker,
         address baseToken,
         int256 base,
@@ -84,10 +84,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _addBalance(maker, baseToken, base, quote, fee);
         _settleQuoteBalance(maker, baseToken);
         _deregisterBaseToken(maker, baseToken);
-    }
-
-    function settleOpenPosition(address trader, address baseToken) external override onlyClearingHouse {
-        _deregisterBaseToken(trader, baseToken);
     }
 
     function addBalance(
@@ -120,6 +116,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
+    function deregisterBaseToken(address trader, address baseToken) external override onlyClearingHouse {
+        _deregisterBaseToken(trader, baseToken);
+    }
+
     function registerBaseToken(address trader, address baseToken) external override onlyClearingHouse {
         address[] memory tokens = _baseTokensMap[trader];
         if (tokens.length == 0) {
@@ -146,7 +146,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external override returns (int256) {
+    function settleOwedRealizedPnl(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == _vault, "AB_OV");
         int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
@@ -316,8 +316,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _addOwedRealizedPnl(address trader, int256 delta) internal {
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
         if (delta != 0) {
+            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
             emit PnlRealized(trader, delta);
         }
     }
