@@ -191,7 +191,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
     function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
         return
-            _getTotalAbsPositionValue(trader)
+            getTotalAbsPositionValue(trader)
                 .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
                 .toInt256();
     }
@@ -216,6 +216,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : (-totalQuoteBalance).toUint256();
 
         return totalQuoteDebtValue.add(totalBaseDebtValue);
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
+        address[] memory tokens = _baseTokensMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = tokens[i];
+            // will not use negative value in this case
+            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            totalPositionValue = totalPositionValue.add(positionValue);
+        }
+        return totalPositionValue;
     }
 
     /// @inheritdoc IAccountBalance
@@ -302,18 +316,5 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-    }
-
-    function _getTotalAbsPositionValue(address trader) internal view returns (uint256) {
-        address[] memory tokens = _baseTokensMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = tokens[i];
-            // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
-            totalPositionValue = totalPositionValue.add(positionValue);
-        }
-        return totalPositionValue;
     }
 }
