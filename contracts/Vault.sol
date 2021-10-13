@@ -105,10 +105,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
-        if (settlementTokenBalanceCap > 0) {
-            // greater than settlement token balance cap
-            require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
-        }
+        // greater than settlement token balance cap
+        require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
 
         emit Deposited(token, from, amount);
     }

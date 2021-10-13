@@ -4,21 +4,21 @@ pragma abicoder v2;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
-import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
 import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1 {
+contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV1 {
     using AddressUpgradeable for address;
 
     //
     // CONSTRUCTOR
     //
     function initialize(address uniswapV3FactoryArg, address quoteTokenArg) external initializer {
-        __SafeOwnable_init();
+        __ClearingHouseCallee_init();
 
         // UnsiwapV3Factory is not contract
         require(uniswapV3FactoryArg.isContract(), "MR_UFNC");
@@ -28,6 +28,7 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         // update states
         _uniswapV3Factory = uniswapV3FactoryArg;
         _quoteToken = quoteTokenArg;
+        _maxOrdersPerMarket = type(uint8).max;
     }
 
     //
@@ -89,13 +90,6 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
         return pool;
     }
 
-    function setClearingHouse(address clearingHouseArg) external override onlyOwner {
-        // ClearingHouse is not contract
-        require(clearingHouseArg.isContract(), "MR_CHNC");
-        _clearingHouse = clearingHouseArg;
-        emit ClearingHouseChanged(clearingHouseArg);
-    }
-
     function setFeeRatio(address baseToken, uint24 feeRatio)
         external
         override
@@ -126,10 +120,6 @@ contract MarketRegistry is IMarketRegistry, SafeOwnable, MarketRegistryStorageV1
     //
     // EXTERNAL VIEW
     //
-
-    function getClearingHouse() external view override returns (address) {
-        return _clearingHouse;
-    }
 
     function getQuoteToken() external view override returns (address) {
         return _quoteToken;

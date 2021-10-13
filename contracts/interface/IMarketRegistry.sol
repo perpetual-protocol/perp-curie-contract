@@ -17,7 +17,6 @@ interface IMarketRegistry {
     // EVENT
     //
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-    event ClearingHouseChanged(address indexed clearingHouse);
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
     event InsuranceFundFeeRatioChanged(uint24 feeRatio);
     event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
@@ -27,8 +26,6 @@ interface IMarketRegistry {
     //
 
     function addPool(address baseToken, uint24 feeRatio) external returns (address);
-
-    function setClearingHouse(address clearingHouseArg) external;
 
     function setFeeRatio(address baseToken, uint24 feeRatio) external;
 
@@ -47,8 +44,6 @@ interface IMarketRegistry {
     function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24);
 
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory);
-
-    function getClearingHouse() external view returns (address);
 
     function getQuoteToken() external view returns (address);
 

@@ -22,10 +22,11 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
         // invalid address
         require(priceFeedArg != address(0), "BT_IA");
         // invalid price feed decimals
-        require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "BT_IPFD");
+        uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        require(__priceFeedDecimals <= decimals(), "BT_IPFD");
 
         _priceFeed = priceFeedArg;
-        _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        _priceFeedDecimals = __priceFeedDecimals;
     }
 
     /// @inheritdoc IIndexPrice
