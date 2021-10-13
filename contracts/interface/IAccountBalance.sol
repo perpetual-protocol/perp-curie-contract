@@ -14,6 +14,25 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
+    /// @dev Settle account balance after removed liquidity
+    /// @param maker The address of the maker
+    /// @param baseToken The address of the market's base token
+    /// @param base Amount of base token removed from pool
+    /// @param quote Amount of quote token removed from pool
+    /// @param fee Amount of fee collected from pool
+    function settleRemoveLiquidity(
+        address maker,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 fee
+    ) external;
+
+    /// @dev Settle account balance after open position
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
+    function settleOpenPosition(address trader, address baseToken) external;
+
     function addBalance(
         address trader,
         address baseToken,
@@ -23,11 +42,6 @@ interface IAccountBalance {
     ) external;
 
     function addOwedRealizedPnl(address trader, int256 delta) external;
-
-    /// @dev Settle the remaining quote balance in a closed position to the trader's owed realized PnL
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the market's base token
-    function settleQuoteBalance(address trader, address baseToken) external;
 
     function settleQuoteToPnl(
         address trader,
@@ -40,9 +54,6 @@ interface IAccountBalance {
         address baseToken,
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
-
-    /// @dev this function is expensive
-    function deregisterBaseToken(address trader, address baseToken) external;
 
     function registerBaseToken(address trader, address baseToken) external;
 

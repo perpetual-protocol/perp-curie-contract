@@ -230,16 +230,13 @@ contract ClearingHouse is
                 })
             );
 
-        IAccountBalance(_accountBalance).addBalance(
+        IAccountBalance(_accountBalance).settleRemoveLiquidity(
             trader,
             params.baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
             response.fee.toInt256()
         );
-        IAccountBalance(_accountBalance).settleQuoteBalance(trader, params.baseToken);
-
-        IAccountBalance(_accountBalance).deregisterBaseToken(trader, params.baseToken);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -529,14 +526,13 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
-        IAccountBalance(_accountBalance).addBalance(
+        IAccountBalance(_accountBalance).settleRemoveLiquidity(
             maker,
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
             response.fee.toInt256()
         );
-        IAccountBalance(_accountBalance).deregisterBaseToken(maker, baseToken);
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
@@ -561,7 +557,7 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+        IAccountBalance(_accountBalance).settleOpenPosition(params.trader, params.baseToken);
 
         return response;
     }

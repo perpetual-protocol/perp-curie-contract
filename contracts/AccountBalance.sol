@@ -74,6 +74,22 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _vault = vaultArg;
     }
 
+    function settleRemoveLiquidity(
+        address maker,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 fee
+    ) external override onlyClearingHouse {
+        _addBalance(maker, baseToken, base, quote, fee);
+        _settleQuoteBalance(maker, baseToken);
+        _deregisterBaseToken(maker, baseToken);
+    }
+
+    function settleOpenPosition(address trader, address baseToken) external override onlyClearingHouse {
+        _deregisterBaseToken(trader, baseToken);
+    }
+
     function addBalance(
         address trader,
         address baseToken,
@@ -81,21 +97,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 quote,
         int256 owedRealizedPnl
     ) external override onlyExchangeOrClearingHouse {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
-        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        _addOwedRealizedPnl(trader, owedRealizedPnl);
+        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
     }
 
     function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
         _addOwedRealizedPnl(trader, delta);
-    }
-
-    /// @inheritdoc IAccountBalance
-    function settleQuoteBalance(address trader, address baseToken) external override {
-        if (getPositionSize(trader, baseToken) == 0) {
-            _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));
-        }
     }
 
     function settleQuoteToPnl(
@@ -112,34 +118,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 lastTwPremiumGrowthGlobalX96
     ) external override onlyExchange {
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
-    }
-
-    /// @dev this function is expensive
-    function deregisterBaseToken(address trader, address baseToken) external override onlyClearingHouse {
-        if (getBase(trader, baseToken).abs() >= _DUST || getQuote(trader, baseToken).abs() >= _DUST) {
-            return;
-        }
-
-        uint256 baseInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
-        uint256 quoteInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        if (baseInPool > 0 || quoteInPool > 0) {
-            return;
-        }
-
-        delete _accountMarketMap[trader][baseToken];
-
-        uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i; i < length; i++) {
-            if (_baseTokensMap[trader][i] == baseToken) {
-                // if the item to be removed is the last one, pop it directly
-                // else, replace it with the last one and pop the last one
-                if (i != length - 1) {
-                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
-                }
-                _baseTokensMap[trader].pop();
-                break;
-            }
-        }
     }
 
     function registerBaseToken(address trader, address baseToken) external override onlyClearingHouse {
@@ -305,6 +283,28 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // INTERNAL NON-VIEW
     //
 
+    function _addBalance(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
+    ) internal {
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
+        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
+        _addOwedRealizedPnl(trader, owedRealizedPnl);
+    }
+
+    function _settleQuoteBalance(address trader, address baseToken) internal {
+        if (
+            getPositionSize(trader, baseToken) == 0 &&
+            IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
+        ) {
+            _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));
+        }
+    }
+
     function _settleQuoteToPnl(
         address trader,
         address baseToken,
@@ -319,6 +319,34 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
         if (delta != 0) {
             emit PnlRealized(trader, delta);
+        }
+    }
+
+    /// @dev this function is expensive
+    function _deregisterBaseToken(address trader, address baseToken) internal {
+        if (getBase(trader, baseToken).abs() >= _DUST || getQuote(trader, baseToken).abs() >= _DUST) {
+            return;
+        }
+
+        uint256 baseInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 quoteInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
+        if (baseInPool > 0 || quoteInPool > 0) {
+            return;
+        }
+
+        delete _accountMarketMap[trader][baseToken];
+
+        uint256 length = _baseTokensMap[trader].length;
+        for (uint256 i; i < length; i++) {
+            if (_baseTokensMap[trader][i] == baseToken) {
+                // if the item to be removed is the last one, pop it directly
+                // else, replace it with the last one and pop the last one
+                if (i != length - 1) {
+                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
+                }
+                _baseTokensMap[trader].pop();
+                break;
+            }
         }
     }
 
