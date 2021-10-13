@@ -87,7 +87,7 @@ const config: HardhatUserConfig = {
         // follow up this page : https://www.notion.so/perp/Arbitrum-Faucet-0ded856b8ff1499180559fba6e79ef62
         faucetIssuer: {
             [ChainId.RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
-            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
         },
     },
     dependencyCompiler: {

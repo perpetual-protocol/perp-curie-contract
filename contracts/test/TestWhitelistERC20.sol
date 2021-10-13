@@ -19,11 +19,11 @@ contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
         __Ownable_init();
     }
 
-    function addToWhitelist(address addr) external onlyOwner {
+    function addWhitelist(address addr) external onlyOwner {
         _whitelist[addr] = true;
     }
 
-    function removeFromWhitelist(address addr) external onlyOwner {
+    function removeWhitelist(address addr) external onlyOwner {
         _whitelist[addr] = false;
     }
 
