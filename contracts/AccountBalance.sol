@@ -84,15 +84,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(owedRealizedPnl);
-        if (owedRealizedPnl != 0) {
-            emit PnlRealized(trader, owedRealizedPnl);
-        }
+        addOwedRealizedPnl(trader, owedRealizedPnl);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+    function addOwedRealizedPnl(address trader, int256 delta) public override onlyExchangeOrClearingHouse {
         _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
-        emit PnlRealized(trader, delta);
+        if (delta != 0) {
+            emit PnlRealized(trader, delta);
+        }
     }
 
     function settleQuoteToPnl(
@@ -102,8 +101,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) external override onlyExchange {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
-        emit PnlRealized(trader, amount);
+        addOwedRealizedPnl(trader, amount);
     }
 
     function updateTwPremiumGrowthGlobal(
