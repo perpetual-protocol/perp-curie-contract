@@ -218,7 +218,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
 
-    function getTotalAbsPositionValue(address trader) public view returns (uint256) {
+    /// @inheritdoc IAccountBalance
+    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
         address[] memory tokens = _baseTokensMap[trader];
         uint256 totalPositionValue;
         uint256 tokenLen = tokens.length;

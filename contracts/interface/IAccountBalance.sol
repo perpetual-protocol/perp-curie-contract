@@ -61,4 +61,7 @@ interface IAccountBalance {
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
     function getPositionValue(address trader, address baseToken) external view returns (int256);
+
+    /// @return sum up positions value of every market, it calls `getPositionValue` internally
+    function getTotalAbsPositionValue(address trader) external view returns (uint256);
 }
