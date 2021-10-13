@@ -110,7 +110,7 @@ describe("Vault spec", () => {
             amount = parseUnits("100", await usdc.decimals())
             await vault.connect(alice).deposit(usdc.address, amount)
 
-            accountBalance.smocked.settle.will.return.with(0)
+            accountBalance.smocked.settleOwedRealizedPnl.will.return.with(0)
             accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount])
             accountBalance.smocked.getTotalDebtValue.will.return.with(0)
         })
