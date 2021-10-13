@@ -1,9 +1,9 @@
 import { MockContract } from "@eth-optimism/smock"
+import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
-import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
-import { TransactionReceipt } from "@ethersproject/abstract-provider"
-import { LogDescription } from "@ethersproject/abi"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -101,9 +101,11 @@ describe("ClearingHouse realizedPnl", () => {
         await deposit(taker, vault, 1000, collateral)
     })
 
-    function findPnlRealizedEvent(receipt: TransactionReceipt): LogDescription {
+    function findPnlRealizedEvents(receipt: TransactionReceipt): LogDescription[] {
         const pnlRealizedTopic = accountBalance.interface.getEventTopic("PnlRealized")
-        return accountBalance.interface.parseLog(receipt.logs.find(log => log.topics[0] === pnlRealizedTopic))
+        return receipt.logs
+            .filter(log => log.topics[0] === pnlRealizedTopic)
+            .map(log => accountBalance.interface.parseLog(log))
     }
 
     it("has balanced realized PnL", async () => {
@@ -140,7 +142,7 @@ describe("ClearingHouse realizedPnl", () => {
                 deadline: ethers.constants.MaxUint256,
             })
         ).wait()
-        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerMoveLiquidityRemoveReceipt).args.amount)
+        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvents(makerMoveLiquidityRemoveReceipt)[0].args.amount)
         // maker.realizedPnlDelta = 0.999999999999999999
 
         // maker move liquidity range down 10% (second step: add liquidity)
@@ -169,7 +171,7 @@ describe("ClearingHouse realizedPnl", () => {
                 referralCode: ethers.constants.HashZero,
             })
         ).wait()
-        takerRealizedPnl = takerRealizedPnl.add(findPnlRealizedEvent(takerCloseReceipt).args.amount)
+        takerRealizedPnl = takerRealizedPnl.add(findPnlRealizedEvents(takerCloseReceipt)[0].args.amount)
         // taker.realizedPnlDelta: -9.542011399247233633
         // taker.positionSize: 0.0
         // taker.openNotional: 0.0
@@ -190,18 +192,14 @@ describe("ClearingHouse realizedPnl", () => {
                 deadline: ethers.constants.MaxUint256,
             })
         ).wait()
-        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerRemoveLiquidityReceipt).args.amount)
+
+        const events = findPnlRealizedEvents(makerRemoveLiquidityReceipt)
+        makerRealizedPnl = makerRealizedPnl.add(events[0].args.amount)
         // maker.realizedPnlDelta: 0.913717056573260266
         // maker.positionSize: 0.0
         // maker.liquidity: 0.0
-        // maker.openNotional: 7.628294342673973364
-        // maker.owedRealizedPnl: 1.913717056573260265
 
-        // maker settle remaining quote balance
-        const makerSettleQuoteBalanceReceipt = await (
-            await exchange.connect(maker).settleQuoteBalance(maker.address, baseToken.address)
-        ).wait()
-        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvent(makerSettleQuoteBalanceReceipt).args.amount)
+        makerRealizedPnl = makerRealizedPnl.add(events[1].args.amount)
         // maker.realizedPnlDelta: 7.628294342673973364
         // maker.positionSize: 0.0
         // maker.openNotional: 0.0
@@ -237,9 +235,9 @@ describe("ClearingHouse realizedPnl", () => {
         const makerUsdcBalance = await collateral.balanceOf(maker.address)
         // maker.vaultBalanceOf(after): 0.000001
         // maker.freeCollateral(after): 0.0
-        // maker.USDCbalance(after): 1,000,009.542010
+        // maker.USDCbalance(after): 1,000,009.542011
 
-        // 1,000,000 + 9.542011399247233629 = 1,000,009.542010
-        expect(makerUsdcBalance).to.deep.eq(parseUnits("1000009.542010", collateralDecimals))
+        // 1,000,000 + 9.542011399247233629 = 1,000,009.542011
+        expect(makerUsdcBalance).to.deep.eq(parseUnits("1000009.542011", collateralDecimals))
     })
 })

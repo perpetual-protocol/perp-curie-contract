@@ -237,6 +237,8 @@ contract ClearingHouse is
             response.quote.toInt256(),
             response.fee.toInt256()
         );
+        IAccountBalance(_accountBalance).settleQuoteBalance(trader, params.baseToken);
+
         IAccountBalance(_accountBalance).deregisterBaseToken(trader, params.baseToken);
 
         // price slippage check

@@ -53,11 +53,6 @@ interface IExchange {
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
-    /// @dev Settle the remaining quote balance in a closed position to the trader's owed realized PnL
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the market's base token
-    function settleQuoteBalance(address trader, address baseToken) external;
-
     function settleAllFunding(address trader) external;
 
     function settleFunding(address trader, address baseToken)

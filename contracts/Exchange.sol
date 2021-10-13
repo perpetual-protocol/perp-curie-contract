@@ -256,17 +256,6 @@ contract Exchange is
             });
     }
 
-    /// @inheritdoc IExchange
-    function settleQuoteBalance(address trader, address baseToken) external override {
-        // EX_PSNZ: position not closed
-        require(IAccountBalance(_accountBalance).getPositionSize(trader, baseToken) == 0, "EX_PNC");
-        IAccountBalance(_accountBalance).settleQuoteToPnl(
-            trader,
-            baseToken,
-            IAccountBalance(_accountBalance).getQuote(trader, baseToken)
-        );
-    }
-
     function settleAllFunding(address trader) external override {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         for (uint256 i = 0; i < baseTokens.length; i++) {

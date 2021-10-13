@@ -24,6 +24,11 @@ interface IAccountBalance {
 
     function addOwedRealizedPnl(address trader, int256 delta) external;
 
+    /// @dev Settle the remaining quote balance in a closed position to the trader's owed realized PnL
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the market's base token
+    function settleQuoteBalance(address trader, address baseToken) external;
+
     function settleQuoteToPnl(
         address trader,
         address baseToken,

@@ -84,13 +84,17 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        addOwedRealizedPnl(trader, owedRealizedPnl);
+        _addOwedRealizedPnl(trader, owedRealizedPnl);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) public override onlyExchangeOrClearingHouse {
-        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
-        if (delta != 0) {
-            emit PnlRealized(trader, delta);
+    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+        _addOwedRealizedPnl(trader, delta);
+    }
+
+    /// @inheritdoc IAccountBalance
+    function settleQuoteBalance(address trader, address baseToken) external override {
+        if (getPositionSize(trader, baseToken) == 0) {
+            _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));
         }
     }
 
@@ -99,9 +103,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 amount
     ) external override onlyExchange {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
-        addOwedRealizedPnl(trader, amount);
+        _settleQuoteToPnl(trader, baseToken, amount);
     }
 
     function updateTwPremiumGrowthGlobal(
@@ -297,6 +299,27 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 indexTwap = _getIndexPrice(baseToken);
         // both positionSize & indexTwap are in 10^18 already
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
+    }
+
+    //
+    // INTERNAL NON-VIEW
+    //
+
+    function _settleQuoteToPnl(
+        address trader,
+        address baseToken,
+        int256 amount
+    ) internal {
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
+        _addOwedRealizedPnl(trader, amount);
+    }
+
+    function _addOwedRealizedPnl(address trader, int256 delta) internal {
+        _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
+        if (delta != 0) {
+            emit PnlRealized(trader, delta);
+        }
     }
 
     //
