@@ -20,6 +20,8 @@
     "lint-tests": "if grep -qr 'test' -e '.only('; then echo 'found .only() in tests'; exit 1; else echo 'not found .only() in tests'; fi",
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
+    "transferOwner:rinkeby": "hardhat run --network rinkeby scripts/transferOwner.ts",
+    "transferOwner:arbitrum": "hardhat run --network arbitrum scripts/transferOwner.ts",
     "tenderly:rinkeby": "hardhat tenderly --network rinkeby --stage staging",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",

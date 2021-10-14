@@ -68,6 +68,7 @@ const config: HardhatUserConfig = {
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
+        gnosisSafeAddress: "0x15296c8638e7A47bf09C04e60799d646A0d064A1",
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
