@@ -5,6 +5,29 @@ pragma abicoder v2;
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
 interface IAccountBalance {
+    //
+    // EVENT
+    //
+
+    /// @dev Emit whenever a trader's `owedRealizedPnl` is updated
+    /// @param trader The address of the trader
+    /// @param amount The amount changed
+    event PnlRealized(address indexed trader, int256 amount);
+
+    /// @dev Settle account balance and deregister base token
+    /// @param maker The address of the maker
+    /// @param baseToken The address of the market's base token
+    /// @param base Amount of base token removed from pool
+    /// @param quote Amount of quote token removed from pool
+    /// @param fee Amount of fee collected from pool
+    function settleBalanceAndDeregister(
+        address maker,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 fee
+    ) external;
+
     function addBalance(
         address trader,
         address baseToken,
@@ -27,13 +50,15 @@ interface IAccountBalance {
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
 
-    /// @dev this function is expensive
+    /// @dev Deregister base token and this function is expensive
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
     function deregisterBaseToken(address trader, address baseToken) external;
 
     function registerBaseToken(address trader, address baseToken) external;
 
     /// @dev this function is now only called by Vault.withdraw()
-    function settle(address trader) external returns (int256 pnl);
+    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
     function getBaseTokens(address trader) external view returns (address[] memory);
 

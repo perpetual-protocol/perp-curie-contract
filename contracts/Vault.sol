@@ -114,9 +114,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @param token The address of the token sender is going to withdraw
-    /// @param amount The amount of the token sender is going to withdraw
+    /// @param amountX10_D The amount in decimal D (D = _decimals) of the token sender is going to withdraw
     /// @dev The token can be other than settlementToken once multi collateral feature is implemented
-    function withdraw(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
+    function withdraw(address token, uint256 amountX10_D)
+        external
+        whenNotPaused
+        nonReentrant
+        onlySettlementToken(token)
+    {
         address to = _msgSender();
 
         // the full process of a trader's withdrawal:
@@ -126,28 +131,35 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         //     settle pnl to trader balance in Vault
         //     transfer amount to trader
 
-        // make sure funding payments are always settled,
+        // settle funding payments to owedRealizedPnl,
         // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
         IExchange(_exchange).settleAllFunding(to);
-        int256 owedRealizedPnl = IAccountBalance(_accountBalance).settle(to);
-        int256 freeCollateralByImRatio =
+
+        // settle owedRealizedPnl in AccountBalance
+        int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
+
+        // by this time free collateral should see zero funding payment and zero owedRealizedPnl
+        int256 freeCollateralByImRatioX10_D =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
-        require(freeCollateralByImRatio.add(owedRealizedPnl) >= amount.toInt256(), "V_NEFC");
+        require(
+            freeCollateralByImRatioX10_D.addS(owedRealizedPnlX10_18, _decimals) >= amountX10_D.toInt256(),
+            "V_NEFC"
+        );
 
         // borrow settlement token from insurance fund if token balance is not enough
-        uint256 vaultBalance = IERC20Metadata(token).balanceOf(address(this));
-        if (vaultBalance < amount) {
-            uint256 borrowAmount = amount - vaultBalance;
-            IInsuranceFund(_insuranceFund).borrow(borrowAmount);
-            _totalDebt += borrowAmount;
+        uint256 vaultBalanceX10_D = IERC20Metadata(token).balanceOf(address(this));
+        if (vaultBalanceX10_D < amountX10_D) {
+            uint256 borrowAmountX10_D = amountX10_D - vaultBalanceX10_D;
+            IInsuranceFund(_insuranceFund).borrow(borrowAmountX10_D);
+            _totalDebt += borrowAmountX10_D;
         }
 
-        // settle IAccountBalance's owedRealizedPnl to collateral
-        _modifyBalance(to, token, owedRealizedPnl.sub(amount.toInt256()));
-        TransferHelper.safeTransfer(token, to, amount);
+        // settle withdraw amount and owedRealizedPnl to collateral balance
+        _modifyBalance(to, token, (-(amountX10_D.toInt256())).addS(owedRealizedPnlX10_18, _decimals));
+        TransferHelper.safeTransfer(token, to, amountX10_D);
 
-        emit Withdrawn(token, to, amount);
+        emit Withdrawn(token, to, amountX10_D);
     }
 
     //
