@@ -177,6 +177,26 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
 
     /// @inheritdoc IAccountBalance
+    function getClearingHouseConfig() external view override returns (address) {
+        return _clearingHouseConfig;
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getExchange() external view override returns (address) {
+        return _exchange;
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getOrderBook() external view override returns (address) {
+        return _orderBook;
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getVault() external view override returns (address) {
+        return _vault;
+    }
+
+    /// @inheritdoc IAccountBalance
     function getBaseTokens(address trader) external view override returns (address[] memory) {
         return _baseTokensMap[trader];
     }

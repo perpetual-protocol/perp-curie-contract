@@ -58,7 +58,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.initialize("TestUSDC", "USDC")
+        await USDC.__TestERC20_init("TestUSDC", "USDC")
         await USDC.setupDecimals(6)
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract

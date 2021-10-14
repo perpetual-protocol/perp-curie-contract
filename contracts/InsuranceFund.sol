@@ -47,4 +47,9 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     function getToken() external view override returns (address) {
         return _token;
     }
+
+    /// @inheritdoc IInsuranceFund
+    function getBorrower() external view override returns (address) {
+        return _borrower;
+    }
 }

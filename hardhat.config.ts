@@ -17,7 +17,7 @@ import {
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
 import "./mocha-test"
-import { verifyContract } from "./scripts/verify-tenderly"
+import { verifyAndPushContract } from "./scripts/tenderly"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -25,10 +25,10 @@ enum ChainId {
     RINKEBY_CHAIN_ID = 4,
 }
 
-task("verify-tenderly", "Contract verification on Tenderly")
+task("tenderly", "Contract verification and push on Tenderly")
     .addParam("stage", "stage")
     .setAction(async ({ stage }, hre) => {
-        await verifyContract(hre, stage)
+        await verifyAndPushContract(hre, stage)
     })
 
 const config: HardhatUserConfig = {
@@ -84,6 +84,11 @@ const config: HardhatUserConfig = {
         usdc: {
             [ChainId.ARBITRUM_ONE_CHAIN_ID]: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
         },
+        // follow up this page : https://www.notion.so/perp/Arbitrum-Faucet-0ded856b8ff1499180559fba6e79ef62
+        faucetIssuer: {
+            [ChainId.RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
+        },
     },
     dependencyCompiler: {
         // We have to compile from source since UniswapV3 doesn't provide artifacts in their npm package
@@ -109,6 +114,10 @@ const config: HardhatUserConfig = {
         jobs: 4,
         timeout: 120000,
         color: true,
+    },
+    tenderly: {
+        project: "lushan-staging-0-7-0",
+        username: "perpprotocol",
     },
 }
 

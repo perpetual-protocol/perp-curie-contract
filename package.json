@@ -1,6 +1,6 @@
 {
   "name": "@perp/lushan",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
@@ -20,11 +20,13 @@
     "lint-tests": "if grep -qr 'test' -e '.only('; then echo 'found .only() in tests'; exit 1; else echo 'not found .only() in tests'; fi",
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
-    "verify-tenderly:rinkeby": "hardhat verify-tenderly --network rinkeby --stage staging",
+    "tenderly:rinkeby": "hardhat tenderly --network rinkeby --stage staging",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
+    "system-test:rinkeby": "npm run deploy:rinkeby -- --tags system-test",
     "deploy:arbitrumRinkeby": "hardhat deploy --network arbitrumRinkeby",
     "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && rm -f .openzeppelin/unknown-421611.json && hardhat deploy --network arbitrumRinkeby",
+    "system-test:arbitrumRinkeby": "npm run deploy:arbitrumRinkeby -- --tags system-test",
     "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
@@ -53,7 +55,7 @@
     "@types/lodash": "4.14.170",
     "@types/mocha": "9.0.0",
     "@types/node": "15.6.1",
-    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/main",
+    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/v1.0.0",
     "@uniswap/v3-periphery": "1.0.1",
     "bignumber.js": "9.0.1",
     "chai": "4.3.4",

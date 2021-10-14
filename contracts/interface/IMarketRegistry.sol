@@ -39,6 +39,7 @@ interface IMarketRegistry {
     //
     // EXTERNAL VIEW
     //
+
     function getPool(address baseToken) external view returns (address);
 
     function getFeeRatio(address baseToken) external view returns (uint24);
@@ -48,6 +49,10 @@ interface IMarketRegistry {
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory);
 
     function getClearingHouse() external view returns (address);
+
+    function getQuoteToken() external view returns (address);
+
+    function getUniswapV3Factory() external view returns (address);
 
     function getMaxOrdersPerMarket() external view returns (uint8);
 }
