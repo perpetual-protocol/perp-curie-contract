@@ -13,6 +13,8 @@ import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 
+import "hardhat/console.sol";
+
 /**
  * Uniswap's v3 pool: token0 & token1
  * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
@@ -151,6 +153,11 @@ library UniswapV3Broker {
         // isExactInput = false, isZeroForOne = true => exact token1
         // isExactInput = true, isZeroForOne = false => exact token1
         uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
+
+        console.log("------------------------");
+        console.log("exactAmount", exactAmount);
+        console.log("params.amount", params.amount);
+        console.log("------------------------");
 
         // if no price limit, require the full output amount as it's technically possible for amounts to not match
         // UB_UOA: unmatched output amount
