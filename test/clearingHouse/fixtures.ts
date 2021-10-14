@@ -58,8 +58,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.__TestERC20_init("TestUSDC", "USDC")
-        await USDC.setupDecimals(6)
+        await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
@@ -270,7 +269,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy()) as TestERC20
-    await USDC.initialize("TestUSDC", "USDC")
+    await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
