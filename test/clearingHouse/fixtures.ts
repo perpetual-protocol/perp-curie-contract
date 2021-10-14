@@ -53,7 +53,10 @@ export enum BaseQuoteOrdering {
 }
 
 // caller of this function should ensure that (base, quote) = (token0, token1) is always true
-export function createClearingHouseFixture(canMockTime: boolean = true): () => Promise<ClearingHouseFixture> {
+export function createClearingHouseFixture(
+    canMockTime: boolean = true,
+    uniFeeTier = 10000, // 1%
+): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
@@ -78,8 +81,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         await clearingHouseConfig.initialize()
 
         // prepare uniswap factory
-        const feeTier = 10000
-        await uniV3Factory.createPool(baseToken.address, quoteToken.address, feeTier)
+        await uniV3Factory.createPool(baseToken.address, quoteToken.address, uniFeeTier)
         const poolFactory = await ethers.getContractFactory("UniswapV3Pool")
 
         const marketRegistryFactory = await ethers.getContractFactory("MarketRegistry")
@@ -135,7 +137,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         await accountBalance.setVault(vault.address)
 
         // deploy a pool
-        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, feeTier)
+        const poolAddr = await uniV3Factory.getPool(baseToken.address, quoteToken.address, uniFeeTier)
         const pool = poolFactory.attach(poolAddr) as UniswapV3Pool
         await baseToken.addWhitelist(pool.address)
         await quoteToken.addWhitelist(pool.address)
@@ -144,8 +146,8 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
         const _token0Fixture = await token0Fixture(quoteToken.address)
         const baseToken2 = _token0Fixture.baseToken
         const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
-        await uniV3Factory.createPool(baseToken2.address, quoteToken.address, feeTier)
-        const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, feeTier)
+        await uniV3Factory.createPool(baseToken2.address, quoteToken.address, uniFeeTier)
+        const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, uniFeeTier)
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
 
         await baseToken2.addWhitelist(pool2.address)
@@ -199,7 +201,7 @@ export function createClearingHouseFixture(canMockTime: boolean = true): () => P
             insuranceFund,
             uniV3Factory,
             pool,
-            feeTier,
+            feeTier: uniFeeTier,
             USDC,
             quoteToken,
             baseToken,
