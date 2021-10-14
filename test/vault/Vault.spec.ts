@@ -74,6 +74,12 @@ describe("Vault spec", () => {
     describe.skip("isCollateral", () => {})
 
     describe("deposit", () => {
+        beforeEach(async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(
+                async () => ethers.constants.MaxUint256,
+            )
+        })
+
         // @SAMPLE - deposit
         it("sends event", async () => {
             const amount = parseUnits("100", await usdc.decimals())
@@ -195,9 +201,9 @@ describe("Vault spec", () => {
             await expect(vault.connect(alice).deposit(usdc.address, 99)).not.be.reverted
         })
 
-        it("can have as many balance as user can deposit when settlementTokenBalanceCap == 0", async () => {
+        it("cannot deposit when settlementTokenBalanceCap == 0", async () => {
             clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(async () => 0)
-            await expect(vault.connect(alice).deposit(usdc.address, 101)).not.be.reverted
+            await expect(vault.connect(alice).deposit(usdc.address, 101)).to.be.revertedWith("V_GTSTBC")
         })
     })
 })

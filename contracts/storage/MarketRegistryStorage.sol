@@ -8,8 +8,6 @@ abstract contract MarketRegistryStorageV1 {
     address internal _uniswapV3Factory;
     address internal _quoteToken;
 
-    address internal _clearingHouse;
-
     uint8 internal _maxOrdersPerMarket;
 
     // key: baseToken, value: pool

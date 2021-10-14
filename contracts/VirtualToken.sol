@@ -31,7 +31,7 @@ contract VirtualToken is IVirtualToken, SafeOwnable, ERC20Upgradeable {
     }
 
     function removeWhitelist(address account) external onlyOwner {
-        _whitelistMap[account] = false;
+        delete _whitelistMap[account];
         emit WhitelistRemoved(account);
     }
 

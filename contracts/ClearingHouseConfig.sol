@@ -31,11 +31,13 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     function initialize() external initializer {
         __SafeOwnable_init();
 
+        _maxMarketsPerAccount = type(uint8).max;
         _imRatio = 10e4; // initial-margin ratio, 10%
         _mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
         _liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
         _partialCloseRatio = 25e4; // partial close ratio, 25%
         _twapInterval = 15 minutes;
+        _settlementTokenBalanceCap = type(uint256).max;
     }
 
     //

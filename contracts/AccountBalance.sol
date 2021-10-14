@@ -139,7 +139,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             if (!hit) {
                 // markets number exceeded
                 uint8 maxMarketsPerAccount = IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount();
-                require(maxMarketsPerAccount == 0 || tokens.length < maxMarketsPerAccount, "AB_MNE");
+                require(tokens.length < maxMarketsPerAccount, "AB_MNE");
                 _baseTokensMap[trader].push(baseToken);
             }
         }
