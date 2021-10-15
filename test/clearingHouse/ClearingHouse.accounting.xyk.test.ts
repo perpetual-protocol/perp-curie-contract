@@ -279,7 +279,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             "-9082643876716065096", // exchangedPositionSize
             "99899999999999999978", // exchangedPositionNotional
             "99900000000000001", // fee
-            "-199900000000000024", // openNotional
+            "0", // openNotional
             "-199900000000000024", // realizedPnl
             "250541448375047931191432615077", // sqrtPriceAfter
         )
