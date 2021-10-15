@@ -13,8 +13,6 @@ import { PerpSafeCast } from "./PerpSafeCast.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { PerpMath } from "../lib/PerpMath.sol";
 
-import "hardhat/console.sol";
-
 /**
  * Uniswap's v3 pool: token0 & token1
  * -> token0's price = token1 / token0; tick index = log(1.0001, token0's price)
@@ -79,6 +77,8 @@ library UniswapV3Broker {
         uint256 base;
         uint256 quote;
     }
+
+    uint256 internal constant _DUST = 10;
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         // zero inputs
@@ -154,14 +154,15 @@ library UniswapV3Broker {
         // isExactInput = true, isZeroForOne = false => exact token1
         uint256 exactAmount = params.isExactInput == params.isBaseToQuote ? amount0 : amount1;
 
-        console.log("------------------------");
-        console.log("exactAmount", exactAmount);
-        console.log("params.amount", params.amount);
-        console.log("------------------------");
-
         // if no price limit, require the full output amount as it's technically possible for amounts to not match
         // UB_UOA: unmatched output amount
-        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) require(exactAmount == params.amount, "UB_UOA");
+        if (!params.isExactInput && params.sqrtPriceLimitX96 == 0) {
+            require(
+                (exactAmount > params.amount ? exactAmount.sub(params.amount) : params.amount.sub(exactAmount)) < _DUST,
+                "UB_UOA"
+            );
+            return params.isBaseToQuote ? SwapResponse(amount0, params.amount) : SwapResponse(params.amount, amount1);
+        }
 
         return SwapResponse(amount0, amount1);
     }

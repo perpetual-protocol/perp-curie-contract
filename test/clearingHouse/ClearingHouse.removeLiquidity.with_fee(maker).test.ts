@@ -927,61 +927,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             expect(aliceOwedPnl).to.eq(fee)
         })
 
-        it.only("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
-            await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            // the initial number of oracle can be recorded is 1; thus, have to expand it
-            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
-
-            // alice add liquidity
-            const addLiquidityParams = {
-                baseToken: baseToken.address,
-                base: "0",
-                quote: parseEther("0.122414646"),
-                lowerTick, // 148.3760629
-                upperTick, // 151.3733069
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            }
-            await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
-
-            const base = parseEther("0.0004084104205")
-
-            // bob swap
-            // base: 0.0004084104205
-            // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334175725025 quote
-            // bob gets 0.06151334175725025 * 0.99 = 0.06089820833967775
-            await clearingHouse.connect(bob).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                oppositeAmountBound: 0,
-                amount: base,
-                sqrtPriceLimitX96: "0",
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-
-            // 149.8634459756
-            console.log((await pool.slot0())[0].toString())
-
-            await clearingHouse.connect(bob).closePosition({
-                baseToken: baseToken.address,
-                sqrtPriceLimitX96: 0,
-                oppositeAmountBound: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-
-            console.log((await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
-            console.log((await accountBalance.getPositionSize(bob.address, baseToken.address)).toString())
-            console.log((await accountBalance.getOwedAndUnrealizedPnl(alice.address)).toString())
-            console.log((await accountBalance.getOwedAndUnrealizedPnl(bob.address)).toString())
-        })
-
         it("two makers; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
             await pool.initialize(encodePriceSqrt(148.3760629, 1))
             // the initial number of oracle can be recorded is 1; thus, have to expand it
@@ -1137,6 +1082,63 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             // carol has 0.0005629889737 quote from fees
             const [carolOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
             expect(carolOwedPnl).to.eq(feeCarol)
+        })
+
+        describe("dust test", () => {
+            it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+                await pool.initialize(encodePriceSqrt(151.3733069, 1))
+                // the initial number of oracle can be recorded is 1; thus, have to expand it
+                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
+                // add pool after it's initialized
+                await marketRegistry.addPool(baseToken.address, 10000)
+
+                // alice add liquidity
+                const addLiquidityParams = {
+                    baseToken: baseToken.address,
+                    base: "0",
+                    quote: parseEther("0.122414646"),
+                    lowerTick, // 148.3760629
+                    upperTick, // 151.3733069
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }
+                await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
+
+                const base = parseEther("0.0004084104205")
+
+                // bob swap
+                // base: 0.0004084104205
+                // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334175725025 quote
+                // bob gets 0.06151334175725025 * 0.99 = 0.06089820833967775
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: base,
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // 149.8634459756
+                console.log((await pool.slot0())[0].toString())
+
+                await clearingHouse.connect(bob).closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                console.log((await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
+                console.log((await accountBalance.getPositionSize(bob.address, baseToken.address)).toString())
+                console.log((await accountBalance.getOwedAndUnrealizedPnl(alice.address)).toString())
+                console.log((await accountBalance.getOwedAndUnrealizedPnl(bob.address)).toString())
+            })
         })
     })
 })
