@@ -14,8 +14,12 @@ contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
         _;
     }
 
-    function __TestWhitelistERC20_init(string memory name, string memory symbol) external initializer {
-        __ERC20PresetMinterPauser_init(name, symbol);
+    function __TestWhitelistERC20_init(
+        string memory name,
+        string memory symbol,
+        uint8 decimal
+    ) external initializer {
+        __TestERC20_init(name, symbol, decimal);
         __Ownable_init();
     }
 

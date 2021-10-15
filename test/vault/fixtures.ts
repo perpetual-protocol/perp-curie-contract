@@ -24,7 +24,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy()) as TestERC20
-    await USDC.__TestERC20_init("TestUSDC", "USDC")
+    await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
