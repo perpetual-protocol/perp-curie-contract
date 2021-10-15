@@ -1085,7 +1085,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         })
 
         describe("dust test", () => {
-            it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+            // this test will fail if the _DUST constant in UniswapV3Broker is set to 1 (no dust allowed)
+            it("a trader swaps base to quote and then closes; one maker", async () => {
                 await pool.initialize(encodePriceSqrt(151.3733069, 1))
                 // the initial number of oracle can be recorded is 1; thus, have to expand it
                 await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
@@ -1106,8 +1107,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 }
                 await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
 
-                const base = parseEther("0.0004084104205")
-
                 // bob swap
                 // base: 0.0004084104205
                 // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334175725025 quote
@@ -1117,14 +1116,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     isBaseToQuote: true,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: base,
+                    amount: parseEther("0.0004084104205"),
                     sqrtPriceLimitX96: "0",
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-
-                // 149.8634459756
-                console.log((await pool.slot0())[0].toString())
 
                 await clearingHouse.connect(bob).closePosition({
                     baseToken: baseToken.address,
@@ -1134,10 +1130,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
-                console.log((await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
-                console.log((await accountBalance.getPositionSize(bob.address, baseToken.address)).toString())
-                console.log((await accountBalance.getOwedAndUnrealizedPnl(alice.address)).toString())
-                console.log((await accountBalance.getOwedAndUnrealizedPnl(bob.address)).toString())
+                // assure that the position of the taker is close completely, and so is maker's position
+                expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
+                expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
             })
         })
     })
