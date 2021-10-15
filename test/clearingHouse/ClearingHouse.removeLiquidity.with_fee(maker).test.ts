@@ -1083,58 +1083,6 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             const [carolOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
             expect(carolOwedPnl).to.eq(feeCarol)
         })
-
-        describe("dust test", () => {
-            // this test will fail if the _DUST constant in UniswapV3Broker is set to 1 (no dust allowed)
-            it("a trader swaps base to quote and then closes; one maker", async () => {
-                await pool.initialize(encodePriceSqrt(151.3733069, 1))
-                // the initial number of oracle can be recorded is 1; thus, have to expand it
-                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
-
-                // alice add liquidity
-                const addLiquidityParams = {
-                    baseToken: baseToken.address,
-                    base: "0",
-                    quote: parseEther("0.122414646"),
-                    lowerTick, // 148.3760629
-                    upperTick, // 151.3733069
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                }
-                await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
-
-                // bob swap
-                // base: 0.0004084104205
-                // B2QFee: CH actually shorts 0.0004084104205 / 0.99 = 0.0004125357783 and get 0.06151334175725025 quote
-                // bob gets 0.06151334175725025 * 0.99 = 0.06089820833967775
-                await clearingHouse.connect(bob).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    oppositeAmountBound: 0,
-                    amount: parseEther("0.0004084104205"),
-                    sqrtPriceLimitX96: "0",
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                })
-
-                await clearingHouse.connect(bob).closePosition({
-                    baseToken: baseToken.address,
-                    sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: 0,
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                })
-
-                // assure that the position of the taker is close completely, and so is maker's position
-                expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-                expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
-            })
-        })
     })
 })
 
