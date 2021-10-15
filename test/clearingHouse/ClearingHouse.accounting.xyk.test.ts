@@ -1,5 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
+import { BigNumber, BigNumberish, ContractTransaction } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -19,10 +20,9 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
-import { BigNumber, BigNumberish, ContractTransaction } from "ethers"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
-describe.only("ClearingHouse accounting verification in xyk pool", () => {
+describe("ClearingHouse accounting verification in xyk pool", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -192,10 +192,11 @@ describe.only("ClearingHouse accounting verification in xyk pool", () => {
         await takerLongExactInput(100)
         await takerCloseEth()
         const freeCollateral = await vault.getFreeCollateral(taker.address)
-        await vault.withdraw(collateral.address, freeCollateral.toString())
 
-        // 100 - 0.199900000000000024 = 99.8001
-        expect(await collateral.balanceOf(taker.address)).eq(parseEther("99.8001"))
+        await vault.connect(taker).withdraw(collateral.address, freeCollateral.toString())
+
+        // 100 - 0.199900000000000024 ~= 99.800099
+        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800099", 6))
     })
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
