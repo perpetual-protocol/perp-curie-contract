@@ -78,12 +78,19 @@ export function b2qExactOutput(
 export async function closePosition(
     fixture: ClearingHouseFixture,
     wallet: Wallet,
+    ignorableDustPosSize: number = 0,
     baseToken: string = fixture.baseToken.address,
 ): Promise<ContractTransaction | undefined> {
     const posSize = await fixture.accountBalance.getPositionSize(wallet.address, baseToken)
     if (posSize.isZero()) {
         return
     }
+    if (posSize.abs().lt(ignorableDustPosSize)) {
+        // skip, may fail if the pos size is too small
+        console.warn(`can't close dust pos: ${posSize.toString()}`)
+        return
+    }
+
     return fixture.clearingHouse.connect(wallet).closePosition({
         baseToken,
         sqrtPriceLimitX96: 0,
@@ -114,14 +121,18 @@ export function addOrder(
     })
 }
 
-export function removeOrder(
+export async function removeOrder(
     fixture: ClearingHouseFixture,
     wallet: Wallet,
     liquidity: BigNumberish,
     lowerTick: BigNumberish,
     upperTick: BigNumberish,
     baseToken: string = fixture.baseToken.address,
-): Promise<ContractTransaction> {
+): Promise<ContractTransaction | undefined> {
+    const order = await fixture.orderBook.getOpenOrder(wallet.address, baseToken, lowerTick, upperTick)
+    if (order.liquidity.isZero()) {
+        return
+    }
     return fixture.clearingHouse.connect(wallet).removeLiquidity({
         baseToken,
         liquidity,
@@ -139,11 +150,11 @@ export async function removeAllOrders(
     baseToken: string = fixture.baseToken.address,
 ): Promise<void> {
     const orderBook: OrderBook = fixture.orderBook
-    const ch: ClearingHouse = fixture.clearingHouse
+    const clearingHouse: ClearingHouse = fixture.clearingHouse
     const orderIds = await orderBook.getOpenOrderIds(wallet.address, fixture.baseToken.address)
     for (const orderId of orderIds) {
         const { lowerTick, upperTick, liquidity } = await orderBook.getOpenOrderById(orderId)
-        await ch.connect(wallet).removeLiquidity({
+        await clearingHouse.connect(wallet).removeLiquidity({
             baseToken: baseToken,
             lowerTick,
             upperTick,

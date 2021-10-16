@@ -4,6 +4,7 @@ import { parseUnits } from "ethers/lib/utils"
 import { encodePriceSqrt } from "../shared/utilities"
 import { getMaxTick, getMinTick } from "./number"
 import { ethers } from "hardhat"
+import { MockContract } from "@eth-optimism/smock"
 
 export async function initMarket(
     fixture: ClearingHouseFixture,
@@ -11,8 +12,9 @@ export async function initMarket(
     exFeeRatio: BigNumberish,
     ifFeeRatio: BigNumberish,
     baseToken: string = fixture.baseToken.address,
+    mockedBaseAggregator: MockContract = fixture.mockedBaseAggregator,
 ): Promise<{ minTick: number; maxTick: number }> {
-    fixture.mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
         return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
     })
 
