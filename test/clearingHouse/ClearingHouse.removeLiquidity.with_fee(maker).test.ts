@@ -1,6 +1,6 @@
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -834,6 +834,83 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     const [, quoteBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
                     expect(quoteBalance).be.eq(0)
                 }
+            })
+
+            it("handles accounting of subsequent open orders on top of an existing active range", async () => {
+                const lowerTick = "49800"
+                const upperTick = "50200"
+                const base = parseEther("0.1")
+                const quote = parseEther("10")
+
+                // alice provide first liquidity
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base,
+                    quote,
+                    lowerTick,
+                    upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                // alice.liquidity = 82.510524933187653357
+
+                // bob trades, alice receives maker fee
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // fee = 1 * 1% = 0.01
+                expect(await orderBook.getOwedFee(alice.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
+                    parseEther("0.009999999999999999"),
+                )
+
+                // carol provide second liquidity on exactly the same range
+                await clearingHouse.connect(carol).addLiquidity({
+                    baseToken: baseToken.address,
+                    base,
+                    quote,
+                    lowerTick,
+                    upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                // carol.liquidity = 75.077820685339084037
+
+                // carol should not receive any fee yet
+                expect(await orderBook.getOwedFee(carol.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
+                    parseEther("0"),
+                )
+
+                // bob trades again
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // both alice and carol receive fees
+                // alice fee = 0.01 + (1 * 1% * 82.510524933187653357 / (82.510524933187653357 + 75.077820685339084037)) = 0.01523582658
+                // carol fee = (1 * 1% * 75.077820685339084037 / (82.510524933187653357 + 75.077820685339084037)) = 0.004764173416
+                expect(await orderBook.getOwedFee(alice.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
+                    parseEther("0.015235826584087660"),
+                )
+                expect(await orderBook.getOwedFee(carol.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
+                    parseEther("0.004764173415912339"),
+                )
             })
         })
     })
