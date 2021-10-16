@@ -22,7 +22,7 @@ import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
-interface ClearingHouseFixture {
+export interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
     orderBook: OrderBook
     accountBalance: TestAccountBalance | AccountBalance
