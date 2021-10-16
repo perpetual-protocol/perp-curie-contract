@@ -19,7 +19,7 @@ import { expect } from "chai"
 
 describe.only("ClearingHouse verify accounting", () => {
     const wallets = waffle.provider.getWallets()
-    const [admin, maker, alice, bob] = wallets
+    const [admin, maker, alice, bob, carol] = wallets
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     const uniFeeRatio = 500 // 0.05%
     const exFeeRatio = 1000 // 0.1%
@@ -85,8 +85,7 @@ describe.only("ClearingHouse verify accounting", () => {
                 await checkPosSizeEmpty(wallet, baseToken)
             }
 
-            // collect fee
-            await removeOrder(fixture, maker, 0, lowerTick, upperTick, baseToken)
+            await removeOrder(fixture, maker, 0, lowerTick, upperTick, baseToken) // collect fee
             await closePosition(fixture, maker, dustPosSize, baseToken)
             await removeAllOrders(fixture, maker, baseToken)
             await checkPosSizeEmpty(maker, baseToken)
@@ -94,6 +93,11 @@ describe.only("ClearingHouse verify accounting", () => {
 
         // sum every wallet's freeBalance to balanceAfter
         for (const wallet of wallets) {
+            // make sure they are actually being settled
+            expect(await fixture.accountBalance.getTotalDebtValue(wallet.address)).be.closeTo(
+                BigNumber.from(0),
+                dustPosSize,
+            )
             await updateAfterBalanceByFreeCollateralFrom(wallet.address)
         }
 
@@ -108,7 +112,7 @@ describe.only("ClearingHouse verify accounting", () => {
         await startTest()
     })
 
-    describe.only("two markets", async () => {
+    describe("two markets", async () => {
         beforeEach(async () => {
             await initMarket(
                 fixture,
@@ -152,7 +156,7 @@ describe.only("ClearingHouse verify accounting", () => {
             await b2qExactOutput(fixture, bob, 100)
 
             // carol
-            await b2qExactInput(fixture, bob, 1)
+            await b2qExactInput(fixture, carol, 1)
         })
 
         it("takerAddLiquidityWhileHavingPosition", async () => {

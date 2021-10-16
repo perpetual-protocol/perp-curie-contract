@@ -151,7 +151,7 @@ export async function removeAllOrders(
 ): Promise<void> {
     const orderBook: OrderBook = fixture.orderBook
     const clearingHouse: ClearingHouse = fixture.clearingHouse
-    const orderIds = await orderBook.getOpenOrderIds(wallet.address, fixture.baseToken.address)
+    const orderIds = await orderBook.getOpenOrderIds(wallet.address, baseToken)
     for (const orderId of orderIds) {
         const { lowerTick, upperTick, liquidity } = await orderBook.getOpenOrderById(orderId)
         await clearingHouse.connect(wallet).removeLiquidity({
