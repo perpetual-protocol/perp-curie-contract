@@ -105,6 +105,7 @@ describe("ClearingHouse closePosition", () => {
             referralCode: ethers.constants.HashZero,
         })
 
+        // taker pays 0.06151334175725025 / 0.99 = 0.06213468864 quote to pay back 0.0004084104205 base
         await clearingHouse.connect(bob).closePosition({
             baseToken: baseToken.address,
             sqrtPriceLimitX96: 0,
@@ -117,10 +118,34 @@ describe("ClearingHouse closePosition", () => {
         expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
         expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
 
-        const owedAndUnrealizedPnlTaker = await accountBalance.getOwedAndUnrealizedPnl(bob.address)
-        const owedAndUnrealizedPnlMaker = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+        // taker sells all quote, making netQuoteBalance == 0
+        expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
 
+        // maker gets 0.06151334175725025 * 0.01 + 0.06213468864 * 0.01 = 0.001236480304
+        const makerPnl = parseEther("0.001236480304009373")
+        expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(makerPnl)
+
+        // assure pnls of maker & taker are the same (of different sign)
+        const owedAndUnrealizedPnlTaker = await accountBalance.getOwedAndUnrealizedPnl(bob.address)
+        let owedAndUnrealizedPnlMaker = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
         expect(sumArray(owedAndUnrealizedPnlTaker).abs()).to.be.closeTo(sumArray(owedAndUnrealizedPnlMaker).abs(), 10)
+
+        // the fee maker gets is in unrealizedPnl
+        expect(owedAndUnrealizedPnlMaker[1]).to.eq(makerPnl)
+
+        await clearingHouse.connect(alice).removeLiquidity({
+            baseToken: baseToken.address,
+            lowerTick,
+            upperTick,
+            liquidity: (await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)).liquidity,
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        owedAndUnrealizedPnlMaker = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+        // after maker removes liquidity, the fee is in owedRealizedPnl
+        expect(owedAndUnrealizedPnlMaker[0]).to.eq(makerPnl)
     })
 
     // TODO
@@ -329,7 +354,7 @@ describe("ClearingHouse closePosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // assure that the position of the taker is close completely, and so is maker's position
+            // assure that the position of the taker is closed completely, and so is maker's position
             expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
         })
