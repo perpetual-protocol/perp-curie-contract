@@ -22,7 +22,7 @@ import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
-interface ClearingHouseFixture {
+export interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
     orderBook: OrderBook
     accountBalance: TestAccountBalance | AccountBalance
@@ -33,7 +33,7 @@ interface ClearingHouseFixture {
     insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
-    feeTier: number
+    uniFeeTier: number
     USDC: TestERC20
     quoteToken: QuoteToken
     baseToken: BaseToken
@@ -200,7 +200,7 @@ export function createClearingHouseFixture(
             insuranceFund,
             uniV3Factory,
             pool,
-            feeTier: uniFeeTier,
+            uniFeeTier,
             USDC,
             quoteToken,
             baseToken,
