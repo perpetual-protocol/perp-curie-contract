@@ -177,7 +177,6 @@ contract Exchange is
             0
         );
 
-        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
         int256 realizedPnl;
 
         // there is only realizedPnl when it's not increasing the position size
@@ -230,6 +229,7 @@ contract Exchange is
                 IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
             }
         }
+        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
 
         IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
         uint256 sqrtPrice =
