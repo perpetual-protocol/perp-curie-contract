@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import "../AccountBalance.sol";
+import "../lib/Funding.sol";
 
 contract TestAccountBalance is AccountBalance {
     using AddressUpgradeable for address;
@@ -10,25 +11,21 @@ contract TestAccountBalance is AccountBalance {
     uint256 private _testBlockTimestamp;
 
     // copy paste from AccountBalance.initialize to avoid it to be public
-    function __TestAccountBalance_init(
-        address clearingHouseConfigArg,
-        address marketRegistryArg,
-        address exchangeArg
-    ) external initializer {
+    function __TestAccountBalance_init(address clearingHouseConfigArg, address exchangeArg) external initializer {
         // ClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_ENC");
         // Exchange is not contract
         require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = Exchange(exchangeArg).orderBook();
+        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
-        __ClearingHouseCallee_init(marketRegistryArg);
+        __ClearingHouseCallee_init();
 
-        clearingHouseConfig = clearingHouseConfigArg;
-        exchange = exchangeArg;
-        orderBook = orderBookArg;
+        _clearingHouseConfig = clearingHouseConfigArg;
+        _exchange = exchangeArg;
+        _orderBook = orderBookArg;
     }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
@@ -52,6 +49,6 @@ contract TestAccountBalance is AccountBalance {
             uint256 indexTwap
         )
     {
-        return Exchange(exchange).getFundingGrowthGlobalAndTwaps(baseToken);
+        return IExchange(_exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 }

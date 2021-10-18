@@ -3,21 +3,15 @@ pragma solidity 0.7.6;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
+import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 
-contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable {
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
-
-    // --------- IMMUTABLE ---------
-
-    address public override token;
-
-    // --------- ^^^^^^^^^ ---------
-
-    address public borrower;
 
     event Borrowed(address borrower, uint256 amount);
 
@@ -28,23 +22,34 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         __ReentrancyGuard_init();
         __OwnerPausable_init();
 
-        token = tokenArg;
+        _token = tokenArg;
     }
 
     function setBorrower(address borrowerArg) external onlyOwner {
         // borrower is not a contract
         require(borrowerArg.isContract(), "IF_BNC");
-        borrower = borrowerArg;
+        _borrower = borrowerArg;
     }
 
+    /// @inheritdoc IInsuranceFund
     function borrow(uint256 amount) external override nonReentrant whenNotPaused {
         // only borrower
-        require(_msgSender() == borrower, "IF_OB");
+        require(_msgSender() == _borrower, "IF_OB");
         // not enough balance
-        require(IERC20Upgradeable(token).balanceOf(address(this)) >= amount, "IF_NEB");
+        require(IERC20Upgradeable(_token).balanceOf(address(this)) >= amount, "IF_NEB");
 
-        TransferHelper.safeTransfer(token, borrower, amount);
+        TransferHelper.safeTransfer(_token, _borrower, amount);
 
-        emit Borrowed(borrower, amount);
+        emit Borrowed(_borrower, amount);
+    }
+
+    /// @inheritdoc IInsuranceFund
+    function getToken() external view override returns (address) {
+        return _token;
+    }
+
+    /// @inheritdoc IInsuranceFund
+    function getBorrower() external view override returns (address) {
+        return _borrower;
     }
 }

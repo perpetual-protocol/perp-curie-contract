@@ -9,7 +9,6 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 
 library PerpMath {
-    using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
     using SignedSafeMathUpgradeable for int256;
     using SafeMathUpgradeable for uint256;

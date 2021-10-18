@@ -102,10 +102,7 @@ library UniswapV3Broker {
         return AddLiquidityResponse({ base: addedAmount0, quote: addedAmount1, liquidity: liquidity });
     }
 
-    function removeLiquidity(RemoveLiquidityParams memory params)
-        internal
-        returns (RemoveLiquidityResponse memory response)
-    {
+    function removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
         // call burn(), which only updates tokensOwed instead of transferring the tokens
         (uint256 amount0Burned, uint256 amount1Burned) =
             IUniswapV3Pool(params.pool).burn(params.lowerTick, params.upperTick, params.liquidity);
@@ -123,8 +120,7 @@ library UniswapV3Broker {
         );
 
         // make base & quote into the right order
-        response.base = amount0Burned;
-        response.quote = amount1Burned;
+        return RemoveLiquidityResponse({ base: amount0Burned, quote: amount1Burned });
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {

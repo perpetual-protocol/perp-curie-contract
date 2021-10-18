@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { Funding } from "../lib/Funding.sol";
+import { OpenOrder } from "../lib/OpenOrder.sol";
 
 interface IOrderBook {
     event LiquidityChanged(
@@ -50,18 +51,6 @@ interface IOrderBook {
         uint256 fee;
     }
 
-    /// @param lastFeeGrowthInsideX128 fees in quote token recorded in Exchange
-    ///        because of block-based funding, quote-only and customized fee, all fees are in quote token
-    struct OpenOrder {
-        uint128 liquidity;
-        int24 lowerTick;
-        int24 upperTick;
-        uint256 lastFeeGrowthInsideX128;
-        int256 lastTwPremiumGrowthInsideX96;
-        int256 lastTwPremiumGrowthBelowX96;
-        int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
-    }
-
     struct ReplaySwapParams {
         address baseToken;
         bool isBaseToQuote;
@@ -77,6 +66,11 @@ interface IOrderBook {
         int24 tick;
         uint256 fee; // exchangeFeeRatio
         uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+    }
+
+    struct MintCallbackData {
+        address trader;
+        address pool;
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
@@ -99,14 +93,14 @@ interface IOrderBook {
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);
 
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder memory);
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder.Info memory);
 
     function getOpenOrder(
         address trader,
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (OpenOrder memory);
+    ) external view returns (OpenOrder.Info memory);
 
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool);
 
@@ -125,4 +119,15 @@ interface IOrderBook {
     ) external view returns (int256 liquidityCoefficientInFundingPayment);
 
     function getFeeGrowthGlobal(address baseToken) external view returns (uint256);
+
+    function getOwedFee(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) external view returns (uint256);
+
+    function getExchange() external view returns (address);
+
+    function getQuoteToken() external view returns (address);
 }

@@ -14,7 +14,9 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
     /*
      * Forwarder singleton we accept calls from
      */
-    address public trustedForwarder;
+    address internal _trustedForwarder;
+
+    string internal _versionRecipient;
 
     // __gap is reserved storage
     uint256[50] private __gap;
@@ -22,13 +24,22 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
     event TrustedForwarderUpdated(address trustedForwarder);
 
     function isTrustedForwarder(address forwarder) public view override returns (bool) {
-        return forwarder == trustedForwarder;
+        return forwarder == _trustedForwarder;
+    }
+
+    /// @inheritdoc IRelayRecipient
+    function versionRecipient() external view override returns (string memory) {
+        return _versionRecipient;
+    }
+
+    function getTrustedForwarder() external view returns (address) {
+        return _trustedForwarder;
     }
 
     function _setTrustedForwarder(address trustedForwarderArg) internal {
         // invalid trusted forwarder address
         require(trustedForwarderArg != address(0), "BRC_ITFA");
-        trustedForwarder = trustedForwarderArg;
+        _trustedForwarder = trustedForwarderArg;
         emit TrustedForwarderUpdated(trustedForwarderArg);
     }
 

@@ -5,17 +5,12 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { IPriceFeed } from "./interface/IPriceFeed.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { VirtualToken } from "./VirtualToken.sol";
+import { BaseTokenStorageV1 } from "./storage/BaseTokenStorage.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 
-contract BaseToken is IIndexPrice, VirtualToken {
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
-
-    // --------- IMMUTABLE ---------
-
-    uint8 private _priceFeedDecimals;
-
-    // --------- ^^^^^^^^^ ---------
-
-    address public priceFeed;
 
     function initialize(
         string memory nameArg,
@@ -27,15 +22,21 @@ contract BaseToken is IIndexPrice, VirtualToken {
         // invalid address
         require(priceFeedArg != address(0), "BT_IA");
         // invalid price feed decimals
-        require(IPriceFeed(priceFeedArg).decimals() <= decimals(), "BT_IPFD");
+        uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        require(__priceFeedDecimals <= decimals(), "BT_IPFD");
 
-        priceFeed = priceFeedArg;
-        _priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        _priceFeed = priceFeedArg;
+        _priceFeedDecimals = __priceFeedDecimals;
     }
 
     /// @inheritdoc IIndexPrice
     function getIndexPrice(uint256 interval) external view override returns (uint256) {
-        return _formatDecimals(IPriceFeed(priceFeed).getPrice(interval));
+        return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
+    }
+
+    /// @inheritdoc IBaseToken
+    function getPriceFeed() external view override returns (address) {
+        return _priceFeed;
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {

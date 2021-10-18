@@ -33,7 +33,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedArbSys: MockContract
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let lowerTick: number
@@ -53,7 +52,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
-        mockedArbSys = _clearingHouseFixture.mockedArbSys
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
@@ -177,7 +175,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_AOPLO")
+            ).to.be.revertedWith("EX_AOPLO")
         })
 
         it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
@@ -193,7 +191,48 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("CH_OPIAS")
+            ).to.revertedWith("EX_OPIAS")
+        })
+    })
+
+    describe("partial close with given oppositeAmountBound", () => {
+        beforeEach(async () => {
+            // carol first long 25 eth
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("25"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // move to next block to simplify test case
+            // otherwise we need to bring another trader to move the price further away
+
+            await forwardTimestamp(clearingHouse)
+        })
+
+        it("carol's position is partially closed with given oppositeAmountBound", async () => {
+            // We get deltaAvailableQuote as expected received quote through setting partialCloseRatio as 100% and callStatic closePosition.
+            // Assume slippage is 1%, the oppositeAmountBound is calculated as below:
+            // expected received quote * (1-slippage)
+            // = 329.999999999999999997 * (1 - 0.01)
+            // = 326.7
+            const oppositeAmountBound = 326.7
+
+            // remaining position size = 25 - (25 * 1/4) = 18.75
+            await clearingHouse.connect(carol).closePosition({
+                baseToken: baseToken.address,
+                sqrtPriceLimitX96: 0,
+                oppositeAmountBound: parseEther(oppositeAmountBound.toString()),
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("18.75"))
         })
     })
 
@@ -237,7 +276,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             await expect(
                 clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
-            ).to.be.revertedWith("CH_AOPLO")
+            ).to.be.revertedWith("EX_AOPLO")
         })
     })
 
@@ -356,7 +395,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("CH_OPIBS")
+            ).to.be.revertedWith("EX_OPIBS")
 
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("50.350174276881928348"),

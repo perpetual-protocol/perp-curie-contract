@@ -17,18 +17,19 @@ interface MockedVaultFixture {
     USDC: TestERC20
     mockedInsuranceFund: MockContract
     mockedAccountBalance: MockContract
+    mockedClearingHouseConfig: MockContract
 }
 
 export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy()) as TestERC20
-    await USDC.initialize("TestUSDC", "USDC")
+    await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
     const mockedInsuranceFund = await smockit(insuranceFund)
-    mockedInsuranceFund.smocked.token.will.return.with(USDC.address)
+    mockedInsuranceFund.smocked.getToken.will.return.with(USDC.address)
 
     // deploy clearingHouse
     const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -44,11 +45,16 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
-    const mockedConfig = await smockit(clearingHouseConfig)
+    const mockedClearingHouseConfig = await smockit(clearingHouseConfig)
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
+    await exchange.initialize(
+        marketRegistry.address,
+        orderBook.address,
+        clearingHouseConfig.address,
+        insuranceFund.address,
+    )
     const mockedExchange = await smockit(exchange)
     await orderBook.setExchange(exchange.address)
 
@@ -60,10 +66,10 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const vault = (await vaultFactory.deploy()) as Vault
     await vault.initialize(
         mockedInsuranceFund.address,
-        mockedConfig.address,
+        mockedClearingHouseConfig.address,
         mockedAccountBalance.address,
         mockedExchange.address,
     )
 
-    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance }
+    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }

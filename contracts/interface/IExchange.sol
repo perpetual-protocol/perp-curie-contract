@@ -10,6 +10,7 @@ interface IExchange {
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
+        bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96; // price slippage protection
         Funding.Growth fundingGrowthGlobal;
@@ -20,24 +21,70 @@ interface IExchange {
         uint256 deltaAvailableQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
-        uint256 fee;
-        uint256 insuranceFundFee;
         int24 tick;
-        int256 realizedPnl;
-        int256 openNotional;
+        bool isPartialClose;
     }
+
+    struct SwapCallbackData {
+        address trader;
+        address baseToken;
+        address pool;
+        uint24 uniswapFeeRatio;
+        uint256 fee;
+    }
+
+    //
+    // EVENT
+    //
+    event PositionChanged(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl,
+        uint256 sqrtPriceAfter
+    );
+
+    /// @param fundingPayment > 0: payment, < 0 : receipt
+    event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
-    function getPool(address baseToken) external view returns (address);
+    function settleAllFunding(address trader) external;
 
-    function getTick(address baseToken) external view returns (int24);
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
+    function settleFunding(address trader, address baseToken)
+        external
+        returns (Funding.Growth memory fundingGrowthGlobal);
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
 
     function getAllPendingFundingPayment(address trader) external view returns (int256);
 
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
+
+    function getFundingGrowthGlobalAndTwaps(address baseToken)
+        external
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        );
+
+    function getTick(address baseToken) external view returns (int24);
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
+
+    function getOpenNotional(address trader, address baseToken) external view returns (int256);
+
+    function getOrderBook() external view returns (address);
+
+    function getAccountBalance() external view returns (address);
+
+    function getClearingHouseConfig() external view returns (address);
+
+    function getInsuranceFund() external view returns (address);
 }

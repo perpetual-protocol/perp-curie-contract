@@ -27,7 +27,7 @@ describe("ClearingHouseConfig Spec", () => {
             await expect(clearingHouseConfig.setLiquidationPenaltyRatio("500000")) // 50%
                 .to.emit(clearingHouseConfig, "LiquidationPenaltyRatioChanged")
                 .withArgs(500000)
-            expect(await clearingHouseConfig.liquidationPenaltyRatio()).eq(500000)
+            expect(await clearingHouseConfig.getLiquidationPenaltyRatio()).eq(500000)
         })
 
         it("setPartialCloseRatio", async () => {
@@ -36,7 +36,7 @@ describe("ClearingHouseConfig Spec", () => {
             await expect(clearingHouseConfig.setPartialCloseRatio("500000")) // 50%
                 .to.emit(clearingHouseConfig, "PartialCloseRatioChanged")
                 .withArgs(500000)
-            expect(await clearingHouseConfig.partialCloseRatio()).eq(500000)
+            expect(await clearingHouseConfig.getPartialCloseRatio()).eq(500000)
         })
 
         it("setTwapInterval", async () => {
@@ -45,7 +45,7 @@ describe("ClearingHouseConfig Spec", () => {
             await expect(clearingHouseConfig.setTwapInterval(3600))
                 .to.emit(clearingHouseConfig, "TwapIntervalChanged")
                 .withArgs(3600)
-            expect(await clearingHouseConfig.twapInterval()).eq(3600)
+            expect(await clearingHouseConfig.getTwapInterval()).eq(3600)
         })
 
         it("setMaxMarketsPerAccount", async () => {
@@ -53,7 +53,17 @@ describe("ClearingHouseConfig Spec", () => {
             await expect(clearingHouseConfig.setMaxMarketsPerAccount(10))
                 .to.emit(clearingHouseConfig, "MaxMarketsPerAccountChanged")
                 .withArgs(10)
-            expect(await clearingHouseConfig.maxMarketsPerAccount()).eq(10)
+            expect(await clearingHouseConfig.getMaxMarketsPerAccount()).eq(10)
+        })
+
+        it("setSettlementTokenBalanceCap", async () => {
+            await expect(clearingHouseConfig.connect(alice).setSettlementTokenBalanceCap(100)).to.be.revertedWith(
+                "SO_CNO",
+            )
+            await expect(clearingHouseConfig.setSettlementTokenBalanceCap(100))
+                .to.emit(clearingHouseConfig, "SettlementTokenBalanceCapChanged")
+                .withArgs(100)
+            expect(await clearingHouseConfig.getSettlementTokenBalanceCap()).eq(100)
         })
 
         it("fore error, partialCloseRatio should not be 0", async () => {

@@ -41,7 +41,6 @@ export interface ClearingHouseFixture {
     baseToken2: BaseToken
     mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
-    mockedArbSys: MockContract
 }
 
 interface UniswapV3BrokerFixture {
@@ -62,8 +61,7 @@ export function createClearingHouseFixture(
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.initialize("TestUSDC", "USDC")
-        await USDC.setupDecimals(6)
+        await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
@@ -108,16 +106,23 @@ export function createClearingHouseFixture(
             const exchangeFactory = await ethers.getContractFactory("Exchange")
             exchange = (await exchangeFactory.deploy()) as Exchange
         }
-        // deploy exchange
-        await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
-        exchange.setAccountBalance(accountBalance.address)
-        await orderBook.setExchange(exchange.address)
-
-        await accountBalance.initialize(clearingHouseConfig.address, marketRegistry.address, exchange.address)
 
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
         await insuranceFund.initialize(USDC.address)
+
+        // deploy exchange
+        await exchange.initialize(
+            marketRegistry.address,
+            orderBook.address,
+            clearingHouseConfig.address,
+            insuranceFund.address,
+        )
+        exchange.setAccountBalance(accountBalance.address)
+
+        await orderBook.setExchange(exchange.address)
+
+        await accountBalance.initialize(clearingHouseConfig.address, exchange.address)
 
         const vaultFactory = await ethers.getContractFactory("Vault")
         const vault = (await vaultFactory.deploy()) as Vault
@@ -147,8 +152,6 @@ export function createClearingHouseFixture(
         await baseToken2.addWhitelist(pool2.address)
         await quoteToken.addWhitelist(pool2.address)
 
-        const mockedArbSys = await getMockedArbSys()
-
         // deploy clearingHouse
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
@@ -157,7 +160,6 @@ export function createClearingHouseFixture(
             await clearingHouse.initialize(
                 clearingHouseConfig.address,
                 vault.address,
-                insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
                 exchange.address,
@@ -169,7 +171,6 @@ export function createClearingHouseFixture(
             await clearingHouse.initialize(
                 clearingHouseConfig.address,
                 vault.address,
-                insuranceFund.address,
                 quoteToken.address,
                 uniV3Factory.address,
                 exchange.address,
@@ -207,7 +208,6 @@ export function createClearingHouseFixture(
             baseToken2,
             mockedBaseAggregator2,
             pool2,
-            mockedArbSys,
         }
     }
 }
@@ -265,23 +265,13 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
     return mockedToken
 }
 
-async function getMockedArbSys(): Promise<MockContract> {
-    const arbSysFactory = await ethers.getContractFactory("TestArbSys")
-    const arbSys = await arbSysFactory.deploy()
-    const mockedArbSys = await smockit(arbSys, { address: "0x0000000000000000000000000000000000000064" })
-    mockedArbSys.smocked.arbBlockNumber.will.return.with(async () => {
-        return 1
-    })
-    return mockedArbSys
-}
-
 export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseFixture> {
     const token1 = await createQuoteTokenFixture("RandomVirtualToken", "RVT")()
 
     // deploy test tokens
     const tokenFactory = await ethers.getContractFactory("TestERC20")
     const USDC = (await tokenFactory.deploy()) as TestERC20
-    await USDC.initialize("TestUSDC", "USDC")
+    await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
 
     const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
     const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
@@ -316,7 +306,12 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(mockedMarketRegistry.address, mockedOrderBook.address, clearingHouseConfig.address)
+    await exchange.initialize(
+        mockedMarketRegistry.address,
+        mockedOrderBook.address,
+        clearingHouseConfig.address,
+        insuranceFund.address,
+    )
     const mockedExchange = await smockit(exchange)
 
     const accountBalanceFactory = await ethers.getContractFactory("AccountBalance")
@@ -326,7 +321,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
 
-    mockedExchange.smocked.orderBook.will.return.with(mockedOrderBook.address)
+    mockedExchange.smocked.getOrderBook.will.return.with(mockedOrderBook.address)
 
     // deploy clearingHouse
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -334,7 +329,6 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     await clearingHouse.initialize(
         clearingHouseConfig.address,
         mockedVault.address,
-        mockedInsuranceFund.address,
         mockedQuoteToken.address,
         mockedUniV3Factory.address,
         mockedExchange.address,

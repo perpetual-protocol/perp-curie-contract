@@ -2,20 +2,16 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeOwnable } from "./SafeOwnable.sol";
-import { MarketRegistry } from "../MarketRegistry.sol";
 
-// TODO split to chCallee and UniswapCallbackBridge
 abstract contract ClearingHouseCallee is SafeOwnable {
     using AddressUpgradeable for address;
 
     //
     // STATE
     //
-    address public marketRegistry;
-    address public clearingHouse;
+    address internal _clearingHouse;
 
     // __gap is reserved storage
     uint256[50] private __gap;
@@ -30,32 +26,25 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     //
     modifier onlyClearingHouse() {
         // only ClearingHouse
-        require(_msgSender() == clearingHouse, "CHD_OCH");
-        _;
-    }
-
-    modifier checkCallback() {
-        address pool = _msgSender();
-        address baseToken = IUniswapV3Pool(pool).token0();
-        require(pool == MarketRegistry(marketRegistry).getPool(baseToken), "EX_FCV");
+        require(_msgSender() == _clearingHouse, "CHD_OCH");
         _;
     }
 
     //
     // CONSTRUCTOR
     //
-    function __ClearingHouseCallee_init(address marketRegistryArg) internal initializer {
+    function __ClearingHouseCallee_init() internal initializer {
         __SafeOwnable_init();
-
-        // MarketRegistry is not contract
-        require(marketRegistryArg.isContract(), "CHD_MRNC");
-        marketRegistry = marketRegistryArg;
     }
 
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
         // ClearingHouse is not contract
         require(clearingHouseArg.isContract(), "CHD_CHNC");
-        clearingHouse = clearingHouseArg;
+        _clearingHouse = clearingHouseArg;
         emit ClearingHouseChanged(clearingHouseArg);
+    }
+
+    function getClearingHouse() external view returns (address) {
+        return _clearingHouse;
     }
 }

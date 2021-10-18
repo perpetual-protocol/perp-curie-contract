@@ -12,27 +12,18 @@ contract TestClearingHouse is ClearingHouse {
     function __TestClearingHouse_init(
         address configArg,
         address vaultArg,
-        address insuranceFundArg,
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
         address accountBalanceArg
     ) external initializer {
-        ClearingHouse.initialize(
-            configArg,
-            vaultArg,
-            insuranceFundArg,
-            quoteTokenArg,
-            uniV3FactoryArg,
-            exchangeArg,
-            accountBalanceArg
-        );
+        ClearingHouse.initialize(configArg, vaultArg, quoteTokenArg, uniV3FactoryArg, exchangeArg, accountBalanceArg);
         _testBlockTimestamp = block.timestamp;
     }
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
-        TestAccountBalance(accountBalance).setBlockTimestamp(blockTimestamp);
-        TestExchange(exchange).setBlockTimestamp(blockTimestamp);
+        TestAccountBalance(_accountBalance).setBlockTimestamp(blockTimestamp);
+        TestExchange(_exchange).setBlockTimestamp(blockTimestamp);
         _testBlockTimestamp = blockTimestamp;
     }
 
@@ -56,19 +47,19 @@ contract TestClearingHouse is ClearingHouse {
         uint160 sqrtPriceLimitX96; // price slippage protection
     }
 
-    function swap(SwapParams memory params) external nonReentrant() returns (Exchange.SwapResponse memory) {
-        _requireHasBaseToken(params.baseToken);
-        AccountBalance(accountBalance).registerBaseToken(_msgSender(), params.baseToken);
+    function swap(SwapParams memory params) external nonReentrant() returns (IExchange.SwapResponse memory) {
+        IAccountBalance(_accountBalance).registerBaseToken(_msgSender(), params.baseToken);
         (Funding.Growth memory fundingGrowthGlobal, , ) =
-            TestAccountBalance(accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
+            TestAccountBalance(_accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
-            Exchange(exchange).swap(
-                Exchange.SwapParams({
+            IExchange(_exchange).swap(
+                IExchange.SwapParams({
                     trader: _msgSender(),
                     baseToken: params.baseToken,
                     isBaseToQuote: params.isBaseToQuote,
                     isExactInput: params.isExactInput,
+                    isClose: false,
                     amount: params.amount,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     fundingGrowthGlobal: fundingGrowthGlobal
@@ -77,8 +68,8 @@ contract TestClearingHouse is ClearingHouse {
     }
 
     function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
-        int256 base = AccountBalance(accountBalance).getBase(trader, baseToken);
-        int256 quote = AccountBalance(accountBalance).getQuote(trader, baseToken);
+        int256 base = IAccountBalance(_accountBalance).getBase(trader, baseToken);
+        int256 quote = IAccountBalance(_accountBalance).getQuote(trader, baseToken);
         return (base, quote);
     }
 }

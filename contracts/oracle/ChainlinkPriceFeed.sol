@@ -6,9 +6,9 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initial
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import { IPriceFeed } from "../interface/IPriceFeed.sol";
-import { ArbBlockContext } from "../arbitrum/ArbBlockContext.sol";
+import { BlockContext } from "../base/BlockContext.sol";
 
-contract ChainlinkPriceFeed is IPriceFeed, ArbBlockContext, Initializable {
+contract ChainlinkPriceFeed is IPriceFeed, BlockContext, Initializable {
     using SafeMathUpgradeable for uint256;
     using AddressUpgradeable for address;
 

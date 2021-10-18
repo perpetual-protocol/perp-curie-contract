@@ -5,12 +5,10 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initial
 import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
 
 contract TestMetaTxRecipient is BaseRelayRecipient, Initializable {
-    string public override versionRecipient = "2.0.0"; // we are not using it atm
-
     address public pokedBy;
 
-    function __TestMetaTxRecipient_init(address _trustedForwarder) external initializer {
-        trustedForwarder = _trustedForwarder;
+    function __TestMetaTxRecipient_init(address trustedForwarderArg) external initializer {
+        _trustedForwarder = trustedForwarderArg;
     }
 
     function poke() external {

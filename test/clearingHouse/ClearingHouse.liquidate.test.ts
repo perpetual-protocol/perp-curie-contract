@@ -216,8 +216,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davisPnl).to.eq("2102129818649289842")
+            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davisPnl[0]).to.eq("2102129818649289842")
         })
     })
 
@@ -283,8 +283,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.315833", 6))
 
             // liquidator gets liquidation reward
-            const davidPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davidPnl).to.eq("2383442912758163616")
+            const davidPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davidPnl[0]).to.eq("2383442912758163616")
         })
     })
 
@@ -386,8 +386,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.308362", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davisPnl).to.eq("1015969115608315255")
+            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davisPnl[0]).to.eq("1015969115608315255")
         })
 
         it("davis liquidate alice's BTC position even her BTC position is safe", async () => {
@@ -424,8 +424,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.16927", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davisPnl).to.eq("1114606049534825068")
+            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davisPnl[0]).to.eq("1114606049534825068")
         })
     })
 
@@ -531,8 +531,8 @@ describe("ClearingHouse liquidate", () => {
             // )
             // accountValue = collateral + totalMarketPnl
             // totalMarketPnl = netQuoteBalance + totalPosValue
-            // const getTotalUnrealizedPnl = await accountBalance.getTotalUnrealizedPnl(alice.address)
-            // console.log(`getTotalUnrealizedPnl=${formatEther(getTotalUnrealizedPnl.toString())}`)
+            // const getTotalUnrealizedPnl = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            // console.log(`getTotalUnrealizedPnl=${formatEther(getOwedAndUnrealizedPnl.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
             // const netQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
             // console.log(`netQuoteBalance=${formatEther(netQuoteBalance.toString())}`)
@@ -566,8 +566,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241799", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davisPnl).to.eq("1251236066562123442")
+            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davisPnl[0]).to.eq("1251236066562123442")
         })
 
         it("davis liquidate alice's BTC even she has profit in ETH market", async () => {
@@ -602,8 +602,8 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942662", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedRealizedPnl(davis.address)
-            expect(davisPnl).to.eq("1135472350272790574")
+            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            expect(davisPnl[0]).to.eq("1135472350272790574")
         })
     })
 

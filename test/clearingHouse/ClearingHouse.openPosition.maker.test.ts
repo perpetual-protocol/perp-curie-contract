@@ -145,10 +145,8 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // available + earned fee - debt = (124.75 - 31.75 - 0.32) + (2.5 * 10%) - 100 = -7.07
-        expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.closeTo(
-            parseEther("-7.069408740359897192"),
-            1,
-        )
+        const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+        expect(aliceOwedPnl).to.closeTo(parseEther("-7.069408740359897192"), 1)
     })
 
     it("bob long, maker remove, reduce half then close", async () => {
@@ -194,10 +192,8 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // include pnl, collectedFee and fundingPayment
-            expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.closeTo(
-                parseEther("-3.186153358681875804"),
-                1,
-            )
+            const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            expect(aliceOwedPnl).to.closeTo(parseEther("-3.186153358681875804"), 1)
         }
 
         // maker close the remain half position, the pnl should be the same
@@ -212,7 +208,8 @@ describe("ClearingHouse maker close position", () => {
             deadline: ethers.constants.MaxUint256,
             referralCode: ethers.constants.HashZero,
         })
-        expect(await accountBalance.getOwedRealizedPnl(alice.address)).closeTo(parseEther("-7.069408740359897191"), 3)
+        const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+        expect(aliceOwedPnl).closeTo(parseEther("-7.069408740359897191"), 3)
     })
 
     it("bob short, maker close", async () => {
@@ -257,7 +254,8 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // available + earned fee - debt = (80 - -15.65 - 0.16) + (2 * 10%) - 100 = -4.3043478260869
-        expect(await accountBalance.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-4.304347826086956531"))
+        const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+        expect(aliceOwedPnl).deep.eq(parseEther("-4.304347826086956531"))
     })
 
     describe("maker for more than 1 market", () => {
@@ -343,10 +341,8 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // should be same as the situation when adding liquidity in 1 pool
-            expect(await accountBalance.getOwedRealizedPnl(alice.address)).to.closeTo(
-                parseEther("-7.069408740359897192"),
-                1,
-            )
+            const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            expect(aliceOwedPnl).to.closeTo(parseEther("-7.069408740359897192"), 1)
         })
 
         it("bob short, maker close", async () => {
@@ -391,7 +387,8 @@ describe("ClearingHouse maker close position", () => {
             })
 
             // should be same as the situation when adding liquidity in 1 pool
-            expect(await accountBalance.getOwedRealizedPnl(alice.address)).deep.eq(parseEther("-4.304347826086956531"))
+            const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            expect(aliceOwedPnl).deep.eq(parseEther("-4.304347826086956531"))
         })
     })
 })

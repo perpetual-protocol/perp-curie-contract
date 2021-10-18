@@ -37,6 +37,7 @@ describe("ClearingHouse openPosition", () => {
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
     const upperTick: number = 100000
@@ -55,6 +56,7 @@ describe("ClearingHouse openPosition", () => {
         baseToken2 = _clearingHouseFixture.baseToken2
         quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
         pool = _clearingHouseFixture.pool
         pool2 = _clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
@@ -138,7 +140,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("CH_BTNE")
+                ).to.be.revertedWith("EX_BTNE")
             })
 
             it("force error due to invalid amount (0)", async () => {
@@ -346,7 +348,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -355,6 +357,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0.01"), // fee = 1 * 0.01
                         parseEther("-1"), // openNotional
                         parseEther("0"), // realizedPnl
+                        "974863323923301853330898562804", // sqrtPriceAfter
                     )
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     taker.address,
@@ -383,7 +386,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -392,6 +395,7 @@ describe("ClearingHouse openPosition", () => {
                         "1550587307011629547", // fee
                         "-155058730701162954606", // openNotional
                         parseEther("0"), // realizedPnl
+                        "988522032908775036581348357236", // sqrtPriceAfter
                     )
 
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
@@ -423,7 +427,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -432,6 +436,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("1.492970341857328778"), // fee: 149.297034185732877727 * 0.01 = 1.492970341857328777
                         parseEther("147.804063843875548949"), // openNotional
                         parseEther("0"), // realizedPnl
+                        "961404421142614700863221952241", // sqrtPriceAfter
                     )
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     taker.address,
@@ -463,7 +468,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChanged")
+                    .to.emit(exchange, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -472,6 +477,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0.010101010101010102"), // fee
                         parseEther("1"), // openNotional
                         parseEther("0"), // realizedPnl
+                        "974684205576916525762591342066", // sqrtPriceAfter
                     )
 
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
@@ -640,8 +646,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // 2 - 1.9602000000002648364741 = 0.0398000015
-                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
-                expect(pnl).eq(parseEther("-0.039800000000000043")) // fee loss
+                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                expect(pnl[0]).eq(parseEther("-0.039800000000000043")) // fee loss
             }
 
             // free collateral will be less than original number bcs of fees
@@ -718,8 +724,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 2.3328803158 - 2 = 0.3328803158
-                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
-                expect(pnl).deep.eq(parseEther("0.332880320006927809"))
+                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                expect(pnl[0]).deep.eq(parseEther("0.332880320006927809"))
             }
 
             // collateral will be less than original number bcs of fees
@@ -784,8 +790,8 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 1.6133545031 -2 = -0.3866454969
-                const pnl = await accountBalance.getOwedRealizedPnl(taker.address)
-                expect(pnl).deep.eq(parseEther("-0.386645498819609266"))
+                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                expect(pnl[0]).deep.eq(parseEther("-0.386645498819609266"))
             }
 
             // collateral will be less than original number bcs of fees
@@ -816,7 +822,8 @@ describe("ClearingHouse openPosition", () => {
             expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
 
             // realizedPnl = -0.04126249485
-            expect(await accountBalance.getOwedRealizedPnl(taker.address)).to.eq("-41262494847024252")
+            const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+            expect(pnl[0]).to.eq("-41262494847024252")
         })
 
         // TODO: blocked by TWAP based _getDebtValue
@@ -1005,9 +1012,9 @@ describe("ClearingHouse openPosition", () => {
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
             const openNotional = await exchange.getOpenNotional(taker.address, baseToken.address)
-            const realizedPnl = await accountBalance.getOwedRealizedPnl(taker.address)
+            const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
-            expect(openNotional).to.eq(parseEther("-8").sub(realizedPnl))
+            expect(openNotional).to.eq(parseEther("-8").sub(pnl[0]))
         })
     })
 
@@ -1053,7 +1060,6 @@ describe("ClearingHouse openPosition", () => {
         it("will not affect her range order if maker and trader is the same person", async () => {
             // maker and trader is the same person, openPosition will not change her positionSize
             const makerPositionSizeBefore = await accountBalance.getPositionSize(maker.address, baseToken.address)
-
             // maker long 1 USD
             await clearingHouse.connect(maker).openPosition({
                 baseToken: baseToken.address,
@@ -1122,7 +1128,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(clearingHouse, "PositionChanged")
+            ).to.emit(exchange, "PositionChanged")
         })
 
         it("force error, markets number exceeded", async () => {
@@ -1137,7 +1143,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(clearingHouse, "PositionChanged")
+            ).to.emit(exchange, "PositionChanged")
 
             await expect(
                 clearingHouse.connect(taker).openPosition({
@@ -1151,6 +1157,220 @@ describe("ClearingHouse openPosition", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             ).to.be.revertedWith("AB_MNE")
+        })
+    })
+
+    describe("taker become maker", () => {
+        beforeEach(async () => {
+            await deposit(taker, vault, 100, collateral)
+
+            const carolAmount = parseEther("100")
+            await collateral.connect(admin).mint(carol.address, carolAmount)
+            await deposit(carol, vault, 100, collateral)
+        })
+
+        describe("long first then add liquidity", async () => {
+            let freeCollateralBefore: string
+
+            beforeEach(async () => {
+                // taker swap 2 USD for 0.013077866441492721 ETH
+                await clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                //                 = min(100, 100 + (-0.692213355850727900)) - 0.2
+                //                 = 100 + (-0.692213355850727900) - 0.2
+                //                 = 99.107786
+
+                // remove other maker liquidity to simplify the following tests
+                const liquidity = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
+                await clearingHouse.connect(maker).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            })
+
+            it("add liquidity above the current tick", async () => {
+                await clearingHouse.connect(taker).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.013077866441492721"),
+                    quote: parseEther("0"),
+                    lowerTick: 50400,
+                    upperTick: 50600,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+
+                expect(freeCollateral).to.be.eq(freeCollateralBefore)
+
+                // swap by carol
+                // swap 2 USD for 0.012697396035898852 ETH
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = (-2) + (2) = 0
+                // positionValue = (0.013077866441492721 - 0.013077866441492721 + 0.000380470405593868) * 100 = 0.03804704056
+                // unrealizePnL = positionValue + openNotional = 0.03804704056 + 0 = 0.03804704056
+                // total debt = 2
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.03804704056) - (2) * 0.1
+                //                 = 100 - (2) * 0.1
+                //                 = 99.800000
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.800000", collateralDecimals))
+            })
+        })
+
+        describe("short first then add liquidity", async () => {
+            let freeCollateralBefore: string
+
+            beforeEach(async () => {
+                // taker swap 0.013348304809274554 ETH for 2 USD
+                await clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
+                // openNotional = 2
+                // positionValue = (-0.013348304809274554*100) = -1.3348304809
+                // unrealizedPnL = -1.3348304809 + 2 = 0.6651695191
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                //                 = min(100, 100 + (0.6651695191)) - (1.3348304809) * 0.1
+                //                 = 100 - (1.3348304809) * 0.1
+                //                 = 99.866516
+
+                // remove other maker liquidity to simplify the following tests
+                const liquidity = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
+                await clearingHouse.connect(maker).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            })
+
+            it("add liquidity below the current tick", async () => {
+                await clearingHouse.connect(taker).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: "0",
+                    quote: parseEther("2"),
+                    lowerTick: 49800,
+                    upperTick: 50000,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+
+                expect(freeCollateral).to.be.eq(freeCollateralBefore)
+
+                // swap by carol
+                // swap 0.006842090768717812 ETH for 1 USD
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
+                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // total debt = 0.013348304809274554 * 100
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100 - (1.3348304809274554) * 0.1
+                //                 = 99.866516
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
+            })
+
+            it("add other market liquidity below the current tick", async () => {
+                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("100", 6), 0, 0, 0]
+                })
+
+                await clearingHouse.connect(taker).addLiquidity({
+                    baseToken: baseToken2.address,
+                    base: "0",
+                    quote: parseEther("2"),
+                    lowerTick: 49800,
+                    upperTick: 50000,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                let freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+
+                expect(freeCollateral).to.be.eq(freeCollateralBefore)
+
+                // swap by carol
+                // swap 0.006842090768717812 BTC for 1 USD
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken2.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
+                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // total debt = 0.013348304809274554 * 100
+                // free collateral = min(collateral, account value) - total debt * imRatio
+                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100 - (1.3348304809274554) * 0.1
+                //                 = 99.866516
+                freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
+                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
+            })
         })
     })
 })

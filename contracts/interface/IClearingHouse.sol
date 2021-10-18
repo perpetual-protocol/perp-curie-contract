@@ -16,6 +16,10 @@ interface IClearingHouse {
 
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
+    //
+    // STRUCT
+    //
+
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -60,14 +64,14 @@ interface IClearingHouse {
         // B2Q + exact output, want less input base as possible, so we set a upper bound of input base
         // Q2B + exact input, want more output base as possible, so we set a lower bound of output base
         // Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
-        // when it's 0 in exactInput, means ignore slippage protection
-        // when it's maxUint in exactOutput = ignore
+        // when it's set to 0, it will disable slippage protection entirely regardless of exact input or output
         // when it's over or under the bound, it will be reverted
         uint256 oppositeAmountBound;
         uint256 deadline;
         // B2Q: the price cannot be less than this value after the swap
         // Q2B: The price cannot be greater than this value after the swap
         // it will fill the trade until it reach the price limit instead of reverted
+        // when it's set to 0, it will disable price limit entirely regardless of B2Q or Q2B
         uint160 sqrtPriceLimitX96;
         bytes32 referralCode;
     }
@@ -102,19 +106,20 @@ interface IClearingHouse {
 
     function cancelAllExcessOrders(address maker, address baseToken) external;
 
+    /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in settlement token's decimals
     function getAccountValue(address trader) external view returns (int256);
 
-    function getPositionSize(address trader, address baseToken) external view returns (int256);
+    function getQuoteToken() external view returns (address);
 
-    function getPositionValue(address trader, address baseToken) external view returns (int256);
+    function getUniswapV3Factory() external view returns (address);
 
-    function getOpenNotional(address trader, address baseToken) external view returns (int256);
+    function getClearingHouseConfig() external view returns (address);
 
-    function getOwedRealizedPnl(address trader) external view returns (int256);
+    function getVault() external view returns (address);
 
-    function getTotalInitialMarginRequirement(address trader) external view returns (uint256);
+    function getExchange() external view returns (address);
 
-    function getNetQuoteBalance(address trader) external view returns (int256);
+    function getOrderBook() external view returns (address);
 
-    function getTotalUnrealizedPnl(address trader) external view returns (int256);
+    function getAccountBalance() external view returns (address);
 }

@@ -12,6 +12,7 @@ describe("Vault spec", () => {
     let usdc: TestERC20
     let insuranceFund: MockContract
     let accountBalance: MockContract
+    let clearingHouseConfig: MockContract
 
     beforeEach(async () => {
         const _fixture = await loadFixture(mockedVaultFixture)
@@ -19,6 +20,7 @@ describe("Vault spec", () => {
         usdc = _fixture.USDC
         insuranceFund = _fixture.mockedInsuranceFund
         accountBalance = _fixture.mockedAccountBalance
+        clearingHouseConfig = _fixture.mockedClearingHouseConfig
 
         // mint
         const amount = parseUnits("1000", await usdc.decimals())
@@ -72,6 +74,12 @@ describe("Vault spec", () => {
     describe.skip("isCollateral", () => {})
 
     describe("deposit", () => {
+        beforeEach(async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(
+                async () => ethers.constants.MaxUint256,
+            )
+        })
+
         // @SAMPLE - deposit
         it("sends event", async () => {
             const amount = parseUnits("100", await usdc.decimals())
@@ -108,9 +116,8 @@ describe("Vault spec", () => {
             amount = parseUnits("100", await usdc.decimals())
             await vault.connect(alice).deposit(usdc.address, amount)
 
-            accountBalance.smocked.settle.will.return.with(0)
-            accountBalance.smocked.getOwedRealizedPnl.will.return.with(0)
-            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount)
+            accountBalance.smocked.settleOwedRealizedPnl.will.return.with(0)
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount])
             accountBalance.smocked.getTotalDebtValue.will.return.with(0)
         })
 
@@ -133,8 +140,8 @@ describe("Vault spec", () => {
         })
 
         it("force error if the freeCollateral is not enough", async () => {
-            // unrealizePnl = -amount, so free collateral is not enough
-            accountBalance.smocked.getTotalUnrealizedPnl.will.return.with(amount.mul(-1))
+            // unrealizedPnl = -amount, so free collateral is not enough
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount.mul(-1)])
 
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })
@@ -173,6 +180,30 @@ describe("Vault spec", () => {
             it("reduce usdcDebt if usdc debt > bad debt")
             it("reduce usdcDebt to 0 if usdc debt <= bad debt, insurance fund cover extra bad debt")
             it("insurance fund cover full bad debt when usdcDebt is 0")
+        })
+    })
+
+    describe("settlementTokenBalanceCap > 0", () => {
+        beforeEach(async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(async () => 100)
+        })
+
+        it("force error when it's over settlementTokenBalanceCap", async () => {
+            await expect(vault.connect(alice).deposit(usdc.address, 101)).to.be.revertedWith("V_GTSTBC")
+        })
+
+        it("force error when the the total balance is over cap", async () => {
+            await expect(vault.connect(alice).deposit(usdc.address, 100)).not.be.reverted
+            await expect(vault.connect(alice).deposit(usdc.address, 1)).to.be.revertedWith("V_GTSTBC")
+        })
+
+        it("can deposit if balanceOf(vault) <= settlementTokenBalanceCap after deposited", async () => {
+            await expect(vault.connect(alice).deposit(usdc.address, 99)).not.be.reverted
+        })
+
+        it("cannot deposit when settlementTokenBalanceCap == 0", async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(async () => 0)
+            await expect(vault.connect(alice).deposit(usdc.address, 101)).to.be.revertedWith("V_GTSTBC")
         })
     })
 })

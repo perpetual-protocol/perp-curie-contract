@@ -2,18 +2,11 @@
 pragma solidity 0.7.6;
 
 import { SafeOwnable } from "./base/SafeOwnable.sol";
+import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 
-contract ClearingHouseConfig is SafeOwnable {
-    //
-    // STATE
-    //
-    uint8 public maxMarketsPerAccount;
-    uint24 public imRatio;
-    uint24 public mmRatio;
-    uint24 public liquidationPenaltyRatio;
-    uint24 public partialCloseRatio;
-    uint32 public twapInterval;
-
+// never inherit any new stateful contract. never change the orders of parent stateful contracts
+contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV1 {
     //
     // EVENT
     //
@@ -21,19 +14,7 @@ contract ClearingHouseConfig is SafeOwnable {
     event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
-
-    //
-    // CONSTRUCTOR
-    //
-    function initialize() public initializer {
-        __SafeOwnable_init();
-
-        imRatio = 10e4; // initial-margin ratio, 10%
-        mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
-        liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
-        partialCloseRatio = 25e4; // partial close ratio, 25%
-        twapInterval = 15 minutes;
-    }
+    event SettlementTokenBalanceCapChanged(uint256 cap);
 
     //
     // MODIFIER
@@ -45,6 +26,21 @@ contract ClearingHouseConfig is SafeOwnable {
     }
 
     //
+    // CONSTRUCTOR
+    //
+    function initialize() external initializer {
+        __SafeOwnable_init();
+
+        _maxMarketsPerAccount = type(uint8).max;
+        _imRatio = 10e4; // initial-margin ratio, 10%
+        _mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
+        _liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
+        _partialCloseRatio = 25e4; // partial close ratio, 25%
+        _twapInterval = 15 minutes;
+        _settlementTokenBalanceCap = type(uint256).max;
+    }
+
+    //
     // EXTERNAL
     //
     function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
@@ -52,7 +48,7 @@ contract ClearingHouseConfig is SafeOwnable {
         checkRatio(liquidationPenaltyRatioArg)
         onlyOwner
     {
-        liquidationPenaltyRatio = liquidationPenaltyRatioArg;
+        _liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
     }
 
@@ -60,7 +56,7 @@ contract ClearingHouseConfig is SafeOwnable {
         // CHC_IPCR: invalid partialCloseRatio
         require(partialCloseRatioArg > 0, "CHC_IPCR");
 
-        partialCloseRatio = partialCloseRatioArg;
+        _partialCloseRatio = partialCloseRatioArg;
         emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
@@ -68,12 +64,56 @@ contract ClearingHouseConfig is SafeOwnable {
         // CHC_ITI: invalid twapInterval
         require(twapIntervalArg != 0, "CHC_ITI");
 
-        twapInterval = twapIntervalArg;
+        _twapInterval = twapIntervalArg;
         emit TwapIntervalChanged(twapIntervalArg);
     }
 
     function setMaxMarketsPerAccount(uint8 maxMarketsPerAccountArg) external onlyOwner {
-        maxMarketsPerAccount = maxMarketsPerAccountArg;
+        _maxMarketsPerAccount = maxMarketsPerAccountArg;
         emit MaxMarketsPerAccountChanged(maxMarketsPerAccountArg);
+    }
+
+    function setSettlementTokenBalanceCap(uint256 cap) external onlyOwner {
+        _settlementTokenBalanceCap = cap;
+        emit SettlementTokenBalanceCapChanged(cap);
+    }
+
+    //
+    // EXTERNAL VIEW
+    //
+
+    /// @inheritdoc IClearingHouseConfig
+    function getMaxMarketsPerAccount() external view override returns (uint8) {
+        return _maxMarketsPerAccount;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getImRatio() external view override returns (uint24) {
+        return _imRatio;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getMmRatio() external view override returns (uint24) {
+        return _mmRatio;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getLiquidationPenaltyRatio() external view override returns (uint24) {
+        return _liquidationPenaltyRatio;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getPartialCloseRatio() external view override returns (uint24) {
+        return _partialCloseRatio;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getTwapInterval() external view override returns (uint32) {
+        return _twapInterval;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getSettlementTokenBalanceCap() external view override returns (uint256) {
+        return _settlementTokenBalanceCap;
     }
 }
