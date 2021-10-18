@@ -1,7 +1,8 @@
+import { expect } from "chai"
+import { BigNumber, BigNumberish, Wallet } from "ethers"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { InsuranceFund, Vault } from "../../typechain"
-import { mintAndDeposit } from "../helper/token"
-import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 import {
     addOrder,
     b2qExactInput,
@@ -13,11 +14,10 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { BigNumber, BigNumberish, Wallet } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
-import { expect } from "chai"
+import { mintAndDeposit } from "../helper/token"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse verify accounting", () => {
+describe("ClearingHouse verify accounting", () => {
     const wallets = waffle.provider.getWallets()
     const [admin, maker, alice, bob, carol] = wallets
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
