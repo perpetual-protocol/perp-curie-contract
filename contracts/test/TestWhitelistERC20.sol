@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.7.6;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { SafeOwnable } from "../base/SafeOwnable.sol";
 import "./TestERC20.sol";
 
-contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
+contract TestWhitelistERC20 is TestERC20, SafeOwnable {
     mapping(address => bool) internal _whitelist;
 
     modifier whitelistCheck(address sender, address recipient) {
@@ -20,7 +20,7 @@ contract TestWhitelistERC20 is TestERC20, OwnableUpgradeable {
         uint8 decimal
     ) external initializer {
         __TestERC20_init(name, symbol, decimal);
-        __Ownable_init();
+        __SafeOwnable_init();
     }
 
     function addWhitelist(address addr) external onlyOwner {
