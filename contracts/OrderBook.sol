@@ -650,8 +650,9 @@ contract OrderBook is
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
 
-            // update feeGrowthInsideX128 in case this order is not the first order on the particular range
-            // ignore the fee because the range has just been added
+            // update feeGrowthInsideX128 to snapshot the current feeGrowthInside because
+            // the maker should not be able to claim fees prior to his liquidity.
+            // For the same reason, ignore the returned fee because it is meaningless in this situation
             (, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
         } else {
             (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
