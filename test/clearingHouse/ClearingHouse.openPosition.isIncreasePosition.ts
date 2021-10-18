@@ -162,16 +162,18 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
         // 5. alice long 1 ETH
         // it should be position reducing, and should settle pnl after swap
-        await clearingHouse.connect(alice).openPosition({
-            baseToken: baseToken.address,
-            isBaseToQuote: false,
-            isExactInput: false,
-            oppositeAmountBound: 0,
-            amount: parseEther("1"),
-            sqrtPriceLimitX96: 0,
-            deadline: ethers.constants.MaxUint256,
-            referralCode: ethers.constants.HashZero,
-        })
+        const receipt = await (
+            await clearingHouse.connect(alice).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+        ).wait()
         // maker fee to carol: 0.115886694087506447
         // alice's total maker fee = 11.2450703768
         // exchangedQuoteNotional: -11.472782714663138167
@@ -187,6 +189,12 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
         // alice's openNotional after settled: quoteBalance(after settled) + quoteInPool + makerFee
         //                                  = -22.3804827845 + 1113.2619673003 + 11.2450703768 = 1102.1265548926
 
+        // Assert event value
+        const event = findPositionChangedEvents(receipt)[0].args
+        expect(event.realizedPnl).to.eq(parseEther("-0.342480073111531925"))
+        expect(event.openNotional).to.eq(parseEther("1102.126554892633044672"))
+
+        // Assert api value
         const pnls = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
         const owedRealizedPnl = pnls[0]
         expect(owedRealizedPnl).to.eq(parseEther("-0.342480073111531925"))
@@ -288,16 +296,18 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
         // 5. alice short 1.142072881485844394 ETH with 10 USDC
         // it should be position reducing, and should settle pnl after swap
-        await clearingHouse.connect(alice).openPosition({
-            baseToken: baseToken.address,
-            isBaseToQuote: true,
-            isExactInput: false,
-            oppositeAmountBound: 0,
-            amount: parseEther("10"),
-            sqrtPriceLimitX96: 0,
-            deadline: ethers.constants.MaxUint256,
-            referralCode: ethers.constants.HashZero,
-        })
+        const receipt = await (
+            await clearingHouse.connect(alice).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("10"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+        ).wait()
         // maker fee to carol: 0.101010101010101011
         // alice's total maker fee = 10
         // exchangedQuoteNotional: 10.101010101010101011
@@ -313,6 +323,12 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
         // alice's openNotional after settled: quoteBalance(after settled) + quoteInPool + makerFee
         //                                  = -979.695470116 + 0 + 10 = -969.695470116
 
+        // Assert event value
+        const event = findPositionChangedEvents(receipt)[0].args
+        expect(event.realizedPnl).to.eq(parseEther("-0.304529883759126820"))
+        expect(event.openNotional).to.eq(parseEther("-969.695470116240873180"))
+
+        // Assert api value
         const pnls = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
         const owedRealizedPnl = pnls[0]
         expect(owedRealizedPnl).to.eq(parseEther("-0.304529883759126820"))
