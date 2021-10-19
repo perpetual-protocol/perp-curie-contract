@@ -6,7 +6,6 @@ import {
     BaseToken,
     MarketRegistry,
     OrderBook,
-    QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -26,7 +25,6 @@ describe("ClearingHouse closePosition", () => {
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
@@ -40,7 +38,6 @@ describe("ClearingHouse closePosition", () => {
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
 
         const collateralDecimals = await collateral.decimals()
@@ -120,8 +117,8 @@ describe("ClearingHouse closePosition", () => {
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
 
             // maker gets 0.06151334175725025 * 0.01 + 0.06213468864 * 0.01 = 0.001236480304
-            const makerPnl = parseEther("0.001236480304009373")
-            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(makerPnl)
+            const pnlMaker = parseEther("0.001236480304009373")
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(pnlMaker)
 
             // assure pnls of maker & taker are the same (of different sign)
             // for taker, it's owedRealizedPnl, thus getting the first element [0] of the array
@@ -129,7 +126,7 @@ describe("ClearingHouse closePosition", () => {
             // for maker, it's unrealizedPnl, thus getting the second element [1] of the array
             let owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[1]
             expect(owedRealizedPnlTaker.abs()).to.be.closeTo(owedOrUnrealizedPnlMaker.abs(), 10)
-            expect(owedOrUnrealizedPnlMaker).to.eq(makerPnl)
+            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
 
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
@@ -145,7 +142,7 @@ describe("ClearingHouse closePosition", () => {
 
             // after removing liquidity, maker's unrealizedPnl becomes owedRealizedPnl, thus getting the first element [0] of the array
             owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
-            expect(owedOrUnrealizedPnlMaker).to.eq(makerPnl)
+            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
         })
 
         it("two takers open position and then close; one maker", async () => {
@@ -201,8 +198,8 @@ describe("ClearingHouse closePosition", () => {
             expect(await accountBalance.getNetQuoteBalance(carol.address)).to.eq(0)
 
             // maker gets 0.06151334175725025 * 0.01 + 0.06213468864 * 0.01 = 0.001236480304
-            const makerPnl = parseEther("0.001236480304009373")
-            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(makerPnl)
+            const pnlMaker = parseEther("0.001236480304009373")
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(pnlMaker)
 
             // assure pnls of maker & takers are the same (of different sign)
             // for takers, it's owedRealizedPnl, thus getting the first element [0] of the array
@@ -214,7 +211,7 @@ describe("ClearingHouse closePosition", () => {
             // for maker, it's unrealizedPnl, thus getting the second element [1] of the array
             let owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[1]
             expect(owedRealizedPnlBob.add(owedRealizedPnlCarol).abs()).to.be.closeTo(owedOrUnrealizedPnlMaker.abs(), 10)
-            expect(owedOrUnrealizedPnlMaker).to.eq(makerPnl)
+            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
 
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
@@ -230,14 +227,11 @@ describe("ClearingHouse closePosition", () => {
 
             // after removing liquidity, maker's unrealizedPnl becomes owedRealizedPnl, thus getting the first element [0] of the array
             owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
-            expect(owedOrUnrealizedPnlMaker).to.eq(makerPnl)
+            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
         })
     })
 
-    // TODOs
-    // one taker, one taker + maker, one maker -> same range
     // different range
-
     describe("two makers; initialized price = 148.3760629", () => {
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt(148.3760629, 1))
@@ -248,7 +242,7 @@ describe("ClearingHouse closePosition", () => {
             await marketRegistry.addPool(baseToken.address, 10000)
         })
 
-        it("ranges are the same; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
+        it("ranges of makers are the same; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
             const base = 0.000816820841
 
             // add base liquidity
@@ -315,12 +309,12 @@ describe("ClearingHouse closePosition", () => {
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
 
             // makers get 0.1135501475 * 0.01 + 0.112414646 * 0.01 = 0.002259647935
-            const makersPnl = parseEther("0.00225964793525004")
+            const pnlMakers = parseEther("0.00225964793525004")
             expect(
                 (await accountBalance.getNetQuoteBalance(alice.address)).add(
                     await accountBalance.getNetQuoteBalance(carol.address),
                 ),
-            ).to.eq(makersPnl)
+            ).to.eq(pnlMakers)
 
             // assure pnls of makers & taker are the same (of different sign)
             // for taker, it's owedRealizedPnl, thus getting the first element [0] of the array
@@ -332,9 +326,155 @@ describe("ClearingHouse closePosition", () => {
                 owedOrUnrealizedPnlAlice.add(owedOrUnrealizedPnlCarol).abs(),
                 10,
             )
-            expect(owedOrUnrealizedPnlAlice.add(owedOrUnrealizedPnlCarol)).to.eq(makersPnl)
+            expect(owedOrUnrealizedPnlAlice.add(owedOrUnrealizedPnlCarol)).to.eq(pnlMakers)
             // alice receives about 3 times the fee of carol
             expect(owedOrUnrealizedPnlAlice).to.be.closeTo(owedOrUnrealizedPnlCarol.mul(3), 10)
+        })
+
+        describe("one maker closes position before the taker closes", () => {
+            it("ranges of makers are the same", async () => {
+                const base = 0.000816820841
+
+                // add base liquidity
+                // 0.000816820841 * 3 = 0.002450462523
+                const addLiquidityParamsAlice = {
+                    baseToken: baseToken.address,
+                    base: parseEther((base * 3).toString()),
+                    quote: "0",
+                    lowerTick, // 148.3760629
+                    upperTick, // 151.3733069
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }
+                // transfer 0.002450462523 base to pool
+                await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
+
+                // add base liquidity
+                const addLiquidityParamsCarol = {
+                    baseToken: baseToken.address,
+                    base: parseEther(base.toString()),
+                    quote: "0",
+                    lowerTick, // 148.3760629
+                    upperTick, // 151.3733069
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }
+                // transfer 0.000816820841 base to pool
+                await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
+
+                // bob swap
+                // quote: 0.112414646 / 0.99 = 0.1135501475
+                // to base: 0.0007558893279
+                const swapParams = {
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.1135501475"),
+                    sqrtPriceLimitX96: "0",
+                }
+                // will receive 0.0007558893279 base from pool
+                await clearingHouse.connect(bob).swap(swapParams)
+
+                await clearingHouse.connect(carol).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity: (
+                        await orderBook.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                    ).liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                // carol has 1/4 of the opposite position of bob = short 0.0007558893279 / 4 = 0.000188972332 base
+                expect((await accountBalance.getPositionSize(carol.address, baseToken.address)).abs()).to.be.closeTo(
+                    (await accountBalance.getPositionSize(bob.address, baseToken.address)).abs().div(4),
+                    10,
+                )
+
+                // carol closes position
+                // price before: 149.0615125299
+                // x * y = l ^ 2 = 9
+                // y / x = 149.0615125299
+                // y ^ 2 = 1,341.5536127691
+                // y = 36.62722502141
+                // x = 0.24571886062
+                // (0.24571886062 - 0.00018897233202709) * (36.62722502141 + y') = 9
+                // y' = 0.02819018183
+                // y' / 0.99 = 0.02847493114
+                await clearingHouse.connect(carol).closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                // price after: 149.2910515224
+                // Verification:
+                // 3 * (1 / sqrt(149.0615125299) - 1 / sqrt(149.2910515224)) = 0.000188972332
+                // 3 * (sqrt(149.2910515224) - sqrt(149.0615125299)) = 0.02819018155 (imprecision)
+
+                expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).to.eq(0)
+                // netQuoteBalance == 0 after closing position
+                expect(await accountBalance.getNetQuoteBalance(carol.address)).to.eq(0)
+
+                let owedOrUnrealizedPnlCarol = (await accountBalance.getOwedAndUnrealizedPnl(carol.address))[0]
+                // tx fee: 0.1135501475 * 0.01 * 0.25 = 0.0002838753688
+                // quote: 0.1135501475 * 0.99 * 0.25 = 0.02810366151
+                // quote paid for base: 0.02847493114
+                // sum: 0.0002838753688 + 0.02810366151 - 0.02847493114 = -0.0000873942612 (imprecision)
+                expect(owedOrUnrealizedPnlCarol).to.eq(parseEther("-0.000087393988262259"))
+
+                // bob swap
+                // base: 0.000755889328
+                // B2QFee: CH actually shorts 0.000755889328 / 0.99 = 0.0007635245738
+                // then Uniswap charges 0.0007635245738 * 0.01 = 0.000007635245738 as fee
+                // y = 36.62722502141 + 0.02819018183 = 36.6554152032
+                // x = 0.24571886062 - 0.000188972332 = 0.2455298883
+                // (0.2455298883 + 0.0007635245738 * 0.99) * (36.6554152032 - y') = 9
+                // y' = 0.1125011678
+                // bob gets 0.1125011678 * 0.99 = 0.1113761561
+                await clearingHouse.connect(bob).closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                // price after: 148.3760629231
+                // Verification:
+                // 3 * (1 / sqrt(148.3760629231) - 1 / sqrt(149.2910515224)) = 0.0007558893281
+                // 3 * (sqrt(149.2910515224) - sqrt(148.3760629231)) = 0.1125011661
+
+                // assure that the position of the taker is closed completely, and so is maker's position
+                expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
+                expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+
+                // taker sells all quote, making netQuoteBalance == 0
+                expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
+
+                // for taker, it's owedRealizedPnl, thus getting the first element [0] of the array
+                let owedRealizedPnlTaker = (await accountBalance.getOwedAndUnrealizedPnl(bob.address))[0]
+                // 0.1113761561 (bob gets when closing) - 0.1135501475 (bob pays when opening) = -0.0021739914
+                expect(owedRealizedPnlTaker).to.eq(parseEther("-0.00217399308735427"))
+
+                // for the only maker, it's unrealizedPnl, thus getting the second element [1] of the array
+                let owedOrUnrealizedPnlAlice = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[1]
+                // assure pnls of makers & takers are the same (of different sign)
+                expect(owedOrUnrealizedPnlCarol.add(owedRealizedPnlTaker).add(owedOrUnrealizedPnlAlice)).to.be.closeTo(
+                    "0",
+                    10,
+                )
+
+                // alice get 0.1135501475 * 0.01 * 0.75 + (0.02847493114 + 0.1125011678) * 0.01 = 0.002261387096
+                const pnlAlice = parseEther("0.002261387075616524")
+                expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(pnlAlice)
+                expect(owedOrUnrealizedPnlAlice).to.eq(pnlAlice)
+            })
         })
     })
 
