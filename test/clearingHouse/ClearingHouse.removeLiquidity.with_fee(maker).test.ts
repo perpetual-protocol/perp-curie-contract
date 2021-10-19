@@ -1,3 +1,5 @@
+import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
@@ -29,6 +31,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+
+    function findLiquidityChangedEvents(receipt: TransactionReceipt): LogDescription[] {
+        const topic = orderBook.interface.getEventTopic("LiquidityChanged")
+        return receipt.logs.filter(log => log.topics[0] === topic).map(log => orderBook.interface.parseLog(log))
+    }
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
@@ -834,6 +841,69 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     const [, quoteBalance] = await clearingHouse.getTokenBalance(carol.address, baseToken.address)
                     expect(quoteBalance).be.eq(0)
                 }
+            })
+
+            it("handles accounting of subsequent open orders on top of an existing active range", async () => {
+                const lowerTick = 49800
+                const upperTick = 50200
+                const base = parseEther("0.1")
+                const quote = parseEther("10")
+
+                // alice provide first liquidity
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base,
+                    quote,
+                    lowerTick,
+                    upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                // alice.liquidity = 82.510524933187653357
+
+                // bob trades, alice receives maker fee
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // fee = 1 * 1% = 0.01
+                expect(await orderBook.getOwedFee(alice.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
+                    parseEther("0.009999999999999999"),
+                )
+
+                // carol provide second liquidity on overlapped range
+                const receipt = await (
+                    await clearingHouse.connect(carol).addLiquidity({
+                        baseToken: baseToken.address,
+                        base,
+                        quote,
+                        // note that carol's liquidity overlaps alice's, but since bob traded before carol so
+                        // she should not have claim to the fees
+                        lowerTick: lowerTick,
+                        upperTick: upperTick + 200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    })
+                ).wait()
+                // carol.liquidity = 75.077820685339084037
+
+                // carol should not receive any fee from a new order
+                const event = findLiquidityChangedEvents(receipt)[0].args
+                expect(event.quoteFee).to.eq("0")
+
+                // carol should not receive any fee yet
+                expect(
+                    await orderBook.getOwedFee(carol.address, baseToken.address, lowerTick, upperTick + 200),
+                ).to.deep.eq(parseEther("0"))
             })
         })
     })

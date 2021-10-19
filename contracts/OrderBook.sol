@@ -585,10 +585,11 @@ contract OrderBook is
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
+        // as in _addLiquidityToOrder(), fee should be calculated before the states are updated
         (uint256 fee, uint256 feeGrowthInsideX128) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
-        // update open order with new liquidity
+        // after the fee is calculated, lastFeeGrowthInsideX128 can be updated if liquidity != 0 after removing
         openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
@@ -649,11 +650,13 @@ contract OrderBook is
             openOrder.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
-        } else {
-            (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
         }
+        // fee should be calculated before the states are updated, as for
+        // - a new order, there is no fee accrued yet
+        // - an existing order, fees accrued have to be settled before more liquidity is added
+        (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
-        // update open order with new liquidity
+        // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
 
