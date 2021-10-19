@@ -1,6 +1,8 @@
+import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
-import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -29,6 +31,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+
+    function findLiquidityChangedEvents(receipt: TransactionReceipt): LogDescription[] {
+        const topic = orderBook.interface.getEventTopic("LiquidityChanged")
+        return receipt.logs.filter(log => log.topics[0] === topic).map(log => orderBook.interface.parseLog(log))
+    }
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
@@ -873,19 +880,25 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 )
 
                 // carol provide second liquidity on overlapped range
-                await clearingHouse.connect(carol).addLiquidity({
-                    baseToken: baseToken.address,
-                    base,
-                    quote,
-                    // note that carol's liquidity overlaps alice's, but since bob traded before carol so
-                    // she should not have claim to the fees
-                    lowerTick: lowerTick,
-                    upperTick: upperTick + 200,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                })
+                const receipt = await (
+                    await clearingHouse.connect(carol).addLiquidity({
+                        baseToken: baseToken.address,
+                        base,
+                        quote,
+                        // note that carol's liquidity overlaps alice's, but since bob traded before carol so
+                        // she should not have claim to the fees
+                        lowerTick: lowerTick,
+                        upperTick: upperTick + 200,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    })
+                ).wait()
                 // carol.liquidity = 75.077820685339084037
+
+                // carol should not receive any fee from a new order
+                const event = findLiquidityChangedEvents(receipt)[0].args
+                expect(event.quoteFee).to.eq("0")
 
                 // carol should not receive any fee yet
                 expect(
