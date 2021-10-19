@@ -18,6 +18,7 @@ import {
     Vault,
 } from "../../typechain"
 import { deposit } from "../helper/token"
+import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
@@ -149,7 +150,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice's openNotional: quoteBalance + quoteInPool + makerFee
             //                     = -11.134293448835387788 + 1113.2619673003 + 11.2450703768 = 1113.3727442283
 
-            // 4. carol provide liquidity
+            // 4. Introduce another maker(carol) here to avoid alice is dealing with herself.
             await clearingHouse.connect(carol).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("100"),
@@ -162,7 +163,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             })
 
             // 5. alice long 1 ETH
-            // it should be position reducing, and should settle pnl after swap
+            // it should reduce position, and settle pnl after swap
             const receipt = await (
                 await clearingHouse.connect(alice).openPosition({
                     baseToken: baseToken.address,
@@ -203,9 +204,11 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 parseEther("1102.126554892633044672"),
             )
 
-            // 6. alice long ETH amount
-            // it should be position reducing, and check if price is over price limit
+            // set MaxTickCrossedWithinBlock to enable price checking before/after swap
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+            // 6. alice long ETH
+            // it should reduce position, and the price should be over price limit `before` swap due to bob has swapped `large` ETH amount.
             await expect(
                 clearingHouse.connect(alice).openPosition({
                     baseToken: baseToken.address,
@@ -218,6 +221,24 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     referralCode: ethers.constants.HashZero,
                 }),
             ).to.be.revertedWith("EX_OPIBS")
+
+            // update block timestamp to update _lastUpdatedTickMap
+            await forwardTimestamp(clearingHouse)
+
+            // 7. alice long `large` ETH amount
+            // it should reduce position, and the price should be over price limit `after` swap due to alice is trying to swap `large` ETH amount.
+            await expect(
+                clearingHouse.connect(alice).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("90"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("EX_OPIAS")
         })
 
         it("alice provides liquidity below price then open short position", async () => {
@@ -283,7 +304,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice's openNotional: quoteBalance + quoteInPool + makerFee
             //                     =  -990 + 0 + 10 = -980
 
-            // 4. carol provide liquidity
+            // 4. Introduce another maker(carol) here to avoid alice is dealing with herself.
             await clearingHouse.connect(carol).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0"),
@@ -296,7 +317,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             })
 
             // 5. alice short 1.142072881485844394 ETH with 10 USDC
-            // it should be position reducing, and should settle pnl after swap
+            // it should reduce position, and should settle pnl after swap
             const receipt = await (
                 await clearingHouse.connect(alice).openPosition({
                     baseToken: baseToken.address,
@@ -337,9 +358,11 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 parseEther("-969.695470116240873180"),
             )
 
-            // 6. alice short ETH amount
-            // it should be position reducing, and check if price is over price limit
+            // set MaxTickCrossedWithinBlock to enable price checking before/after swap
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+            // 6. alice short ETH
+            // it should reduce position, and the price should be over price limit `before` swap because bob has swapped `large` ETH amount.
             await expect(
                 clearingHouse.connect(alice).openPosition({
                     baseToken: baseToken.address,
@@ -352,6 +375,24 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     referralCode: ethers.constants.HashZero,
                 }),
             ).to.be.revertedWith("EX_OPIBS")
+
+            // update block timestamp to update _lastUpdatedTickMap
+            await forwardTimestamp(clearingHouse)
+
+            // 7. alice short large ETH amount
+            // it should reduce position, and the price should be over price limit `after` swap due to alice is trying to swap `large` ETH amount.
+            await expect(
+                clearingHouse.connect(alice).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("800"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("EX_OPIAS")
         })
     })
 })
