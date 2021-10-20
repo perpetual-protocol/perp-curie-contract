@@ -77,7 +77,7 @@ contract OrderBook is
         uint160 nextSqrtPriceX96;
         uint256 amountIn;
         uint256 amountOut;
-        uint256 feeAmount;
+        uint256 fee;
     }
 
     //
@@ -116,7 +116,7 @@ contract OrderBook is
             bool initializedBeforeLower = UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick);
             bool initializedBeforeUpper = UniswapV3Broker.getIsTickInitialized(pool, params.upperTick);
 
-            // add liquidity to liquidity pool
+            // add liquidity to pool
             response = UniswapV3Broker.addLiquidity(
                 UniswapV3Broker.AddLiquidityParams(
                     pool,
@@ -127,7 +127,6 @@ contract OrderBook is
                     abi.encode(MintCallbackData(params.trader, pool))
                 )
             );
-            // mint callback
 
             int24 currentTick = UniswapV3Broker.getTick(pool);
             // initialize tick info
@@ -155,7 +154,7 @@ contract OrderBook is
             }
         }
 
-        // mutate states
+        // states mutations; if adding liquidity to an existing order, get fees accrued
         uint256 fee =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
@@ -284,8 +283,8 @@ contract OrderBook is
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
             IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
-        uint256 feeResult; // exchangeFeeRatio
-        uint256 insuranceFundFeeResult; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+        uint256 fee;
+        uint256 insuranceFundFee; // insuranceFundFee = fee * insuranceFundFeeRatio
 
         UniswapV3Broker.SwapState memory swapState =
             UniswapV3Broker.getSwapState(pool, params.amount, _feeGrowthGlobalX128Map[params.baseToken]);
@@ -322,7 +321,7 @@ contract OrderBook is
 
             // find the next swap checkpoint
             // (either reached the next price of this step, or exhausted remaining amount specified)
-            (swapState.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount) = SwapMath.computeSwapStep(
+            (swapState.sqrtPriceX96, step.amountIn, step.amountOut, step.fee) = SwapMath.computeSwapStep(
                 swapState.sqrtPriceX96,
                 (
                     params.isBaseToQuote
@@ -342,7 +341,7 @@ contract OrderBook is
             // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
             // fee = 0.98989899 * 2% = 0.01979798
             if (isExactInput) {
-                swapState.amountSpecifiedRemaining -= (step.amountIn + step.feeAmount).toInt256();
+                swapState.amountSpecifiedRemaining -= (step.amountIn + step.fee).toInt256();
             } else {
                 swapState.amountSpecifiedRemaining += step.amountOut.toInt256();
             }
@@ -351,13 +350,13 @@ contract OrderBook is
             // note CH only collects quote fee when swapping base -> quote
             if (swapState.liquidity > 0) {
                 if (params.isBaseToQuote) {
-                    step.feeAmount = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
+                    step.fee = FullMath.mulDivRoundingUp(step.amountOut, params.exchangeFeeRatio, 1e6);
                 }
 
-                feeResult += step.feeAmount;
-                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.feeAmount, insuranceFundFeeRatio, 1e6);
-                insuranceFundFeeResult += stepInsuranceFundFee;
-                uint256 stepMakerFee = step.feeAmount.sub(stepInsuranceFundFee);
+                fee += step.fee;
+                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.fee, insuranceFundFeeRatio, 1e6);
+                insuranceFundFee += stepInsuranceFundFee;
+                uint256 stepMakerFee = step.fee.sub(stepInsuranceFundFee);
                 swapState.feeGrowthGlobalX128 += FullMath.mulDiv(stepMakerFee, FixedPoint128.Q128, swapState.liquidity);
             }
 
@@ -395,7 +394,7 @@ contract OrderBook is
             _feeGrowthGlobalX128Map[params.baseToken] = swapState.feeGrowthGlobalX128;
         }
 
-        return ReplaySwapResponse({ tick: swapState.tick, fee: feeResult, insuranceFundFee: insuranceFundFeeResult });
+        return ReplaySwapResponse({ tick: swapState.tick, fee: fee, insuranceFundFee: insuranceFundFee });
     }
 
     //
@@ -620,28 +619,23 @@ contract OrderBook is
     }
 
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
-        // load existing open order
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
-        uint256 fee;
-        uint256 feeGrowthInsideX128;
+        // initialization for a new order
         if (openOrder.liquidity == 0) {
-            // it's a new order
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // OB_ONE: orders number exceeded
-            uint8 maxOrdersPerMarket = IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket();
-            require(orderIds.length < maxOrdersPerMarket, "OB_ONE");
+            require(orderIds.length < IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket(), "OB_ONE");
             orderIds.push(orderId);
 
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
-
+            // states mutations
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
-                    openOrder.lowerTick,
-                    openOrder.upperTick,
+                    params.lowerTick,
+                    params.upperTick,
                     UniswapV3Broker.getTick(params.pool),
                     params.globalFundingGrowth.twPremiumX96,
                     params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
@@ -650,11 +644,16 @@ contract OrderBook is
             openOrder.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
+
+            openOrder.lowerTick = params.lowerTick;
+            openOrder.upperTick = params.upperTick;
         }
+
         // fee should be calculated before the states are updated, as for
         // - a new order, there is no fee accrued yet
         // - an existing order, fees accrued have to be settled before more liquidity is added
-        (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
+        (uint256 fee, uint256 feeGrowthInsideX128) =
+            _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
