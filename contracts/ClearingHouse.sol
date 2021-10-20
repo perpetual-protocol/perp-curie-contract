@@ -153,6 +153,10 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
+    /// @dev input checks:
+    ///      base & quote: in UniswapV3Broker.addLiquidity()
+    ///      lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
+    ///      minBase, minQuote & deadline: here
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
@@ -193,7 +197,7 @@ contract ClearingHouse is
             response.fee.toInt256()
         );
 
-        // must after token balance is updated, then we can check if free collateral is enough after balance updated
+        // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
 
         return
