@@ -3,23 +3,6 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 interface IClearingHouse {
-    event ReferredPositionChanged(bytes32 indexed referralCode);
-
-    event PositionLiquidated(
-        address indexed trader,
-        address indexed baseToken,
-        uint256 positionNotional,
-        uint256 positionSize,
-        uint256 liquidationFee,
-        address liquidator
-    );
-
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
-
-    //
-    // STRUCT
-    //
-
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -83,6 +66,19 @@ interface IClearingHouse {
         uint256 deadline;
         bytes32 referralCode;
     }
+
+    event ReferredPositionChanged(bytes32 indexed referralCode);
+
+    event PositionLiquidated(
+        address indexed trader,
+        address indexed baseToken,
+        uint256 positionNotional,
+        uint256 positionSize,
+        uint256 liquidationFee,
+        address liquidator
+    );
+
+    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
