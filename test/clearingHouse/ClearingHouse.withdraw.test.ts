@@ -8,6 +8,7 @@ import {
     MarketRegistry,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -21,6 +22,7 @@ describe("ClearingHouse withdraw", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
+    let accountBalance: TestAccountBalance
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
@@ -35,6 +37,7 @@ describe("ClearingHouse withdraw", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
+        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
         orderBook = _clearingHouseFixture.orderBook
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
@@ -278,6 +281,34 @@ describe("ClearingHouse withdraw", () => {
             expect(await collateral.balanceOf(alice.address)).to.eq(amount)
             // 20000 - 11696.907819002 = 8303.092180998
             expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("8303.092181", collateralDecimals))
+        })
+
+        it("taker withdraw exactly freeCollateral when owedRealizedPnl > 0", async () => {
+            await clearingHouse.connect(bob).swap({
+                // sell base
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseUnits("1"),
+                sqrtPriceLimitX96: 0,
+            })
+
+            await clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50400,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            expect(owedRealizedPnl).to.gt(0)
+
+            const freeCollateral = await vault.getFreeCollateral(alice.address)
+            expect(await vault.connect(alice).withdraw(collateral.address, freeCollateral))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(collateral.address, alice.address, freeCollateral)
         })
 
         it("force error, withdraw without deposit", async () => {
