@@ -6,20 +6,6 @@ import { Funding } from "../lib/Funding.sol";
 import { OpenOrder } from "../lib/OpenOrder.sol";
 
 interface IOrderBook {
-    event LiquidityChanged(
-        address indexed maker,
-        address indexed baseToken,
-        address indexed quoteToken,
-        int24 lowerTick,
-        int24 upperTick,
-        // amount of base token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 base,
-        // amount of quote token added to the liquidity (excl. fee) (+: add liquidity, -: remove liquidity)
-        int256 quote,
-        int128 liquidity, // amount of liquidity unit added (+: add liquidity, -: remove liquidity)
-        uint256 quoteFee // amount of quote token the maker received as fee
-    );
-
     struct AddLiquidityParams {
         address trader;
         address baseToken;
@@ -62,16 +48,33 @@ interface IOrderBook {
         Funding.Growth globalFundingGrowth;
     }
 
+    /// @param insuranceFundFee = fee * insuranceFundFeeRatio
     struct ReplaySwapResponse {
         int24 tick;
-        uint256 fee; // exchangeFeeRatio
-        uint256 insuranceFundFee; // insuranceFundFee = exchangeFeeRatio * insuranceFundFeeRatio
+        uint256 fee;
+        uint256 insuranceFundFee;
     }
 
     struct MintCallbackData {
         address trader;
         address pool;
     }
+
+    /// @param base the amount of base token added (> 0) / removed (< 0) as liquidity; fees not included
+    /// @param quote the amount of quote token added ... (same as the above)
+    /// @param liquidity the amount of liquidity unit added (> 0) / removed (< 0)
+    /// @param quoteFee the amount of quote token the maker received as fees
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        int256 base,
+        int256 quote,
+        int128 liquidity,
+        uint256 quoteFee
+    );
 
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
