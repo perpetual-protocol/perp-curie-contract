@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { formatEther, formatUnits, parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
@@ -14,10 +14,10 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { deposit, mintAndDeposit } from "../helper/token"
+import { b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
+import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
-import { b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 
 describe("ClearingHouse withdraw", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -297,14 +297,7 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("taker withdraw exactly freeCollateral when owedRealizedPnl > 0", async () => {
-            await clearingHouse.connect(bob).swap({
-                // sell base
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                amount: parseUnits("1"),
-                sqrtPriceLimitX96: 0,
-            })
+            await b2qExactInput(fixture, bob, 1)
 
             await clearingHouse.connect(alice).removeLiquidity({
                 baseToken: baseToken.address,
