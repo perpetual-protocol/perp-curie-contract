@@ -153,10 +153,6 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
-    /// @dev input checks:
-    ///      base & quote: in UniswapV3Broker.addLiquidity()
-    ///      lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
-    ///      minBase, minQuote & deadline: here
     function addLiquidity(AddLiquidityParams calldata params)
         external
         override
@@ -165,6 +161,11 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
+        // input checks:
+        //   baseToken: in Exchange.settleFunding()
+        //   base & quote: in UniswapV3Broker.addLiquidity()
+        //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
+        //   minBase, minQuote & deadline: here
         address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
