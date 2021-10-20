@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, formatUnits, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
@@ -14,13 +14,15 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { deposit } from "../helper/token"
+import { deposit, mintAndDeposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
+import { b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 
 describe("ClearingHouse withdraw", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let accountBalance: TestAccountBalance
     let marketRegistry: MarketRegistry
@@ -35,18 +37,18 @@ describe("ClearingHouse withdraw", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        accountBalance = fixture.accountBalance as TestAccountBalance
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -281,6 +283,17 @@ describe("ClearingHouse withdraw", () => {
             expect(await collateral.balanceOf(alice.address)).to.eq(amount)
             // 20000 - 11696.907819002 = 8303.092180998
             expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("8303.092181", collateralDecimals))
+        })
+
+        it("taker withdraw exactly freeCollateral when owedRealizedPnl < 0", async () => {
+            await q2bExactInput(fixture, bob, 100)
+            await b2qExactInput(fixture, alice, 0.1)
+            await closePosition(fixture, bob)
+
+            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(bob.address)
+            expect(owedRealizedPnl).to.lt(0)
+            const freeCollateral = await vault.getFreeCollateral(bob.address)
+            await expect(vault.connect(bob).withdraw(fixture.USDC.address, freeCollateral)).not.reverted
         })
 
         it("taker withdraw exactly freeCollateral when owedRealizedPnl > 0", async () => {
