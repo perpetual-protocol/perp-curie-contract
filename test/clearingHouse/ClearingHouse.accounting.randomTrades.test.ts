@@ -24,7 +24,7 @@ import { forward } from "../shared/time"
 import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse accounting", () => {
+describe.skip("ClearingHouse accounting", () => {
     const [admin, maker, taker1, taker2, taker3] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
