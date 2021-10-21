@@ -347,10 +347,7 @@ contract ClearingHouse is
 
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader).lt(
-                IAccountBalance(_accountBalance).getLiquidateMarginRequirement(trader),
-                _settlementTokenDecimals
-            ),
+            getAccountValue(trader) < IAccountBalance(_accountBalance).getLiquidateMarginRequirement(trader),
             "CH_EAV"
         );
 
@@ -494,10 +491,10 @@ contract ClearingHouse is
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
-        int256 totalCollateral =
-            IVault(_vault).balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _settlementTokenDecimals);
+        int256 balanceX10_18 =
+            SettlementTokenMath.parseSettlementToken(IVault(_vault).balanceOf(trader), _settlementTokenDecimals);
 
-        return totalCollateral.addS(unrealizedPnl, _settlementTokenDecimals);
+        return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
     }
 
     //
@@ -514,10 +511,7 @@ contract ClearingHouse is
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
-                getAccountValue(maker).lt(
-                    IAccountBalance(_accountBalance).getLiquidateMarginRequirement(maker),
-                    _settlementTokenDecimals
-                ),
+                getAccountValue(maker) < IAccountBalance(_accountBalance).getLiquidateMarginRequirement(maker),
             "CH_NEXO"
         );
 
