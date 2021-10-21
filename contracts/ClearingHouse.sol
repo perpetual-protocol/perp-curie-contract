@@ -161,6 +161,11 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
+        // input checks:
+        //   baseToken: in Exchange.settleFunding()
+        //   base & quote: in UniswapV3Broker.addLiquidity()
+        //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
+        //   minBase, minQuote & deadline: here
         address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
@@ -193,7 +198,7 @@ contract ClearingHouse is
             response.fee.toInt256()
         );
 
-        // must after token balance is updated, then we can check if free collateral is enough after balance updated
+        // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
 
         return

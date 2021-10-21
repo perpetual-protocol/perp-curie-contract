@@ -14,6 +14,37 @@ library Tick {
         int256 twPremiumDivBySqrtPriceGrowthInsideX96;
     }
 
+    /// @dev call this function only if (liquidityGrossBefore == 0 && liquidityDelta != 0)
+    function initialize(
+        mapping(int24 => GrowthInfo) storage self,
+        int24 tick,
+        int24 currentTick,
+        GrowthInfo memory globalGrowthInfo
+    ) internal {
+        // per Uniswap: we assume that all growths before a tick is initialized happens "below" the tick
+        if (tick <= currentTick) {
+            self[tick].feeX128 = globalGrowthInfo.feeX128;
+            self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96;
+            self[tick].twPremiumDivBySqrtPriceX96 = globalGrowthInfo.twPremiumDivBySqrtPriceX96;
+        }
+    }
+
+    function cross(
+        mapping(int24 => GrowthInfo) storage self,
+        int24 tick,
+        GrowthInfo memory globalGrowthInfo
+    ) internal {
+        self[tick].feeX128 = globalGrowthInfo.feeX128 - self[tick].feeX128;
+        self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96 - self[tick].twPremiumX96;
+        self[tick].twPremiumDivBySqrtPriceX96 =
+            globalGrowthInfo.twPremiumDivBySqrtPriceX96 -
+            self[tick].twPremiumDivBySqrtPriceX96;
+    }
+
+    function clear(mapping(int24 => GrowthInfo) storage self, int24 tick) internal {
+        delete self[tick];
+    }
+
     /// @dev all values in this function are scaled by 2^128 (X128), thus adding the suffix to external params
     function getFeeGrowthInsideX128(
         mapping(int24 => GrowthInfo) storage self,
@@ -76,37 +107,7 @@ library Tick {
             twPremiumDivBySqrtPriceGrowthGlobalX96 -
             twPremiumDivBySqrtPriceGrowthBelowX96 -
             twPremiumDivBySqrtPriceGrowthAboveX96;
+
         return fundingGrowthRangeInfo;
-    }
-
-    // if (liquidityGrossBefore == 0 && liquidityDelta != 0), call this function
-    function initialize(
-        mapping(int24 => GrowthInfo) storage self,
-        int24 tick,
-        int24 currentTick,
-        GrowthInfo memory globalGrowthInfo
-    ) internal {
-        // per Uniswap: we assume that all growth before a tick was initialized happened _below_ the tick
-        if (tick <= currentTick) {
-            self[tick].feeX128 = globalGrowthInfo.feeX128;
-            self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96;
-            self[tick].twPremiumDivBySqrtPriceX96 = globalGrowthInfo.twPremiumDivBySqrtPriceX96;
-        }
-    }
-
-    function clear(mapping(int24 => GrowthInfo) storage self, int24 tick) internal {
-        delete self[tick];
-    }
-
-    function cross(
-        mapping(int24 => GrowthInfo) storage self,
-        int24 tick,
-        GrowthInfo memory globalGrowthInfo
-    ) internal {
-        self[tick].feeX128 = globalGrowthInfo.feeX128 - self[tick].feeX128;
-        self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96 - self[tick].twPremiumX96;
-        self[tick].twPremiumDivBySqrtPriceX96 =
-            globalGrowthInfo.twPremiumDivBySqrtPriceX96 -
-            self[tick].twPremiumDivBySqrtPriceX96;
     }
 }
