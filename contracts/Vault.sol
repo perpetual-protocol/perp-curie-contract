@@ -90,25 +90,30 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @param token The address of the token sender is going to deposit
-    /// @param amount The amount of the token sender is going to deposit
+    /// @param amountX10_D The amount in decimal D (D = _decimals) of the token sender is going to deposit
     /// @dev The token can be other than settlementToken once multi collateral feature is implemented
-    function deposit(address token, uint256 amount) external whenNotPaused nonReentrant onlySettlementToken(token) {
+    function deposit(address token, uint256 amountX10_D)
+        external
+        whenNotPaused
+        nonReentrant
+        onlySettlementToken(token)
+    {
         address from = _msgSender();
 
-        _modifyBalance(from, token, amount.toInt256());
+        _modifyBalance(from, token, amountX10_D.toInt256());
 
         // for deflationary token,
         // amount may not be equal to the received amount due to the charged (and burned) transaction fee
         uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
-        TransferHelper.safeTransferFrom(token, from, address(this), amount);
+        TransferHelper.safeTransferFrom(token, from, address(this), amountX10_D);
         // balance amount inconsistent
-        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amount, "V_BAI");
+        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amountX10_D, "V_BAI");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
         // greater than settlement token balance cap
         require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
 
-        emit Deposited(token, from, amount);
+        emit Deposited(token, from, amountX10_D);
     }
 
     /// @param token The address of the token sender is going to withdraw
