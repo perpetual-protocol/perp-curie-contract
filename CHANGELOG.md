@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.4] - 2021-10-21
+### Changed
+- changed the returned value of `ClearingHouse.getAccountValue` to 18 decimals
+
 ## [0.11.1] - 2021-10-08
 
 ### Added
