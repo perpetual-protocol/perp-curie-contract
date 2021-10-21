@@ -120,11 +120,8 @@ describe("ClearingHouse funding", () => {
                 expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
             })
 
-            // TODO change spec
-            it.skip("force error, base token does not exist", async () => {
-                await expect(exchange.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.revertedWith(
-                    "EX_BTNE",
-                )
+            it("force error, base token does not exist", async () => {
+                await expect(exchange.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.reverted
             })
         })
 
@@ -1036,6 +1033,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
+                    // price: 153.4862960887
                     await forward(3600)
 
                     // carol's funding payment = -0.2 * (153.4766329005 - 150.953124) * 3600 / 86400 = -0.02102924084
@@ -1058,14 +1056,22 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
+                    // price: 148.9142832775
                     await forward(3600)
 
                     // carol's funding payment = -0.654045517856872802 * (148.9111525791 - 150.953124) * 3600 / 86400 = 0.05564759398
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
                         parseEther("0.055647593977026512"),
                     )
+                    // Verification:
+                    // carol's funding payment = -(alice's funding payment)
+                    // alice's funding payment:
+                    // alice liquidity: 808.767873126541797029
+                    // alice's position size/base amount when price goes below the range:
+                    // 808.767873126541797029 * (1 / sqrt(151.3733068587) - 1 / sqrt(154.4310960807)) = 0.6540455179 ~= -(carol's position size) = -0.654045517856872802
+
                     // alice's previous funding payment = -(-0.2 * (153.4766329005 - 150.953124) * 3601 / 86400) = 0.02103508229
-                    // alice's funding payment = previous funding payment + -(carol's funding payment) = 0.02103508229 - 0.05564759398 = -0.03461251169
+                    // hence, alice's funding payment in total = previous funding payment + -(carol's funding payment) = 0.02103508229 - 0.05564759398 = -0.03461251169
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
                         parseEther("-0.034612511683713238"),
                     )
