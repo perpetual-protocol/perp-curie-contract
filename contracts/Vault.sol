@@ -220,7 +220,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     function balanceOf(address trader) public view override returns (int256) {
-        return _getBalance(trader, _settlementToken);
+        return _balance[trader][_settlementToken];
     }
 
     /// @param trader The address of the trader to query
@@ -266,7 +266,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address token,
         int256 amount
     ) internal {
-        _balance[trader][token] = _getBalance(trader, token).add(amount);
+        _balance[trader][token] = _balance[trader][token].add(amount);
     }
 
     //
@@ -277,10 +277,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = IAccountBalance(_accountBalance).getTotalDebtValue(trader);
         return totalDebtValue.mulRatio(ratio);
-    }
-
-    function _getBalance(address trader, address token) internal view returns (int256) {
-        return _balance[trader][token];
     }
 
     /// @inheritdoc BaseRelayRecipient
