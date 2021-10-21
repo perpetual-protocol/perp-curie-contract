@@ -154,7 +154,7 @@ contract OrderBook is
             }
         }
 
-        // states mutations; if adding liquidity to an existing order, get fees accrued
+        // state changes; if adding liquidity to an existing order, get fees accrued
         uint256 fee =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
@@ -628,14 +628,17 @@ contract OrderBook is
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
             // OB_ONE: orders number exceeded
             require(orderIds.length < IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket(), "OB_ONE");
-            orderIds.push(orderId);
 
-            // states mutations
+            // state changes
+            orderIds.push(orderId);
+            openOrder.lowerTick = params.lowerTick;
+            openOrder.upperTick = params.upperTick;
+
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
-                    params.lowerTick,
-                    params.upperTick,
+                    openOrder.lowerTick,
+                    openOrder.upperTick,
                     UniswapV3Broker.getTick(params.pool),
                     params.globalFundingGrowth.twPremiumX96,
                     params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
@@ -644,9 +647,6 @@ contract OrderBook is
             openOrder.lastTwPremiumGrowthBelowX96 = fundingGrowthRangeInfo.twPremiumGrowthBelowX96;
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96 = fundingGrowthRangeInfo
                 .twPremiumDivBySqrtPriceGrowthInsideX96;
-
-            openOrder.lowerTick = params.lowerTick;
-            openOrder.upperTick = params.upperTick;
         }
 
         // fee should be calculated before the states are updated, as for
