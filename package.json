@@ -1,6 +1,6 @@
 {
   "name": "@perp/lushan",
-  "version": "0.12.4-rin",
+  "version": "0.12.5",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
