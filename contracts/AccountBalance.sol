@@ -57,7 +57,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(exchangeArg.isContract(), "AB_EXNC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
-        // IOrderBook is not contarct
+        // IOrderBook is not contract
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
@@ -127,25 +127,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             return;
         }
 
-        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (getBase(trader, baseToken) == 0) {
-            bool hit;
+        // only register if there is no taker's position nor any openOrder (whether in base or quote token)
+        if (getBase(trader, baseToken) == 0 && IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == baseToken) {
-                    hit = true;
-                    break;
+                    return;
                 }
             }
-            if (!hit) {
-                // markets number exceeded
-                uint8 maxMarketsPerAccount = IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount();
-                require(tokens.length < maxMarketsPerAccount, "AB_MNE");
-                _baseTokensMap[trader].push(baseToken);
-            }
+            // AB_MNE: markets number exceeded
+            require(tokens.length < IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
+            _baseTokensMap[trader].push(baseToken);
         }
     }
 
-    /// @dev this function is now only called by Vault.withdraw()
+    /// @dev this function is only called by Vault.withdraw()
     function settleOwedRealizedPnl(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == _vault, "AB_OV");
@@ -190,8 +185,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    /// @dev get margin requirement for determining liquidation.
-    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
+    /// @dev different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
     function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
         return
             getTotalAbsPositionValue(trader)
