@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { formatEther, formatUnits, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     AccountBalance,
@@ -94,6 +94,21 @@ describe("Vault withdraw test", () => {
 
             // check decimal rounding error
             expect(vault.connect(bob).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+
+            // check alice
+            const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
+            // console.log(`aliceOwedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0])}`)
+            // console.log(`aliceFreeCollateral: ${formatUnits(aliceFreeCollateral, usdcDecimals)}`)
+
+            await expect(vault.connect(alice).withdraw(usdc.address, aliceFreeCollateral))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(usdc.address, alice.address, aliceFreeCollateral)
+
+            expect(await vault.getFreeCollateral(alice.address)).to.be.eq(0)
+            expect(await clearingHouse.getAccountValue(alice.address)).to.be.eq(0)
+
+            // check decimal rounding error
+            expect(vault.connect(alice).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
         })
 
         it("withdraw full freeCollateral when bob has position", async () => {
@@ -111,6 +126,21 @@ describe("Vault withdraw test", () => {
 
             // check decimal rounding error
             expect(vault.connect(bob).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+
+            // check alice
+            const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
+            // console.log(`aliceOwedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0])}`)
+            // console.log(`aliceFreeCollateral: ${formatUnits(aliceFreeCollateral, usdcDecimals)}`)
+
+            await expect(vault.connect(alice).withdraw(usdc.address, aliceFreeCollateral))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(usdc.address, alice.address, aliceFreeCollateral)
+
+            expect(await vault.getFreeCollateral(alice.address)).to.be.eq(0)
+            expect(await clearingHouse.getAccountValue(alice.address)).to.be.eq(0)
+
+            // check decimal rounding error
+            expect(vault.connect(alice).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
         })
     })
 })
