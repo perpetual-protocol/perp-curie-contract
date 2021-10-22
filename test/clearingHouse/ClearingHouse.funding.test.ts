@@ -71,59 +71,169 @@ describe("ClearingHouse funding", () => {
     })
 
     describe("# getPendingFundingPayment", () => {
-        beforeEach(async () => {
-            // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
-            // because the very first funding settlement on the market only records the timestamp and
-            // does not calculate or change anything else
-            await clearingHouse.connect(alice).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseEther("0"),
-                quote: parseEther("100"),
-                lowerTick: 50200,
-                upperTick: 50400,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
+        describe("one maker and one trader", async () => {
+            beforeEach(async () => {
+                // note that alice opens an order before we have a meaningful index price value, this is fine (TM)
+                // because the very first funding settlement on the market only records the timestamp and
+                // does not calculate or change anything else
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0"),
+                    quote: parseEther("100"),
+                    lowerTick: 50200,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                // bob short
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.099"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                // alice:
+                //   base.liquidity = 0
+                //   quote.liquidity = 100
+                // bob:
+                //   base.available = 2 - 0.099 = 1.901
+                //   base.debt = 2
+                //   quote.available = 15.1128025359
+                //   quote.debt = 0
+                // mark price should be 153.9623330511 (tick ~= 50369)
             })
 
-            // bob short
-            await clearingHouse.connect(bob).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                oppositeAmountBound: 0,
-                amount: parseEther("0.099"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
+            it("no funding payment when it's still the same block as swapping", async () => {
+                // bob's position size = 0
+                expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
             })
 
-            // alice:
-            //   base.liquidity = 0
-            //   quote.liquidity = 100
-            // bob:
-            //   base.available = 2 - 0.099 = 1.901
-            //   base.debt = 2
-            //   quote.available = 15.1128025359
-            //   quote.debt = 0
-            // mark price should be 153.9623330511 (tick ~= 50369)
+            it("no funding payment when there is no position/ no such a trader", async () => {
+                // carol's position size = 0
+                expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
+            })
+
+            it("force error, base token does not exist", async () => {
+                await expect(exchange.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.reverted
+            })
         })
 
-        it("no funding payment when it's still the same block as swapping", async () => {
-            // carol's position size = 0
-            expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).eq(0)
-        })
+        describe("one maker provides order in range and another maker provides order above current price", async () => {
+            beforeEach(async () => {
+                // set index price for a positive funding
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150.953124", 6), 0, 0, 0]
+                })
+                // alice provides liquidity with the range inside
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("10"),
+                    quote: parseEther("10000"),
+                    lowerTick: 50200,
+                    upperTick: 50600,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                // settleFunding:
+                // markTwap: 154.431096099999999999
+                // indexTwap: 150.953124
+                // fundingGrowthGlobal.twPremium: 0
+                // fundingGrowthGlobal.twPremiumDivBySqrtPrice: 0
 
-        it("no funding payment when there is no position/ no such a trader", async () => {
-            // carol's position size = 0
-            expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).eq(0)
-        })
+                // carol provides liquidity with range right
+                await clearingHouse.connect(carol).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("10"),
+                    quote: parseEther("0"),
+                    lowerTick: 51000,
+                    upperTick: 51200,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                // settleFunding:
+                // markTwap: 154.431096099999999999
+                // indexTwap: 150.953124
+                // fundingGrowthGlobal.twPremium: 3.4779721 * 1(sec)
+                // fundingGrowthGlobal.twPremiumDivBySqrtPrice: 3.4779721 / sqrt(154.431096099999999999) = 0.27987152667
+                // liquidity: 12870245414941510880707
+                // tick init:
+                // tick[51000].twPremium = 0
+                // tick[51000].twPremiumDivBySqrtPrice = 0
+                // tick[51200].twPremium = 0
+                // tick[51200].twPremiumDivBySqrtPrice = 0
+            })
 
-        // TODO change spec
-        it.skip("force error, base token does not exist", async () => {
-            await expect(exchange.getPendingFundingPayment(alice.address, quoteToken.address)).to.be.revertedWith(
-                "EX_BTNE",
-            )
+            it("trader short, no funding payment for the maker providing the order above current price", async () => {
+                // bob short
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                // settleFunding:
+                // markTwap: 154.431096099999999999
+                // indexTwap: 150.953124
+                // fundingGrowthGlobal.twPremium: 3.4779721 + 3.4779721 * 1(sec) = 6.9559442
+                // fundingGrowthGlobal.twPremiumDivBySqrtPrice: 0.27987152667 + (3.4779721 / sqrt(154.431096099999999999)) = 0.55974305334
+
+                forward(360)
+
+                // carol should get zero funding payment:
+                // currentFundingGrowthGlobal:
+                // current tick: 50380
+                // markTwap: 154.122557956125310730
+                // indexTwap: 150.953124
+                // deltaPremium: (154.122557956125310730-150.953124) * 360 = 1140.99622421
+                // fundingGrowthGlobal.twPremium: 6.9559442 + 1140.99622421 = 1147.95216841
+                // fundingGrowthGlobal.twPremiumDivBySqrtPrice: 0.55974305334 + (1140.99622421 / sqrt(154.122557956125310730)) = 92.467274834
+                // tick[51000].twPremiumGrowthOutside = 0
+                // tick[51000].twPremiumDivBySqrtPriceGrowthOutside = 0
+                // tick[51200].twPremiumGrowthOutside = 0
+                // tick[51200].twPremiumDivBySqrtPriceGrowthOutside = 0
+                // tick[51000].twPremiumGrowthBelow = (1147.95216841-0) = 1147.95216841
+                // tick[51000].twPremiumDivBySqrtPriceGrowthBelow = (92.467274834-0) = 92.467274834
+                // tick[51000-51200].twPremiumGrowthInside = 1147.95216841 - 1147.95216841 - 0 = 0
+                // tick[51000-51200].twPremiumDivBySqrtPriceGrowthInside = 92.467274834 - 92.467274834 - 0 = 0
+                // account.lastTwPremium: 3.4779721
+                // account.lastTwPremiumDivBySqrtPrice: 0.27987152667
+                // funding payment from liquidity: (funding payment below range + funding payment in range) / 86400
+                //                               = (10 * (1147.95216841-3.4779721)) + (12870.245414941510880707) * ((0-0)-(0/sqrt(1.000.1^51200-0)))
+                //                               = 11444.7419631 / 86400 = 0.13246229124
+                // funding payment from balance = -10 * (1147.95216841-3.4779721) / 86400 = -0.13246229124
+                // funding payment = 0.13246229124 + (- 0.13246229124) = 0
+                expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(parseEther("0"))
+
+                // carol remove liquidity
+                await clearingHouse.connect(carol).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 51000,
+                    upperTick: 51200,
+                    liquidity: "12870245414941510880707",
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                // should settle funding payment and add into owedRealizePnl
+                // owedRealizePnl should be 0
+                const owedRealizePnl = (await accountBalance.getOwedAndUnrealizedPnl(carol.address))[0]
+                expect(owedRealizePnl).to.eq(parseEther("0"))
+                expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(parseEther("0"))
+            })
         })
     })
 
@@ -923,6 +1033,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
+                    // price: 153.4862960887
                     await forward(3600)
 
                     // carol's funding payment = -0.2 * (153.4766329005 - 150.953124) * 3600 / 86400 = -0.02102924084
@@ -945,14 +1056,22 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
+                    // price: 148.9142832775
                     await forward(3600)
 
                     // carol's funding payment = -0.654045517856872802 * (148.9111525791 - 150.953124) * 3600 / 86400 = 0.05564759398
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
                         parseEther("0.055647593977026512"),
                     )
+                    // Verification:
+                    // carol's funding payment = -(alice's funding payment)
+                    // alice's funding payment:
+                    // alice liquidity: 808.767873126541797029
+                    // alice's position size/base amount when price goes below the range:
+                    // 808.767873126541797029 * (1 / sqrt(151.3733068587) - 1 / sqrt(154.4310960807)) = 0.6540455179 ~= -(carol's position size) = -0.654045517856872802
+
                     // alice's previous funding payment = -(-0.2 * (153.4766329005 - 150.953124) * 3601 / 86400) = 0.02103508229
-                    // alice's funding payment = previous funding payment + -(carol's funding payment) = 0.02103508229 - 0.05564759398 = -0.03461251169
+                    // hence, alice's funding payment in total = previous funding payment + -(carol's funding payment) = 0.02103508229 - 0.05564759398 = -0.03461251169
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
                         parseEther("-0.034612511683713238"),
                     )
