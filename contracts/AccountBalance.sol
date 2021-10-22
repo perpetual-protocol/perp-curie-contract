@@ -222,20 +222,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
-        address[] memory tokens = _baseTokensMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = tokens[i];
-            // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
-            totalPositionValue = totalPositionValue.add(positionValue);
-        }
-        return totalPositionValue;
-    }
-
-    /// @inheritdoc IAccountBalance
     function getOwedAndUnrealizedPnl(address trader) external view override returns (int256, int256) {
         int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
 
@@ -315,6 +301,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
+        address[] memory tokens = _baseTokensMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = tokens[i];
+            // will not use negative value in this case
+            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            totalPositionValue = totalPositionValue.add(positionValue);
+        }
+        return totalPositionValue;
     }
 
     //
