@@ -89,9 +89,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _setTrustedForwarder(trustedForwarderArg);
     }
 
-    /// @param token The address of the token sender is going to deposit
-    /// @param amountX10_D The amount in decimal D (D = _decimals) of the token sender is going to deposit
-    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
+    /// @param token the address of the token to deposit;
+    ///        once multi-collateral is implemented, the token is not limited to settlementToken
+    /// @param amountX10_D the amount of the token to deposit in decimals D (D = _decimals)
     function deposit(address token, uint256 amountX10_D)
         external
         whenNotPaused
@@ -102,46 +102,44 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         _modifyBalance(from, token, amountX10_D.toInt256());
 
-        // for deflationary token,
-        // amount may not be equal to the received amount due to the charged (and burned) transaction fee
+        // check for deflationary tokens by assuring balances before and after transferring to be the same
         uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
         TransferHelper.safeTransferFrom(token, from, address(this), amountX10_D);
-        // balance amount inconsistent
-        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amountX10_D, "V_BAI");
+        // V_BAI: inconsistent balance amount
+        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amountX10_D, "V_IBA");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
-        // greater than settlement token balance cap
+        // V_GTSTBC: greater than settlement token balance cap
         require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
 
         emit Deposited(token, from, amountX10_D);
     }
 
-    /// @param token The address of the token sender is going to withdraw
-    /// @param amountX10_D The amount in decimal D (D = _decimals) of the token sender is going to withdraw
-    /// @dev The token can be other than settlementToken once multi collateral feature is implemented
+    /// @param token the address of the token sender is going to withdraw
+    ///        once multi-collateral is implemented, the token is not limited to settlementToken
+    /// @param amountX10_D the amount of the token to withdraw in decimals D (D = _decimals)
     function withdraw(address token, uint256 amountX10_D)
         external
         whenNotPaused
         nonReentrant
         onlySettlementToken(token)
     {
+        // the full process of withdrawal:
+        // 1. settle funding payment to owedRealizedPnl
+        // 2. collect fee to owedRealizedPnl
+        // 3. call Vault.withdraw(token, amount)
+        // 4. settle pnl to trader balance in Vault
+        // 5. transfer the amount to trader
+
         address to = _msgSender();
 
-        // the full process of a trader's withdrawal:
-        //     settle funding payment to owedRealizedPnl
-        //     collect fee to owedRealizedPnl
-        // call Vault.withdraw(token, amount)
-        //     settle pnl to trader balance in Vault
-        //     transfer amount to trader
-
-        // settle funding payments to owedRealizedPnl,
-        // while fees are ok to let maker decides whether to collect using CH.removeLiquidity(0)
+        // settle all funding payments to owedRealizedPnl
         IExchange(_exchange).settleAllFunding(to);
 
         // settle owedRealizedPnl in AccountBalance
         int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
 
-        // by this time free collateral should see zero funding payment and zero owedRealizedPnl
+        // by this time there should be no owedRealizedPnl nor pending funding payment in free collateral
         int256 freeCollateralByImRatioX10_D =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
@@ -151,15 +149,15 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             "V_NEFC"
         );
 
-        // borrow settlement token from insurance fund if token balance is not enough
+        // borrow settlement token from insurance fund if the token balance in Vault is not enough
         uint256 vaultBalanceX10_D = IERC20Metadata(token).balanceOf(address(this));
         if (vaultBalanceX10_D < amountX10_D) {
-            uint256 borrowAmountX10_D = amountX10_D - vaultBalanceX10_D;
-            IInsuranceFund(_insuranceFund).borrow(borrowAmountX10_D);
-            _totalDebt += borrowAmountX10_D;
+            uint256 borrowedAmountX10_D = amountX10_D - vaultBalanceX10_D;
+            IInsuranceFund(_insuranceFund).borrow(borrowedAmountX10_D);
+            _totalDebt += borrowedAmountX10_D;
         }
 
-        // settle withdraw amount and owedRealizedPnl to collateral balance
+        // settle withdrawn amount and owedRealizedPnl to collateral
         _modifyBalance(
             to,
             token,
@@ -180,7 +178,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @inheritdoc IVault
-    /// @dev cached the settlement token's decimal for gas optimization
+    /// @dev cache the settlement token's decimals for gas optimization
     function decimals() external view override returns (uint8) {
         return _decimals;
     }
@@ -223,13 +221,13 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return _balance[trader][_settlementToken];
     }
 
-    /// @param trader The address of the trader to query
-    /// @param ratio The margin requirement ratio
-    /// @dev there are three configurations for different insolvency risk tolerance: conservative, moderate, aggressive
-    /// we will start with the conservative one, then gradually change it to more aggressive ones
-    /// to increase capital efficiency.
+    /// @dev there are three configurations for different insolvency risk tolerances: conservative, moderate, aggressive
+    ///      we will start with the conservative one and gradually move to aggressive to increase capital efficiency
+    /// @param trader the address of the trader
+    /// @param ratio the margin requirement ratio, imRatio or mmRatio
+    /// @return freeCollateralByRatio freeCollateral, by using the input margin requirement ratio; can be negative
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
-        // conservative config: freeCollateral = min(collateral, accountValue) - imReq, freeCollateral could be negative
+        // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
         int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
@@ -245,16 +243,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
                 totalMarginRequirementX10_18.toInt256().formatSettlementToken(_decimals)
             );
 
-        // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
-        // return PerpMath.max(
-        // PerpMath.min(collateralValue, accountValue.sub(totalImReq.formatSettlementToken(_decimals)), 0
-        // ).toUint256();
+        // moderate config: freeCollateral = min(collateral, accountValue - imReq)
+        // return PerpMath.min(collateralValue, accountValue.subS(totalImReq.formatSettlementToken(_decimals));
 
-        // aggressive config: freeCollateral = max(accountValue - imReq, 0)
-        // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
-        //  calculating freeCollateral. We should implement some sort of safety check before using this model;
-        //  otherwise a trader could drain the entire vault if the index price deviates significantly.
-        // return PerpMath.max(accountValue.sub(totalImReq.formatSettlementToken(_decimals)), 0).toUint256()
+        // aggressive config: freeCollateral = accountValue - imReq
+        // note that the aggressive model depends entirely on unrealizedPnl, which depends on the index price
+        //      we should implement some sort of safety check before using this model; otherwise,
+        //      a trader could drain the entire vault if the index price deviates significantly.
+        // return accountValue.subS(totalImReq.formatSettlementToken(_decimals));
     }
 
     //
