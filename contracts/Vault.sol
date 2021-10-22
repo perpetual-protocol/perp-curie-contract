@@ -159,7 +159,11 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         }
 
         // settle withdraw amount and owedRealizedPnl to collateral balance
-        _modifyBalance(to, token, (-(amountX10_D.toInt256())).addS(owedRealizedPnlX10_18, _decimals));
+        _modifyBalance(
+            to,
+            token,
+            (-(amountX10_D.toInt256().sub(owedRealizedPnlX10_18.formatSettlementToken(_decimals))))
+        );
         TransferHelper.safeTransfer(token, to, amountX10_D);
 
         emit Withdrawn(token, to, amountX10_D);
