@@ -186,7 +186,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     /// @dev different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
-    function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
+    function getMarginRequirementForLiquidation(address trader) external view override returns (int256) {
         return
             getTotalAbsPositionValue(trader)
                 .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
