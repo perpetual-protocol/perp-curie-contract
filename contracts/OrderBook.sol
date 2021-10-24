@@ -629,7 +629,7 @@ contract OrderBook is
         // initialization for a new order
         if (openOrder.liquidity == 0) {
             bytes32[] storage orderIds = _openOrderIdsMap[params.maker][params.baseToken];
-            // OB_ONE: orders number exceeded
+            // OB_ONE: orders number exceeds
             require(orderIds.length < IMarketRegistry(_marketRegistry).getMaxOrdersPerMarket(), "OB_ONE");
 
             // state changes
