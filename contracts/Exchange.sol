@@ -48,6 +48,9 @@ contract Exchange is
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
 
+    // CONSTANT
+    uint256 internal constant _FULL_CLOSED_RATIO = 1e18;
+
     //
     // STRUCT
     //
@@ -188,7 +191,7 @@ contract Exchange is
         // there is only realizedPnl when it's not increasing the position size
         if (isReducePosition) {
             // closedRatio is based on the position size
-            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
+            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
             int256 deltaAvailableQuote =
                 params.isBaseToQuote
                     ? response.deltaAvailableQuote.toInt256()
@@ -196,7 +199,7 @@ contract Exchange is
 
             // if closedRatio <= 1 (decimals = 18),
             // it's reducing or closing a position; else, it's opening a larger reverse position
-            if (closedRatio <= 1 ether) {
+            if (closedRatio <= _FULL_CLOSED_RATIO) {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
                 // taker:
                 // step 1: long 20 base
@@ -210,7 +213,8 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 137.5 + 11.235 = 126.265
                 // openNotional = -openNotionalFraction = 126.265
-                int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
+                int256 reducedOpenNotional =
+                    oldOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
                 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
             } else {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
@@ -227,7 +231,8 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
-                int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
+                int256 closedPositionNotional =
+                    deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
             }
 
