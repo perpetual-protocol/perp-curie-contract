@@ -116,6 +116,8 @@ contract Exchange is
         require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK).mul(2), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
+
+        emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
