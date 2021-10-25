@@ -59,11 +59,16 @@ interface IAccountBalance {
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
 
-    /// @dev Deregister base token and this function is expensive
+    /// @dev Deregister base token. This function is expensive.
     /// @param trader The address of the trader
     /// @param baseToken The address of the trader's base token
     function deregisterBaseToken(address trader, address baseToken) external;
 
+    /// @dev Register base token.
+    /// Every time we check a trader's position value, the base token list of this trader will be traversed.
+    /// We should keep the registered base token list as small as possible.
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
     function registerBaseToken(address trader, address baseToken) external;
 
     /// @dev this function is now only called by Vault.withdraw()
