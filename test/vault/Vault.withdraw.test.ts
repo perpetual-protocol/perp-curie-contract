@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { formatEther, formatUnits, parseUnits } from "ethers/lib/utils"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     AccountBalance,
@@ -19,7 +19,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
-    const [admin, alice, bob] = waffle.provider.getWallets()
+    const [admin, taker, maker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
     let usdc: TestERC20
@@ -55,92 +55,88 @@ describe("Vault withdraw test", () => {
         await marketRegistry.addPool(baseToken.address, 10000)
         await marketRegistry.setFeeRatio(baseToken.address, 10000)
 
-        // alice mint and
-        await usdc.mint(alice.address, parseUnits("10000000", usdcDecimals))
-        await deposit(alice, vault, 1000000, usdc)
+        // taker mint and
+        await usdc.mint(taker.address, parseUnits("10000000", usdcDecimals))
+        await deposit(taker, vault, 1000000, usdc)
 
-        // bob mint and add liquidity
-        await usdc.mint(bob.address, parseUnits("10000000", usdcDecimals))
-        await deposit(bob, vault, 1000000, usdc)
-        await addOrder(fixture, bob, 200, 100000, 0, 150000)
+        // maker mint and add liquidity
+        await usdc.mint(maker.address, parseUnits("10000000", usdcDecimals))
+        await deposit(maker, vault, 1000000, usdc)
+        await addOrder(fixture, maker, 200, 100000, 0, 150000)
     })
 
     describe("withdraw check", async () => {
         let freeCollateral
         let accountValue
         beforeEach(async () => {
-            // alice swap
-            await q2bExactInput(fixture, alice, 100)
-            await closePosition(fixture, alice)
+            // taker swap
+            await q2bExactInput(fixture, taker, 100)
+            await closePosition(fixture, taker)
         })
 
-        it("withdraw full freeCollateral after remove liquidity and position", async () => {
-            // bob remove liquidity & close position
-            await removeAllOrders(fixture, bob)
-            await closePosition(fixture, bob)
+        it("withdraw full freeCollateral after maker remove liquidity", async () => {
+            // maker remove liquidity & close position
+            await removeAllOrders(fixture, maker)
+            await closePosition(fixture, maker)
 
-            // check bob
-            freeCollateral = await vault.getFreeCollateral(bob.address)
+            // check maker (owedRealizedPnl > 0)
+            freeCollateral = await vault.getFreeCollateral(maker.address)
 
-            await expect(vault.connect(bob).withdraw(usdc.address, freeCollateral))
+            await expect(vault.connect(maker).withdraw(usdc.address, freeCollateral))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(usdc.address, bob.address, freeCollateral)
+                .withArgs(usdc.address, maker.address, freeCollateral)
 
-            freeCollateral = await vault.getFreeCollateral(bob.address)
-            accountValue = await clearingHouse.getAccountValue(bob.address)
+            freeCollateral = await vault.getFreeCollateral(maker.address)
+            accountValue = await clearingHouse.getAccountValue(maker.address)
 
             expect(freeCollateral).to.be.eq(0)
             expect(accountValue).to.be.eq(0)
-
-            // check decimal rounding error
-            expect(vault.connect(bob).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
-
-            // check alice
-            const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
-            // console.log(`aliceOwedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0])}`)
-            // console.log(`aliceFreeCollateral: ${formatUnits(aliceFreeCollateral, usdcDecimals)}`)
-
-            await expect(vault.connect(alice).withdraw(usdc.address, aliceFreeCollateral))
-                .to.emit(vault, "Withdrawn")
-                .withArgs(usdc.address, alice.address, aliceFreeCollateral)
-
-            expect(await vault.getFreeCollateral(alice.address)).to.be.eq(0)
-            expect(await clearingHouse.getAccountValue(alice.address)).to.be.eq(0)
-
-            // check decimal rounding error
-            expect(vault.connect(alice).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+            expect(vault.connect(maker).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
         })
 
-        it("withdraw full freeCollateral when bob has position", async () => {
-            // check bob
-            freeCollateral = await vault.getFreeCollateral(bob.address)
+        it("withdraw full freeCollateral after taker close position", async () => {
+            // check taker (owedRealizedPnl < 0)
+            const takerFreeCollateral = await vault.getFreeCollateral(taker.address)
 
-            await expect(vault.connect(bob).withdraw(usdc.address, freeCollateral))
+            await expect(vault.connect(taker).withdraw(usdc.address, takerFreeCollateral))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(usdc.address, bob.address, freeCollateral)
+                .withArgs(usdc.address, taker.address, takerFreeCollateral)
 
-            freeCollateral = await vault.getFreeCollateral(bob.address)
-            accountValue = await clearingHouse.getAccountValue(bob.address)
+            freeCollateral = await vault.getFreeCollateral(taker.address)
+            accountValue = await clearingHouse.getAccountValue(taker.address)
 
             expect(freeCollateral).to.be.eq(0)
+            expect(accountValue).to.be.eq(0)
+            expect(vault.connect(taker).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        })
 
-            // check decimal rounding error
-            expect(vault.connect(bob).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        it("withdraw full freeCollateral when maker has position", async () => {
+            freeCollateral = await vault.getFreeCollateral(maker.address)
 
-            // check alice
-            const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
-            // console.log(`aliceOwedRealizedPnl: ${formatEther((await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0])}`)
-            // console.log(`aliceFreeCollateral: ${formatUnits(aliceFreeCollateral, usdcDecimals)}`)
-
-            await expect(vault.connect(alice).withdraw(usdc.address, aliceFreeCollateral))
+            await expect(vault.connect(maker).withdraw(usdc.address, freeCollateral))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(usdc.address, alice.address, aliceFreeCollateral)
+                .withArgs(usdc.address, maker.address, freeCollateral)
 
-            expect(await vault.getFreeCollateral(alice.address)).to.be.eq(0)
-            expect(await clearingHouse.getAccountValue(alice.address)).to.be.eq(0)
+            freeCollateral = await vault.getFreeCollateral(maker.address)
+            accountValue = await clearingHouse.getAccountValue(maker.address)
 
-            // check decimal rounding error
-            expect(vault.connect(alice).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+            expect(freeCollateral).to.be.eq(0)
+            expect(vault.connect(maker).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        })
+
+        it("withdraw full freeCollateral when taker has position", async () => {
+            freeCollateral = await vault.getFreeCollateral(taker.address)
+
+            await expect(vault.connect(taker).withdraw(usdc.address, freeCollateral))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(usdc.address, taker.address, freeCollateral)
+
+            freeCollateral = await vault.getFreeCollateral(taker.address)
+            accountValue = await clearingHouse.getAccountValue(taker.address)
+
+            expect(freeCollateral).to.be.eq(0)
+            expect(accountValue).to.be.eq(0)
+            expect(vault.connect(taker).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
         })
     })
 })

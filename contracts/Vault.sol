@@ -146,7 +146,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
         // V_NEFC: not enough freeCollateral
         require(
-            freeCollateralByImRatioX10_D.addS(owedRealizedPnlX10_18, _decimals) >= amountX10_D.toInt256(),
+            freeCollateralByImRatioX10_D.add(owedRealizedPnlX10_18.formatSettlementToken(_decimals)) >=
+                amountX10_D.toInt256(),
             "V_NEFC"
         );
 
@@ -232,10 +233,11 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
-        int256 totalCollateralValue = balanceOf(trader).addS(owedRealizedPnl.sub(fundingPayment), _decimals);
+        int256 totalCollateralValue =
+            balanceOf(trader).add(owedRealizedPnl.sub(fundingPayment).formatSettlementToken(_decimals));
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
-        int256 accountValue = totalCollateralValue.addS(unrealizedPnl, _decimals);
+        int256 accountValue = totalCollateralValue.add(unrealizedPnl.formatSettlementToken(_decimals));
         uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
         return PerpMath.min(totalCollateralValue, accountValue).subS(totalMarginRequirement.toInt256(), _decimals);
 
