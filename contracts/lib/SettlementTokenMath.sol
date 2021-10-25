@@ -9,46 +9,6 @@ library SettlementTokenMath {
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
 
-    // @dev return amount with settlementToken's decimal
-    function addS(
-        uint256 settlementToken,
-        // solhint-disable-next-line var-name-mixedcase
-        uint256 amountX10_18,
-        uint8 decimals
-    ) internal pure returns (uint256) {
-        return formatSettlementToken(parseSettlementToken(settlementToken, decimals).add(amountX10_18), decimals);
-    }
-
-    // @dev return amount with settlementToken's decimal
-    function addS(
-        int256 settlementToken,
-        // solhint-disable-next-line var-name-mixedcase
-        int256 amountX10_18,
-        uint8 decimals
-    ) internal pure returns (int256) {
-        return formatSettlementToken(parseSettlementToken(settlementToken, decimals).add(amountX10_18), decimals);
-    }
-
-    // @dev return amount with settlementToken's decimal
-    function subS(
-        uint256 settlementToken,
-        // solhint-disable-next-line var-name-mixedcase
-        uint256 amountX10_18,
-        uint8 decimals
-    ) internal pure returns (uint256) {
-        return formatSettlementToken(parseSettlementToken(settlementToken, decimals).sub(amountX10_18), decimals);
-    }
-
-    // @dev return amount with settlementToken's decimal
-    function subS(
-        int256 settlementToken,
-        // solhint-disable-next-line var-name-mixedcase
-        int256 amountX10_18,
-        uint8 decimals
-    ) internal pure returns (int256) {
-        return formatSettlementToken(parseSettlementToken(settlementToken, decimals).sub(amountX10_18), decimals);
-    }
-
     function lte(
         uint256 settlementToken,
         // solhint-disable-next-line var-name-mixedcase

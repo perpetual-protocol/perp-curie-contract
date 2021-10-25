@@ -144,7 +144,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // by this time free collateral should see zero funding payment and zero owedRealizedPnl
         int256 freeCollateralByImRatioX10_D =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
-
         // V_NEFC: not enough freeCollateral
         require(
             freeCollateralByImRatioX10_D.add(owedRealizedPnlX10_18.formatSettlementToken(_decimals)) >=
@@ -247,13 +246,15 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             );
 
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
-        // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
+        // return PerpMath.max(
+        // PerpMath.min(collateralValue, accountValue.sub(totalImReq.formatSettlementToken(_decimals)), 0
+        // ).toUint256();
 
         // aggressive config: freeCollateral = max(accountValue - imReq, 0)
         // TODO note that aggressive model depends entirely on unrealizedPnl, which depends on the index price, for
         //  calculating freeCollateral. We should implement some sort of safety check before using this model;
         //  otherwise a trader could drain the entire vault if the index price deviates significantly.
-        // return PerpMath.max(accountValue.subS(totalImReq, decimals), 0).toUint256()
+        // return PerpMath.max(accountValue.sub(totalImReq.formatSettlementToken(_decimals)), 0).toUint256()
     }
 
     //
