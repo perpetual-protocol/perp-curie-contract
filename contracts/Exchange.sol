@@ -244,12 +244,7 @@ contract Exchange is
         }
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    ///      while it doesn't matter who calls this function
-    ///      this function 1. settles personal funding payment 2. updates global funding growth
-    ///      personal funding payment is settled whenever there is pending funding payment
-    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    /// @inheritdoc IExchange
     function settleFunding(address trader, address baseToken)
         public
         override
@@ -357,10 +352,7 @@ contract Exchange is
             );
     }
 
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for settleAllFunding()
-    /// @return indexTwap only for settleAllFunding()
+    /// @inheritdoc IExchange
     function getFundingGrowthGlobalAndTwaps(address baseToken)
         public
         view
