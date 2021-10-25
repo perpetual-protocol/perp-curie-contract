@@ -82,9 +82,6 @@ export async function closePosition(
     baseToken: string = fixture.baseToken.address,
 ): Promise<ContractTransaction | undefined> {
     const posSize = await fixture.accountBalance.getPositionSize(wallet.address, baseToken)
-    if (posSize.isZero()) {
-        return
-    }
     if (posSize.abs().lt(ignorableDustPosSize)) {
         // skip, may fail if the pos size is too small
         console.warn(`can't close dust pos: ${posSize.toString()}`)
