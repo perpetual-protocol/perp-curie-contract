@@ -86,7 +86,7 @@ contract ClearingHouse is
 
     modifier onlyExchange() {
         // only exchange
-        require(_msgSender() == _exchange, "CH_OE");
+        require(msg.sender == _exchange, "CH_OE");
         _;
     }
 
@@ -418,7 +418,7 @@ contract ClearingHouse is
         bytes calldata data
     ) external override {
         // not orderBook
-        require(_msgSender() == _orderBook, "CH_NOB");
+        require(msg.sender == _orderBook, "CH_NOB");
 
         IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));
 
