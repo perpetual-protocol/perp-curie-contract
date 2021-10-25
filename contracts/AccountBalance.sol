@@ -29,8 +29,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     using AccountMarket for AccountMarket.Info;
 
     // CONSTANT
-    // 10 wei
-    uint256 internal constant _DUST = 10;
+    uint256 internal constant _DUST = 10 wei;
 
     //
     // MODIFIER
