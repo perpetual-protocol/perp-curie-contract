@@ -141,12 +141,12 @@ describe("ClearingHouse withdraw", () => {
             //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                  = max(min(100.0006151334176, 100.0006151334176 - 0.02067229971) - max(0.0004084104205 * 100, 0.122414646) * 0.1, 0)
             //                  = 99.9677005354
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967701", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967702", collateralDecimals))
 
             // alice can withdraw free collateral even she has liquidity in pool.
-            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("99.967701", collateralDecimals)))
+            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("99.967702", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, alice.address, parseUnits("99.967701", collateralDecimals))
+                .withArgs(collateral.address, alice.address, parseUnits("99.967702", collateralDecimals))
         })
 
         it("taker swap and then withdraw maker's fee without removing liquidity", async () => {

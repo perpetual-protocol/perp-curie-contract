@@ -219,10 +219,10 @@ describe("ClearingHouse realizedPnl", () => {
         const takerUsdcBalance = await collateral.balanceOf(taker.address)
         // taker.vaultBalanceOf: 0.0
         // taker.freeCollateral: 0.0
-        // taker.USDCbalance: 990.457988
+        // taker.USDCbalance: 990.457989
 
-        // 1000 + (-9.542011399247233633) = 990.457988
-        expect(takerUsdcBalance).to.deep.eq(parseUnits("990.457988", collateralDecimals))
+        // 1000 + (-9.542011399247233633) = 990.457989
+        expect(takerUsdcBalance).to.deep.eq(parseUnits("990.457989", collateralDecimals))
 
         // maker withdraw all
         const makerFreeCollateral = await vault.getFreeCollateral(maker.address)
