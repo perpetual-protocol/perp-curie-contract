@@ -144,6 +144,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // by this time free collateral should see zero funding payment and zero owedRealizedPnl
         int256 freeCollateralByImRatioX10_D =
             getFreeCollateralByRatio(to, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
+
         // V_NEFC: not enough freeCollateral
         require(
             freeCollateralByImRatioX10_D.add(owedRealizedPnlX10_18.formatSettlementToken(_decimals)) >=
@@ -230,16 +231,20 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// to increase capital efficiency.
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = min(collateral, accountValue) - imReq, freeCollateral could be negative
-        int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnl, int256 unrealizedPnl) =
+        int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
+        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
-        int256 totalCollateralValue =
-            balanceOf(trader).add(owedRealizedPnl.sub(fundingPayment).formatSettlementToken(_decimals));
+        int256 totalCollateralValueX10_D =
+            balanceOf(trader).add(owedRealizedPnlX10_18.sub(fundingPaymentX10_18).formatSettlementToken(_decimals));
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
-        int256 accountValue = totalCollateralValue.add(unrealizedPnl.formatSettlementToken(_decimals));
-        uint256 totalMarginRequirement = _getTotalMarginRequirement(trader, ratio);
-        return PerpMath.min(totalCollateralValue, accountValue).subS(totalMarginRequirement.toInt256(), _decimals);
+        int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));
+        uint256 totalMarginRequirementX10_18 = _getTotalMarginRequirement(trader, ratio);
+
+        return
+            PerpMath.min(totalCollateralValueX10_D, accountValueX10_D).sub(
+                totalMarginRequirementX10_18.toInt256().formatSettlementToken(_decimals)
+            );
 
         // moderate config: freeCollateral = max(min(collateral, accountValue - imReq), 0)
         // return PerpMath.max(PerpMath.min(collateralValue, accountValue.subS(totalImReq, decimals)), 0).toUint256();
