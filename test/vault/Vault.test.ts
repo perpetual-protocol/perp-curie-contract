@@ -183,7 +183,7 @@ describe("Vault test", () => {
             //                = 98.803009
 
             const freeCollateral = (await vault.getFreeCollateral(alice.address)).toString()
-            expect(freeCollateral).to.be.eq(parseUnits("98.803009", usdcDecimals))
+            expect(freeCollateral).to.be.eq(parseUnits("98.803011", usdcDecimals))
         })
     })
 })

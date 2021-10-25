@@ -212,8 +212,8 @@ describe("ClearingHouse liquidate", () => {
             // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
             // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
             // openOrderMarginRequirement = 0
-            // free collateral = 1.1422109998625 - 0 = 1.1422109998625
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142210", 6))
+            // free collateral = 1.142211 - 0 = 1.142211
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142211", 6))
 
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
@@ -279,8 +279,8 @@ describe("ClearingHouse liquidate", () => {
             // pnl = -96.3007237478 - 2.3834429128 + 90 = -8.6841666606
             // account value = collateral + pnl = 10 - 8.6841666606 = 1.3158333394
             // openOrderMarginRequirement = 0
-            // free collateral = 1.3158333394 - 0
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.315833", 6))
+            // free collateral = 1.315834 - 0
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.315834", 6))
 
             // liquidator gets liquidation reward
             const davidPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
@@ -383,7 +383,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 14.2164034 + (44.59195 (BTC) - 45)= 13.8083534
             // openOrderMarginRequirement = 45 (quote debt only)
             // free collateral = min(14.2164034, 13.8083534) -  45 * 0.1 =9.3083
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.308362", 6))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.308364", 6))
 
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
@@ -421,7 +421,7 @@ describe("ClearingHouse liquidate", () => {
             // account value = collateral + pnl = 18.0237995616 + (40.645477628(ETH) - 45) = 13.6692771896
             // (totalBaseDebt + totalQuoteDebt) * imRatio = 45 * 0.1 = 4.5
             // freeCollateral = 13.6692771896 - 4.5 = 9.1692771896
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.16927", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.169272", collateralDecimals))
 
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
@@ -563,7 +563,7 @@ describe("ClearingHouse liquidate", () => {
             // accountValue = 13.193771345 + -0.4108822263 = 12.7828891187
             // totalOpenOrderMarginRequirement = 45.4108822263 * 0.1 = 4.5410882420509684093
             // freeCollateral = 12.7828891187 - 4.5410882420509684093 = 8.2418
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241799", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241802", collateralDecimals))
 
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
@@ -599,7 +599,7 @@ describe("ClearingHouse liquidate", () => {
             // accountValue = collateral + totalMarketPnl = 20 + -7.0533182527 = 12.9466817473
             // getTotalOpenOrderMarginRequirement = (totalBaseDebt + totalQuoteDebt) * imRatio = 50.0401751843 * 0.1
             // freeCollateral = 12.9466817473 - 5.00401751843 = 7.9426642289
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942662", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942665", collateralDecimals))
 
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
