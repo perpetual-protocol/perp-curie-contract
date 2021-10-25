@@ -612,10 +612,10 @@ contract OrderBook is
                 // remove it from the array efficiently by re-ordering and deleting the last element
                 orderIds[idx] = orderIds[orderIds.length - 1];
                 orderIds.pop();
+                delete _openOrderMap[orderId];
                 break;
             }
         }
-        delete _openOrderMap[orderId];
     }
 
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
