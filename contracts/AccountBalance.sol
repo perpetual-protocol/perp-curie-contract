@@ -373,7 +373,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         delete _accountMarketMap[trader][baseToken];
 
         uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             if (_baseTokensMap[trader][i] == baseToken) {
                 // if the item to be removed is the last one, pop it directly
                 // else, replace it with the last one and pop the last one
