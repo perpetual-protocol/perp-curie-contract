@@ -361,6 +361,7 @@ contract ClearingHouse is
         //   deadline: here
         //   sqrtPriceLimitX96: X (this is not for slippage protection)
         //   referralCode: X
+
         address trader = _msgSender();
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -441,7 +442,9 @@ contract ClearingHouse is
             })
         );
 
-        emit ReferredPositionChanged(params.referralCode);
+        if (params.referralCode != "") {
+            emit ReferredPositionChanged(params.referralCode);
+        }
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
