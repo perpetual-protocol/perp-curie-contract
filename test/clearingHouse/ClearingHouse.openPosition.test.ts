@@ -1324,7 +1324,7 @@ describe("ClearingHouse openPosition", () => {
                 //                 = 100 - (1.3348304809274554) * 0.1
                 //                 = 99.866516
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.866517", collateralDecimals))
             })
 
             it("add other market liquidity below the current tick", async () => {
@@ -1369,7 +1369,7 @@ describe("ClearingHouse openPosition", () => {
                 //                 = 100 - (1.3348304809274554) * 0.1
                 //                 = 99.866516
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.866516", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.866517", collateralDecimals))
             })
         })
     })
