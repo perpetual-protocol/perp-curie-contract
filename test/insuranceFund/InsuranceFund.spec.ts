@@ -18,10 +18,10 @@ describe("InsuranceFund Spec", () => {
         insuranceFund = _fixture.insuranceFund
     })
 
-    it("force error, invalid vault address", async () => {
+    it("force error, invalid token address", async () => {
         const insuranceFundFactory = await ethers.getContractFactory("InsuranceFund")
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
-        await expect(insuranceFund.initialize(admin.address)).to.be.revertedWith("IF_STNC")
+        await expect(insuranceFund.initialize(admin.address)).to.be.revertedWith("IF_TNC")
     })
 
     it("force error,setBorrower but borrower is not a contract", async () => {

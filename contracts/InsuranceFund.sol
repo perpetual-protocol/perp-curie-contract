@@ -17,7 +17,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     function initialize(address tokenArg) external initializer {
         // token address is not contract
-        require(tokenArg.isContract(), "IF_STNC");
+        require(tokenArg.isContract(), "IF_TNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
