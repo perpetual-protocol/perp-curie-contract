@@ -194,7 +194,8 @@ contract Exchange is
                     ? response.deltaAvailableQuote.toInt256()
                     : -response.deltaAvailableQuote.toInt256();
 
-            // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
+            // if closedRatio <= 1 (decimals = 18),
+            // it's reducing or closing a position; else, it's opening a larger reverse position
             if (closedRatio <= 1 ether) {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
                 // taker:
