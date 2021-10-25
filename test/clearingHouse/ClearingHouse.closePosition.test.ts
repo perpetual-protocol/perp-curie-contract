@@ -277,16 +277,16 @@ describe("ClearingHouse closePosition", () => {
             // bob swap
             // quote: 0.112414646 / 0.99 = 0.1135501475
             // to base: 0.0007558893279
-            const swapParams = {
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
                 oppositeAmountBound: 0,
                 amount: parseEther("0.1135501475"),
                 sqrtPriceLimitX96: "0",
-            }
-            // will receive 0.0007558893279 base from pool
-            await clearingHouse.connect(bob).swap(swapParams)
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
 
             // bob swap
             // base: 0.0007558893279
@@ -367,16 +367,16 @@ describe("ClearingHouse closePosition", () => {
                 // bob swap
                 // quote: 0.112414646 / 0.99 = 0.1135501475
                 // to base: 0.0007558893279
-                const swapParams = {
+                await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
                     amount: parseEther("0.1135501475"),
                     sqrtPriceLimitX96: "0",
-                }
-                // will receive 0.0007558893279 base from pool
-                await clearingHouse.connect(bob).swap(swapParams)
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
 
                 await clearingHouse.connect(carol).removeLiquidity({
                     baseToken: baseToken.address,
