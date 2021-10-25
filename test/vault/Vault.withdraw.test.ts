@@ -113,7 +113,7 @@ describe("Vault withdraw test", () => {
         it("withdraw full freeCollateral when user has no position", async () => {
             await closePosition(fixture, alice)
 
-            await check(bob, false)
+            await check(bob, true) // still provide liquidity
             await check(alice, false)
         })
 
