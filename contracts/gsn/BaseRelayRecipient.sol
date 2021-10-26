@@ -37,8 +37,6 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
     }
 
     function _setTrustedForwarder(address trustedForwarderArg) internal {
-        // invalid trusted forwarder address
-        require(trustedForwarderArg != address(0), "BRC_ITFA");
         _trustedForwarder = trustedForwarderArg;
         emit TrustedForwarderUpdated(trustedForwarderArg);
     }
@@ -79,6 +77,9 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
                 // copy only size-20 bytes
                 let size := sub(calldatasize(), 20)
                 // structure RLP data as <offset> <length> <bytes>
+                // TODO : ABDK audit
+                // - This tries to ABI encode the returned values,
+                //   while for internal functions ABI encoding is not used.
                 mstore(ptr, 0x20)
                 mstore(add(ptr, 32), size)
                 calldatacopy(add(ptr, 64), 0, size)
