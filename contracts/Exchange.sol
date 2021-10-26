@@ -306,7 +306,7 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, -fundingPayment);
+            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
@@ -686,7 +686,7 @@ contract Exchange is
             : amount.toInt256();
         signedScaledAmountForReplaySwap = isExactInput
             ? signedScaledAmountForReplaySwap
-            : -signedScaledAmountForReplaySwap;
+            : signedScaledAmountForReplaySwap.neg256();
     }
 
     function _getPendingFundingPaymentWithLiquidityCoefficient(
