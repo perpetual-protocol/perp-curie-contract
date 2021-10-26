@@ -31,6 +31,8 @@ contract VirtualToken is IVirtualToken, SafeOwnable, ERC20Upgradeable {
     }
 
     function removeWhitelist(address account) external onlyOwner {
+        // VT_BNZ: balance is not zero
+        require(balanceOf(account) == 0, "VT_BNZ");
         delete _whitelistMap[account];
         emit WhitelistRemoved(account);
     }
