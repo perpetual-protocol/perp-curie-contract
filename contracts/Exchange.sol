@@ -38,7 +38,9 @@ contract Exchange is
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
+    using SafeMathUpgradeable for uint24;
     using SignedSafeMathUpgradeable for int256;
+    using SignedSafeMathUpgradeable for int24;
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
@@ -107,9 +109,11 @@ contract Exchange is
         // EX_BTNE: base token not exists
         require(IMarketRegistry(_marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
 
-        // tick range is [-MAX_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK]
+        // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
-        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK), "EX_MTCLOOR");
+
+        // TODO : need add uint24 version of safeMath (now is only support uint256)
+        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK).mul(2), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
@@ -258,7 +262,9 @@ contract Exchange is
 
     function settleAllFunding(address trader) external override {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
-        for (uint256 i = 0; i < baseTokens.length; i++) {
+        uint256 baseTokenLength = baseTokens.length;
+
+        for (uint256 i = 0; i < baseTokenLength; i++) {
             settleFunding(trader, baseTokens[i]);
         }
     }
@@ -377,8 +383,8 @@ contract Exchange is
 
     /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for _settleFundingAndUpdateFundingGrowth()
-    /// @return indexTwap only for _settleFundingAndUpdateFundingGrowth()
+    /// @return markTwap only for settleAllFunding()
+    /// @return indexTwap only for settleAllFunding()
     function getFundingGrowthGlobalAndTwaps(address baseToken)
         public
         view
@@ -688,6 +694,7 @@ contract Exchange is
                 twPremiumGrowthGlobalX96
             );
 
-        return liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(1 days);
+        return
+            liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
     }
 }

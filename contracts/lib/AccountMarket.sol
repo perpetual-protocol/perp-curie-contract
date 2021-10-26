@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
+import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
 
 library AccountMarket {
@@ -19,6 +20,6 @@ library AccountMarket {
         int256 twPremiumGrowthGlobalX96,
         int256 lastTwPremiumGrowthGlobalX96
     ) internal pure returns (int256 balanceCoefficientInFundingPayment) {
-        return baseBalance.mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96)).div(PerpFixedPoint96.IQ96);
+        return baseBalance.mul(twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96)) >> 96;
     }
 }

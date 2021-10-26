@@ -108,8 +108,12 @@ describe("ClearingHouse Spec", () => {
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 200)
             expect(await exchange.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)
 
-            // out of range [0, 887272]
-            await expect(exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1e6)).to.be.revertedWith("EX_MTCLOOR")
+            // out of range [0, 2 * 887272]
+            // MIN_TICK = -887272
+            // MAX_TICK = 887272
+            await expect(exchange.setMaxTickCrossedWithinBlock(baseToken.address, 2 * 887272 + 1)).to.be.revertedWith(
+                "EX_MTCLOOR",
+            )
         })
 
         it("force error, invalid base token address when setMaxTickCrossedWithinBlock", async () => {

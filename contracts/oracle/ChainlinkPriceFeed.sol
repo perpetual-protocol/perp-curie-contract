@@ -48,13 +48,13 @@ contract ChainlinkPriceFeed is IPriceFeed, BlockContext, Initializable {
         //         base           current previous now
 
         (uint80 round, uint256 latestPrice, uint256 latestTimestamp) = _getLatestRoundData();
-        if (interval == 0) {
+        if (interval == 0 || round == 0) {
             return latestPrice;
         }
 
         uint256 baseTimestamp = _blockTimestamp().sub(interval);
         // if latest updated timestamp is earlier than target timestamp, return the latest price.
-        if (latestTimestamp < baseTimestamp || round == 0) {
+        if (latestTimestamp < baseTimestamp) {
             return latestPrice;
         }
 
@@ -65,7 +65,7 @@ contract ChainlinkPriceFeed is IPriceFeed, BlockContext, Initializable {
         while (true) {
             if (round == 0) {
                 // if cumulative time is less than requested interval, return current twap price
-                return weightedPrice.div(cumulativeTime);
+                return weightedPrice.div(_blockTimestamp().sub(previousTimestamp));
             }
 
             round = round - 1;
@@ -81,9 +81,7 @@ contract ChainlinkPriceFeed is IPriceFeed, BlockContext, Initializable {
                 break;
             }
 
-            uint256 timeFraction = previousTimestamp.sub(currentTimestamp);
-            weightedPrice = weightedPrice.add(currentPrice.mul(timeFraction));
-            cumulativeTime = cumulativeTime.add(timeFraction);
+            weightedPrice = weightedPrice.add(currentPrice.mul(previousTimestamp.sub(currentTimestamp)));
             previousTimestamp = currentTimestamp;
         }
         return weightedPrice.div(interval);

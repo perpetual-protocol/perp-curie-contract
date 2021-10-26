@@ -241,7 +241,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         // unrealized Pnl
         int256 totalPositionValue;
-        for (uint256 i = 0; i < _baseTokensMap[trader].length; i++) {
+        uint256 baseTokenLength = _baseTokensMap[trader].length;
+
+        for (uint256 i = 0; i < baseTokenLength; i++) {
             address baseToken = _baseTokensMap[trader][i];
             totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken));
         }
