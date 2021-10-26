@@ -100,6 +100,7 @@ contract OrderBook is
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
         _exchange = exchangeArg;
+        emit ExchangeChanged(exchangeArg);
     }
 
     function addLiquidity(AddLiquidityParams calldata params)

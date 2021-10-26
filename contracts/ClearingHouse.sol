@@ -152,6 +152,7 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(trustedForwarderArg.isContract(), "CH_ANC");
         _setTrustedForwarder(trustedForwarderArg);
+        emit TrustedForwarderChanged(trustedForwarderArg);
     }
 
     /// @inheritdoc IClearingHouse

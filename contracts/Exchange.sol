@@ -103,6 +103,7 @@ contract Exchange is
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
         _accountBalance = accountBalanceArg;
+        emit AccountBalanceChanged(accountBalanceArg);
     }
 
     // solhint-disable-next-line

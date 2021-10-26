@@ -71,6 +71,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // vault address is not contract
         require(vaultArg.isContract(), "AB_VNC");
         _vault = vaultArg;
+        emit VaultChanged(vaultArg);
     }
 
     function settleBalanceAndDeregister(

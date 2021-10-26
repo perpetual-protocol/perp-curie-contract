@@ -52,6 +52,9 @@ interface IExchange {
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
     event MaxTickCrossedWithinBlockChanged(address indexed baseToken, uint24 maxTickCrossedWithinBlock);
 
+    /// @param accountBalance The address of accountBalance contract
+    event AccountBalanceChanged(address accountBalance);
+
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
     function settleAllFunding(address trader) external;

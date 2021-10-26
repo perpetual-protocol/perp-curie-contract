@@ -29,6 +29,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         // borrower is not a contract
         require(borrowerArg.isContract(), "IF_BNC");
         _borrower = borrowerArg;
+        emit BorrowerChanged(borrowerArg);
     }
 
     /// @inheritdoc IInsuranceFund

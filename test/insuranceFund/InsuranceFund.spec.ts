@@ -24,7 +24,7 @@ describe("InsuranceFund Spec", () => {
         await expect(insuranceFund.initialize(admin.address)).to.be.revertedWith("IF_TNC")
     })
 
-    it("force error,setBorrower but borrower is not a contract", async () => {
+    it("force error, setBorrower but borrower is not a contract", async () => {
         await expect(insuranceFund.setBorrower(admin.address)).to.revertedWith("IF_BNC")
     })
     it("force error, borrow from invalid borrower (only vault)", async () => {

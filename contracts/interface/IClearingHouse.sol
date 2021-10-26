@@ -80,6 +80,8 @@ interface IClearingHouse {
 
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
+    event TrustedForwarderChanged(address indexed forwarder);
+
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
