@@ -138,7 +138,10 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            // taker swaps 1 base to 63.106831428587933867 quote
+            // taker swaps
+            // base: 1
+            // B2QFee: CH actually shorts 1 / 0.99 = 1.0101010101 and get 63.7442741703 quote
+            // bob gets 63.7442741703 * 0.99 = 63.1068314286
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -157,7 +160,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 10,
             )
 
-            // taker swaps 64.388155727566507365 to 1 base
+            // taker pays 63.7442741703 / 0.99 = 64.3881557276 quote to pay back 1 base
             await clearingHouse.connect(bob).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,

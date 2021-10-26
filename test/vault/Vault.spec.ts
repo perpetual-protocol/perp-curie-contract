@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
@@ -141,7 +141,7 @@ describe("Vault spec", () => {
 
         it("force error if the freeCollateral is not enough", async () => {
             // unrealizedPnl = -amount, so free collateral is not enough
-            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount.mul(-1)])
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, parseEther("-100")])
 
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })

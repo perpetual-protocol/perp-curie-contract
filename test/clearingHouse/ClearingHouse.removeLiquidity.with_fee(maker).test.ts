@@ -909,7 +909,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     })
 
     describe("remove non-zero liquidity", () => {
-        const lowerTick = "50000"
+        const lowerTick = "50000" // 148.3760629231
         const upperTick = "50200"
 
         it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
