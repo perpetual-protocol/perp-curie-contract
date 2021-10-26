@@ -19,7 +19,7 @@ import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("AccountBalance", () => {
+describe.only("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -200,6 +200,18 @@ describe("AccountBalance", () => {
             })
 
             expect(await accountBalance.getBaseTokens(bob.address)).be.deep.eq([baseToken2.address, baseToken.address])
+        })
+    })
+
+    describe("# setVault", async () => {
+        it("set vault and emit event", async () => {
+            await expect(accountBalance.setVault(vault.address))
+                .to.emit(accountBalance, "VaultChanged")
+                .withArgs(vault.address)
+        })
+
+        it("force error, cannot set to a EOA address", async () => {
+            await expect(accountBalance.setVault(alice.address)).to.be.revertedWith("AB_VNC")
         })
     })
 })
