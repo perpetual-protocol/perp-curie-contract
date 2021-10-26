@@ -15,6 +15,7 @@ import { FeeMath } from "./lib/FeeMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { PerpSafeMath } from "./lib/PerpSafeMath.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
@@ -37,16 +38,14 @@ contract Exchange is
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
-    using SafeMathUpgradeable for uint128;
-    using SafeMathUpgradeable for uint24;
     using SignedSafeMathUpgradeable for int256;
-    using SignedSafeMathUpgradeable for int24;
     using PerpMath for uint256;
-    using PerpMath for int256;
     using PerpMath for uint160;
+    using PerpMath for int256;
+    using PerpSafeMath for int24;
     using PerpSafeCast for uint256;
-    using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
+    using PerpSafeCast for int24;
 
     //
     // STRUCT
@@ -111,9 +110,7 @@ contract Exchange is
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
-
-        // TODO : need add uint24 version of safeMath (now is only support uint256)
-        require(maxTickCrossedWithinBlock <= uint24(TickMath.MAX_TICK).mul(2), "EX_MTCLOOR");
+        require(maxTickCrossedWithinBlock <= (TickMath.MAX_TICK.sub24(TickMath.MIN_TICK)).toUint24(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
     }
