@@ -135,7 +135,7 @@ contract Exchange is
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
         int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
-        bool isOldPositionShort = positionSize < 0 ? true : false;
+        bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
         bool isPartialClose;
 

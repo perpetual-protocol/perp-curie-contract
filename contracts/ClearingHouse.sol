@@ -576,7 +576,7 @@ contract ClearingHouse is
 
         // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
         // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
-        bool isLong = positionSize > 0 ? true : false;
+        bool isLong = positionSize > 0;
         return
             _openPosition(
                 InternalOpenPositionParams({
