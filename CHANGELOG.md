@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- remove state `_versionRecipient` from `ClearingHouse` and `Vault`
 ## [0.12.6] -2021-10-25
 - bug fixes
   - rounding error at `ClearingHouse.closePosition()` and `Vault.withdraw()`
