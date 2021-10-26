@@ -237,7 +237,9 @@ contract Exchange is
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
                 // overflow inspection:
-                // Due to price limitation, deltaAvailableQuote can not be too large.
+                // Due to price limitation,
+                // assume the max tick = 887272 and max of liquidity = 2^128
+                // max of delta quote = (sqrt(1.0001^887272) - 1) * 2**128 = 6.2768658e+57 < 2^255/1e18
                 int256 closedPositionNotional =
                     deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
