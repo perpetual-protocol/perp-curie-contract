@@ -11,6 +11,7 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 {
     using SafeMathUpgradeable for uint256;
+    using SafeMathUpgradeable for uint8;
 
     function initialize(
         string memory nameArg,
@@ -19,8 +20,6 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
     ) external initializer {
         __VirtualToken_init(nameArg, symbolArg);
 
-        // invalid address
-        require(priceFeedArg != address(0), "BT_IA");
         // invalid price feed decimals
         uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
         require(__priceFeedDecimals <= decimals(), "BT_IPFD");
@@ -40,6 +39,6 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
     }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
-        return _price.mul(10**(decimals() - _priceFeedDecimals));
+        return _price.mul(10**(decimals().sub(_priceFeedDecimals)));
     }
 }
