@@ -208,7 +208,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             int256 baseBalance = getBase(trader, baseToken);
-            uint256 baseDebt = baseBalance > 0 ? 0 : baseBalance.neg256().toUint256();
+            uint256 baseDebt = baseBalance > 0 ? 0 : baseBalance.abs();
             uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
             // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
             int256 quoteBalance = getQuote(trader, baseToken);
@@ -216,7 +216,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
         }
 
-        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : totalQuoteBalance.neg256().toUint256();
+        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : totalQuoteBalance.abs();
 
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
