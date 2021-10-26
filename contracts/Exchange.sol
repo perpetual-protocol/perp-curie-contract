@@ -213,6 +213,10 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 137.5 + 11.235 = 126.265
                 // openNotional = -openNotionalFraction = 126.265
+                // overflow inspection:
+                // maximum of closedRatio = 1e18
+                // range of oldOpenNotional = [-2^255 / 1e18, 2^255 / 1e18]
+                // only overflow when oldOpenNotional < -2^255 / 1e18 or oldOpenNotional > 2^255 / 1e18.
                 int256 reducedOpenNotional =
                     oldOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
                 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
@@ -231,6 +235,8 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
+                // overflow inspection:
+                // Due to price limitation, deltaAvailableQuote can not be too large.
                 int256 closedPositionNotional =
                     deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);

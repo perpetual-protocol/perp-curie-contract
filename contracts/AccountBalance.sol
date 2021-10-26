@@ -311,6 +311,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         uint256 indexTwap = _getIndexPrice(baseToken);
         // both positionSize & indexTwap are in 10^18 already
+        // overflow inspection:
+        // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
