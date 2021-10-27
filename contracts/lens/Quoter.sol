@@ -60,8 +60,6 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
 
         IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(marketRegistry).getMarketInfo(params.baseToken);
         address pool = marketInfo.pool;
-        // Q_BTNE: base token not exists
-        require(pool != address(0), "Q_BTNE");
 
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
