@@ -269,7 +269,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     // INTERNAL VIEW
     //
 
-    /// @return totalMarginRequirement with decimals == 18
+    /// @return totalMarginRequirement with decimals == 18, for freeCollateral calculation
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {
         uint256 totalDebtValue = IAccountBalance(_accountBalance).getTotalDebtValue(trader);
         return totalDebtValue.mulRatio(ratio);
