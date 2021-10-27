@@ -59,6 +59,10 @@ contract TestPerpSafeCast {
         return value.toInt32();
     }
 
+    function testToInt24(int256 value) external pure returns (int24) {
+        return value.toInt24();
+    }
+
     function testToInt16(int256 value) external pure returns (int16) {
         return value.toInt16();
     }

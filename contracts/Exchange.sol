@@ -44,7 +44,6 @@ contract Exchange is
     using PerpMath for int256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
-    using PerpSafeCast for int24;
 
     // CONSTANT
     uint256 internal constant _FULL_CLOSED_RATIO = 1e18;

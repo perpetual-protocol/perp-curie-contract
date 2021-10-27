@@ -13,12 +13,14 @@ describe("PerpSafeCast test", async () => {
     const maxInt128 = BigNumber.from(2).pow(127).sub(1)
     const maxInt64 = BigNumber.from(2).pow(63).sub(1)
     const maxInt32 = BigNumber.from(2).pow(31).sub(1)
-    const maxInt16 = BigNumber.from(2).pow(31).sub(1)
+    const maxInt24 = BigNumber.from(2).pow(23).sub(1)
+    const maxInt16 = BigNumber.from(2).pow(15).sub(1)
     const maxInt8 = BigNumber.from(2).pow(7).sub(1)
     const minInt128 = BigNumber.from(2).pow(127).mul(-1)
     const minInt64 = BigNumber.from(2).pow(63).mul(-1)
     const minInt32 = BigNumber.from(2).pow(31).mul(-1)
-    const minInt16 = BigNumber.from(2).pow(16).mul(-1)
+    const minInt24 = BigNumber.from(2).pow(23).mul(-1)
+    const minInt16 = BigNumber.from(2).pow(15).mul(-1)
     const minInt8 = BigNumber.from(2).pow(7).mul(-1)
     let perpSafeCast
 
@@ -92,6 +94,16 @@ describe("PerpSafeCast test", async () => {
 
         await expect(perpSafeCast.testToInt32(minInt32.sub(1))).to.be.revertedWith(
             "SafeCast: value doesn't fit in 32 bits",
+        )
+    })
+
+    it("force error, toInt24 exceed range", async () => {
+        await expect(perpSafeCast.testToInt24(maxInt24.add(1))).to.be.revertedWith(
+            "SafeCast: value doesn't fit in an 24 bits",
+        )
+
+        await expect(perpSafeCast.testToInt24(minInt24.sub(1))).to.be.revertedWith(
+            "SafeCast: value doesn't fit in an 24 bits",
         )
     })
     it("force error, toInt16 exceed range", async () => {
