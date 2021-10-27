@@ -50,4 +50,6 @@ interface IMarketRegistry {
     function getUniswapV3Factory() external view returns (address);
 
     function getMaxOrdersPerMarket() external view returns (uint8);
+
+    function hasPool(address baseToken) external view returns (bool);
 }

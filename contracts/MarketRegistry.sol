@@ -133,19 +133,19 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         return _maxOrdersPerMarket;
     }
 
-    function getPool(address baseToken) external view override returns (address) {
+    function getPool(address baseToken) external view override checkPool(baseToken) returns (address) {
         return _poolMap[baseToken];
     }
 
-    function getFeeRatio(address baseToken) external view override returns (uint24) {
+    function getFeeRatio(address baseToken) external view override checkPool(baseToken) returns (uint24) {
         return _exchangeFeeRatioMap[baseToken];
     }
 
-    function getInsuranceFundFeeRatio(address baseToken) external view override returns (uint24) {
+    function getInsuranceFundFeeRatio(address baseToken) external view override checkPool(baseToken) returns (uint24) {
         return _insuranceFundFeeRatioMap[baseToken];
     }
 
-    function getMarketInfo(address baseToken) external view override returns (MarketInfo memory) {
+    function getMarketInfo(address baseToken) external view override checkPool(baseToken) returns (MarketInfo memory) {
         return
             MarketInfo({
                 pool: _poolMap[baseToken],
@@ -153,5 +153,9 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
                 uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
                 insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken]
             });
+    }
+
+    function hasPool(address baseToken) external view override returns (bool) {
+        return _poolMap[baseToken] != address(0);
     }
 }
