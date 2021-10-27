@@ -604,11 +604,6 @@ contract ClearingHouse is
         return super._msgData();
     }
 
-    /// @inheritdoc IRelayRecipient
-    function versionRecipient() external pure override returns (string memory) {
-        return "2.0.0";
-    }
-
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
         return IVault(_vault).getFreeCollateralByRatio(trader, ratio);
     }

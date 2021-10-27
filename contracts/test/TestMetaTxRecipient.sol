@@ -19,9 +19,4 @@ contract TestMetaTxRecipient is BaseRelayRecipient, Initializable {
     function error() external pure {
         revert("MetaTxRecipientMock: Error");
     }
-
-    /// @inheritdoc IRelayRecipient
-    function versionRecipient() external pure override returns (string memory) {
-        return "2.0.0";
-    }
 }

@@ -3,7 +3,7 @@
 // for adding `payable` property at the return value of _msgSender()
 // SPDX-License-Identifier: MIT
 // solhint-disable no-inline-assembly
-pragma solidity >=0.6.9;
+pragma solidity 0.7.6;
 
 import "./IRelayRecipient.sol";
 
@@ -15,19 +15,30 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
     /*
      * Forwarder singleton we accept calls from
      */
-    address private _trustedForwarder;
+    address internal _trustedForwarder;
 
-    function trustedForwarder() public view virtual returns (address) {
+    // __gap is reserved storage
+    uint256[50] private __gap;
+
+    event TrustedForwarderUpdated(address trustedForwarder);
+
+    function getTrustedForwarder() external view returns (address) {
         return _trustedForwarder;
+    }
+
+    /// @inheritdoc IRelayRecipient
+    function versionRecipient() external pure override returns (string memory) {
+        return "2.0.0";
+    }
+
+    /// @inheritdoc IRelayRecipient
+    function isTrustedForwarder(address forwarder) public view virtual override returns (bool) {
+        return forwarder == _trustedForwarder;
     }
 
     function _setTrustedForwarder(address trustedForwarderArg) internal {
         _trustedForwarder = trustedForwarderArg;
         emit TrustedForwarderUpdated(trustedForwarderArg);
-    }
-
-    function isTrustedForwarder(address forwarder) public view virtual override returns (bool) {
-        return forwarder == _trustedForwarder;
     }
 
     /**
@@ -36,6 +47,7 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      * otherwise, return `msg.sender`.
      * should be used in the contract anywhere instead of msg.sender
      */
+    /// @inheritdoc IRelayRecipient
     function _msgSender() internal view virtual override returns (address payable ret) {
         if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
             // At this point we know that the sender is a trusted forwarder,
@@ -56,7 +68,7 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      * otherwise (if the call was made directly and not through the forwarder), return `msg.data`
      * should be used in the contract instead of msg.data, where this difference matters.
      */
-
+    /// @inheritdoc IRelayRecipient
     function _msgData() internal view virtual override returns (bytes calldata ret) {
         if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
             return msg.data[0:msg.data.length - 20];

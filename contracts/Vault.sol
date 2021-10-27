@@ -281,9 +281,4 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
         return super._msgData();
     }
-
-    /// @inheritdoc IRelayRecipient
-    function versionRecipient() external pure override returns (string memory) {
-        return "2.0.0";
-    }
 }
