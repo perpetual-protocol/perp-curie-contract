@@ -202,4 +202,16 @@ describe("AccountBalance", () => {
             expect(await accountBalance.getBaseTokens(bob.address)).be.deep.eq([baseToken2.address, baseToken.address])
         })
     })
+
+    describe("# setVault", async () => {
+        it("set vault and emit event", async () => {
+            await expect(accountBalance.setVault(vault.address))
+                .to.emit(accountBalance, "VaultChanged")
+                .withArgs(vault.address)
+        })
+
+        it("force error, cannot set to a EOA address", async () => {
+            await expect(accountBalance.setVault(alice.address)).to.be.revertedWith("AB_VNC")
+        })
+    })
 })

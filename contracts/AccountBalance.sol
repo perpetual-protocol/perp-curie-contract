@@ -29,8 +29,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     using AccountMarket for AccountMarket.Info;
 
     // CONSTANT
-    // 10 wei
-    uint256 internal constant _DUST = 10;
+    uint256 internal constant _DUST = 10 wei;
 
     //
     // MODIFIER
@@ -72,6 +71,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // vault address is not contract
         require(vaultArg.isContract(), "AB_VNC");
         _vault = vaultArg;
+        emit VaultChanged(vaultArg);
     }
 
     function settleBalanceAndDeregister(
@@ -208,7 +208,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             int256 baseBalance = getBase(trader, baseToken);
-            uint256 baseDebt = baseBalance > 0 ? 0 : (-baseBalance).toUint256();
+            uint256 baseDebt = baseBalance > 0 ? 0 : baseBalance.abs();
             uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
             // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
             int256 quoteBalance = getQuote(trader, baseToken);
@@ -216,7 +216,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
         }
 
-        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : (-totalQuoteBalance).toUint256();
+        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : totalQuoteBalance.abs();
 
         return totalQuoteDebtValue.add(totalBaseDebtValue);
     }
@@ -312,6 +312,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         uint256 indexTwap = _getIndexPrice(baseToken);
         // both positionSize & indexTwap are in 10^18 already
+        // overflow inspection:
+        // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
     }
 
@@ -373,7 +375,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         delete _accountMarketMap[trader][baseToken];
 
         uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             if (_baseTokensMap[trader][i] == baseToken) {
                 // if the item to be removed is the last one, pop it directly
                 // else, replace it with the last one and pop the last one

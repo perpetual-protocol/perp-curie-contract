@@ -23,6 +23,7 @@ import { PerpMath } from "../lib/PerpMath.sol";
 library UniswapV3Broker {
     using SafeMathUpgradeable for uint256;
     using PerpMath for int256;
+    using PerpMath for uint256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
@@ -129,7 +130,7 @@ library UniswapV3Broker {
         require(params.amount > 0, "UB_ZI");
 
         // UniswapV3Pool uses the sign to determine isExactInput or not
-        int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : -params.amount.toInt256();
+        int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : params.amount.neg256();
 
         // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
         // > 0: pool gets; user pays

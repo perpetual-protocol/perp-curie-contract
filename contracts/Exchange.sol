@@ -46,6 +46,9 @@ contract Exchange is
     using PerpSafeCast for int256;
     using PerpSafeCast for int24;
 
+    // CONSTANT
+    uint256 internal constant _FULL_CLOSED_RATIO = 1e18;
+
     //
     // STRUCT
     //
@@ -98,6 +101,7 @@ contract Exchange is
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
         _accountBalance = accountBalanceArg;
+        emit AccountBalanceChanged(accountBalanceArg);
     }
 
     // solhint-disable-next-line
@@ -112,6 +116,8 @@ contract Exchange is
         require(maxTickCrossedWithinBlock <= (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
+
+        emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
@@ -126,7 +132,7 @@ contract Exchange is
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
         int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
-        bool isOldPositionShort = positionSize < 0 ? true : false;
+        bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
         bool isPartialClose;
 
@@ -182,14 +188,13 @@ contract Exchange is
         // there is only realizedPnl when it's not increasing the position size
         if (isReducePosition) {
             // closedRatio is based on the position size
-            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, 1 ether, positionSize.abs());
+            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
             int256 deltaAvailableQuote =
-                params.isBaseToQuote
-                    ? response.deltaAvailableQuote.toInt256()
-                    : -response.deltaAvailableQuote.toInt256();
+                params.isBaseToQuote ? response.deltaAvailableQuote.toInt256() : response.deltaAvailableQuote.neg256();
 
-            // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
-            if (closedRatio <= 1 ether) {
+            // if closedRatio <= 1 (decimals = 18),
+            // it's reducing or closing a position; else, it's opening a larger reverse position
+            if (closedRatio <= _FULL_CLOSED_RATIO) {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
                 // taker:
                 // step 1: long 20 base
@@ -203,7 +208,12 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 137.5 + 11.235 = 126.265
                 // openNotional = -openNotionalFraction = 126.265
-                int256 reducedOpenNotional = oldOpenNotional.mul(closedRatio.toInt256()).divBy10_18();
+                // overflow inspection:
+                // maximum of closedRatio = 1e18
+                // range of oldOpenNotional = [-2^255 / 1e18, 2^255 / 1e18]
+                // only overflow when oldOpenNotional < -2^255 / 1e18 or oldOpenNotional > 2^255 / 1e18.
+                int256 reducedOpenNotional =
+                    oldOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
                 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
             } else {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
@@ -220,7 +230,12 @@ contract Exchange is
                 // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
                 //                      = 252.53 - 337.5 + -27.53 = -112.5
                 // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
-                int256 closedPositionNotional = deltaAvailableQuote.mul(1 ether).div(closedRatio.toInt256());
+                // overflow inspection:
+                // Due to price limitation,
+                // assume the max tick = 887272 and max of liquidity = 2^128
+                // max of delta quote = (sqrt(1.0001^887272) - 1) * 2**128 = 6.2768658e+57 < 2^255/1e18
+                int256 closedPositionNotional =
+                    deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
             }
 
@@ -294,7 +309,7 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, -fundingPayment);
+            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
@@ -556,18 +571,18 @@ contract Exchange is
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
+            exchangedPositionSize = FeeMath
+                .calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false)
+                .neg256();
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional
             exchangedPositionNotional = response.quote.toInt256();
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
+            exchangedPositionNotional = FeeMath
+                .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
+                .neg256();
         }
 
         // update the timestamp of the first tx in this market
@@ -674,7 +689,7 @@ contract Exchange is
             : amount.toInt256();
         signedScaledAmountForReplaySwap = isExactInput
             ? signedScaledAmountForReplaySwap
-            : -signedScaledAmountForReplaySwap;
+            : signedScaledAmountForReplaySwap.neg256();
     }
 
     function _getPendingFundingPaymentWithLiquidityCoefficient(

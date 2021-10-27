@@ -24,6 +24,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
     using PerpSafeCast for uint256;
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for int256;
+    using PerpMath for uint256;
     using AddressUpgradeable for address;
 
     struct SwapParams {
@@ -74,7 +75,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
                 uniswapFeeRatio
             );
         // UniswapV3Pool uses the sign to determine isExactInput or not
-        int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : -scaledAmount.toInt256();
+        int256 specifiedAmount = params.isExactInput ? scaledAmount.toInt256() : scaledAmount.neg256();
 
         try
             IUniswapV3Pool(pool).swap(
@@ -99,7 +100,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
             if (params.isBaseToQuote) {
                 fee = FullMath.mulDivRoundingUp(quote, exchangeFeeRatio, 1e6);
                 // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-                exchangedPositionSize = -(FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).toInt256());
+                exchangedPositionSize = FeeMath.calcAmountScaledByFeeRatio(base, uniswapFeeRatio, false).neg256();
                 // due to base to quote fee, exchangedPositionNotional contains the fee
                 // s.t. we can take the fee away from exchangedPositionNotional
                 exchangedPositionNotional = quote.toInt256();
@@ -118,9 +119,7 @@ contract Quoter is IUniswapV3SwapCallback, Initializable {
 
                 // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
                 exchangedPositionSize = base.toInt256();
-                exchangedPositionNotional = -(
-                    FeeMath.calcAmountScaledByFeeRatio(quote, uniswapFeeRatio, false).toInt256()
-                );
+                exchangedPositionNotional = FeeMath.calcAmountScaledByFeeRatio(quote, uniswapFeeRatio, false).neg256();
             }
             response = SwapResponse(
                 exchangedPositionSize.abs(), // deltaAvailableBase

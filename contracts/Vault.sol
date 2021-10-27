@@ -161,7 +161,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _modifyBalance(
             to,
             token,
-            (-(amountX10_D.toInt256().sub(owedRealizedPnlX10_18.formatSettlementToken(_decimals))))
+            (amountX10_D.toInt256().sub(owedRealizedPnlX10_18.formatSettlementToken(_decimals))).neg256()
         );
         TransferHelper.safeTransfer(token, to, amountX10_D);
 

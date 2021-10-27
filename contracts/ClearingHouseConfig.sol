@@ -32,10 +32,10 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         __SafeOwnable_init();
 
         _maxMarketsPerAccount = type(uint8).max;
-        _imRatio = 10e4; // initial-margin ratio, 10%
-        _mmRatio = 6.25e4; // minimum-margin ratio, 6.25%
-        _liquidationPenaltyRatio = 2.5e4; // initial penalty ratio, 2.5%
-        _partialCloseRatio = 25e4; // partial close ratio, 25%
+        _imRatio = 0.1e6; // initial-margin ratio, 10% in decimal 6
+        _mmRatio = 0.0625e6; // minimum-margin ratio, 6.25% in decimal 6
+        _liquidationPenaltyRatio = 0.025e6; // initial penalty ratio, 2.5% in decimal 6
+        _partialCloseRatio = 0.25e6; // partial close ratio, 25% in decimal 6
         _twapInterval = 15 minutes;
         _settlementTokenBalanceCap = type(uint256).max;
     }
