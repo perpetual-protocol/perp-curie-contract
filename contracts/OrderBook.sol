@@ -39,9 +39,9 @@ contract OrderBook is
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for uint256;
-    using PerpMath for int256;
     using PerpMath for uint160;
     using PerpMath for uint128;
+    using PerpMath for int256;
     using PerpMath for int128;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;

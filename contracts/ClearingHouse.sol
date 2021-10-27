@@ -39,14 +39,13 @@ contract ClearingHouse is
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
-    using SafeMathUpgradeable for uint160;
+    using SignedSafeMathUpgradeable for int256;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
-    using SignedSafeMathUpgradeable for int256;
     using PerpSafeCast for int256;
     using PerpMath for uint256;
-    using PerpMath for int256;
     using PerpMath for uint160;
+    using PerpMath for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
 

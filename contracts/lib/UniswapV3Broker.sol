@@ -25,7 +25,6 @@ library UniswapV3Broker {
     using PerpMath for int256;
     using PerpMath for uint256;
     using PerpSafeCast for uint256;
-    using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
 
     struct AddLiquidityParams {
