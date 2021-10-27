@@ -201,14 +201,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            int256 baseBalance = getBase(trader, baseToken);
+            AccountMarket.Info memory info = _accountMarketMap[trader][baseToken];
             int256 baseDebtValue =
-                baseBalance >= 0 ? 0 : baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
+                info.baseBalance >= 0 ? 0 : info.baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
 
             // we can't calculate totalQuoteDebtValue until we have totalQuoteBalance
-            int256 quoteBalance = getQuote(trader, baseToken);
-            totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
+            totalQuoteBalance = totalQuoteBalance.add(info.quoteBalance);
         }
         int256 totalQuoteDebtValue = totalQuoteBalance >= 0 ? 0 : totalQuoteBalance;
 
@@ -355,7 +354,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @dev this function is expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
-        if (getBase(trader, baseToken).abs() >= _DUST || getQuote(trader, baseToken).abs() >= _DUST) {
+        AccountMarket.Info memory info = _accountMarketMap[trader][baseToken];
+        if (info.baseBalance.abs() >= _DUST || info.quoteBalance.abs() >= _DUST) {
             return;
         }
 
