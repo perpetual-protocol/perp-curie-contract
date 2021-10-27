@@ -138,13 +138,13 @@ contract Exchange is
         // if over price limit when
         // 1. close a position, then partial close the position
         // 2. reduce a position, then revert
-        if (params.isClose) {
+        if (params.isClose && positionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
+                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, positionSize)
             ) {
                 // EX_AOPLO: already over price limit once
                 require(
@@ -469,7 +469,7 @@ contract Exchange is
     // INTERNAL NON-VIEW
     //
 
-    function _isOverPriceLimitByReplaySwap(
+    function _isOverPriceLimitByReplayReverseSwap(
         address baseToken,
         bool isBaseToQuote,
         int256 positionSize
