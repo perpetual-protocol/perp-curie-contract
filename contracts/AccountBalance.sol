@@ -360,8 +360,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         }
 
         uint256 baseInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        if (baseInPool > 0) {
+            return;
+        }
+
         uint256 quoteInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        if (baseInPool > 0 || quoteInPool > 0) {
+        if (quoteInPool > 0) {
             return;
         }
 
