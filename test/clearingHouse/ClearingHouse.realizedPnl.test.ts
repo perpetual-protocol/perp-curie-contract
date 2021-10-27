@@ -206,7 +206,7 @@ describe("ClearingHouse realizedPnl", () => {
         // maker.owedRealizedPnl: 9.542011399247233629
 
         // taker and maker's realized PnL should balance out each other (with some precision errors)
-        expect(takerRealizedPnl.add(makerRealizedPnl)).to.be.eq(parseEther("-0.000000000000000004"))
+        expect(takerRealizedPnl.add(makerRealizedPnl)).to.be.closeTo("0", 10)
 
         // taker withdraw all collaterals
         const takerFreeCollateral = await vault.getFreeCollateral(taker.address)

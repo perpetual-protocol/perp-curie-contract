@@ -1,5 +1,7 @@
+import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import bn from "bignumber.js"
-import { BigNumber, BigNumberish } from "ethers"
+import { BaseContract, BigNumber, BigNumberish } from "ethers"
 import { VirtualToken } from "../../typechain"
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
@@ -40,4 +42,8 @@ export interface BaseQuoteAmountPair {
 
 export function isAscendingTokenOrder(addr0: string, addr1: string): boolean {
     return addr0.toLowerCase() < addr1.toLowerCase()
+}
+
+export function filterLogs(receipt: TransactionReceipt, topic: string, baseContract: BaseContract): LogDescription[] {
+    return receipt.logs.filter(log => log.topics[0] === topic).map(log => baseContract.interface.parseLog(log))
 }
