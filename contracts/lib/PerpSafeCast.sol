@@ -206,7 +206,7 @@ library PerpSafeCast {
      * - input must be greater than or equal to 0 and into 24 bit.
      */
     function toUint24(int256 value) internal pure returns (uint24) {
-        require(value >= 0 && value < 2**24, "SafeCast: value must be positive");
+        require(value >= 0 && value < 2**24, "SafeCast: value must be positive or value doesn't fit in an 24 bits");
         return uint24(value);
     }
 }
