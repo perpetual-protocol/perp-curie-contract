@@ -196,8 +196,8 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).addBalance(
             trader,
             params.baseToken,
-            -(response.base.toInt256()),
-            -(response.quote.toInt256()),
+            response.base.neg256(),
+            response.quote.neg256(),
             response.fee.toInt256()
         );
 
@@ -380,7 +380,7 @@ contract ClearingHouse is
                 IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
             );
 
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, liquidationFee.neg256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();

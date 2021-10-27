@@ -41,6 +41,7 @@ contract OrderBook is
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
+    using PerpMath for uint128;
     using PerpMath for int128;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
@@ -569,9 +570,9 @@ contract OrderBook is
             _quoteToken,
             params.lowerTick,
             params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
+            response.base.neg256(),
+            response.quote.neg256(),
+            params.liquidity.neg128(),
             fee
         );
 

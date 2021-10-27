@@ -42,9 +42,17 @@ library PerpMath {
         return -a;
     }
 
+    function neg256(uint256 a) internal pure returns (int256) {
+        return -PerpSafeCast.toInt256(a);
+    }
+
     function neg128(int128 a) internal pure returns (int128) {
         require(a > -2**127, "PerpMath: inversion overflow");
         return -a;
+    }
+
+    function neg128(uint128 a) internal pure returns (int128) {
+        return -PerpSafeCast.toInt128(a);
     }
 
     function divBy10_18(int256 value) internal pure returns (int256) {

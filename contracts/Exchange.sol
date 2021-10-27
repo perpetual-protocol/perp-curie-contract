@@ -194,9 +194,7 @@ contract Exchange is
             // closedRatio is based on the position size
             uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
             int256 deltaAvailableQuote =
-                params.isBaseToQuote
-                    ? response.deltaAvailableQuote.toInt256()
-                    : -response.deltaAvailableQuote.toInt256();
+                params.isBaseToQuote ? response.deltaAvailableQuote.toInt256() : response.deltaAvailableQuote.neg256();
 
             // if closedRatio <= 1 (decimals = 18),
             // it's reducing or closing a position; else, it's opening a larger reverse position
@@ -577,18 +575,18 @@ contract Exchange is
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
+            exchangedPositionSize = FeeMath
+                .calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false)
+                .neg256();
             // due to base to quote fee, exchangedPositionNotional contains the fee
             // s.t. we can take the fee away from exchangedPositionNotional
             exchangedPositionNotional = response.quote.toInt256();
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = -(
-                FeeMath.calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false).toInt256()
-            );
+            exchangedPositionNotional = FeeMath
+                .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
+                .neg256();
         }
 
         // update the timestamp of the first tx in this market
