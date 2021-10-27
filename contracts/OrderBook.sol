@@ -17,7 +17,6 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { PerpSafeMath } from "./lib/PerpSafeMath.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
@@ -37,11 +36,11 @@ contract OrderBook is
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
+    using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for uint256;
     using PerpMath for uint160;
     using PerpMath for int256;
-    using PerpSafeMath for uint128;
     using PerpSafeCast for uint128;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
@@ -590,7 +589,7 @@ contract OrderBook is
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         // after the fee is calculated, lastFeeGrowthInsideX128 can be updated if liquidity != 0 after removing
-        openOrder.liquidity = openOrder.liquidity.sub128(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, orderId);
         } else {
@@ -657,7 +656,7 @@ contract OrderBook is
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
-        openOrder.liquidity = openOrder.liquidity.add128(params.liquidity).toUint128();
+        openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
 
         return fee;

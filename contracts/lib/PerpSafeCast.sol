@@ -196,21 +196,6 @@ library PerpSafeCast {
     }
 
     /**
-     * @dev Returns the downcasted uint24 from uint256, reverting on
-     * overflow (when the input is greater than largest uint24).
-     *
-     * Counterpart to Solidity's `uint24` operator.
-     *
-     * Requirements:
-     *
-     * - input must fit into 24 bits
-     */
-    function toUint24(uint256 value) internal pure returns (uint24) {
-        require(value < 2**24, "SafeCast: value doesn't fit in 24 bits");
-        return uint24(value);
-    }
-
-    /**
      * @dev Returns the downcasted uint24 from int256, reverting on
      * overflow (when the input is greater than largest uint24).
      *
@@ -223,35 +208,5 @@ library PerpSafeCast {
     function toUint24(int256 value) internal pure returns (uint24) {
         require(value >= 0 && value < 2**24, "SafeCast: value must be positive");
         return uint24(value);
-    }
-
-    /**
-     * @dev Returns the downcasted int24 from uint256, reverting on
-     * overflow (when the input is greater than largest int24).
-     *
-     * Counterpart to Solidity's `int24` operator.
-     *
-     * Requirements:
-     *
-     * - input must fit into 24 bits
-     */
-    function toInt24(uint256 value) internal pure returns (int24) {
-        require(value < 2**23, "SafeCast: value doesn't fit in 24 bits");
-        return int24(value);
-    }
-
-    /**
-     * @dev Returns the downcasted int24 from int256, reverting on
-     * overflow (when the input is greater than largest int24).
-     *
-     * Counterpart to Solidity's `int24` operator.
-     *
-     * Requirements:
-     *
-     * - input must fit into 24 bits
-     */
-    function toInt24(int256 value) internal pure returns (int24) {
-        require(value >= -2**23 && value < 2**23, "SafeCast: value doesn't fit in 24 bits");
-        return int24(value);
     }
 }
