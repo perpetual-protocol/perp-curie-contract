@@ -640,8 +640,8 @@ contract Exchange is
         }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        int24 upperTickBound = lastUpdatedTick.add(maxTickDelta).toInt24();
+        int24 lowerTickBound = lastUpdatedTick.sub(maxTickDelta).toInt24();
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
