@@ -408,14 +408,16 @@ contract Exchange is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+        uint32 twapIntervalArg = 0;
         // shorten twapInterval if prior observations are not enough for twapInterval
-        if (_firstTradedTimestampMap[baseToken] == 0) {
-            twapIntervalArg = 0;
-        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+        if (_firstTradedTimestampMap[baseToken] != 0) {
+            twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+            uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            if (twapIntervalArg > deltaTimestamp) {
+                twapIntervalArg = deltaTimestamp;
+            }
         }
 
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
