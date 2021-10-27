@@ -57,7 +57,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(exchangeArg.isContract(), "AB_EXNC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
-        // IOrderBook is not contarct
+        // IOrderBook is not contract
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
@@ -127,25 +127,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             return;
         }
 
-        // if baseBalance == 0, token is not yet registered by any external function (ex: mint, burn, swap)
-        if (getBase(trader, baseToken) == 0) {
-            bool hit;
+        // only register if there is no taker's position nor any openOrder (whether in base or quote token)
+        if (getBase(trader, baseToken) == 0 && IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == baseToken) {
-                    hit = true;
-                    break;
+                    return;
                 }
             }
-            if (!hit) {
-                // markets number exceeded
-                uint8 maxMarketsPerAccount = IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount();
-                require(tokens.length < maxMarketsPerAccount, "AB_MNE");
-                _baseTokensMap[trader].push(baseToken);
-            }
+            // AB_MNE: markets number exceeds
+            require(tokens.length < IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
+            _baseTokensMap[trader].push(baseToken);
         }
     }
 
-    /// @dev this function is now only called by Vault.withdraw()
+    /// @dev this function is only called by Vault.withdraw()
     function settleOwedRealizedPnl(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == _vault, "AB_OV");
@@ -190,9 +185,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    /// @dev get margin requirement for determining liquidation.
-    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
-    function getLiquidateMarginRequirement(address trader) external view override returns (int256) {
+    /// @dev this is different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
+    /// @return int instead of uint, as it is compared with ClearingHouse.getAccountValue(), which is also an int
+    function getMarginRequirementForLiquidation(address trader) external view override returns (int256) {
         return
             getTotalAbsPositionValue(trader)
                 .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
@@ -202,54 +197,38 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getTotalDebtValue(address trader) external view override returns (uint256) {
         int256 totalQuoteBalance;
-        uint256 totalBaseDebtValue;
+        int256 totalBaseDebtValue;
         uint256 tokenLen = _baseTokensMap[trader].length;
-
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             int256 baseBalance = getBase(trader, baseToken);
-            uint256 baseDebt = baseBalance > 0 ? 0 : baseBalance.abs();
-            uint256 baseDebtValue = baseDebt.mul(_getIndexPrice(baseToken)).divBy10_18();
-            // we can't calculate totalQuoteDebtValue until we have accumulated totalQuoteBalance
-            int256 quoteBalance = getQuote(trader, baseToken);
+            int256 baseDebtValue =
+                baseBalance >= 0 ? 0 : baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
+
+            // we can't calculate totalQuoteDebtValue until we have totalQuoteBalance
+            int256 quoteBalance = getQuote(trader, baseToken);
             totalQuoteBalance = totalQuoteBalance.add(quoteBalance);
         }
+        int256 totalQuoteDebtValue = totalQuoteBalance >= 0 ? 0 : totalQuoteBalance;
 
-        uint256 totalQuoteDebtValue = totalQuoteBalance > 0 ? 0 : totalQuoteBalance.abs();
-
-        return totalQuoteDebtValue.add(totalBaseDebtValue);
+        // both values are negative due to the above condition checks
+        return totalQuoteDebtValue.add(totalBaseDebtValue).abs();
     }
 
     /// @inheritdoc IAccountBalance
-    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
-        address[] memory tokens = _baseTokensMap[trader];
-        uint256 totalPositionValue;
-        uint256 tokenLen = tokens.length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = tokens[i];
-            // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
-            totalPositionValue = totalPositionValue.add(positionValue);
-        }
-        return totalPositionValue;
-    }
-
-    /// @inheritdoc IAccountBalance
+    /// @return owedRealizedPnl the pnl realized already but stored temporarily in AccountBalance
+    /// @return unrealizedPnl the pnl not yet realized
     function getOwedAndUnrealizedPnl(address trader) external view override returns (int256, int256) {
-        int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
-
-        // unrealized Pnl
         int256 totalPositionValue;
-        uint256 baseTokenLength = _baseTokensMap[trader].length;
-
-        for (uint256 i = 0; i < baseTokenLength; i++) {
+        uint256 tokenLen = _baseTokensMap[trader].length;
+        for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken));
         }
         int256 unrealizedPnl = getNetQuoteBalance(trader).add(totalPositionValue);
 
-        return (owedRealizedPnl, unrealizedPnl);
+        return (_owedRealizedPnlMap[trader], unrealizedPnl);
     }
 
     /// @inheritdoc IAccountBalance
@@ -274,8 +253,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
-        uint256 tokenLen = _baseTokensMap[trader].length;
         int256 totalQuoteBalance;
+        uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             totalQuoteBalance = totalQuoteBalance.add(getQuote(trader, baseToken));
@@ -315,6 +294,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
         return positionSize.mul(indexTwap.toInt256()).divBy10_18();
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
+        address[] memory tokens = _baseTokensMap[trader];
+        uint256 totalPositionValue;
+        uint256 tokenLen = tokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = tokens[i];
+            // will not use negative value in this case
+            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            totalPositionValue = totalPositionValue.add(positionValue);
+        }
+        return totalPositionValue;
     }
 
     //
@@ -374,13 +367,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         delete _accountMarketMap[trader][baseToken];
 
-        uint256 length = _baseTokensMap[trader].length;
-        for (uint256 i = 0; i < length; i++) {
+        uint256 tokenLen = _baseTokensMap[trader].length;
+        for (uint256 i; i < tokenLen; i++) {
             if (_baseTokensMap[trader][i] == baseToken) {
                 // if the item to be removed is the last one, pop it directly
                 // else, replace it with the last one and pop the last one
-                if (i != length - 1) {
-                    _baseTokensMap[trader][i] = _baseTokensMap[trader][length - 1];
+                if (i != tokenLen - 1) {
+                    _baseTokensMap[trader][i] = _baseTokensMap[trader][tokenLen - 1];
                 }
                 _baseTokensMap[trader].pop();
                 break;

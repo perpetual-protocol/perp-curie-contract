@@ -69,7 +69,7 @@ interface IAccountBalance {
 
     /// @dev get margin requirement for determining liquidation.
     /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
-    function getLiquidateMarginRequirement(address trader) external view returns (int256);
+    function getMarginRequirementForLiquidation(address trader) external view returns (int256);
 
     function getTotalDebtValue(address trader) external view returns (uint256);
 

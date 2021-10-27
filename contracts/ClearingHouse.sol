@@ -355,7 +355,7 @@ contract ClearingHouse is
 
         // CH_EAV: enough account value
         require(
-            getAccountValue(trader) < IAccountBalance(_accountBalance).getLiquidateMarginRequirement(trader),
+            getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader),
             "CH_EAV"
         );
 
@@ -521,7 +521,7 @@ contract ClearingHouse is
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
-                getAccountValue(maker) < IAccountBalance(_accountBalance).getLiquidateMarginRequirement(maker),
+                getAccountValue(maker) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(maker),
             "CH_NEXO"
         );
 
