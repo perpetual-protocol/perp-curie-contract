@@ -76,6 +76,9 @@ interface IOrderBook {
         uint256 quoteFee
     );
 
+    /// @param exchange the address of exchange contract
+    event ExchangeChanged(address indexed exchange);
+
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external returns (RemoveLiquidityResponse memory);

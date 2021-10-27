@@ -152,6 +152,7 @@ contract ClearingHouse is
         // CH_ANC: address is not contract
         require(trustedForwarderArg.isContract(), "CH_ANC");
         _setTrustedForwarder(trustedForwarderArg);
+        emit TrustedForwarderChanged(trustedForwarderArg);
     }
 
     /// @inheritdoc IClearingHouse
@@ -195,8 +196,8 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).addBalance(
             trader,
             params.baseToken,
-            -(response.base.toInt256()),
-            -(response.quote.toInt256()),
+            response.base.neg256(),
+            response.quote.neg256(),
             response.fee.toInt256()
         );
 
@@ -379,7 +380,7 @@ contract ClearingHouse is
                 IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
             );
 
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, -liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, liquidationFee.neg256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
@@ -576,7 +577,7 @@ contract ClearingHouse is
 
         // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
         // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
-        bool isLong = positionSize > 0 ? true : false;
+        bool isLong = positionSize > 0;
         return
             _openPosition(
                 InternalOpenPositionParams({

@@ -14,6 +14,9 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
+    /// @param vault The address of the vault contract
+    event VaultChanged(address indexed vault);
+
     /// @dev Settle account balance and deregister base token
     /// @param maker The address of the maker
     /// @param baseToken The address of the market's base token

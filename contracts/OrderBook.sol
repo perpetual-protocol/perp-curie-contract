@@ -41,6 +41,8 @@ contract OrderBook is
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
+    using PerpMath for uint128;
+    using PerpMath for int128;
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
@@ -99,6 +101,7 @@ contract OrderBook is
         // Exchange is 0
         require(exchangeArg != address(0), "OB_CH0");
         _exchange = exchangeArg;
+        emit ExchangeChanged(exchangeArg);
     }
 
     function addLiquidity(AddLiquidityParams calldata params)
@@ -379,7 +382,7 @@ contract OrderBook is
                     }
 
                     int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
-                    if (params.isBaseToQuote) liquidityNet = -liquidityNet;
+                    if (params.isBaseToQuote) liquidityNet = liquidityNet.neg128();
                     swapState.liquidity = LiquidityMath.addDelta(swapState.liquidity, liquidityNet);
                 }
 
@@ -567,9 +570,9 @@ contract OrderBook is
             _quoteToken,
             params.lowerTick,
             params.upperTick,
-            -response.base.toInt256(),
-            -response.quote.toInt256(),
-            -params.liquidity.toInt128(),
+            response.base.neg256(),
+            response.quote.neg256(),
+            params.liquidity.neg128(),
             fee
         );
 
