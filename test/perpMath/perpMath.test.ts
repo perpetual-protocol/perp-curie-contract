@@ -48,7 +48,7 @@ describe("PerpMath test", async () => {
 
     it("force error, abs negative overflow", async () => {
         // TODO WIP pending PR for negative overflow
-        await expect(perpMath.testAbs(minInt256)).to.be.revertedWith("SafeCast: value must be positive")
+        await expect(perpMath.testAbs(minInt256)).to.be.revertedWith("PerpMath: inversion overflow")
     })
 
     it("divBy10_18 int", async () => {
