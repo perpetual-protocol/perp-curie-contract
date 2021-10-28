@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumberish } from "ethers"
-import { formatEther, formatUnits, parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -227,32 +227,33 @@ describe("ClearingHouse liquidate", () => {
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
             expect(davisPnl[0]).to.eq("2102129818649289842")
         })
+        it("partial closes due to not enough liquidity", async () => {
+            // maker remove 99.99% liquidity
+            const liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: liquidity.sub(liquidity.div(1000)),
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
 
-        it.only("can't liquidate if not enough liquidity", async () => {
-            // // carol remove all liquidity
-            // await clearingHouse.connect(carol).removeLiquidity({
-            //     baseToken: baseToken.address,
-            //     lowerTick: 49000,
-            //     upperTick: 51400,
-            //     liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
-            //     minBase: 0,
-            //     minQuote: 0,
-            //     deadline: ethers.constants.MaxUint256,
-            // })
+            // first liquidation
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
-            // // carol reduce the liquidity
-            // const liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity
-            // await clearingHouse.connect(carol).removeLiquidity({
-            //     baseToken: baseToken.address,
-            //     lowerTick: 49000,
-            //     upperTick: 51400,
-            //     liquidity: liquidity.sub(liquidity.div(1000)),
-            //     minBase: 0,
-            //     minQuote: 0,
-            //     deadline: ethers.constants.MaxUint256,
-            // })
+            // current tick was pushed to MIN_TICK because all liquidity were depleted
+            const afterLiquidateTick = (await pool.slot0()).tick
+            expect(afterLiquidateTick).to.be.deep.eq(-887272)
 
-            // carol significantly lowers the price
+            // second liquidation would fail because no liquidity left
+            // revert 'T' from uniswap V3 lib : tickMath
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("T")
+        })
+
+        it("partial closes due to bad price", async () => {
+            // maker remove all liquidity
             await clearingHouse.connect(carol).removeLiquidity({
                 baseToken: baseToken.address,
                 lowerTick: 49000,
@@ -262,6 +263,8 @@ describe("ClearingHouse liquidate", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
+
+            // maker add enough liquidity in bad price
             await clearingHouse.connect(carol).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0"),
@@ -273,47 +276,35 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            await exchange.settleFunding(alice.address, baseToken.address)
-
-            console.log(
-                `alice position size (before): ${formatEther(
-                    await accountBalance.getPositionSize(alice.address, baseToken.address),
-                )}`,
-            )
-            console.log(
-                `alice account value (before): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
-            )
-            console.log(
-                `alice free collateral (before): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
-            )
-
+            // first liquidation should be partial because price movement exceeds the limit
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
-            console.log(
-                `alice position size (after): ${formatEther(
-                    await accountBalance.getPositionSize(alice.address, baseToken.address),
-                )}`,
+            // alice has partial close when first liquidity
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                parseEther("0.441305633515980014"),
             )
-            console.log(
-                `alice account value (after): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
-            )
-            console.log(
-                `alice free collateral (after): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
-            )
-            console.log(`current tick: ${(await pool.slot0()).tick}`)
+            // tick should be pushed to the edge of the new liquidity since there's nothing left elsewhere
+            expect((await pool.slot0()).tick).to.be.deep.eq(199)
 
+            // second liquidation should be liquidate all positionSize since the liquidity here is plenty
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
+        })
 
-            console.log(
-                `alice position size (after2): ${formatEther(
-                    await accountBalance.getPositionSize(alice.address, baseToken.address),
-                )}`,
-            )
-            console.log(
-                `alice account value (after2): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
-            )
-            console.log(
-                `alice free collateral (after2): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
+        it("fails to close due to no liquidity", async () => {
+            // maker remove all liquidity
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith(
+                "CH_F0S",
             )
         })
     })
