@@ -65,9 +65,7 @@ describe("ClearingHouse liquidate", () => {
     }
 
     beforeEach(async () => {
-        // TODO test
-        // const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
 
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
@@ -241,6 +239,7 @@ describe("ClearingHouse liquidate", () => {
             })
 
             // first liquidation
+            await clearingHouse.setBlockTimestamp("1")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
             // current tick was pushed to MIN_TICK because all liquidity were depleted
@@ -249,6 +248,7 @@ describe("ClearingHouse liquidate", () => {
 
             // second liquidation would fail because no liquidity left
             // revert 'T' from uniswap V3 lib : tickMath
+            await clearingHouse.setBlockTimestamp("2")
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("T")
         })
 
@@ -277,6 +277,7 @@ describe("ClearingHouse liquidate", () => {
             })
 
             // first liquidation should be partial because price movement exceeds the limit
+            await clearingHouse.setBlockTimestamp("1")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
             // alice has partial close when first liquidity
@@ -287,6 +288,7 @@ describe("ClearingHouse liquidate", () => {
             expect((await pool.slot0()).tick).to.be.deep.eq(199)
 
             // second liquidation should be liquidate all positionSize since the liquidity here is plenty
+            await clearingHouse.setBlockTimestamp("2")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
         })
@@ -303,6 +305,7 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
+            await clearingHouse.setBlockTimestamp("1")
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith(
                 "CH_F0S",
             )
