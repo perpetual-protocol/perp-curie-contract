@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumberish } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, formatUnits, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -65,7 +65,10 @@ describe("ClearingHouse liquidate", () => {
     }
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
+        // TODO test
+        // const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
+
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
@@ -134,6 +137,9 @@ describe("ClearingHouse liquidate", () => {
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+        // set MaxTickCrossedWithinBlock to enable price checking before/after swap
+        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
     })
 
     describe("alice long ETH; price doesn't change", () => {
@@ -157,6 +163,7 @@ describe("ClearingHouse liquidate", () => {
 
     describe("alice long ETH, bob short", () => {
         beforeEach(async () => {
+            console.log("=== alice long ETH ===")
             // alice long ETH
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
@@ -172,6 +179,7 @@ describe("ClearingHouse liquidate", () => {
             // setPool1IndexPrice(151.4780456375)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
+            console.log("=== bob short ETH ===")
             // bob short ETH
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
@@ -218,6 +226,95 @@ describe("ClearingHouse liquidate", () => {
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
             expect(davisPnl[0]).to.eq("2102129818649289842")
+        })
+
+        it.only("can't liquidate if not enough liquidity", async () => {
+            // // carol remove all liquidity
+            // await clearingHouse.connect(carol).removeLiquidity({
+            //     baseToken: baseToken.address,
+            //     lowerTick: 49000,
+            //     upperTick: 51400,
+            //     liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
+            //     minBase: 0,
+            //     minQuote: 0,
+            //     deadline: ethers.constants.MaxUint256,
+            // })
+
+            // // carol reduce the liquidity
+            // const liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity
+            // await clearingHouse.connect(carol).removeLiquidity({
+            //     baseToken: baseToken.address,
+            //     lowerTick: 49000,
+            //     upperTick: 51400,
+            //     liquidity: liquidity.sub(liquidity.div(1000)),
+            //     minBase: 0,
+            //     minQuote: 0,
+            //     deadline: ethers.constants.MaxUint256,
+            // })
+
+            // carol significantly lowers the price
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            await clearingHouse.connect(carol).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("15000"),
+                lowerTick: 0,
+                upperTick: 200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await exchange.settleFunding(alice.address, baseToken.address)
+
+            console.log(
+                `alice position size (before): ${formatEther(
+                    await accountBalance.getPositionSize(alice.address, baseToken.address),
+                )}`,
+            )
+            console.log(
+                `alice account value (before): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
+            )
+            console.log(
+                `alice free collateral (before): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
+            )
+
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+
+            console.log(
+                `alice position size (after): ${formatEther(
+                    await accountBalance.getPositionSize(alice.address, baseToken.address),
+                )}`,
+            )
+            console.log(
+                `alice account value (after): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
+            )
+            console.log(
+                `alice free collateral (after): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
+            )
+            console.log(`current tick: ${(await pool.slot0()).tick}`)
+
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+
+            console.log(
+                `alice position size (after2): ${formatEther(
+                    await accountBalance.getPositionSize(alice.address, baseToken.address),
+                )}`,
+            )
+            console.log(
+                `alice account value (after2): ${formatEther(await clearingHouse.getAccountValue(alice.address))}`,
+            )
+            console.log(
+                `alice free collateral (after2): ${formatUnits(await vault.getFreeCollateral(alice.address), 6)}`,
+            )
         })
     })
 

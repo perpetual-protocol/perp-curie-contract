@@ -25,6 +25,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import "hardhat/console.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -318,6 +319,8 @@ contract Exchange is
         }
 
         // update states before further actions in this block; once per block
+        console.log("blockTimestamp:", _blockTimestamp());
+        console.log("_lastSettledTimestampMap:", _lastSettledTimestampMap[baseToken]);
         if (_blockTimestamp() != _lastSettledTimestampMap[baseToken]) {
             // update fundingGrowthGlobal
             Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
@@ -477,6 +480,7 @@ contract Exchange is
         bool isBaseToQuote,
         int256 positionSize
     ) internal returns (bool) {
+        console.log("=== _isOverPriceLimitByReplaySwap ===");
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         InternalReplaySwapParams memory replaySwapParams =
             InternalReplaySwapParams({
@@ -486,7 +490,10 @@ contract Exchange is
                 amount: positionSize.abs(),
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
-        return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));
+        int24 tick = _replaySwap(replaySwapParams);
+        console.log("replaySwap tick:");
+        console.logInt(tick);
+        return _isOverPriceLimitWithTick(baseToken, tick);
     }
 
     /// @return the resulting tick (derived from price) after replaying the swap
@@ -637,11 +644,17 @@ contract Exchange is
     //
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
+        console.log("=== _isOverPriceLimitWithTick ===");
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        console.log("maxTickDelta:", maxTickDelta);
         if (maxTickDelta == 0) {
             return false;
         }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
+        console.log("lastUpdatedTick:");
+        console.logInt(lastUpdatedTick);
+        console.log("tick:");
+        console.logInt(tick);
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
         int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
         int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
