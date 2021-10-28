@@ -103,7 +103,7 @@ describe("ClearingHouse Spec", () => {
             const mockedPool = await smockit(pool)
             uniV3Factory.smocked.getPool.will.return.with(mockedPool.address)
             mockedPool.smocked.slot0.will.return.with(["100", 0, 0, 0, 0, 0, false])
-            marketRegistry.smocked.getPool.will.return.with(mockedPool.address)
+            marketRegistry.smocked.hasPool.will.return.with(true)
 
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 200)
             expect(await exchange.getMaxTickCrossedWithinBlock(baseToken.address)).eq(200)

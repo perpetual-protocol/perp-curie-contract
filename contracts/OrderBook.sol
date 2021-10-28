@@ -298,6 +298,8 @@ contract OrderBook is
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
+        int24 tickSpacing = UniswapV3Broker.getTickSpacing(pool);
+
         while (swapState.amountSpecifiedRemaining != 0 && swapState.sqrtPriceX96 != params.sqrtPriceLimitX96) {
             InternalSwapStep memory step;
             step.initialSqrtPriceX96 = swapState.sqrtPriceX96;
@@ -307,7 +309,7 @@ contract OrderBook is
             (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
                 pool,
                 swapState.tick,
-                UniswapV3Broker.getTickSpacing(pool),
+                tickSpacing,
                 params.isBaseToQuote
             );
 
@@ -344,9 +346,11 @@ contract OrderBook is
             // quote token to uniswap ===> 1*0.98/0.99 = 0.98989899
             // fee = 0.98989899 * 2% = 0.01979798
             if (isExactInput) {
-                swapState.amountSpecifiedRemaining -= (step.amountIn + step.fee).toInt256();
+                swapState.amountSpecifiedRemaining = swapState.amountSpecifiedRemaining.sub(
+                    step.amountIn.add(step.fee).toInt256()
+                );
             } else {
-                swapState.amountSpecifiedRemaining += step.amountOut.toInt256();
+                swapState.amountSpecifiedRemaining = swapState.amountSpecifiedRemaining.add(step.amountOut.toInt256());
             }
 
             // update CH's global fee growth if there is liquidity in this range

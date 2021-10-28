@@ -108,7 +108,7 @@ contract Exchange is
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
         // EX_BTNE: base token not exists
-        require(IMarketRegistry(_marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
+        require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
@@ -291,7 +291,7 @@ contract Exchange is
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
         // EX_BTNE: base token not exists
-        require(IMarketRegistry(_marketRegistry).getPool(baseToken) != address(0), "EX_BTNE");
+        require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         uint256 markTwap;
         uint256 indexTwap;
@@ -367,7 +367,9 @@ contract Exchange is
 
     function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
-        for (uint256 i = 0; i < baseTokens.length; i++) {
+        uint256 baseTokenLength = baseTokens.length;
+
+        for (uint256 i = 0; i < baseTokenLength; i++) {
             pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
         }
         return pendingFundingPayment;
@@ -640,8 +642,8 @@ contract Exchange is
         }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick + int24(maxTickDelta);
-        int24 lowerTickBound = lastUpdatedTick - int24(maxTickDelta);
+        int24 upperTickBound = lastUpdatedTick.add(maxTickDelta).toInt24();
+        int24 lowerTickBound = lastUpdatedTick.sub(maxTickDelta).toInt24();
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
