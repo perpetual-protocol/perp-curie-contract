@@ -1,6 +1,7 @@
-// this file is copied from https://github.com/opengsn/forwarder/blob/master/contracts/BaseRelayRecipient.sol
-// just because solidity version inconsistent to our repo
-// SPDX-License-Identifier:MIT
+// copied from @opengsn/provider-2.2.4,
+// https://github.com/opengsn/gsn/blob/master/packages/contracts/src/BaseRelayRecipient.sol
+// for adding `payable` property at the return value of _msgSender()
+// SPDX-License-Identifier: MIT
 // solhint-disable no-inline-assembly
 pragma solidity 0.7.6;
 
@@ -16,24 +17,23 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      */
     address internal _trustedForwarder;
 
-    string internal _versionRecipient;
-
     // __gap is reserved storage
     uint256[50] private __gap;
 
     event TrustedForwarderUpdated(address trustedForwarder);
 
-    function isTrustedForwarder(address forwarder) public view override returns (bool) {
-        return forwarder == _trustedForwarder;
+    function getTrustedForwarder() external view returns (address) {
+        return _trustedForwarder;
     }
 
     /// @inheritdoc IRelayRecipient
-    function versionRecipient() external view override returns (string memory) {
-        return _versionRecipient;
+    function versionRecipient() external pure override returns (string memory) {
+        return "2.0.0";
     }
 
-    function getTrustedForwarder() external view returns (address) {
-        return _trustedForwarder;
+    /// @inheritdoc IRelayRecipient
+    function isTrustedForwarder(address forwarder) public view virtual override returns (bool) {
+        return forwarder == _trustedForwarder;
     }
 
     function _setTrustedForwarder(address trustedForwarderArg) internal {
@@ -47,8 +47,9 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      * otherwise, return `msg.sender`.
      * should be used in the contract anywhere instead of msg.sender
      */
+    /// @inheritdoc IRelayRecipient
     function _msgSender() internal view virtual override returns (address payable ret) {
-        if (msg.data.length >= 24 && isTrustedForwarder(msg.sender)) {
+        if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
             // At this point we know that the sender is a trusted forwarder,
             // so we trust that the last bytes of msg.data are the verified sender address.
             // extract sender address from the end of msg.data
@@ -56,7 +57,7 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
                 ret := shr(96, calldataload(sub(calldatasize(), 20)))
             }
         } else {
-            return msg.sender;
+            ret = msg.sender;
         }
     }
 
@@ -64,27 +65,13 @@ abstract contract BaseRelayRecipient is IRelayRecipient {
      * return the msg.data of this call.
      * if the call came through our trusted forwarder, then the real sender was appended as the last 20 bytes
      * of the msg.data - so this method will strip those 20 bytes off.
-     * otherwise, return `msg.data`
-     * should be used in the contract instead of msg.data, where the difference matters (e.g. when explicitly
-     * signing or hashing the
+     * otherwise (if the call was made directly and not through the forwarder), return `msg.data`
+     * should be used in the contract instead of msg.data, where this difference matters.
      */
-    function _msgData() internal view virtual override returns (bytes memory ret) {
-        if (msg.data.length >= 24 && isTrustedForwarder(msg.sender)) {
-            // At this point we know that the sender is a trusted forwarder,
-            // we copy the msg.data , except the last 20 bytes (and update the total length)
-            assembly {
-                let ptr := mload(0x40)
-                // copy only size-20 bytes
-                let size := sub(calldatasize(), 20)
-                // structure RLP data as <offset> <length> <bytes>
-                // TODO : ABDK audit
-                // - This tries to ABI encode the returned values,
-                //   while for internal functions ABI encoding is not used.
-                mstore(ptr, 0x20)
-                mstore(add(ptr, 32), size)
-                calldatacopy(add(ptr, 64), 0, size)
-                return(ptr, add(size, 64))
-            }
+    /// @inheritdoc IRelayRecipient
+    function _msgData() internal view virtual override returns (bytes calldata ret) {
+        if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
+            return msg.data[0:msg.data.length - 20];
         } else {
             return msg.data;
         }

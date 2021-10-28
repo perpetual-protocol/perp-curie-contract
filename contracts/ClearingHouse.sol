@@ -21,7 +21,7 @@ import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
+import { BaseRelayRecipient, IRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
@@ -141,9 +141,6 @@ contract ClearingHouse is
         _accountBalance = accountBalanceArg;
 
         _settlementTokenDecimals = IVault(_vault).decimals();
-
-        // we don't use this var
-        _versionRecipient = "2.0.0";
     }
 
     // solhint-disable-next-line func-order

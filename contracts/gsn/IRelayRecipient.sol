@@ -1,6 +1,4 @@
-// this file is copied from https://github.com/opengsn/forwarder/blob/master/contracts/interfaces/IRelayRecipient.sol
-// just because solidity version inconsistent to our repo
-// SPDX-License-Identifier:MIT
+// SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
 /**
@@ -28,11 +26,10 @@ abstract contract IRelayRecipient {
      * return the msg.data of this call.
      * if the call came through our trusted forwarder, then the real sender was appended as the last 20 bytes
      * of the msg.data - so this method will strip those 20 bytes off.
-     * otherwise, return `msg.data`
-     * should be used in the contract instead of msg.data, where the difference matters (e.g. when explicitly
-     * signing or hashing the
+     * otherwise (if the call was made directly and not through the forwarder), return `msg.data`
+     * should be used in the contract instead of msg.data, where this difference matters.
      */
-    function _msgData() internal view virtual returns (bytes memory);
+    function _msgData() internal view virtual returns (bytes calldata);
 
     function versionRecipient() external view virtual returns (string memory);
 }

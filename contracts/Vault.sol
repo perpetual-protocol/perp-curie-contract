@@ -14,7 +14,7 @@ import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
+import { BaseRelayRecipient, IRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
 import { IVault } from "./interface/IVault.sol";
@@ -78,9 +78,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _clearingHouseConfig = clearingHouseConfigArg;
         _accountBalance = accountBalanceArg;
         _exchange = exchangeArg;
-
-        // we don't use this var
-        _versionRecipient = "2.0.0";
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
