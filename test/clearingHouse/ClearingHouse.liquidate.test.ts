@@ -42,6 +42,7 @@ describe("ClearingHouse liquidate", () => {
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     const oracleDecimals = 6
+    const blockTimeStamp = 1
 
     async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
         const slot0 = await pool.slot0()
@@ -138,6 +139,9 @@ describe("ClearingHouse liquidate", () => {
 
         // set MaxTickCrossedWithinBlock to enable price checking before/after swap
         await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+        // set blockTimestamp
+        await clearingHouse.setBlockTimestamp(blockTimeStamp)
     })
 
     describe("alice long ETH; price doesn't change", () => {
@@ -190,6 +194,9 @@ describe("ClearingHouse liquidate", () => {
             // price after bob swap : 143.0326798397
             // setPool1IndexPrice(143.0326798397)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's long position", async () => {
@@ -237,16 +244,17 @@ describe("ClearingHouse liquidate", () => {
             })
 
             // first liquidation
-            await clearingHouse.setBlockTimestamp("1")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
             // current tick was pushed to MIN_TICK because all liquidity were depleted
             const afterLiquidateTick = (await pool.slot0()).tick
             expect(afterLiquidateTick).to.be.deep.eq(-887272)
 
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
+
             // second liquidation would fail because no liquidity left
             // revert 'T' from uniswap V3 lib : tickMath
-            await clearingHouse.setBlockTimestamp("2")
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("T")
         })
 
@@ -275,7 +283,6 @@ describe("ClearingHouse liquidate", () => {
             })
 
             // first liquidation should be partial because price movement exceeds the limit
-            await clearingHouse.setBlockTimestamp("1")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
             // alice has partial close when first liquidity
@@ -285,8 +292,10 @@ describe("ClearingHouse liquidate", () => {
             // tick should be pushed to the edge of the new liquidity since there's nothing left elsewhere
             expect((await pool.slot0()).tick).to.be.deep.eq(199)
 
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
+
             // second liquidation should be liquidate all positionSize since the liquidity here is plenty
-            await clearingHouse.setBlockTimestamp("2")
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
         })
@@ -303,7 +312,6 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            await clearingHouse.setBlockTimestamp("1")
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith(
                 "CH_F0S",
             )
@@ -344,6 +352,9 @@ describe("ClearingHouse liquidate", () => {
             // price after bob swap : 158.6340597836
             // setPool1IndexPrice(158.6340597836)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's short position", async () => {
@@ -441,6 +452,9 @@ describe("ClearingHouse liquidate", () => {
             // price after Bob long: 151.54207047
             // setPool2IndexPrice(151.54207047)
             await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's ETH", async () => {
@@ -582,6 +596,9 @@ describe("ClearingHouse liquidate", () => {
             // price after Bob short, 151.20121364648824
             // setPool2IndexPrice(151.201213)
             await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's ETH", async () => {
