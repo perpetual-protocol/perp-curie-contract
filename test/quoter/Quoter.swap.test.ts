@@ -579,7 +579,8 @@ describe("Quoter.swap", () => {
                     amount: "100",
                     sqrtPriceLimitX96: "0",
                 }),
-            ).revertedWith("Q_BTNE")
+            ).revertedWith("MR_PNE")
+            // check pool by MarketRegistry
         })
 
         it("force error, unexpected call to callback function", async () => {
