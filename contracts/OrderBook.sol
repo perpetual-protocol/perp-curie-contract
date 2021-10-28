@@ -617,12 +617,14 @@ contract OrderBook is
         bytes32 orderId
     ) internal {
         bytes32[] storage orderIds = _openOrderIdsMap[maker][baseToken];
-        uint256 idx;
-        for (idx = 0; idx < orderIds.length; idx++) {
+        uint256 orderLen = orderIds.length;
+        for (uint256 idx = 0; idx < orderLen; idx++) {
             if (orderIds[idx] == orderId) {
                 // found the existing order ID
                 // remove it from the array efficiently by re-ordering and deleting the last element
-                orderIds[idx] = orderIds[orderIds.length - 1];
+                if (idx != orderLen - 1) {
+                    orderIds[idx] = orderIds[orderLen - 1];
+                }
                 orderIds.pop();
                 delete _openOrderMap[orderId];
                 break;
