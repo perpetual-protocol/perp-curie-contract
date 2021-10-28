@@ -63,10 +63,11 @@ contract OrderBook is
         Funding.Growth globalFundingGrowth;
     }
 
-    struct InternalRemoveLiquidityFromOrderParams {
+    struct InternalRemoveLiquidityParams {
         address maker;
         address baseToken;
         address pool;
+        bytes32 orderId;
         int24 lowerTick;
         int24 upperTick;
         uint128 liquidity;
@@ -199,7 +200,20 @@ contract OrderBook is
         onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
-        return _removeLiquidity(params);
+        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
+        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        return
+            _removeLiquidity(
+                InternalRemoveLiquidityParams({
+                    maker: params.maker,
+                    baseToken: params.baseToken,
+                    pool: pool,
+                    orderId: orderId,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: params.liquidity
+                })
+            );
     }
 
     function removeLiquidityByIds(
@@ -210,15 +224,19 @@ contract OrderBook is
         uint256 totalBase;
         uint256 totalQuote;
         uint256 totalFee;
+        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
+
         for (uint256 i = 0; i < orderIds.length; i++) {
             bytes32 orderId = orderIds[i];
             OpenOrder.Info memory order = _openOrderMap[orderId];
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
-                    RemoveLiquidityParams({
+                    InternalRemoveLiquidityParams({
                         maker: maker,
                         baseToken: baseToken,
+                        pool: pool,
+                        orderId: orderId,
                         lowerTick: order.lowerTick,
                         upperTick: order.upperTick,
                         liquidity: order.liquidity
@@ -526,20 +544,21 @@ contract OrderBook is
     // INTERNAL NON-VIEW
     //
 
-    function _removeLiquidity(RemoveLiquidityParams memory params) internal returns (RemoveLiquidityResponse memory) {
+    function _removeLiquidity(InternalRemoveLiquidityParams memory params)
+        internal
+        returns (RemoveLiquidityResponse memory)
+    {
         // load existing open order
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info memory openOrder = _openOrderMap[params.orderId];
         // non-existent openOrder
         require(openOrder.liquidity > 0, "OB_NEO");
         // not enough liquidity
         require(params.liquidity <= openOrder.liquidity, "OB_NEL");
 
-        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
-                    pool,
+                    params.pool,
                     _exchange,
                     params.lowerTick,
                     params.upperTick,
@@ -548,23 +567,13 @@ contract OrderBook is
             );
 
         // update token info based on existing open order
-        uint256 fee =
-            _removeLiquidityFromOrder(
-                InternalRemoveLiquidityFromOrderParams({
-                    maker: params.maker,
-                    baseToken: params.baseToken,
-                    pool: pool,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: params.liquidity
-                })
-            );
+        uint256 fee = _removeLiquidityFromOrder(params);
 
         // if flipped from initialized to uninitialized, clear the tick info
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
+        if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick)) {
             _growthOutsideTickMap[params.baseToken].clear(params.lowerTick);
         }
-        if (!UniswapV3Broker.getIsTickInitialized(pool, params.upperTick)) {
+        if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.upperTick)) {
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
 
@@ -583,13 +592,9 @@ contract OrderBook is
         return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
     }
 
-    function _removeLiquidityFromOrder(InternalRemoveLiquidityFromOrderParams memory params)
-        internal
-        returns (uint256)
-    {
+    function _removeLiquidityFromOrder(InternalRemoveLiquidityParams memory params) internal returns (uint256) {
         // update token info based on existing open order
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
-        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
+        OpenOrder.Info storage openOrder = _openOrderMap[params.orderId];
 
         // as in _addLiquidityToOrder(), fee should be calculated before the states are updated
         (uint256 fee, uint256 feeGrowthInsideX128) =
@@ -598,7 +603,7 @@ contract OrderBook is
         // after the fee is calculated, lastFeeGrowthInsideX128 can be updated if liquidity != 0 after removing
         openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
-            _removeOrder(params.maker, params.baseToken, orderId);
+            _removeOrder(params.maker, params.baseToken, params.orderId);
         } else {
             openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
         }
