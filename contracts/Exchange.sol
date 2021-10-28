@@ -410,30 +410,30 @@ contract Exchange is
             uint256 indexTwap
         )
     {
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-
-        // get mark twap
-        uint32 twapIntervalArg = 0;
-        // shorten twapInterval if prior observations are not enough for twapInterval
+        uint32 twapInterval;
+        // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
-            twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
             uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
-            if (twapIntervalArg > deltaTimestamp) {
-                twapIntervalArg = deltaTimestamp;
-            }
+            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
-        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapIntervalArg);
+        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
+        uint256 timestamp = _blockTimestamp();
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        if (_blockTimestamp() != lastSettledTimestamp && lastSettledTimestamp != 0) {
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
+            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        } else {
             int256 twPremiumDeltaX96 =
                 markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
-                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
+                    timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
 
@@ -443,9 +443,6 @@ contract Exchange is
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(uint256(getSqrtMarkTwapX96(baseToken, 0)).toInt256())
             );
-        } else {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
         }
 
         return (fundingGrowthGlobal, markTwap, indexTwap);
