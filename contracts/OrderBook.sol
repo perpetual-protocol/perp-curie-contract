@@ -227,8 +227,11 @@ contract OrderBook is
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         for (uint256 i = 0; i < orderIds.length; i++) {
-            bytes32 orderId = orderIds[i];
-            OpenOrder.Info memory order = _openOrderMap[orderId];
+            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
+
+            bytes32 orderId = OrderKey.compute(maker, baseToken, order.lowerTick, order.upperTick);
+            // OB_IO: invalid orderId
+            require(orderIds[i] == orderId, "OB_IO");
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
