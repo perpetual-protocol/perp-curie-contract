@@ -161,7 +161,6 @@ describe("ClearingHouse liquidate", () => {
 
     describe("alice long ETH, bob short", () => {
         beforeEach(async () => {
-            console.log("=== alice long ETH ===")
             // alice long ETH
             await clearingHouse.connect(alice).openPosition({
                 baseToken: baseToken.address,
@@ -177,7 +176,6 @@ describe("ClearingHouse liquidate", () => {
             // setPool1IndexPrice(151.4780456375)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
-            console.log("=== bob short ETH ===")
             // bob short ETH
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,

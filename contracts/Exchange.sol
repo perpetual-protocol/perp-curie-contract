@@ -25,7 +25,6 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
-import "hardhat/console.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -487,8 +486,7 @@ contract Exchange is
                 amount: positionSize.abs(),
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
-        int24 tick = _replaySwap(replaySwapParams);
-        return _isOverPriceLimitWithTick(baseToken, tick);
+        return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));
     }
 
     /// @return the resulting tick (derived from price) after replaying the swap
