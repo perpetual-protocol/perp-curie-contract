@@ -108,7 +108,7 @@ contract Exchange is
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
-        // EX_BTNE: base token not exists
+        // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
@@ -281,17 +281,17 @@ contract Exchange is
     }
 
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// this function 1. settles personal funding payment 2. updates global funding growth
-    /// personal funding payment is settled whenever there is pending funding payment
-    /// the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @dev it's fine to be called by anyone
+    ///      while it doesn't matter who calls this function
+    ///      this function 1. settles personal funding payment 2. updates global funding growth
+    ///      personal funding payment is settled whenever there is pending funding payment
+    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
-        // EX_BTNE: base token not exists
+        // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         uint256 markTwap;
@@ -309,24 +309,26 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, fundingPayment.neg256());
+            // the sign of funding payment is the opposite of that of pnl
+            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
+        uint256 timestamp = _blockTimestamp();
         // update states before further actions in this block; once per block
-        if (_blockTimestamp() != _lastSettledTimestampMap[baseToken]) {
-            // update fundingGrowthGlobal
+        if (timestamp != _lastSettledTimestampMap[baseToken]) {
+            // update fundingGrowthGlobal and _lastSettledTimestamp
             Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
             (
                 _lastSettledTimestampMap[baseToken],
                 lastFundingGrowthGlobal.twPremiumX96,
                 lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
-            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
-
-            // update tick
-            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
+            ) = (timestamp, fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
             emit FundingUpdated(baseToken, markTwap, indexTwap);
+
+            // update tick for price limit checks
+            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
         }
 
         IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
