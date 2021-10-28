@@ -42,6 +42,7 @@ describe("ClearingHouse liquidate", () => {
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     const oracleDecimals = 6
+    const blockTimeStamp = 1
 
     async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
         const slot0 = await pool.slot0()
@@ -66,6 +67,7 @@ describe("ClearingHouse liquidate", () => {
 
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
+
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
@@ -134,6 +136,12 @@ describe("ClearingHouse liquidate", () => {
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+        // set MaxTickCrossedWithinBlock to enable price checking before/after swap
+        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+        // set blockTimestamp
+        await clearingHouse.setBlockTimestamp(blockTimeStamp)
     })
 
     describe("alice long ETH; price doesn't change", () => {
@@ -186,6 +194,9 @@ describe("ClearingHouse liquidate", () => {
             // price after bob swap : 143.0326798397
             // setPool1IndexPrice(143.0326798397)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's long position", async () => {
@@ -218,6 +229,92 @@ describe("ClearingHouse liquidate", () => {
             // liquidator gets liquidation reward
             const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
             expect(davisPnl[0]).to.eq("2102129818649289842")
+        })
+        it("partial closes due to not enough liquidity", async () => {
+            // maker remove 99.99% liquidity
+            const liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: liquidity.sub(liquidity.div(1000)),
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // first liquidation
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+
+            // current tick was pushed to MIN_TICK because all liquidity were depleted
+            const afterLiquidateTick = (await pool.slot0()).tick
+            expect(afterLiquidateTick).to.be.deep.eq(-887272)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
+
+            // second liquidation would fail because no liquidity left
+            // revert 'T' from uniswap V3 lib : tickMath
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("T")
+        })
+
+        it("partial closes due to bad price", async () => {
+            // maker remove all liquidity
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // maker add enough liquidity in bad price
+            await clearingHouse.connect(carol).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("0"),
+                quote: parseEther("15000"),
+                lowerTick: 0,
+                upperTick: 200,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // first liquidation should be partial because price movement exceeds the limit
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+
+            // alice has partial close when first liquidity
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                parseEther("0.441305633515980014"),
+            )
+            // tick should be pushed to the edge of the new liquidity since there's nothing left elsewhere
+            expect((await pool.slot0()).tick).to.be.deep.eq(199)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
+
+            // second liquidation should be liquidate all positionSize since the liquidity here is plenty
+            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
+        })
+
+        it("fails to close due to no liquidity", async () => {
+            // maker remove all liquidity
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 49000,
+                upperTick: 51400,
+                liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith(
+                "CH_F0S",
+            )
         })
     })
 
@@ -255,6 +352,9 @@ describe("ClearingHouse liquidate", () => {
             // price after bob swap : 158.6340597836
             // setPool1IndexPrice(158.6340597836)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's short position", async () => {
@@ -352,6 +452,9 @@ describe("ClearingHouse liquidate", () => {
             // price after Bob long: 151.54207047
             // setPool2IndexPrice(151.54207047)
             await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's ETH", async () => {
@@ -493,6 +596,9 @@ describe("ClearingHouse liquidate", () => {
             // price after Bob short, 151.20121364648824
             // setPool2IndexPrice(151.201213)
             await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("davis liquidate alice's ETH", async () => {
