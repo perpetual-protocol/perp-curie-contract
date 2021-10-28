@@ -138,13 +138,13 @@ contract Exchange is
         // if over price limit when
         // 1. close a position, then partial close the position
         // 2. reduce a position, then revert
-        if (params.isClose) {
+        if (params.isClose && positionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplaySwap(params.baseToken, isOldPositionShort, positionSize)
+                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, positionSize)
             ) {
                 // EX_AOPLO: already over price limit once
                 require(
@@ -408,14 +408,16 @@ contract Exchange is
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
 
         // get mark twap
-        uint32 twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+        uint32 twapIntervalArg = 0;
         // shorten twapInterval if prior observations are not enough for twapInterval
-        if (_firstTradedTimestampMap[baseToken] == 0) {
-            twapIntervalArg = 0;
-        } else if (twapIntervalArg > _blockTimestamp().sub(_firstTradedTimestampMap[baseToken])) {
+        if (_firstTradedTimestampMap[baseToken] != 0) {
+            twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            twapIntervalArg = uint32(_blockTimestamp().sub(_firstTradedTimestampMap[baseToken]));
+            uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            if (twapIntervalArg > deltaTimestamp) {
+                twapIntervalArg = deltaTimestamp;
+            }
         }
 
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
@@ -467,7 +469,7 @@ contract Exchange is
     // INTERNAL NON-VIEW
     //
 
-    function _isOverPriceLimitByReplaySwap(
+    function _isOverPriceLimitByReplayReverseSwap(
         address baseToken,
         bool isBaseToQuote,
         int256 positionSize
