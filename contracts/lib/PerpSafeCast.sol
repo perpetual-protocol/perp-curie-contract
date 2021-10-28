@@ -17,7 +17,7 @@ library PerpSafeCast {
      * - input must fit into 128 bits
      */
     function toUint128(uint256 value) internal pure returns (uint128) {
-        require(value < 2**128, "SafeCast: value doesn't fit in 128 bits");
+        require(value < type(uint128).max, "SafeCast: value doesn't fit in 128 bits");
         return uint128(value);
     }
 
@@ -32,7 +32,7 @@ library PerpSafeCast {
      * - input must fit into 64 bits
      */
     function toUint64(uint256 value) internal pure returns (uint64) {
-        require(value < 2**64, "SafeCast: value doesn't fit in 64 bits");
+        require(value < type(uint64).max, "SafeCast: value doesn't fit in 64 bits");
         return uint64(value);
     }
 
@@ -47,7 +47,7 @@ library PerpSafeCast {
      * - input must fit into 32 bits
      */
     function toUint32(uint256 value) internal pure returns (uint32) {
-        require(value < 2**32, "SafeCast: value doesn't fit in 32 bits");
+        require(value < type(uint32).max, "SafeCast: value doesn't fit in 32 bits");
         return uint32(value);
     }
 
@@ -62,7 +62,7 @@ library PerpSafeCast {
      * - input must fit into 16 bits
      */
     function toUint16(uint256 value) internal pure returns (uint16) {
-        require(value < 2**16, "SafeCast: value doesn't fit in 16 bits");
+        require(value < type(uint16).max, "SafeCast: value doesn't fit in 16 bits");
         return uint16(value);
     }
 
@@ -77,7 +77,7 @@ library PerpSafeCast {
      * - input must fit into 8 bits.
      */
     function toUint8(uint256 value) internal pure returns (uint8) {
-        require(value < 2**8, "SafeCast: value doesn't fit in 8 bits");
+        require(value < type(uint8).max, "SafeCast: value doesn't fit in 8 bits");
         return uint8(value);
     }
 
@@ -107,7 +107,7 @@ library PerpSafeCast {
      * _Available since v3.1._
      */
     function toInt128(int256 value) internal pure returns (int128) {
-        require(value >= -2**127 && value < 2**127, "SafeCast: value doesn't fit in 128 bits");
+        require(value >= type(int128).min && value < type(int128).max, "SafeCast: value doesn't fit in 128 bits");
         return int128(value);
     }
 
@@ -125,7 +125,7 @@ library PerpSafeCast {
      * _Available since v3.1._
      */
     function toInt64(int256 value) internal pure returns (int64) {
-        require(value >= -2**63 && value < 2**63, "SafeCast: value doesn't fit in 64 bits");
+        require(value >= type(int64).min && value < type(int64).max, "SafeCast: value doesn't fit in 64 bits");
         return int64(value);
     }
 
@@ -143,7 +143,7 @@ library PerpSafeCast {
      * _Available since v3.1._
      */
     function toInt32(int256 value) internal pure returns (int32) {
-        require(value >= -2**31 && value < 2**31, "SafeCast: value doesn't fit in 32 bits");
+        require(value >= type(int32).min && value < type(int32).max, "SafeCast: value doesn't fit in 32 bits");
         return int32(value);
     }
 
@@ -161,7 +161,7 @@ library PerpSafeCast {
      * _Available since v3.1._
      */
     function toInt16(int256 value) internal pure returns (int16) {
-        require(value >= -2**15 && value < 2**15, "SafeCast: value doesn't fit in 16 bits");
+        require(value >= type(int16).min && value < type(int16).max, "SafeCast: value doesn't fit in 16 bits");
         return int16(value);
     }
 
@@ -179,7 +179,7 @@ library PerpSafeCast {
      * _Available since v3.1._
      */
     function toInt8(int256 value) internal pure returns (int8) {
-        require(value >= -2**7 && value < 2**7, "SafeCast: value doesn't fit in 8 bits");
+        require(value >= type(int8).min && value < type(int8).max, "SafeCast: value doesn't fit in 8 bits");
         return int8(value);
     }
 
@@ -206,7 +206,10 @@ library PerpSafeCast {
      * - input must be greater than or equal to 0 and into 24 bit.
      */
     function toUint24(int256 value) internal pure returns (uint24) {
-        require(value >= 0 && value < 2**24, "SafeCast: value must be positive or value doesn't fit in an 24 bits");
+        require(
+            value >= 0 && value < type(uint24).max,
+            "SafeCast: value must be positive or value doesn't fit in an 24 bits"
+        );
         return uint24(value);
     }
 
@@ -221,7 +224,7 @@ library PerpSafeCast {
      * - input must fit into 24 bits
      */
     function toInt24(int256 value) internal pure returns (int24) {
-        require(value >= -2**23 && value < 2**23, "SafeCast: value doesn't fit in an 24 bits");
+        require(value >= type(int24).min && value < type(int24).max, "SafeCast: value doesn't fit in an 24 bits");
         return int24(value);
     }
 }
