@@ -47,6 +47,7 @@ contract Exchange is
 
     // CONSTANT
     uint256 internal constant _FULL_CLOSED_RATIO = 1e18;
+    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
     //
     // STRUCT
