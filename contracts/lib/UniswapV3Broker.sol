@@ -82,7 +82,7 @@ library UniswapV3Broker {
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         // zero inputs
-        require((params.base | params.quote > 0), "UB_ZIs");
+        require((params.base > 0 || params.quote > 0), "UB_ZIs");
 
         // get the equivalent amount of liquidity from amount0 & amount1 with current price
         uint128 liquidity =
@@ -93,6 +93,9 @@ library UniswapV3Broker {
                 params.base,
                 params.quote
             );
+
+        // UB_ZL: zero liquidity
+        require(liquidity > 0, "UB_ZL");
 
         // call mint()
         (uint256 addedAmount0, uint256 addedAmount1) =
