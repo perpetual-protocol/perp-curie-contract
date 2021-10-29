@@ -2,7 +2,10 @@
 pragma solidity 0.7.6;
 
 interface IVault {
-    function balanceOf(address account) external view returns (int256);
+    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
+    event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
+
+    function getBalance(address account) external view returns (int256);
 
     function getFreeCollateralByRatio(address trader, uint24 ratio) external view returns (int256);
 

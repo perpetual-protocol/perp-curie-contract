@@ -96,7 +96,7 @@ describe("Vault spec", () => {
             expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
 
             // update sender's balance
-            expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("100", await usdc.decimals()))
+            expect(await vault.getBalance(alice.address)).to.eq(parseUnits("100", await usdc.decimals()))
         })
 
         it.skip("non-standard ERC20 (USDT) is supported")
@@ -136,7 +136,7 @@ describe("Vault spec", () => {
             expect(balanceAfter.sub(balanceBefore)).to.eq(amount)
 
             // update sender's balance in vault
-            expect(await vault.balanceOf(alice.address)).to.eq("0")
+            expect(await vault.getBalance(alice.address)).to.eq("0")
         })
 
         it("force error if the freeCollateral is not enough", async () => {
@@ -154,9 +154,9 @@ describe("Vault spec", () => {
     })
 
     // TODO not sure if this is needed
-    describe("balanceOf", () => {
+    describe("getBalance", () => {
         it("is zero by default", async () => {
-            expect(await vault.balanceOf(alice.address)).eq(0)
+            expect(await vault.getBalance(alice.address)).eq(0)
         })
 
         it("equals to USDC balance if it's the only collateral")

@@ -118,7 +118,7 @@ describe("ClearingHouse withdraw", () => {
                 .to.emit(vault, "Withdrawn")
                 .withArgs(collateral.address, bob.address, parseUnits("99.995916", collateralDecimals))
             expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("99.995916", collateralDecimals))
-            expect(await vault.balanceOf(bob.address)).to.eq(parseUnits("0.004084", collateralDecimals))
+            expect(await vault.getBalance(bob.address)).to.eq(parseUnits("0.004084", collateralDecimals))
 
             // alice remove liq 0, alice should collect fee
             // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
@@ -266,7 +266,7 @@ describe("ClearingHouse withdraw", () => {
                 .to.emit(vault, "Withdrawn")
                 .withArgs(collateral.address, bob.address, amount)
             expect(await collateral.balanceOf(bob.address)).to.eq(amount)
-            expect(await vault.balanceOf(bob.address)).to.eq("0")
+            expect(await vault.getBalance(bob.address)).to.eq("0")
         })
 
         it("maker withdraw after adding liquidity", async () => {
@@ -282,7 +282,7 @@ describe("ClearingHouse withdraw", () => {
                 .withArgs(collateral.address, alice.address, amount)
             expect(await collateral.balanceOf(alice.address)).to.eq(amount)
             // 20000 - 11696.907820 = 8303.092180
-            expect(await vault.balanceOf(alice.address)).to.eq(parseUnits("8303.092180", collateralDecimals))
+            expect(await vault.getBalance(alice.address)).to.eq(parseUnits("8303.092180", collateralDecimals))
         })
 
         it("taker withdraw exactly freeCollateral when owedRealizedPnl < 0", async () => {

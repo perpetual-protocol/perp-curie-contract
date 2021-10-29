@@ -97,7 +97,7 @@ describe("Vault test", () => {
             expect(aliceBalanceAfter.sub(aliceBalanceBefore)).to.eq(amount)
 
             // update sender's balance in vault
-            expect(await vault.balanceOf(alice.address)).to.eq("0")
+            expect(await vault.getBalance(alice.address)).to.eq("0")
         })
 
         it("force error if the freeCollateral is not enough", async () => {

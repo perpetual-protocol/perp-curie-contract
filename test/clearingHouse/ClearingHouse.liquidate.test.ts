@@ -625,7 +625,7 @@ describe("ClearingHouse liquidate", () => {
             // since the result has a bit rounding diff (8.2418008962 & 8.241800896087324989)
             // so i leave every unit of numbers below to help if someone want to audit the numbers
             //
-            // const balance = await vault.balanceOf(alice.address)
+            // const balance = await vault.getBalance(alice.address)
             // const accountValue = await clearingHouse.getAccountValue(alice.address)
             // const getTotalOpenOrderMarginRequirement = await clearingHouse.getTotalOpenOrderMarginRequirement(
             //     alice.address,
