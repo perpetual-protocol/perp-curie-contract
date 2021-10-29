@@ -94,10 +94,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _modifyBalance(from, token, amountX10_D.toInt256());
 
         // check for deflationary tokens by assuring balances before and after transferring to be the same
-        uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
+        uint256 balanceBefore = IERC20Metadata(token).balanceOf(address(this));
         TransferHelper.safeTransferFrom(token, from, address(this), amountX10_D);
         // V_BAI: inconsistent balance amount
-        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amountX10_D, "V_IBA");
+        require((IERC20Metadata(token).balanceOf(address(this)).sub(balanceBefore)) == amountX10_D, "V_IBA");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
         // V_GTSTBC: greater than settlement token balance cap

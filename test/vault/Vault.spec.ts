@@ -99,7 +99,13 @@ describe("Vault spec", () => {
             expect(await vault.getBalance(alice.address)).to.eq(parseUnits("100", await usdc.decimals()))
         })
 
-        it.skip("non-standard ERC20 (USDT) is supported")
+        it("force error, inconsistent vault balance with deflationary token", async () => {
+            usdc.setTransferFeeRatio(50)
+            await expect(
+                vault.connect(alice).deposit(usdc.address, parseUnits("100", await usdc.decimals())),
+            ).to.be.revertedWith("V_IBA")
+            usdc.setTransferFeeRatio(0)
+        })
 
         it("can't add collateral not supported")
     })
