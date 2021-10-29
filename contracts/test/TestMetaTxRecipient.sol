@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
-import { BaseRelayRecipient, IRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
+import { BaseRelayRecipient } from "../gsn/BaseRelayRecipient.sol";
 
 contract TestMetaTxRecipient is BaseRelayRecipient, Initializable {
     address public pokedBy;

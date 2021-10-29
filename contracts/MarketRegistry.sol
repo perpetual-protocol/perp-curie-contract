@@ -52,6 +52,8 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     //
 
     function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
+        // existent pool
+        require(_poolMap[baseToken] == address(0), "MR_EP");
         // baseToken decimals is not 18
         require(IERC20Metadata(baseToken).decimals() == 18, "MR_BDN18");
         // clearingHouse base token balance not enough
@@ -67,8 +69,6 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         address pool = UniswapV3Broker.getPool(_uniswapV3Factory, _quoteToken, baseToken, feeRatio);
         // non-existent pool in uniswapV3 factory
         require(pool != address(0), "MR_NEP");
-        // existent pool
-        require(_poolMap[baseToken] == address(0), "MR_EP");
         // pool not (yet) initialized
         require(UniswapV3Broker.getSqrtMarkPriceX96(pool) != 0, "MR_PNI");
 
