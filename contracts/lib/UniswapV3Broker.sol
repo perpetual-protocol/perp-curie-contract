@@ -82,7 +82,7 @@ library UniswapV3Broker {
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         // zero inputs
-        require((params.base > 0 || params.quote > 0), "UB_ZIs");
+        require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
         // get the equivalent amount of liquidity from amount0 & amount1 with current price
         uint128 liquidity =
@@ -237,7 +237,7 @@ library UniswapV3Broker {
         if (isBaseToQuote) {
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed);
             // all the 1s at or to the right of the current bitPos
-            uint256 mask = (1 << bitPos) - 1 + (1 << bitPos); // TODO : => (1 << uint256(bitPos) + 1) - 1
+            uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
             uint256 masked = getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
@@ -250,7 +250,7 @@ library UniswapV3Broker {
             // start from the word of the next tick, since the current tick state doesn't matter
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed + 1);
             // all the 1s at or to the left of the bitPos
-            uint256 mask = ~((1 << bitPos) - 1); // TODO : => ~(0 << bitpos)
+            uint256 mask = ~((1 << bitPos) - 1);
             uint256 masked = getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the left of the current tick, return leftmost in the word
