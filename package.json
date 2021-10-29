@@ -69,7 +69,7 @@
     "hardhat": "2.3.0",
     "hardhat-contract-sizer": "2.0.3",
     "hardhat-dependency-compiler": "1.1.1",
-    "hardhat-deploy": "0.8.8",
+    "hardhat-deploy": "0.9.4",
     "hardhat-deploy-ethers": "0.3.0-beta.11",
     "hardhat-gas-reporter": "1.0.4",
     "husky": "6.0.0",
