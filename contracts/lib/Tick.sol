@@ -23,9 +23,10 @@ library Tick {
     ) internal {
         // per Uniswap: we assume that all growths before a tick is initialized happens "below" the tick
         if (tick <= currentTick) {
-            self[tick].feeX128 = globalGrowthInfo.feeX128;
-            self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96;
-            self[tick].twPremiumDivBySqrtPriceX96 = globalGrowthInfo.twPremiumDivBySqrtPriceX96;
+            GrowthInfo storage growthInfo = self[tick];
+            growthInfo.feeX128 = globalGrowthInfo.feeX128;
+            growthInfo.twPremiumX96 = globalGrowthInfo.twPremiumX96;
+            growthInfo.twPremiumDivBySqrtPriceX96 = globalGrowthInfo.twPremiumDivBySqrtPriceX96;
         }
     }
 
@@ -34,11 +35,12 @@ library Tick {
         int24 tick,
         GrowthInfo memory globalGrowthInfo
     ) internal {
-        self[tick].feeX128 = globalGrowthInfo.feeX128 - self[tick].feeX128;
-        self[tick].twPremiumX96 = globalGrowthInfo.twPremiumX96 - self[tick].twPremiumX96;
-        self[tick].twPremiumDivBySqrtPriceX96 =
+        GrowthInfo storage growthInfo = self[tick];
+        growthInfo.feeX128 = globalGrowthInfo.feeX128 - growthInfo.feeX128;
+        growthInfo.twPremiumX96 = globalGrowthInfo.twPremiumX96 - growthInfo.twPremiumX96;
+        growthInfo.twPremiumDivBySqrtPriceX96 =
             globalGrowthInfo.twPremiumDivBySqrtPriceX96 -
-            self[tick].twPremiumDivBySqrtPriceX96;
+            growthInfo.twPremiumDivBySqrtPriceX96;
     }
 
     function clear(mapping(int24 => GrowthInfo) storage self, int24 tick) internal {
@@ -73,8 +75,11 @@ library Tick {
         int256 twPremiumGrowthGlobalX96,
         int256 twPremiumDivBySqrtPriceGrowthGlobalX96
     ) internal view returns (FundingGrowthRangeInfo memory) {
-        int256 lowerTwPremiumGrowthOutsideX96 = self[lowerTick].twPremiumX96;
-        int256 upperTwPremiumGrowthOutsideX96 = self[upperTick].twPremiumX96;
+        GrowthInfo storage lowerTickGrowthInfo = self[lowerTick];
+        GrowthInfo storage upperTickGrowthInfo = self[upperTick];
+
+        int256 lowerTwPremiumGrowthOutsideX96 = lowerTickGrowthInfo.twPremiumX96;
+        int256 upperTwPremiumGrowthOutsideX96 = upperTickGrowthInfo.twPremiumX96;
 
         FundingGrowthRangeInfo memory fundingGrowthRangeInfo;
         fundingGrowthRangeInfo.twPremiumGrowthBelowX96 = currentTick >= lowerTick
@@ -85,8 +90,8 @@ library Tick {
                 ? upperTwPremiumGrowthOutsideX96
                 : twPremiumGrowthGlobalX96 - upperTwPremiumGrowthOutsideX96;
 
-        int256 lowerTwPremiumDivBySqrtPriceGrowthOutsideX96 = self[lowerTick].twPremiumDivBySqrtPriceX96;
-        int256 upperTwPremiumDivBySqrtPriceGrowthOutsideX96 = self[upperTick].twPremiumDivBySqrtPriceX96;
+        int256 lowerTwPremiumDivBySqrtPriceGrowthOutsideX96 = lowerTickGrowthInfo.twPremiumDivBySqrtPriceX96;
+        int256 upperTwPremiumDivBySqrtPriceGrowthOutsideX96 = upperTickGrowthInfo.twPremiumDivBySqrtPriceX96;
 
         int256 twPremiumDivBySqrtPriceGrowthBelowX96 =
             currentTick >= lowerTick

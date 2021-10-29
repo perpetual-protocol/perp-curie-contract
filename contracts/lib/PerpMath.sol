@@ -56,11 +56,13 @@ library PerpMath {
     }
 
     function divBy10_18(int256 value) internal pure returns (int256) {
-        return value.div(1 ether);
+        // no overflow here
+        return value / (1 ether);
     }
 
     function divBy10_18(uint256 value) internal pure returns (uint256) {
-        return value.div(1 ether);
+        // no overflow here
+        return value / (1 ether);
     }
 
     function mulRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
