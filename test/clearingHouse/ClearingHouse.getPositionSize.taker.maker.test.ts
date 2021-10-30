@@ -2,7 +2,6 @@ import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook } from "../../typechain"
 import {
     addOrder,
-    b2qExactInput,
     closePosition,
     getOrderIds,
     q2bExactInput,
@@ -91,43 +90,56 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
             expect(await getTakerOpenNotional(alice, baseToken)).eq(takerOpenNotionalBefore)
         })
 
-        it("won't impact maker's position when closing position", async () => {
-            await closePosition(fixture, alice)
-            expect(await getTakerPositionSize(alice, baseToken)).eq(0)
-            expect(await getTakerPositionSize(alice, baseToken)).eq(0)
-            expect(await getOrderIds(fixture, alice)).eq(orderIdsBefore)
-        })
+        testRemoveAllOrders()
+        testRemoveHalfOrder()
+        testClosePosition()
 
-        it("remove orders will change taker's position", async () => {
-            // alice has half shares of the pool, remove her 100% = remove 50% of total pool
-            // pool: 200/2000 => 100/1000
-            await removeAllOrders(fixture, alice)
+        function testRemoveAllOrders() {
+            it("remove order will change taker's position", async () => {
+                // alice has half shares of the pool, remove her 100% = remove 50% of total pool
+                // pool: 200/2000 => 100/1000
+                await removeAllOrders(fixture, alice)
 
-            // alice:
-            // maker base/quote: -80b, -1250q
-            // maker in pool: 100b, 1000q
-            // impermanent pos: 20b, -250q
-            // taker pos: +20b -250q => +40b, -500q
-            expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("40"))
-            expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-500"))
-        })
+                // alice:
+                // maker base/quote: -80b, -1250q
+                // maker in pool: 100b, 1000q
+                // impermanent pos: 20b, -250q
+                // taker pos: +20b -250q => +40b, -500q
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("40"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-500"))
+            })
+        }
 
-        it("remove 50% order", async () => {
-            // alice has half shares of the pool, remove her 50% = remove 25% of total pool
-            // pool: 200/2000 => 150/1500
-            const halfLiquidity = BigNumber.from(orderBefore.liquidity.toString()).div(2)
-            await removeOrder(fixture, alice, halfLiquidity, orderBefore.lowerTick, orderBefore.upperTick)
+        function testRemoveHalfOrder() {
+            it("remove 50% order", async () => {
+                // alice has half shares of the pool, remove her 50% = remove 25% of total pool
+                // pool: 200/2000 => 150/1500
+                const halfLiquidity = BigNumber.from(orderBefore.liquidity.toString()).div(2)
+                await removeOrder(fixture, alice, halfLiquidity, orderBefore.lowerTick, orderBefore.upperTick)
 
-            // alice:
-            // maker base/quote: -80b, -1250q
-            // maker in pool: 100b, 1000q
-            // impermanent pos: 20b, -250q
-            // remove 50% from the pool: 50b, 500q
-            // 50% of maker base/quote: -40b, -625q
-            // realize pos: 10b, -125q
-            // taker pos: +20b -250q => +30b, -375q
-            expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("20"))
-            expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-375"))
+                // alice:
+                // maker base/quote: -80b, -1250q
+                // maker in pool: 100b, 1000q
+                // impermanent pos: 20b, -250q
+                // remove 50% from the pool: 50b, 500q
+                // 50% of maker base/quote: -40b, -625q
+                // realize pos: 10b, -125q
+                // taker pos: +20b -250q => +30b, -375q
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("20"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-375"))
+            })
+        }
+
+        describe("has 2 order", () => {
+            beforeEach(async () => {
+                await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
+                const orderIds = await getOrderIds(fixture, alice)
+                expect(orderIds.length).gt(1)
+            })
+
+            // will has the same result
+            testRemoveAllOrders()
+            testRemoveHalfOrder()
         })
     })
 
@@ -159,43 +171,65 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
             expect(takerOpenNotionalBefore.toString()).eq(parseEther("350"))
         })
 
+        testRemoveAllOrders()
+        testRemoveHalfOrder()
+        testClosePosition()
+
+        function testRemoveAllOrders() {
+            it("remove orders will change taker's position", async () => {
+                // alice has half shares of the pool, remove her 100% = remove 50% of total pool
+                // pool: 62.5/1600 => 31.25/800
+                await removeAllOrders(fixture, alice)
+
+                // alice:
+                // maker base/quote: -50b, -500q
+                // maker in pool: 31.25b, 800q
+                // impermanent pos: -18.75b, 300q
+                // taker pos: +17.5b -350q => -1.25b, -50q shit
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("-1.25"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-50"))
+            })
+        }
+
+        function testRemoveHalfOrder() {
+            it("remove 50% order", async () => {
+                // alice has half shares of the pool, remove her 50% = remove 25% of total pool
+                // pool: 62.5/1600 => 46.875/1200
+                const halfLiquidity = BigNumber.from(orderBefore.liquidity.toString()).div(2)
+                await removeOrder(fixture, alice, halfLiquidity, orderBefore.lowerTick, orderBefore.upperTick)
+
+                // alice:
+                // maker base/quote: -50b, -500q
+                // maker in pool: 31.25b, 800q
+                // impermanent pos: -18.75b, 300q
+                // remove 50% from the pool: 15.625b, 400q
+                // 50% of maker base/quote: -25b, -250q
+                // realize pos: 9.375b, 150q
+                // taker pos: +17.5b -350q => +26.875b, -200q
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("26.875"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-200"))
+            })
+        }
+
+        describe("has 2 order", () => {
+            beforeEach(async () => {
+                await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
+                const orderIds = await getOrderIds(fixture, alice)
+                expect(orderIds.length).gt(1)
+            })
+
+            // will has the same result
+            testRemoveAllOrders()
+            testRemoveHalfOrder()
+        })
+    })
+
+    function testClosePosition() {
         it("won't impact maker's position when closing position", async () => {
             await closePosition(fixture, alice)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
             expect(await getOrderIds(fixture, alice)).eq(orderIdsBefore)
         })
-
-        it("remove orders will change taker's position", async () => {
-            // alice has half shares of the pool, remove her 100% = remove 50% of total pool
-            // pool: 62.5/1600 => 31.25/800
-            await removeAllOrders(fixture, alice)
-
-            // alice:
-            // maker base/quote: -50b, -500q
-            // maker in pool: 31.25b, 800q
-            // impermanent pos: -18.75b, 300q
-            // taker pos: +17.5b -350q => -1.25b, -50q shit
-            expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("-1.25"))
-            expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-50"))
-        })
-
-        it("remove 50% order", async () => {
-            // alice has half shares of the pool, remove her 50% = remove 25% of total pool
-            // pool: 62.5/1600 => 46.875/1200
-            const halfLiquidity = BigNumber.from(orderBefore.liquidity.toString()).div(2)
-            await removeOrder(fixture, alice, halfLiquidity, orderBefore.lowerTick, orderBefore.upperTick)
-
-            // alice:
-            // maker base/quote: -50b, -500q
-            // maker in pool: 31.25b, 800q
-            // impermanent pos: -18.75b, 300q
-            // remove 50% from the pool: 15.625b, 400q
-            // 50% of maker base/quote: -25b, -250q
-            // realize pos: 9.375b, 150q
-            // taker pos: +17.5b -350q => +26.875b, -200q
-            expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("26.875"))
-            expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-200"))
-        })
-    })
+    }
 })
