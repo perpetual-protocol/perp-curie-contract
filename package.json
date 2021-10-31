@@ -8,11 +8,11 @@
     "metadata/"
   ],
   "scripts": {
-    "typechain": "npm run typechain-openzeppelin",
+    "typechain": "npm run typechain-openzeppelin | npm run typechain-perp-oracle",
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin ./node_modules/@openzeppelin/contracts/build/contracts/**/*.json",
+    "typechain-perp-oracle": "typechain --target ethers-v5 --out-dir ./typechain/perp-oracle ./node_modules/@perp/perp-oracle-contract/artifacts/contracts/**/*.json",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "rm -rf deployments/hardhat | hardhat test",
-    "parallel-test": "rm -rf deployments/hardhat | hardhat test --parallel",
     "build": "npm run typechain && hardhat compile",
     "prepare": "husky install",
     "lint": "npm run lint-contracts && npm run lint-tests",
@@ -49,6 +49,7 @@
     "@openzeppelin/contracts": "3.4.0",
     "@openzeppelin/contracts-upgradeable": "3.4.2",
     "@openzeppelin/hardhat-upgrades": "1.10.0",
+    "@perp/perp-oracle-contract": "0.1.1",
     "@tenderly/hardhat-tenderly": "1.0.12",
     "@typechain/ethers-v5": "7.0.0",
     "@typechain/hardhat": "2.0.1",
