@@ -3,7 +3,6 @@ import { ethers } from "hardhat"
 import {
     AccountBalance,
     BaseToken,
-    ChainlinkPriceFeed,
     ClearingHouse,
     ClearingHouseConfig,
     Exchange,
@@ -18,6 +17,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { ChainlinkPriceFeed } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
@@ -251,8 +251,9 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const mockedAggregator = await smockit(aggregator)
 
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy()) as ChainlinkPriceFeed
-        await chainlinkPriceFeed.initialize(mockedAggregator.address)
+        const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
+            mockedAggregator.address,
+        )) as ChainlinkPriceFeed
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const token = (await baseTokenFactory.deploy()) as BaseToken
