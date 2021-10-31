@@ -15,5 +15,4 @@ export const allDeployedContractsNamesAndDirs: ContractNameAndDir[] = [
     { name: "InsuranceFund.sol", dir: "./contracts" },
     { name: "MarketRegistry.sol", dir: "./contracts" },
     { name: "OrderBook.sol", dir: "./contracts" },
-    { name: "ChainlinkPriceFeed.sol", dir: "./contracts/oracle" },
 ]
