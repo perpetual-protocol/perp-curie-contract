@@ -130,47 +130,46 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
+        // for closing position, positionSize(int256) == param.amount(uint256)
         int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
-        bool isPartialClose;
 
+        bool isPartialClose;
+        uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
         // if over price limit when
-        // 1. close a position, then partial close the position
-        // 2. reduce a position, then revert
+        // 1. closing a position, then partially close the position
+        // 2. reducing a position, then revert
         if (params.isClose && positionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, positionSize)
+                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, params.amount)
             ) {
+                uint256 timestamp = _blockTimestamp();
                 // EX_AOPLO: already over price limit once
-                require(
-                    _blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken],
-                    "EX_AOPLO"
-                );
-                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-                params.amount = positionSize.abs().mulRatio(
-                    IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio()
-                );
+                require(timestamp != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "EX_AOPLO");
+
+                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = timestamp;
+                params.amount = params.amount.mulRatio(partialCloseRatio);
                 isPartialClose = true;
             }
         } else {
             if (isReducePosition) {
-                // EX_OPIBS: over price limit before swap
-                require(!_isOverPriceLimit(params.baseToken), "EX_OPIBS");
+                // EX_OPLBS: over price limit before swap
+                require(!_isOverPriceLimit(params.baseToken), "EX_OPLBS");
             }
         }
 
+        // get openNotional before swap
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducePosition) {
-            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
+            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
         // examples:
@@ -184,11 +183,13 @@ contract Exchange is
         );
 
         int256 realizedPnl;
-
         // there is only realizedPnl when it's not increasing the position size
         if (isReducePosition) {
             // closedRatio is based on the position size
-            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
+            uint256 closedRatio =
+                isPartialClose
+                    ? partialCloseRatio
+                    : FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
             int256 deltaAvailableQuote =
                 params.isBaseToQuote ? response.deltaAvailableQuote.toInt256() : response.deltaAvailableQuote.neg256();
 
@@ -238,15 +239,14 @@ contract Exchange is
                     deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
             }
-
-            if (realizedPnl != 0) {
-                // https://app.asana.com/0/1200338471046334/1201034555932071/f
-                IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
-            }
         }
-        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
 
+        if (realizedPnl != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
+        }
         IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
+
+        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
         uint256 sqrtPrice =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
@@ -474,7 +474,7 @@ contract Exchange is
     function _isOverPriceLimitByReplayReverseSwap(
         address baseToken,
         bool isBaseToQuote,
-        int256 positionSize
+        uint256 positionSize
     ) internal returns (bool) {
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         InternalReplaySwapParams memory replaySwapParams =
@@ -482,7 +482,7 @@ contract Exchange is
                 baseToken: baseToken,
                 isBaseToQuote: !isBaseToQuote,
                 isExactInput: !isBaseToQuote,
-                amount: positionSize.abs(),
+                amount: positionSize,
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
         return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));
