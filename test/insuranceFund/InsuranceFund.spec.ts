@@ -49,7 +49,7 @@ describe("InsuranceFund Spec", () => {
         it("setInsuranceRatioThreshold")
 
         describe("getInsuranceRatio", () => {
-            it("insuranceRatio = vault.balanceOf(IF) / totalOpenInterestNotional")
+            it("insuranceRatio = vault.getBalance(IF) / totalOpenInterestNotional")
         })
     })
 })

@@ -30,12 +30,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     using PerpMath for int256;
     using PerpMath for uint256;
     using AddressUpgradeable for address;
-    //
-    // EVENT
-    //
-
-    event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
-    event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
     //
     // MODIFIER
@@ -100,10 +94,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _modifyBalance(from, token, amountX10_D.toInt256());
 
         // check for deflationary tokens by assuring balances before and after transferring to be the same
-        uint256 balanceBefore = IERC20Metadata(token).balanceOf(from);
+        uint256 balanceBefore = IERC20Metadata(token).balanceOf(address(this));
         TransferHelper.safeTransferFrom(token, from, address(this), amountX10_D);
         // V_BAI: inconsistent balance amount
-        require(balanceBefore.sub(IERC20Metadata(token).balanceOf(from)) == amountX10_D, "V_IBA");
+        require((IERC20Metadata(token).balanceOf(address(this)).sub(balanceBefore)) == amountX10_D, "V_IBA");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
         // V_GTSTBC: greater than settlement token balance cap
@@ -214,7 +208,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
                 .toUint256();
     }
 
-    function balanceOf(address trader) public view override returns (int256) {
+    function getBalance(address trader) public view override returns (int256) {
         return _balance[trader][_settlementToken];
     }
 
@@ -229,7 +223,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
         int256 totalCollateralValueX10_D =
-            balanceOf(trader).add(owedRealizedPnlX10_18.sub(fundingPaymentX10_18).formatSettlementToken(_decimals));
+            getBalance(trader).add(owedRealizedPnlX10_18.sub(fundingPaymentX10_18).formatSettlementToken(_decimals));
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));

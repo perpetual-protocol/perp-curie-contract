@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - rename `AccountBalance.getLiquidateMarginRequirement` to `AccountBalance.getMarginRequirementForLiquidation`
+- rename `Vault.balanceOf` to `Vault.getBalance`
 
 ### Removed
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`

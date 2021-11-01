@@ -17,8 +17,6 @@ contract VirtualToken is IVirtualToken, SafeOwnable, ERC20Upgradeable {
     function __VirtualToken_init(string memory nameArg, string memory symbolArg) internal initializer {
         __SafeOwnable_init();
         __ERC20_init(nameArg, symbolArg);
-        // transfer to 0 = burn
-        _whitelistMap[address(0)] = true;
     }
 
     function mintMaximumTo(address recipient) external onlyOwner {
@@ -50,7 +48,10 @@ contract VirtualToken is IVirtualToken, SafeOwnable, ERC20Upgradeable {
     ) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
 
-        // not whitelisted
-        require(_whitelistMap[from], "VT_NW");
+        // `from` == address(0) when mint()
+        if (from != address(0)) {
+            // not whitelisted
+            require(_whitelistMap[from], "VT_NW");
+        }
     }
 }

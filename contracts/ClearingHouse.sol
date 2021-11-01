@@ -498,7 +498,7 @@ contract ClearingHouse is
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
         int256 balanceX10_18 =
-            SettlementTokenMath.parseSettlementToken(IVault(_vault).balanceOf(trader), _settlementTokenDecimals);
+            SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
         return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
     }

@@ -2,7 +2,7 @@
 describe.skip("InsuranceFund integration", () => {
     describe("collect = min(usdcCollateral, (vault.balance(IF) - insuranceRatioThreshold / insuranceRatio * openInterestNotional))", () => {
         describe("collectableBalance > 0", () => {
-            it("decrease vault.balanceOf(IF)")
+            it("decrease vault.getBalance(IF)")
             it("increase USDC.balanceOf(treasury)")
 
             // TODO discuss
@@ -37,6 +37,6 @@ describe.skip("Vault integrates with InsuranceFund", () => {
 
     describe("cover bad debt", () => {
         it("borrower from insurance fund, never repay")
-        it("vault.balanceOf(InsuranceFund) remains the same")
+        it("vault.getBalance(InsuranceFund) remains the same")
     })
 })
