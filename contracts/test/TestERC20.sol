@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
 
 contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
-    uint256 _transferFeeRatio = 0;
+    uint256 _transferFeeRatio;
 
     function __TestERC20_init(
         string memory name,
@@ -14,6 +14,7 @@ contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
     ) public initializer {
         __ERC20PresetMinterPauser_init(name, symbol);
         _setupDecimals(decimal);
+        _transferFeeRatio = 0;
     }
 
     function setMinter(address minter) external {
