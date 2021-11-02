@@ -22,7 +22,7 @@
     "lint-staged": "lint-staged",
     "dev": "hardhat deploy --network hardhat",
     "transferOwner:rinkeby": "hardhat run --network rinkeby scripts/transferOwner.ts",
-    "transferOwner:arbitrum": "hardhat run --network arbitrum scripts/transferOwner.ts",
+    "transferOwner:arbitrumRinkeby": "hardhat run --network arbitrumRinkeby scripts/transferOwner.ts",
     "tenderly:rinkeby": "hardhat tenderly --network rinkeby --stage staging",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
