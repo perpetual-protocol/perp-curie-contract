@@ -250,7 +250,7 @@ contract OrderBook is
 
             removeLiquidityResponse.base = removeLiquidityResponse.base.add(response.base);
             removeLiquidityResponse.quote = removeLiquidityResponse.quote.add(response.quote);
-            removeLiquidityResponse.quote = removeLiquidityResponse.fee.add(response.fee);
+            removeLiquidityResponse.fee = removeLiquidityResponse.fee.add(response.fee);
             removeLiquidityResponse.realizedBase = removeLiquidityResponse.realizedBase.add(response.realizedBase);
             removeLiquidityResponse.realizedQuote = removeLiquidityResponse.realizedQuote.add(response.realizedQuote);
         }
