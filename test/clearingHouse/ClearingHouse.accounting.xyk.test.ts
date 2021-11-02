@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber, BigNumberish, ContractTransaction } from "ethers"
+import { BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -16,14 +16,15 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
 describe("ClearingHouse accounting verification in xyk pool", () => {
-    const [admin, maker, taker] = waffle.provider.getWallets()
+    const [admin, maker, taker, maker2, taker2, maker3, taker3] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
@@ -40,6 +41,10 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
+    let fixture
+
+    let makerCollateral: BigNumber
+    let takerCollateral: BigNumber
 
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
@@ -59,6 +64,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
+        fixture = _clearingHouseFixture
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
@@ -78,8 +84,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         upperTick = getMaxTick(tickSpacing)
 
         // prepare collateral for maker
-        const makerCollateralAmount = parseUnits("1000", collateralDecimals)
-        await collateral.mint(maker.address, makerCollateralAmount)
+        makerCollateral = parseUnits("1000", collateralDecimals)
+        await collateral.mint(maker.address, makerCollateral)
         await deposit(maker, vault, 1000, collateral)
 
         // maker add liquidity
@@ -95,7 +101,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         // prepare collateral for taker
-        const takerCollateral = parseUnits("100", collateralDecimals)
+        takerCollateral = parseUnits("100", collateralDecimals)
         await collateral.mint(taker.address, takerCollateral)
         await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
         await deposit(taker, vault, 100, collateral)
@@ -104,7 +110,36 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(taker.address, baseToken.address)
         expect(baseBalance).be.deep.eq(parseEther("0"))
         expect(quoteBalance).be.deep.eq(parseEther("0"))
+
+        // maker2
+        // prepare collateral for maker2
+        await collateral.mint(maker2.address, makerCollateral)
+        await deposit(maker2, vault, 1000, collateral)
+
+        // taker2
+        // prepare collateral for taker2
+        await collateral.mint(taker2.address, takerCollateral)
+        await deposit(taker2, vault, 100, collateral)
+
+        // maker3
+        // prepare collateral for maker2
+        await collateral.mint(maker3.address, makerCollateral)
+        await deposit(maker3, vault, 1000, collateral)
+
+        // taker3
+        // prepare collateral for taker2
+        await collateral.mint(taker3.address, takerCollateral)
+        await deposit(taker3, vault, 100, collateral)
     })
+
+    function getTakerFee(receipt: ContractReceipt): BigNumber {
+        const logs = filterLogs(receipt, exchange.interface.getEventTopic("PositionChanged"), exchange)
+        let fees = BigNumber.from(0)
+        for (const log of logs) {
+            fees = fees.add(log.args.fee)
+        }
+        return fees
+    }
 
     function takerLongExactInput(amount): Promise<ContractTransaction> {
         return clearingHouse.connect(taker).openPosition({
@@ -313,5 +348,140 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         expect(
             ifOwedRealizedPnl.add(BigNumber.from("179909999999999999")).sub(BigNumber.from("199900000000000024")),
         ).be.closeTo(BigNumber.from("0"), 25)
+    })
+
+    describe.only("complicated test", async () => {
+        afterEach(async () => {
+            const users = [maker, maker2, maker3, taker, taker2, taker3]
+
+            let totalAccountValue = BigNumber.from(0)
+            const totalCollateralDeposited = makerCollateral.mul(3).add(takerCollateral.mul(3))
+
+            for (const user of users) {
+                const accountValue = await clearingHouse.getAccountValue(user.address)
+                console.log(`accountValue ${accountValue}`)
+                totalAccountValue = totalAccountValue.add(accountValue)
+            }
+
+            const insuranceFreeCollateral = await vault.getFreeCollateral(insuranceFund.address)
+
+            expect(totalAccountValue.add(insuranceFreeCollateral.mul(1e12))).to.be.eq(
+                totalCollateralDeposited.mul(1e12),
+            )
+        })
+
+        it("single take", async () => {
+            // taker open, taker fee 100 * 0.1% = 0.1
+            let receipt = await (await q2bExactInput(fixture, taker, 100)).wait()
+            const takerFee1 = getTakerFee(receipt)
+            console.log(`takerFee1 ${takerFee1}`)
+
+            // maker move liquidity
+            let makerFee1 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            const ifFee1 = await vault.getFreeCollateral(insuranceFund.address)
+            console.log(`ifFee1: ${ifFee1}`)
+            console.log(`maker+IF fee1: ${makerFee1.add(ifFee1)}`)
+            // await removeAllOrders(fixture, maker)
+            // await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick)
+
+            // remove once
+            // takerFee1        100000000000000001
+            // maker+IF fee1:    90000000000009999
+            // takerFee2         99900000000000001
+            // maker+IF fee2:   179910000000009989
+
+            // remove twice
+            // takerFee1        100000000000000001
+            // maker+IF fee1:    90000000000009999
+            // takerFee2         99001701994794916
+            // maker+IF fee2:    89101531795325323
+
+            // taker close
+            receipt = await (await closePosition(fixture, taker)).wait()
+            const takerFee2 = getTakerFee(receipt)
+            console.log(`takerFee2 ${takerFee2}`)
+
+            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker remove liquidity
+            // maker move liquidity
+            const makerFee2 = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            const ifFee2 = (await vault.getFreeCollateral(insuranceFund.address)).sub(ifFee1)
+            console.log(`ifFee2: ${ifFee2}`)
+            console.log(`maker+IF fee2: ${makerFee2.add(ifFee2)}`)
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("multiple takes with rounding error", async () => {
+            // taker, taker2, taker3 open
+            await q2bExactInput(fixture, taker, 876.54321)
+            await q2bExactInput(fixture, taker2, 765.4321)
+            await b2qExactInput(fixture, taker3, 0.321)
+
+            // maker move liquidity
+            await removeAllOrders(fixture, maker)
+            await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
+
+            // taker, taker2, taker3 close
+            await closePosition(fixture, taker)
+            await closePosition(fixture, taker2)
+            await closePosition(fixture, taker3)
+
+            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker remove liquidity
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("multiple makers with multiple takers", async () => {
+            // taker, taker2, taker3 open
+            await q2bExactInput(fixture, taker, 123.456)
+            await q2bExactInput(fixture, taker2, 0.123)
+            await b2qExactInput(fixture, taker3, 0.987)
+
+            // maker2, maker3 add liquidity
+            await addOrder(fixture, maker2, 100, 1000, lowerTick, upperTick)
+            await addOrder(fixture, maker3, 100, 1000, lowerTick, upperTick)
+
+            // taker, taker2, taker3 close
+            await closePosition(fixture, taker)
+            await closePosition(fixture, taker2)
+            await closePosition(fixture, taker3)
+
+            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getPositionSize(maker2.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getPositionSize(maker3.address, baseToken.address)).to.be.deep.eq(0)
+
+            // makers remove liquidity
+            await removeAllOrders(fixture, maker)
+            await removeAllOrders(fixture, maker2)
+            await removeAllOrders(fixture, maker3)
+        })
+
+        it("discontinuous liquidity", async () => {
+            const tick = (await pool.slot0()).tick
+            console.log(`tick ${tick}`)
+            // maker2 add liquidity
+        })
     })
 })
