@@ -357,7 +357,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         ).be.closeTo(BigNumber.from("0"), 25)
     })
 
-    describe.only("complicated test", async () => {
+    describe("complicated test", async () => {
         let totalCollateralWithdrawn: BigNumber
 
         beforeEach(() => {
