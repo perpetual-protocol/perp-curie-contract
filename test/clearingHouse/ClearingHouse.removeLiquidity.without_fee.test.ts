@@ -130,6 +130,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                 openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                BigNumber.from("0"),
+                BigNumber.from("0"),
             ])
         })
 
@@ -215,6 +217,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    BigNumber.from("0"),
+                    BigNumber.from("0"),
                 ])
             })
 
@@ -278,6 +282,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    BigNumber.from("0"),
+                    BigNumber.from("0"),
                 ])
             })
 
@@ -340,6 +346,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    BigNumber.from("0"),
+                    BigNumber.from("0"),
                 ])
             })
 
@@ -454,6 +462,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
             openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
             openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+            parseUnits("66.061845430469484023", await baseToken.decimals()),
+            parseUnits("10000", await quoteToken.decimals()),
         ])
     })
 })
