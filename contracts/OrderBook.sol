@@ -60,6 +60,8 @@ contract OrderBook is
         int24 upperTick;
         uint256 feeGrowthGlobalX128;
         uint128 liquidity;
+        uint256 deltaBase;
+        uint256 deltaQuote;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -169,6 +171,8 @@ contract OrderBook is
                     upperTick: params.upperTick,
                     feeGrowthGlobalX128: feeGrowthGlobalX128,
                     liquidity: response.liquidity,
+                    deltaBase: response.base,
+                    deltaQuote: response.quote,
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
@@ -221,11 +225,9 @@ contract OrderBook is
         address baseToken,
         bytes32[] calldata orderIds
     ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
-        uint256 totalBase;
-        uint256 totalQuote;
-        uint256 totalFee;
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
+        RemoveLiquidityResponse memory removeLiquidityResponse;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
 
@@ -246,12 +248,14 @@ contract OrderBook is
                     })
                 );
 
-            totalBase = totalBase.add(response.base);
-            totalQuote = totalQuote.add(response.quote);
-            totalFee = totalFee.add(response.fee);
+            removeLiquidityResponse.base = removeLiquidityResponse.base.add(response.base);
+            removeLiquidityResponse.quote = removeLiquidityResponse.quote.add(response.quote);
+            removeLiquidityResponse.quote = removeLiquidityResponse.fee.add(response.fee);
+            removeLiquidityResponse.realizedBase = removeLiquidityResponse.realizedBase.add(response.realizedBase);
+            removeLiquidityResponse.realizedQuote = removeLiquidityResponse.realizedQuote.add(response.realizedQuote);
         }
 
-        return RemoveLiquidityResponse({ base: totalBase, quote: totalQuote, fee: totalFee });
+        return removeLiquidityResponse;
     }
 
     /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
@@ -570,7 +574,10 @@ contract OrderBook is
             );
 
         // update token info based on existing open order
-        uint256 fee = _removeLiquidityFromOrder(params);
+        (uint256 fee, uint256 deltaNetBase, uint256 deltaNetQuote) = _removeLiquidityFromOrder(params);
+
+        int256 realizedBase = response.base.toInt256().sub(deltaNetBase.toInt256());
+        int256 realizedQuote = response.quote.toInt256().sub(deltaNetQuote.toInt256());
 
         // if flipped from initialized to uninitialized, clear the tick info
         if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick)) {
@@ -580,6 +587,7 @@ contract OrderBook is
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
 
+        int128 liquidity = params.liquidity.neg128();
         emit LiquidityChanged(
             params.maker,
             params.baseToken,
@@ -588,30 +596,54 @@ contract OrderBook is
             params.upperTick,
             response.base.neg256(),
             response.quote.neg256(),
-            params.liquidity.neg128(),
+            liquidity,
             fee
         );
 
-        return RemoveLiquidityResponse({ base: response.base, quote: response.quote, fee: fee });
+        return
+            RemoveLiquidityResponse({
+                base: response.base,
+                quote: response.quote,
+                fee: fee,
+                realizedBase: realizedBase,
+                realizedQuote: realizedQuote
+            });
     }
 
-    function _removeLiquidityFromOrder(InternalRemoveLiquidityParams memory params) internal returns (uint256) {
+    function _removeLiquidityFromOrder(InternalRemoveLiquidityParams memory params)
+        internal
+        returns (
+            uint256 fee,
+            uint256 deltaNetBase,
+            uint256 deltaNetQuote
+        )
+    {
         // update token info based on existing open order
         OpenOrder.Info storage openOrder = _openOrderMap[params.orderId];
 
         // as in _addLiquidityToOrder(), fee should be calculated before the states are updated
-        (uint256 fee, uint256 feeGrowthInsideX128) =
-            _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
+        uint256 feeGrowthInsideX128;
+        (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
+
+        deltaNetBase = openOrder.netBase == 0
+            ? 0
+            : FullMath.mulDiv(openOrder.netBase, params.liquidity, openOrder.liquidity);
+        deltaNetQuote = openOrder.netQuote == 0
+            ? 0
+            : FullMath.mulDiv(openOrder.netQuote, params.liquidity, openOrder.liquidity);
+
+        openOrder.netBase = openOrder.netBase.sub(deltaNetBase);
+        openOrder.netQuote = openOrder.netQuote.sub(deltaNetQuote);
+        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
 
         // after the fee is calculated, lastFeeGrowthInsideX128 can be updated if liquidity != 0 after removing
-        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         if (openOrder.liquidity == 0) {
             _removeOrder(params.maker, params.baseToken, params.orderId);
         } else {
             openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
         }
 
-        return fee;
+        return (fee, deltaNetBase, deltaNetQuote);
     }
 
     function _removeOrder(
@@ -675,6 +707,8 @@ contract OrderBook is
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
+        openOrder.netBase = openOrder.netBase.add(params.deltaBase);
+        openOrder.netQuote = openOrder.netQuote.add(params.deltaQuote);
 
         return fee;
     }
