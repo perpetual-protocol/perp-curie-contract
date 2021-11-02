@@ -132,7 +132,11 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // maker close position
+        // positionSize: -1983967935871743488
         const posSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
+        // maker should settle maker position to taker position
+        expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(posSize)
+
         await clearingHouse.connect(alice).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -147,6 +151,7 @@ describe("ClearingHouse maker close position", () => {
         // available + earned fee - debt = (124.75 - 31.75 - 0.32) + (2.5 * 10%) - 100 = -7.07
         const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
         expect(aliceOwedPnl).to.closeTo(parseEther("-7.069408740359897192"), 1)
+        expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq("0")
     })
 
     it("bob long, maker remove, reduce half then close", async () => {
@@ -194,6 +199,7 @@ describe("ClearingHouse maker close position", () => {
             // include pnl, collectedFee and fundingPayment
             const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
             expect(aliceOwedPnl).to.closeTo(parseEther("-3.186153358681875804"), 1)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(posSize.div(2))
         }
 
         // maker close the remain half position, the pnl should be the same
@@ -210,6 +216,7 @@ describe("ClearingHouse maker close position", () => {
         })
         const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
         expect(aliceOwedPnl).closeTo(parseEther("-7.069408740359897191"), 3)
+        expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq("0")
     })
 
     it("bob short, maker close", async () => {

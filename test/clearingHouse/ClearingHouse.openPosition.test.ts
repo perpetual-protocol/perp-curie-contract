@@ -367,6 +367,10 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("-1"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("0.01"), 1)
+
+                expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
+                    "6539527905092835",
+                )
             })
 
             it("increase 1 long position when exact output", async () => {
@@ -488,6 +492,9 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("1"))
 
                 expect(await getMakerFee()).be.closeTo(parseEther("0.010101010101010102"), 1)
+                expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
+                    parseEther("-0.006673532984759078"),
+                )
             })
         })
     })
@@ -546,6 +553,10 @@ describe("ClearingHouse openPosition", () => {
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
             expect(await getMakerFee()).be.closeTo(parseEther("0.03"), 1)
+
+            expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
+                "19615015933642630",
+            )
         })
 
         it("can increase position when profit > 0", async () => {
@@ -611,6 +622,9 @@ describe("ClearingHouse openPosition", () => {
             // pos size: 0.006538933220746361
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
+            expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
+                "6538933220746361",
+            )
         })
 
         it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {
@@ -656,6 +670,7 @@ describe("ClearingHouse openPosition", () => {
             expect(freeCollateral).deep.eq(parseUnits("999.960200", 6))
 
             expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq("0")
 
             // response.exchangedPositionSize
             // 13077866441492721
