@@ -15,12 +15,14 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
+import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity with fee", () => {
-    const [admin, alice, bob, carol] = waffle.provider.getWallets()
+    const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
@@ -31,6 +33,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let fixture: ClearingHouseFixture
 
     function findLiquidityChangedEvents(receipt: TransactionReceipt): LogDescription[] {
         const topic = orderBook.interface.getEventTopic("LiquidityChanged")
@@ -48,6 +51,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        fixture = _clearingHouseFixture
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -65,6 +69,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         // prepare collateral for carol
         await collateral.transfer(carol.address, amount)
         await deposit(carol, vault, 1000, collateral)
+
+        // prepare collateral for davis
+        await collateral.transfer(davis.address, amount)
+        await deposit(davis, vault, 1000, collateral)
     })
 
     // simulation results:
@@ -1154,8 +1162,68 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             expect(carolOwedPnl).to.eq(feeCarol)
         })
     })
-})
 
+    describe("complicated test", async () => {
+        let lowerTick: number
+        let upperTick: number
+
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+            await marketRegistry.addPool(baseToken.address, 10000)
+
+            const tickSpacing = await pool.tickSpacing()
+            lowerTick = getMinTick(tickSpacing)
+            upperTick = getMaxTick(tickSpacing)
+        })
+
+        it("maker should withdraw after multiple trader process", async () => {
+            const makerFreeCollateral = await vault.getFreeCollateral(alice.address)
+
+            // alice add liquidity
+            await addOrder(fixture, alice, 10, 2000, lowerTick, upperTick)
+
+            // bob trade
+            await q2bExactInput(fixture, bob, 123.456)
+            // carol trade
+            await q2bExactInput(fixture, carol, 654.321)
+            // davis trade
+            await b2qExactInput(fixture, davis, 1.0002)
+
+            // carol close
+            await closePosition(fixture, carol)
+            // bob close
+            await closePosition(fixture, bob)
+            // davis close
+            await closePosition(fixture, davis)
+
+            // alice remove all liquidity
+            const fee = (
+                await clearingHouse.connect(alice).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity: (
+                        await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                    ).liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            await removeAllOrders(fixture, alice)
+
+            // maker's position should be zero
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(0)
+            // maker's freeCollateral = original freeCollateral + fee
+            expect(await vault.getFreeCollateral(alice.address)).to.be.deep.eq(makerFreeCollateral.add(fee.div(1e12)))
+            // maker can withdraw all freeCollateral
+            await expect(
+                vault.connect(alice).withdraw(collateral.address, makerFreeCollateral.add(fee.div(1e12))),
+            ).to.emit(vault, "Withdrawn")
+        })
+    })
+})
 // // === useful console.log for verifying stats ===
 // console.log("alice stats:")
 // console.log("base, available")
