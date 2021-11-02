@@ -79,10 +79,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 base,
         int256 quote,
+        int256 realizedBase,
+        int256 realizedQuote,
         int256 fee
     ) external override onlyClearingHouse {
         _addBalance(maker, baseToken, base, quote, fee);
         _settleQuoteBalance(maker, baseToken);
+        _modifyTakerBalance(maker, baseToken, realizedBase, realizedQuote);
         _deregisterBaseToken(maker, baseToken);
     }
 
@@ -94,6 +97,17 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 owedRealizedPnl
     ) external override onlyExchangeOrClearingHouse {
         _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
+    }
+
+    function addBalanceForTaker(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
+    ) external override onlyExchangeOrClearingHouse {
+        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
+        _modifyTakerBalance(trader, baseToken, base, quote);
     }
 
     function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
@@ -284,6 +298,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
+    function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
+        int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
+        return positionSize.abs() < _DUST ? 0 : positionSize;
+    }
+
+    /// @inheritdoc IAccountBalance
     function getPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
@@ -324,6 +344,17 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
         _addOwedRealizedPnl(trader, owedRealizedPnl);
+    }
+
+    function _modifyTakerBalance(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote
+    ) internal {
+        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+        accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(base);
+        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(quote);
     }
 
     function _settleQuoteBalance(address trader, address baseToken) internal {

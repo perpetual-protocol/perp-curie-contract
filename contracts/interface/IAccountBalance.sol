@@ -28,10 +28,20 @@ interface IAccountBalance {
         address baseToken,
         int256 base,
         int256 quote,
+        int256 realizedBase,
+        int256 realizedQuote,
         int256 fee
     ) external;
 
     function addBalance(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
+    ) external;
+
+    function addBalanceForTaker(
         address trader,
         address baseToken,
         int256 base,
@@ -85,6 +95,8 @@ interface IAccountBalance {
     function getNetQuoteBalance(address trader) external view returns (int256);
 
     function getPositionSize(address trader, address baseToken) external view returns (int256);
+
+    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
 
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
