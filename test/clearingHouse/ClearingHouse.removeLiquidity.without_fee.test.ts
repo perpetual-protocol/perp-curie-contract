@@ -302,10 +302,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
-                    .liquidity
+                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
 
-                const firstRemoveLiquidity = liquidity.div(2)
+                const firstRemoveLiquidity = openOrder.liquidity.div(2)
                 // will receive x/2 base and y/2 quote from pool
                 await clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
@@ -317,7 +316,11 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     deadline: ethers.constants.MaxUint256,
                 })
 
-                const secondRemoveLiquidity = liquidity.sub(firstRemoveLiquidity)
+                const openOrder1 = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(openOrder1.netBase).to.be.closeTo(openOrder.netBase.sub(openOrder.netBase.div(2)), 1)
+                expect(openOrder1.netQuote).to.be.closeTo(openOrder.netQuote.sub(openOrder.netQuote.div(2)), 1)
+
+                const secondRemoveLiquidity = openOrder.liquidity.sub(firstRemoveLiquidity)
                 // will receive x/2 base and y/2 quote from pool
                 await clearingHouse.connect(alice).removeLiquidity({
                     baseToken: baseToken.address,
@@ -337,8 +340,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
                 expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
-                const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder).to.deep.eq([
+                const openOrder2 = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+                expect(openOrder2).to.deep.eq([
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
