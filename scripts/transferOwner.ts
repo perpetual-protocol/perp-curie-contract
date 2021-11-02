@@ -1,18 +1,19 @@
 import hre, { ethers } from "hardhat"
-import { CONTRACT_FILES, DeploymentsKey } from "../scripts/deploy"
+import { CONTRACT_FILES, DeploymentsKey } from "./deploy/constants"
+import { getProxyAdmin } from "./deploy/helpers"
 
 export async function transferOwner(): Promise<void> {
     const { deployments, getNamedAccounts, network } = hre
     const { gnosisSafeAddress } = await getNamedAccounts()
     const deployer = await ethers.getNamedSigner("deployer")
+
     const contractsToCheck = Object.keys(CONTRACT_FILES)
 
     if (network.name === "arbitrumRinkeby" || network.name === "rinkeby") {
         contractsToCheck.push(DeploymentsKey.USDC)
     }
-    const proxyAdminDeployment = await deployments.get(DeploymentsKey.DefaultProxyAdmin)
-    const proxyAdmin = await ethers.getContractAt(proxyAdminDeployment.abi, proxyAdminDeployment.address)
 
+    const proxyAdmin = await getProxyAdmin()
     if ((await proxyAdmin.owner()) === deployer.address) {
         await (await proxyAdmin.transferOwnership(gnosisSafeAddress)).wait()
         console.log("Transfer ProxyAdmin owner")
@@ -24,7 +25,7 @@ export async function transferOwner(): Promise<void> {
             const contract = await ethers.getContractAt(deployment.abi, deployment.address)
             if ((await contract.owner()) === deployer.address) {
                 await (await contract.setOwner(gnosisSafeAddress)).wait()
-                console.log(`${deploymentKey} contract.setOwner`)
+                console.log(`${deploymentKey}.setOwner`)
             }
         } catch (e) {
             if (e.message.includes("owner is not a function")) {
