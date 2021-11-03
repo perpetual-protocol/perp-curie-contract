@@ -299,7 +299,7 @@ contract ClearingHouse is
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (uint256, uint256)
+        returns (uint256 deltaBase, uint256 deltaQuote)
     {
         address trader = _msgSender();
 

@@ -3,16 +3,17 @@ import { expect } from "chai"
 import { BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
+import { it } from "mocha"
 import {
     AccountBalance,
     BaseToken,
-    Exchange,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
+    TestExchange,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
@@ -26,6 +27,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
+import { forward, forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
@@ -35,7 +37,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
-    let exchange: Exchange
+    let exchange: TestExchange
     let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
@@ -60,7 +62,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
+        exchange = _clearingHouseFixture.exchange as TestExchange
         accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
@@ -492,6 +494,116 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await closePosition(fixture, taker)
 
             expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker remove liquidity
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("maker takes profit", async () => {
+            // maker, maker2 add liquidity
+            await addOrder(fixture, maker, 2, 200, lowerTick, upperTick)
+            await addOrder(fixture, maker2, 2, 200, lowerTick, upperTick)
+
+            // taker open
+            await q2bExactInput(fixture, taker, 32.123)
+
+            // maker2 remove liquidity & close position
+            await removeAllOrders(fixture, maker2)
+            await closePosition(fixture, maker2)
+
+            // taker close
+            await closePosition(fixture, taker)
+
+            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker remove liquidity
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("funding payment arbitrage", async () => {
+            // taker open
+            await q2bExactInput(fixture, taker, 20.1234)
+            await forward(300)
+
+            // index price change and funding rate reversed
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("15", 6), 0, 0, 0]
+            })
+
+            // taker open reverse
+            await b2qExactOutput(fixture, taker, 30)
+            await forward(300)
+
+            // taker close
+            await closePosition(fixture, taker)
+
+            // remove liquidity
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("price-induced liquidation", async () => {
+            // maker add liquidity
+            await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
+
+            // taker open
+            await q2bExactInput(fixture, taker, 150)
+
+            // set index price to let taker underwater
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("0.1", 6), 0, 0, 0]
+            })
+
+            // liquidate taker
+            while ((await accountBalance.getPositionSize(taker.address, baseToken.address)).gt(0)) {
+                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+            }
+
+            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker remove liquidity
+            await removeAllOrders(fixture, maker)
+        })
+
+        it("funding-induced liquidation", async () => {
+            // maker add liquidity
+            await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
+
+            // taker open
+            await q2bExactInput(fixture, taker, 150)
+
+            // set index price to let taker pay funding fee
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+
+            // taker pays funding
+            while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
+                await forwardTimestamp(clearingHouse, 3000)
+                await exchange.settleFunding(taker.address, baseToken.address)
+            }
+
+            // liquidate taker
+            while ((await accountBalance.getPositionSize(taker.address, baseToken.address)).gt(0)) {
+                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+            }
+        })
+
+        it("bad debt", async () => {
+            // maker add liquidity
+            await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
+
+            // taker open, quote input: 300, base output: 26.06426925
+            await q2bExactInput(fixture, taker, 300)
+
+            // maker move liquidity
+            await removeAllOrders(fixture, maker)
+            await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
+
+            // taker close, quote output: 184.21649272
+            await closePosition(fixture, taker)
+
+            // taker has bad debt
+            expect(await clearingHouse.getAccountValue(taker.address)).to.be.lt(0)
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
