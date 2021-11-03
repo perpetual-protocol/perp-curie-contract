@@ -69,9 +69,8 @@ const config: HardhatUserConfig = {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
         gnosisSafeAddress: {
-            // https://rinkeby.gnosis-safe.io/app/#/safes/0xa2Db725A5282AA66D893B0F8A5d844aa82feFB92/balances
-            [ChainId.RINKEBY_CHAIN_ID]: "0xa2Db725A5282AA66D893B0F8A5d844aa82feFB92",
             // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
+            [ChainId.RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
         },
         // Chainlink addresses
