@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { deployUpgradable } from "../../scripts/deploy"
+import { deployUpgradable } from "../../scripts/deploy/upgrades"
 
 describe("upgradeable safe test", () => {
     it("should be revert if the implementation contract is not safe", async () => {
