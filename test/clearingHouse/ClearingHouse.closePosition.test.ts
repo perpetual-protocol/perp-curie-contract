@@ -527,7 +527,6 @@ describe("ClearingHouse closePosition", () => {
                 ).liquidity
 
                 const carolPos = await accountBalance.getPositionSize(carol.address, baseToken.address)
-                console.log("carolPos", carolPos.toString())
                 // carol get short position
                 await clearingHouse.connect(carol).removeLiquidity({
                     baseToken: baseToken.address,
@@ -541,22 +540,35 @@ describe("ClearingHouse closePosition", () => {
 
                 const carolTakerPos = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
                 expect(carolTakerPos).to.be.eq(carolPos.div(2))
-                console.log("carolTakerPos", carolTakerPos.toString())
 
-                // carol increase short position
+                // carol increases short position
                 await clearingHouse.connect(carol).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: parseEther("0.1"),
+                    amount: parseEther("0.0001"), // avoid out of liquidity
                     sqrtPriceLimitX96: "0",
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
                 const carolTakerPos2 = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
-                console.log("carolTakerPos2", carolTakerPos2.toString())
-                expect(carolTakerPos2).to.be.eq(carolTakerPos.add(parseEther("-0.1")))
+                expect(carolTakerPos2).to.be.eq(carolTakerPos.add(parseEther("-0.0001")))
+
+                // carol long
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.001"), // avoid out of liquidity
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                const carolTakerPos3 = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
+                expect(carolTakerPos3).to.be.eq(carolTakerPos2.add(parseEther("0.001")))
             })
         })
     })
