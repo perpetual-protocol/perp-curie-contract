@@ -349,12 +349,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 base,
-        int256 quote
+        int256 deltaBase,
+        int256 deltaQuote
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(base);
-        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(quote);
+        accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(deltaBase);
+        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
+        emit TakerBalancesChanged(trader, baseToken, deltaBase, deltaQuote);
     }
 
     function _settleQuoteBalance(address trader, address baseToken) internal {
