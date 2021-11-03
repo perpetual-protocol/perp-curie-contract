@@ -193,6 +193,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseEther("0"),
+                    parseEther("0.122414646"),
                 ])
 
                 // all base tokens balance should've been zero by now
@@ -303,6 +305,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                         openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                         openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                        parseEther("0.000816820841"),
+                        parseEther("0"),
                     ])
 
                     // CH should have all bob's base token = 0.0007507052579
@@ -430,7 +434,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         parseEther("768918347819178371.544278519533051567"), // lastFeeGrowthInsideX128
                         openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                         openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                        openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                        openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here,
+                        parseEther("0.000816820841"),
+                        parseEther("0"),
                     ])
 
                     // bob should have zero base token atm
@@ -604,6 +610,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseEther((base * 3).toString()),
+                    parseEther("0"),
                 ])
                 openOrder = await orderBook.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
                 expect(openOrder).to.deep.eq([
@@ -614,6 +622,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseEther(base.toString()),
+                    parseEther("0"),
                 ])
 
                 const [bobBaseBalance] = await clearingHouse.getTokenBalance(bob.address, baseToken.address)
@@ -817,6 +827,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseEther((baseIn50000And50200 + baseIn50200And50400).toString()),
+                    parseEther("0"),
                 ])
 
                 // when bob swap Q2B
@@ -832,6 +844,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseEther(baseIn50000And50200.toString()),
+                    parseEther("0"),
                 ])
 
                 // verify CH balances

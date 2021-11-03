@@ -12,6 +12,8 @@ library AccountMarket {
     struct Info {
         int256 baseBalance;
         int256 quoteBalance;
+        int256 takerBaseBalance;
+        int256 takerQuoteBalance;
         int256 lastTwPremiumGrowthGlobalX96;
     }
 

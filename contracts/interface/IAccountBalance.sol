@@ -14,6 +14,13 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
+    /// @dev Emit whenever a trader's `takerBalances` is updated
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the base token
+    /// @param deltaBase The base amount changed
+    /// @param deltaQuote The quote amount changed
+    event TakerBalancesChanged(address indexed trader, address indexed baseToken, int256 deltaBase, int256 deltaQuote);
+
     /// @param vault The address of the vault contract
     event VaultChanged(address indexed vault);
 
@@ -28,10 +35,20 @@ interface IAccountBalance {
         address baseToken,
         int256 base,
         int256 quote,
+        int256 realizedBase,
+        int256 realizedQuote,
         int256 fee
     ) external;
 
     function addBalance(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
+    ) external;
+
+    function addBalanceForTaker(
         address trader,
         address baseToken,
         int256 base,
@@ -85,6 +102,8 @@ interface IAccountBalance {
     function getNetQuoteBalance(address trader) external view returns (int256);
 
     function getPositionSize(address trader, address baseToken) external view returns (int256);
+
+    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
 
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value

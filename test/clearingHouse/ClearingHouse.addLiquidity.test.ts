@@ -145,6 +145,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("0", await baseToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 ])
             })
 
@@ -154,7 +156,7 @@ describe("ClearingHouse addLiquidity", () => {
                 await expect(
                     clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
-                        base: parseUnits("1", await quoteToken.decimals()),
+                        base: parseUnits("1", await baseToken.decimals()),
                         quote: parseUnits("10000", await quoteToken.decimals()),
                         lowerTick: 50000,
                         upperTick: 50200,
@@ -199,6 +201,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("0", await baseToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 ])
             })
 
@@ -268,6 +272,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("66.061845430469484023", await baseToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 ])
             })
 
@@ -322,6 +328,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("50", await baseToken.decimals()),
+                    BigNumber.from("7568665342936161336147"),
                 ])
             })
 
@@ -373,6 +381,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("66.061845430469484024", await baseToken.decimals()),
+                    parseUnits("10000", await quoteToken.decimals()),
                 ])
             })
 
@@ -623,6 +633,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("100", await baseToken.decimals()),
+                    parseUnits("0", await quoteToken.decimals()),
                 ])
             })
 
@@ -677,6 +689,8 @@ describe("ClearingHouse addLiquidity", () => {
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+                    parseUnits("100", await baseToken.decimals()),
+                    parseUnits("0", await quoteToken.decimals()),
                 ])
             })
         })

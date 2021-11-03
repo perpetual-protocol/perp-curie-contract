@@ -475,6 +475,132 @@ describe("ClearingHouse closePosition", () => {
                 expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(pnlAlice)
                 expect(owedOrUnrealizedPnlAlice).to.eq(pnlAlice)
             })
+
+            it("one maker close half liquidity and open position", async () => {
+                const base = 0.000816820841
+
+                // add base liquidity
+                // 0.000816820841 * 3 = 0.002450462523
+                const addLiquidityParamsAlice = {
+                    baseToken: baseToken.address,
+                    base: parseEther((base * 3).toString()),
+                    quote: "0",
+                    lowerTick, // 148.3760629
+                    upperTick, // 151.3733069
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }
+                // transfer 0.002450462523 base to pool
+                await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
+
+                // add base liquidity
+                const addLiquidityParamsCarol = {
+                    baseToken: baseToken.address,
+                    base: parseEther(base.toString()),
+                    quote: "0",
+                    lowerTick, // 148.3760629
+                    upperTick, // 151.3733069
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }
+                // transfer 0.000816820841 base to pool
+                await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
+
+                // bob swap
+                // quote: 0.112414646 / 0.99 = 0.1135501475
+                // to base: 0.0007558893279
+                await expect(
+                    clearingHouse.connect(bob).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false,
+                        isExactInput: true,
+                        oppositeAmountBound: 0,
+                        amount: parseEther("0.1135501475"),
+                        sqrtPriceLimitX96: "0",
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
+                    }),
+                )
+                    .to.emit(accountBalance, "TakerBalancesChanged")
+                    .withArgs(
+                        bob.address,
+                        baseToken.address,
+                        parseEther("0.000755889328108358"),
+                        parseEther("-0.1135501475"),
+                    )
+
+                const carolLiquidity = (
+                    await orderBook.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
+                ).liquidity
+
+                // carol has 25% liquidity of range
+                // positionSize: -0.0007558893279 * 0.25 = -0.00018897233
+                const carolPos = await accountBalance.getPositionSize(carol.address, baseToken.address)
+                expect(carolPos).to.be.eq(parseEther("-0.00018897233202709"))
+
+                // carol get short position
+                // carol's openBase: 0.000816820841
+                // carol's openQuote: 0
+                // carol's base in pool: 0.000816820841-0.00018897233 = 0.00062784851
+                // carol's quote in pool: 0.112414646*0.25 = 0.0281036615
+                // carol's deltaOpenBase: 0.000816820841 / 2 = 0.00040841042
+                // carol's deltaOpenQuote: 0
+                // realizedBase: removedBase - deltaOpenBase = (0.00062784851/2)- 0.00040841042 = -0.00009448616
+                // realizedQuote: removedQuote - deltaOpenQuote = (0.0281036615/2)- 0 = 0.01405183075
+                await expect(
+                    clearingHouse.connect(carol).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick,
+                        upperTick,
+                        liquidity: carolLiquidity.div(2),
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                )
+                    .to.emit(accountBalance, "TakerBalancesChanged")
+                    .withArgs(
+                        carol.address,
+                        baseToken.address,
+                        parseEther("-0.000094486166013545"),
+                        parseEther("0.014051830753124999"),
+                    )
+
+                const carolTakerPos = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
+                expect(carolTakerPos).to.be.eq(carolPos.div(2))
+                expect(carolTakerPos).to.be.eq(parseEther("-0.000094486166013545"))
+
+                // carol increases short position
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.0001"), // avoid out of liquidity
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                const carolTakerPos2 = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
+                expect(carolTakerPos2).to.be.eq(carolTakerPos.add(parseEther("-0.0001")))
+
+                // carol long
+                await clearingHouse.connect(carol).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.001"), // avoid out of liquidity
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                const carolTakerPos3 = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
+                expect(carolTakerPos3).to.be.eq(carolTakerPos2.add(parseEther("0.001")))
+            })
         })
     })
 

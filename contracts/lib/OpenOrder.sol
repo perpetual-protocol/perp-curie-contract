@@ -12,5 +12,7 @@ library OpenOrder {
         int256 lastTwPremiumGrowthInsideX96;
         int256 lastTwPremiumGrowthBelowX96;
         int256 lastTwPremiumDivBySqrtPriceGrowthInsideX96;
+        uint256 openBase;
+        uint256 openQuote;
     }
 }

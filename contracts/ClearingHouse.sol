@@ -239,6 +239,8 @@ contract ClearingHouse is
             params.baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
+            response.realizedBase,
+            response.realizedQuote,
             response.fee.toInt256()
         );
 
@@ -531,6 +533,8 @@ contract ClearingHouse is
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
+            response.realizedBase,
+            response.realizedQuote,
             response.fee.toInt256()
         );
     }
