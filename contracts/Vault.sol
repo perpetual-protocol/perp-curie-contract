@@ -5,7 +5,10 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
-import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import {
+    SafeERC20Upgradeable,
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -95,8 +98,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         // check for deflationary tokens by assuring balances before and after transferring to be the same
         uint256 balanceBefore = IERC20Metadata(token).balanceOf(address(this));
-        TransferHelper.safeTransferFrom(token, from, address(this), amountX10_D);
-        // V_BAI: inconsistent balance amount
+        SafeERC20Upgradeable.safeTransferFrom(IERC20Upgradeable(token), from, address(this), amountX10_D);
+        // V_BAI: inconsistent balance amount, to prevent from deflationary tokens
         require((IERC20Metadata(token).balanceOf(address(this)).sub(balanceBefore)) == amountX10_D, "V_IBA");
 
         uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
@@ -154,7 +157,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             token,
             (amountX10_D.toInt256().sub(owedRealizedPnlX10_18.formatSettlementToken(_decimals))).neg256()
         );
-        TransferHelper.safeTransfer(token, to, amountX10_D);
+        SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(token), to, amountX10_D);
 
         emit Withdrawn(token, to, amountX10_D);
     }

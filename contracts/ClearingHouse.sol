@@ -422,11 +422,13 @@ contract ClearingHouse is
 
         if (amount0Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token0();
-            IERC20Metadata(token).transfer(callbackData.pool, amount0Owed);
+            // CH_TF: Transfer failed
+            require(IERC20Metadata(token).transfer(callbackData.pool, amount0Owed), "CH_TF");
         }
         if (amount1Owed > 0) {
             address token = IUniswapV3Pool(callbackData.pool).token1();
-            IERC20Metadata(token).transfer(callbackData.pool, amount1Owed);
+            // CH_TF: Transfer failed
+            require(IERC20Metadata(token).transfer(callbackData.pool, amount1Owed), "CH_TF");
         }
     }
 
@@ -450,7 +452,8 @@ contract ClearingHouse is
                 : (uniswapV3Pool.token1(), uint256(amount1Delta));
 
         // swap
-        IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay);
+        // CH_TF: Transfer failed
+        require(IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay), "CH_TF");
     }
 
     //

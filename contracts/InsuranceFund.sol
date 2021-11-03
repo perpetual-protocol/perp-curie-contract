@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
@@ -39,7 +39,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         // not enough balance
         require(IERC20Upgradeable(_token).balanceOf(address(this)) >= amount, "IF_NEB");
 
-        TransferHelper.safeTransfer(_token, _borrower, amount);
+        SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(_token), _borrower, amount);
 
         emit Borrowed(_borrower, amount);
     }
