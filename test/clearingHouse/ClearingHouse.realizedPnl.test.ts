@@ -90,6 +90,7 @@ describe("ClearingHouse realizedPnl", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         })
         // maker base token amount in pool = 99.999999999999999999

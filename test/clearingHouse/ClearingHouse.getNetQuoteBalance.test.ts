@@ -102,6 +102,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 50800,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

@@ -880,6 +880,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     upperTick,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 // alice.liquidity = 82.510524933187653357

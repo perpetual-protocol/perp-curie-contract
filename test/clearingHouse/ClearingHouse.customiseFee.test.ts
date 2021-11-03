@@ -77,6 +77,7 @@ describe("ClearingHouse customized fee", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -751,6 +752,7 @@ describe("ClearingHouse customized fee", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -763,6 +765,7 @@ describe("ClearingHouse customized fee", () => {
                 upperTick: 50600,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

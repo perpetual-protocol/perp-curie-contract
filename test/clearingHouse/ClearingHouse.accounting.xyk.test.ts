@@ -106,6 +106,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         })
 

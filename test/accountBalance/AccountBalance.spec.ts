@@ -90,6 +90,7 @@ describe("AccountBalance", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -104,6 +105,7 @@ describe("AccountBalance", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -125,6 +127,7 @@ describe("AccountBalance", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -158,6 +161,7 @@ describe("AccountBalance", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -170,6 +174,7 @@ describe("AccountBalance", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

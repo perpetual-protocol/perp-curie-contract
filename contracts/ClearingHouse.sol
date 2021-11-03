@@ -166,6 +166,16 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
         address trader = _msgSender();
+
+        if (params.useTakerPositionSize) {
+            // CH_TPSNE: taker position size not enough
+            require(
+                IAccountBalance(_accountBalance).getTakerPositionSize(trader, params.baseToken) >=
+                    params.base.toInt256(),
+                "CH_TPSNE"
+            );
+        }
+
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -188,14 +198,24 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // collect fee to owedRealizedPnl
-        IAccountBalance(_accountBalance).addBalance(
-            trader,
-            params.baseToken,
-            response.base.neg256(),
-            response.quote.neg256(),
-            response.fee.toInt256()
-        );
+        if (params.useTakerPositionSize) {
+            IAccountBalance(_accountBalance).addBalanceForTaker(
+                trader,
+                params.baseToken,
+                response.base.neg256(),
+                response.quote.neg256(),
+                response.fee.toInt256()
+            );
+        } else {
+            IAccountBalance(_accountBalance).addBalance(
+                trader,
+                params.baseToken,
+                response.base.neg256(),
+                response.quote.neg256(),
+                response.fee.toInt256()
+            );
+        }
+        // fee is collected to owedRealizedPnl
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);

@@ -88,6 +88,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 expect(result.base).to.be.eq("0")
@@ -106,6 +107,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -162,6 +164,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -215,6 +218,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 expect(result.base).to.be.eq(parseUnits("66.061845430469484023", await baseToken.decimals()))
@@ -233,6 +237,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -289,6 +294,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -344,6 +350,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -355,6 +362,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -396,6 +404,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZIs")
@@ -411,6 +420,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -426,6 +436,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -441,6 +452,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -456,6 +468,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -471,6 +484,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEFCI")
@@ -486,6 +500,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -511,6 +526,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -524,6 +540,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("OB_ONE")
@@ -538,6 +555,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.emit(orderBook, "LiquidityChanged")
@@ -555,6 +573,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPositionSize: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -568,6 +587,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("AB_MNE")
@@ -594,6 +614,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -650,6 +671,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
+                        useTakerPositionSize: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -710,6 +732,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -721,6 +744,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: 50600,
                 minBase: 0,
                 minQuote: 0,
+                useTakerPositionSize: false,
                 deadline: ethers.constants.MaxUint256,
             })
         })
