@@ -526,8 +526,16 @@ describe("ClearingHouse closePosition", () => {
                     await orderBook.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
                 ).liquidity
 
+                // carol has 25% liquidity of range
+                // positionSize: -0.0007558893279 * 0.25 = -0.00018897233
                 const carolPos = await accountBalance.getPositionSize(carol.address, baseToken.address)
+                expect(carolPos).to.be.eq(parseEther("-0.00018897233202709"))
+
                 // carol get short position
+                // carol's openBase: 0.000816820841
+                // carol's base in pool: 0.000816820841-0.00018897233 = 0.00062784851
+                // carol's deltaOpenBase: 0.000816820841 / 2 = 0.00040841042
+                // realizedBase: removedBase - deltaOpenBase = (0.00062784851/2)- 0.00040841042 = -0.00009448616
                 await clearingHouse.connect(carol).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick,
@@ -537,9 +545,9 @@ describe("ClearingHouse closePosition", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 })
-
                 const carolTakerPos = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
                 expect(carolTakerPos).to.be.eq(carolPos.div(2))
+                expect(carolTakerPos).to.be.eq(parseEther("-0.000094486166013545"))
 
                 // carol increases short position
                 await clearingHouse.connect(carol).openPosition({
