@@ -317,8 +317,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 })
 
                 const openOrder1 = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder1.netBase).to.be.closeTo(openOrder.netBase.sub(openOrder.netBase.div(2)), 1)
-                expect(openOrder1.netQuote).to.be.closeTo(openOrder.netQuote.sub(openOrder.netQuote.div(2)), 1)
+                expect(openOrder1.openBase).to.be.closeTo(openOrder.openBase.sub(openOrder.openBase.div(2)), 1)
+                expect(openOrder1.openQuote).to.be.closeTo(openOrder.openQuote.sub(openOrder.openQuote.div(2)), 1)
 
                 const secondRemoveLiquidity = openOrder.liquidity.sub(firstRemoveLiquidity)
                 // will receive x/2 base and y/2 quote from pool
