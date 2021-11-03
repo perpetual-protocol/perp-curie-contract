@@ -625,16 +625,17 @@ contract OrderBook is
         uint256 feeGrowthInsideX128;
         (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
-        deltaOpenBase = openOrder.openBase == 0
-            ? 0
-            : FullMath.mulDiv(openOrder.openBase, params.liquidity, openOrder.liquidity);
-        deltaOpenQuote = openOrder.openQuote == 0
-            ? 0
-            : FullMath.mulDiv(openOrder.openQuote, params.liquidity, openOrder.liquidity);
-
-        openOrder.openBase = openOrder.openBase.sub(deltaOpenBase);
-        openOrder.openQuote = openOrder.openQuote.sub(deltaOpenQuote);
-        openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
+        if (params.liquidity != 0) {
+            if (openOrder.openBase != 0) {
+                deltaOpenBase = FullMath.mulDiv(openOrder.openBase, params.liquidity, openOrder.liquidity);
+                openOrder.openBase = openOrder.openBase.sub(deltaOpenBase);
+            }
+            if (openOrder.openQuote != 0) {
+                deltaOpenQuote = FullMath.mulDiv(openOrder.openQuote, params.liquidity, openOrder.liquidity);
+                openOrder.openQuote = openOrder.openQuote.sub(deltaOpenQuote);
+            }
+            openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
+        }
 
         // after the fee is calculated, lastFeeGrowthInsideX128 can be updated if liquidity != 0 after removing
         if (openOrder.liquidity == 0) {
