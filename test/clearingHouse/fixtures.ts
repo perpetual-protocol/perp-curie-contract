@@ -28,7 +28,7 @@ export interface ClearingHouseFixture {
     accountBalance: TestAccountBalance | AccountBalance
     marketRegistry: MarketRegistry
     clearingHouseConfig: ClearingHouseConfig
-    exchange: Exchange
+    exchange: TestExchange | Exchange
     vault: Vault
     insuranceFund: InsuranceFund
     uniV3Factory: UniswapV3Factory
