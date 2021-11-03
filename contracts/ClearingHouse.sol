@@ -629,7 +629,7 @@ contract ClearingHouse is
         internal
         returns (IExchange.SwapResponse memory)
     {
-        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");

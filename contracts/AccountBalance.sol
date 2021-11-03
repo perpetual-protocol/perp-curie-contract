@@ -376,6 +376,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
+        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
         _addOwedRealizedPnl(trader, amount);
     }
 

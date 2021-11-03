@@ -8,12 +8,16 @@ import {
     OrderBook,
     TestClearingHouse,
     TestERC20,
+    TestExchange,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
+import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
+import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse closePosition", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -22,23 +26,26 @@ describe("ClearingHouse closePosition", () => {
     let marketRegistry: MarketRegistry
     let orderBook: OrderBook
     let accountBalance: AccountBalance
+    let exchange: TestExchange
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
     let pool: UniswapV3Pool
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
+    let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture(true))
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        exchange = fixture.exchange as TestExchange
+        orderBook = fixture.orderBook
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        pool = fixture.pool
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -661,6 +668,85 @@ describe("ClearingHouse closePosition", () => {
             // assure that the position of the taker is closed completely, and so is maker's position
             expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+        })
+    })
+
+    describe("close position when user is maker and taker", async () => {
+        let lowerTick: number, upperTick: number
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt(151.3733069, 1))
+            // the initial number of oracle can be recorded is 1; thus, have to expand it
+            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+
+            // add pool after it's initialized
+            await marketRegistry.addPool(baseToken.address, 10000)
+
+            const tickSpacing = await pool.tickSpacing()
+            lowerTick = getMinTick(tickSpacing)
+            upperTick = getMaxTick(tickSpacing)
+        })
+
+        it("taker close position only effect taker position size", async () => {
+            // alice add liquidity
+            await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
+
+            // bob swap to let alice has maker impermanent position
+            await q2bExactInput(fixture, bob, 100)
+
+            // alice has maker position
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
+
+            // alice has taker position, swap 100 quote to 0.49 base
+            await q2bExactInput(fixture, alice, 100)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                "496742576407532823",
+            )
+
+            // alice close position
+            await closePosition(fixture, alice)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(0)
+        })
+
+        it("force error, alice has 0 taker position, close nothing", async () => {
+            await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
+
+            // bob swap, alice has maker impermanent position
+            await q2bExactInput(fixture, bob, 100)
+
+            // alice has maker position and 0 taker position
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
+
+            // alice close position
+            await expect(closePosition(fixture, alice)).to.be.revertedWith("CH_PSZ")
+        })
+
+        it("reduce taker position and partial close", async () => {
+            // set MaxTickCrossedWithinBlock so that trigger over price limit
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
+
+            // alice add liquidity
+            await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
+
+            // bob swap let alice has maker position
+            await q2bExactInput(fixture, bob, 10)
+
+            // alice swap
+            await q2bExactOutput(fixture, alice, 5)
+
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                parseEther("5"),
+            )
+
+            // alice partial close position, forward timestamp to bypass over price limit timestamp check
+            await forwardTimestamp(clearingHouse, 3000)
+            await closePosition(fixture, alice)
+
+            // expect partial close 5 * 25% = 1.25
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                parseEther("3.75"),
+            )
         })
     })
 })

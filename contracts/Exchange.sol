@@ -130,8 +130,7 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
-        // for closing position, positionSize(int256) == param.amount(uint256)
-        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
@@ -312,8 +311,7 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            // the sign of funding payment is the opposite of that of pnl
-            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, fundingPayment.neg256());
+            IAccountBalance(_accountBalance).addBalanceForTaker(trader, address(0), 0, 0, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
