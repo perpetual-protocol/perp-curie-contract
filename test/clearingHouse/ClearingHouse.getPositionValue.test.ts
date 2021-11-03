@@ -264,6 +264,7 @@ describe("ClearingHouse.getPositionValue", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
@@ -277,6 +278,7 @@ describe("ClearingHouse.getPositionValue", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)

@@ -155,6 +155,7 @@ describe("ClearingHouse realizedPnl", () => {
             upperTick: upperTick - 1000, // lower the price for about 10%
             minBase: parseEther("0"),
             minQuote: parseEther("0"),
+            useTakerPositionSize: false,
             deadline: ethers.constants.MaxUint256,
         })
         // taker.positionSize: 0.975557443213784206

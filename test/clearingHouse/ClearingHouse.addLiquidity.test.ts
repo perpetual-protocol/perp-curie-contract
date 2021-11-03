@@ -2,9 +2,10 @@ import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
+    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
@@ -16,16 +17,19 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { q2bExactOutput } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
+    let accountBalance: AccountBalance
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -40,19 +44,20 @@ describe("ClearingHouse addLiquidity", () => {
     let quoteAmount: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        baseToken2 = _clearingHouseFixture.baseToken2
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
-        pool2 = _clearingHouseFixture.pool2
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        clearingHouseConfig = fixture.clearingHouseConfig
+        accountBalance = fixture.accountBalance
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        baseToken2 = fixture.baseToken2
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
+        pool2 = fixture.pool2
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
@@ -64,11 +69,13 @@ describe("ClearingHouse addLiquidity", () => {
         const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
+        await collateral.transfer(bob.address, amount)
+        await deposit(bob, vault, 1000, collateral)
     })
 
     // simulation results:
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
-    describe("# addLiquidity", () => {
+    describe("# addLiquidity without using taker's position", () => {
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
                 await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
@@ -715,6 +722,66 @@ describe("ClearingHouse addLiquidity", () => {
                     parseUnits("0", await quoteToken.decimals()),
                 ])
             })
+        })
+    })
+
+    describe("# addLiquidity using taker's position", () => {
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+            // add pool after it's initialized
+            await marketRegistry.addPool(baseToken.address, 10000)
+
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("100"),
+                quote: 0,
+                lowerTick: "50200",
+                upperTick: "50400",
+                minBase: 0,
+                minQuote: 0,
+                useTakerPositionSize: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // bob long 1 base token
+            await q2bExactOutput(fixture, bob, 1)
+        })
+
+        it("existing position size is enough for adding liquidity", async () => {
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.5"),
+                    quote: 0,
+                    lowerTick: "50400",
+                    upperTick: "50600",
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPositionSize: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(accountBalance, "TakerBalancesChanged")
+                .withArgs(bob.address, baseToken.address, parseEther("-0.5"), 0)
+
+            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
+        })
+
+        it("force error, existing position size is not enough for adding liquidity", async () => {
+            // bob has only 1 base, thus cannot add liquidity using more than 1 base/ taker's position size
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("1.5"),
+                    quote: 0,
+                    lowerTick: "50400",
+                    upperTick: "50600",
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPositionSize: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.be.revertedWith("CH_TPSNE")
         })
     })
 

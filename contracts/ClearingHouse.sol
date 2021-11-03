@@ -198,6 +198,7 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
+        // if useTakerPositionSize, use addBalanceForTaker() instead of addBalance() to modify takerBalances
         if (params.useTakerPositionSize) {
             IAccountBalance(_accountBalance).addBalanceForTaker(
                 trader,
