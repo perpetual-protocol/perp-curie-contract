@@ -49,7 +49,6 @@ npm run deploy:arbitrumRinkeby
 
 # only run the specific deployment script
 npm run deploy:arbitrumRinkeby -- --tags ClearingHouse
-npm run deploy:arbitrumRinkeby -- --tags Pool-vETHvUSD
 
 # transfer owners to gnosisSafeAddress
 npm run transferOwner:arbitrumRinkeby
