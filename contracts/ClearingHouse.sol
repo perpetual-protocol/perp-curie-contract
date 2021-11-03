@@ -349,14 +349,14 @@ contract ClearingHouse is
         //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
         //
 
+        // CH_NEO: not empty order
+        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_NEO");
+
         // CH_EAV: enough account value
         require(
             getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader),
             "CH_EAV"
         );
-
-        // CH_NEO: not empty order
-        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_NEO");
 
         // must settle funding first
         Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, baseToken);
@@ -398,11 +398,15 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] calldata orderIds
     ) external override whenNotPaused nonReentrant {
+        // CH_ZMA: zero maker address
+        require(maker != address(0), "CH_ZMA");
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     /// @inheritdoc IClearingHouse
     function cancelAllExcessOrders(address maker, address baseToken) external override whenNotPaused nonReentrant {
+        // CH_ZMA: zero maker address
+        require(maker != address(0), "CH_ZMA");
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
@@ -497,6 +501,8 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
+        // CH_ZTA: zero trader address
+        require(trader != address(0), "CH_ZTA");
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);

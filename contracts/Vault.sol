@@ -92,8 +92,11 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         nonReentrant
         onlySettlementToken(token)
     {
-        address from = _msgSender();
+        // check if it's a listed token, only settlement token for now.
+        // V_TNS: token not supported
+        require(token == _settlementToken, "V_TNS");
 
+        address from = _msgSender();
         _modifyBalance(from, token, amountX10_D.toInt256());
 
         // check for deflationary tokens by assuring balances before and after transferring to be the same
@@ -118,6 +121,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         nonReentrant
         onlySettlementToken(token)
     {
+        // check if it's a listed token, only settlement token for now.
+        // V_TNS: token not supported
+        require(token == _settlementToken, "V_TNS");
+
         // the full process of withdrawal:
         // 1. settle funding payment to owedRealizedPnl
         // 2. collect fee to owedRealizedPnl
