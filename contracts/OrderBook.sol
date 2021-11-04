@@ -574,10 +574,10 @@ contract OrderBook is
             );
 
         // update token info based on existing open order
-        (uint256 fee, uint256 deltaOpenBase, uint256 deltaOpenQuote) = _removeLiquidityFromOrder(params);
+        (uint256 fee, uint256 deltaBaseDebt, uint256 deltaQuoteDebt) = _removeLiquidityFromOrder(params);
 
-        int256 realizedBase = response.base.toInt256().sub(deltaOpenBase.toInt256());
-        int256 realizedQuote = response.quote.toInt256().sub(deltaOpenQuote.toInt256());
+        int256 realizedBase = response.base.toInt256().sub(deltaBaseDebt.toInt256());
+        int256 realizedQuote = response.quote.toInt256().sub(deltaQuoteDebt.toInt256());
 
         // if flipped from initialized to uninitialized, clear the tick info
         if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick)) {
@@ -614,8 +614,8 @@ contract OrderBook is
         internal
         returns (
             uint256 fee,
-            uint256 deltaOpenBase,
-            uint256 deltaOpenQuote
+            uint256 deltaBaseDebt,
+            uint256 deltaQuoteDebt
         )
     {
         // update token info based on existing open order
@@ -626,13 +626,13 @@ contract OrderBook is
         (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         if (params.liquidity != 0) {
-            if (openOrder.openBase != 0) {
-                deltaOpenBase = FullMath.mulDiv(openOrder.openBase, params.liquidity, openOrder.liquidity);
-                openOrder.openBase = openOrder.openBase.sub(deltaOpenBase);
+            if (openOrder.baseDebt != 0) {
+                deltaBaseDebt = FullMath.mulDiv(openOrder.baseDebt, params.liquidity, openOrder.liquidity);
+                openOrder.baseDebt = openOrder.baseDebt.sub(deltaBaseDebt);
             }
-            if (openOrder.openQuote != 0) {
-                deltaOpenQuote = FullMath.mulDiv(openOrder.openQuote, params.liquidity, openOrder.liquidity);
-                openOrder.openQuote = openOrder.openQuote.sub(deltaOpenQuote);
+            if (openOrder.quoteDebt != 0) {
+                deltaQuoteDebt = FullMath.mulDiv(openOrder.quoteDebt, params.liquidity, openOrder.liquidity);
+                openOrder.quoteDebt = openOrder.quoteDebt.sub(deltaQuoteDebt);
             }
             openOrder.liquidity = openOrder.liquidity.sub(params.liquidity).toUint128();
         }
@@ -644,7 +644,7 @@ contract OrderBook is
             openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
         }
 
-        return (fee, deltaOpenBase, deltaOpenQuote);
+        return (fee, deltaBaseDebt, deltaQuoteDebt);
     }
 
     function _removeOrder(
@@ -708,8 +708,8 @@ contract OrderBook is
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
-        openOrder.openBase = openOrder.openBase.add(params.deltaBase);
-        openOrder.openQuote = openOrder.openQuote.add(params.deltaQuote);
+        openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
+        openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
 
         return fee;
     }
