@@ -103,6 +103,7 @@ export function addOrder(
     quote: BigNumberish,
     lowerTick: BigNumberish,
     upperTick: BigNumberish,
+    useTakerPosition: boolean = false,
     baseToken: string = fixture.baseToken.address,
 ): Promise<ContractTransaction> {
     return fixture.clearingHouse.connect(wallet).addLiquidity({
@@ -113,7 +114,7 @@ export function addOrder(
         upperTick,
         minBase: 0,
         minQuote: 0,
-        useTakerPosition: false,
+        useTakerPosition,
         deadline: ethers.constants.MaxUint256,
     })
 }

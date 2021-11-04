@@ -122,7 +122,7 @@ describe("ClearingHouse verify accounting", () => {
                 fixture.baseToken2.address,
                 fixture.mockedBaseAggregator2,
             )
-            await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, fixture.baseToken2.address)
+            await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, false, fixture.baseToken2.address)
             baseTokenList.push(fixture.baseToken2.address)
         })
 
