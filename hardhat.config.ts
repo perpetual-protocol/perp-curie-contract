@@ -68,8 +68,11 @@ const config: HardhatUserConfig = {
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
-        // it's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
-        gnosisSafeAddress: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
+        gnosisSafeAddress: {
+            // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
+            [ChainId.RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
+        },
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
