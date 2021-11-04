@@ -392,12 +392,21 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
-            await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick)
+            await addOrder(fixture, maker, 100, 1000, lowerTick + 6000, upperTick - 6000)
 
             // taker close
             await closePosition(fixture, taker)
-
             expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+
+            // maker account value = freeCollateral + unsettled PnL
+            const makerAccountValue = await clearingHouse.getAccountValue(maker.address)
+            const makerCollateral = await vault.getBalance(maker.address)
+            const [makerOwedRealizedPnl, makerUnsettledPnL] = await accountBalance.getOwedAndUnrealizedPnl(
+                maker.address,
+            )
+            expect(makerAccountValue).to.be.deep.eq(
+                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL),
+            )
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
@@ -607,6 +616,14 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
+        })
+
+        it("maker account value should reflect unsettled PnL", async () => {
+            // maker add liquidity
+            await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
+
+            // taker open
+            await q2bExactInput(fixture, taker, 150)
         })
     })
 })
