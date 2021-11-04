@@ -71,7 +71,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
             upperTick: 50200,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -86,7 +86,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
             upperTick: 50400,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 

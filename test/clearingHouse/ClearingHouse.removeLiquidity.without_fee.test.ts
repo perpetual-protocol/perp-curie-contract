@@ -86,7 +86,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -114,6 +114,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     "-99999999999999999999",
                     0,
                     "-123656206035422669342231",
+                    false,
                     0,
                 )
 
@@ -169,7 +170,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -198,6 +199,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         0,
                         "-9999999999999999999999", // ~= -10,000
                         "-81689571696303801037492",
+                        false,
                         0,
                     )
 
@@ -236,7 +238,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -265,6 +267,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         parseUnits("-66.061845430469484022", await baseToken.decimals()),
                         "-9999999999999999999999",
                         "-81689571696303801018159",
+                        false,
                         0,
                     )
 
@@ -302,7 +305,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -369,7 +372,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -399,7 +402,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -434,7 +437,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             upperTick: 50400,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
         const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
@@ -452,7 +455,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             }),
         )
             .to.emit(orderBook, "LiquidityChanged")
-            .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
+            .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, false, 0)
 
         // verify account states
         // alice should have 100 - 33.9381545695 = 66.0618454305 debt

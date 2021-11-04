@@ -62,6 +62,7 @@ contract OrderBook is
         uint128 liquidity;
         uint256 deltaBase;
         uint256 deltaQuote;
+        bool useTakerPosition;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -173,6 +174,7 @@ contract OrderBook is
                     liquidity: response.liquidity,
                     deltaBase: response.base,
                     deltaQuote: response.quote,
+                    useTakerPosition: params.useTakerPosition,
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
@@ -186,6 +188,7 @@ contract OrderBook is
             response.base.toInt256(),
             response.quote.toInt256(),
             response.liquidity.toInt128(),
+            params.useTakerPosition,
             fee
         );
 
@@ -601,6 +604,7 @@ contract OrderBook is
             response.base.neg256(),
             response.quote.neg256(),
             liquidity,
+            false,
             fee
         );
 
@@ -712,8 +716,10 @@ contract OrderBook is
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
-        openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
-        openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
+        if (!params.useTakerPosition) {
+            openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
+            openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
+        }
 
         return fee;
     }

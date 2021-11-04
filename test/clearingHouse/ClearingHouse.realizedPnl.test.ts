@@ -90,7 +90,7 @@ describe("ClearingHouse realizedPnl", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
         // maker base token amount in pool = 99.999999999999999999
@@ -155,7 +155,7 @@ describe("ClearingHouse realizedPnl", () => {
             upperTick: upperTick - 1000, // lower the price for about 10%
             minBase: parseEther("0"),
             minQuote: parseEther("0"),
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
         // taker.positionSize: 0.975557443213784206

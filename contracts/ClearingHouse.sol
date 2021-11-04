@@ -167,7 +167,7 @@ contract ClearingHouse is
         //   minBase, minQuote & deadline: here
         address trader = _msgSender();
 
-        if (params.useTakerPositionSize) {
+        if (params.useTakerPosition) {
             // CH_TPSNE: taker position size not enough
             require(
                 IAccountBalance(_accountBalance).getTakerPositionSize(trader, params.baseToken) >=
@@ -192,14 +192,15 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
+                    useTakerPosition: params.useTakerPosition,
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // if useTakerPositionSize, use addBalanceForTaker() instead of addBalance() to modify takerBalances
-        if (params.useTakerPositionSize) {
+        // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
+        if (params.useTakerPosition) {
             IAccountBalance(_accountBalance).addBalanceForTaker(
                 trader,
                 params.baseToken,

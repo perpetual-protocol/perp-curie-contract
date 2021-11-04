@@ -71,7 +71,7 @@ describe("ClearingHouse.swap", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
     })

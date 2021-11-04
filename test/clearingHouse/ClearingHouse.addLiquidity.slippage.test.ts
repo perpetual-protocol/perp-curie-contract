@@ -72,7 +72,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50400,
                     minBase: parseEther("11"),
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
@@ -91,7 +91,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: now,
                 }),
             ).to.revertedWith("CH_TE")
@@ -117,7 +117,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: parseEther("10001"),
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
@@ -133,7 +133,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50400,
                     minBase: parseEther("2"),
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
@@ -146,7 +146,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: parseEther("10001"),
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")
@@ -159,7 +159,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     upperTick: 50400,
                     minBase: parseEther("2"),
                     minQuote: parseEther("10001"),
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.revertedWith("CH_PSC")

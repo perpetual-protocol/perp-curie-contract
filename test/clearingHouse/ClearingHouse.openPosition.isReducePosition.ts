@@ -97,7 +97,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 upperTick: 24200, // 11.2444987389
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
             // alice's base: -100
@@ -160,7 +160,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 upperTick: 24600, // 11.7033720327
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -253,7 +253,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 upperTick: 22200, // 9.206308977
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
             // alice's base: 0
@@ -316,7 +316,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 upperTick: 21800,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

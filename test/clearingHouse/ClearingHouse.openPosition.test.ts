@@ -92,7 +92,7 @@ describe("ClearingHouse openPosition", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -1047,7 +1047,7 @@ describe("ClearingHouse openPosition", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
         })
@@ -1104,7 +1104,7 @@ describe("ClearingHouse openPosition", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -1232,7 +1232,7 @@ describe("ClearingHouse openPosition", () => {
                     upperTick: 50600,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -1314,7 +1314,7 @@ describe("ClearingHouse openPosition", () => {
                     upperTick: 50000,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -1360,7 +1360,7 @@ describe("ClearingHouse openPosition", () => {
                     upperTick: 50000,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPositionSize: false,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 

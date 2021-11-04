@@ -13,6 +13,7 @@ interface IOrderBook {
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
+        bool useTakerPosition;
         Funding.Growth fundingGrowthGlobal;
     }
 
@@ -75,6 +76,7 @@ interface IOrderBook {
         int256 base,
         int256 quote,
         int128 liquidity,
+        bool useTakerPosition,
         uint256 quoteFee
     );
 

@@ -91,7 +91,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             upperTick: 92400, // 10296.2808943793
             minBase: 0,
             minQuote: 0,
-            useTakerPositionSize: false,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
         const [baseBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
@@ -139,7 +139,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 upperTick: 92800,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -264,7 +264,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 upperTick: 46000, // 99.4614384055
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -278,7 +278,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 upperTick: 108600, // 52023.8234645706
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -326,7 +326,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 upperTick: 400,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPositionSize: false,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
         })
