@@ -475,7 +475,15 @@ describe("ClearingHouse funding", () => {
 
                     // the following check tends to fail the test due to unknown reason, thus commenting out for now
                     // await expect(
-                    //     clearingHouse.connect(alice).addLiquidity({                    //         baseToken: baseToken.address,                    //         base: parseEther("2"),                    //         quote: parseEther("100"),                    //         lowerTick: 50200,                    //         upperTick: 50400,                    //         minBase: 0,                    //         minQuote: 0, useTakerPositionSize: false,
+                    //     clearingHouse.connect(alice).addLiquidity({
+                    //         baseToken: baseToken.address,
+                    //         base: parseEther("2"),
+                    //         quote: parseEther("100"),
+                    //         lowerTick: 50200,
+                    //         upperTick: 50400,
+                    //         minBase: 0,
+                    //         minQuote: 0,
+                    //         useTakerPositionSize: false,
                     //         deadline: ethers.constants.MaxUint256,
                     //     }),
                     // )
