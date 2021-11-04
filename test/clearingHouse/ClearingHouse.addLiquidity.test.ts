@@ -17,7 +17,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { q2bExactOutput } from "../helper/clearingHouseHelper"
+import { q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -754,13 +754,15 @@ describe("ClearingHouse addLiquidity", () => {
         })
 
         it("existing position size is enough for adding liquidity", async () => {
+            const lowerTick = 50400
+            const upperTick = 50600
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
                     quote: 0,
-                    lowerTick: "50400",
-                    upperTick: "50600",
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
                     useTakerPosition: true,
@@ -771,6 +773,152 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(bob.address, baseToken.address, parseEther("-0.5"), 0)
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
+
+            const liquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
+                .liquidity
+
+            await expect(
+                clearingHouse.connect(bob).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(accountBalance, "TakerBalancesChanged")
+                .withArgs(bob.address, baseToken.address, parseEther("0.499999999999999999"), 0)
+
+            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                parseEther("1"),
+                1,
+            )
+        })
+
+        it("adding liquidity using taker position and somebody trade", async () => {
+            const lowerTick = 50200
+            const upperTick = 50400
+
+            // remove alice liquidity to maker test easier
+            const aliceLiquidity = (
+                await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+            ).liquidity
+            await removeOrder(fixture, alice, aliceLiquidity, lowerTick, upperTick, baseToken.address)
+
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.5"),
+                    quote: parseEther("200"),
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPosition: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(accountBalance, "TakerBalancesChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("-0.5"),
+                    parseEther("-0.764587724766731814"), // we don't care about this value. it's from console.log.
+                )
+
+            // alice long 0.1 base token
+            await q2bExactOutput(fixture, alice, 0.1)
+
+            const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
+                .liquidity
+
+            await expect(
+                clearingHouse.connect(bob).removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick,
+                    upperTick,
+                    liquidity: bobLiquidity,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(accountBalance, "TakerBalancesChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("0.399999999999999999"),
+                    parseEther("15.934819950449552973"), // we don't care about this value. it's from console.log.
+                )
+
+            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                parseEther("0.9"),
+                1,
+            )
+        })
+
+        it("adding liquidity twice, one is using taker position and the second one without using taker position", async () => {
+            const lowerTick = 50200
+            const upperTick = 50400
+
+            // remove alice liquidity to maker test easier
+            const aliceLiquidity = (
+                await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+            ).liquidity
+            await removeOrder(fixture, alice, aliceLiquidity, lowerTick, upperTick, baseToken.address)
+
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.5"),
+                    quote: parseEther("200"),
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPosition: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            )
+                .to.emit(accountBalance, "TakerBalancesChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("-0.5"),
+                    parseEther("-0.764587724766731814"), // we don't care about this value. it's from console.log.
+                )
+
+            // alice long 0.1 base token
+            await q2bExactOutput(fixture, alice, 0.1)
+
+            // bob add liquidity w/o using taker position
+            await expect(
+                await clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.5"),
+                    quote: parseEther("200"),
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPosition: false,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.not.emit(accountBalance, "TakerBalancesChanged")
+
+            // alice long 0.1 base token
+            await q2bExactOutput(fixture, alice, 0.1)
+
+            const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
+                .liquidity
+            await removeOrder(fixture, bob, bobLiquidity, lowerTick, upperTick, baseToken.address)
+
+            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                parseEther("0.8"),
+                1,
+            )
         })
 
         it("force error, existing position size is not enough for adding liquidity", async () => {
