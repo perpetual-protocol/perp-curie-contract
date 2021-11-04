@@ -298,7 +298,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
+    function getTakerPositionSize(address trader, address baseToken) external view override returns (int256) {
         int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
