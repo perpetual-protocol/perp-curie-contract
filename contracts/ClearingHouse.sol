@@ -398,15 +398,11 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] calldata orderIds
     ) external override whenNotPaused nonReentrant {
-        // CH_ZMA: zero maker address
-        require(maker != address(0), "CH_ZMA");
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     /// @inheritdoc IClearingHouse
     function cancelAllExcessOrders(address maker, address baseToken) external override whenNotPaused nonReentrant {
-        // CH_ZMA: zero maker address
-        require(maker != address(0), "CH_ZMA");
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
@@ -501,8 +497,6 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
-        // CH_ZTA: zero trader address
-        require(trader != address(0), "CH_ZTA");
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
