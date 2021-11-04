@@ -79,12 +79,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 base,
         int256 quote,
-        int256 realizedBase,
-        int256 realizedQuote,
+        int256 deltaTakerBase,
+        int256 deltaTakerQuote,
         int256 fee
     ) external override onlyClearingHouse {
         _addBalance(maker, baseToken, base, quote, fee);
-        _modifyTakerBalance(maker, baseToken, realizedBase, realizedQuote);
+        _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         _settleQuoteBalance(maker, baseToken);
         _deregisterBaseToken(maker, baseToken);
     }

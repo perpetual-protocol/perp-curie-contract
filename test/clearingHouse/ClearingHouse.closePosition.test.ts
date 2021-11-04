@@ -554,8 +554,8 @@ describe("ClearingHouse closePosition", () => {
                 // carol's quote in pool: 0.112414646*0.25 = 0.0281036615
                 // carol's deltaBaseDebt: 0.000816820841 / 2 = 0.00040841042
                 // carol's deltaQuoteDebt: 0
-                // realizedBase: removedBase - deltaBaseDebt = (0.00062784851/2)- 0.00040841042 = -0.00009448616
-                // realizedQuote: removedQuote - deltaQuoteDebt = (0.0281036615/2)- 0 = 0.01405183075
+                // deltaTakerBase: removedBase - deltaBaseDebt = (0.00062784851/2)- 0.00040841042 = -0.00009448616
+                // deltaTakerQuote: removedQuote - deltaQuoteDebt = (0.0281036615/2)- 0 = 0.01405183075
                 await expect(
                     clearingHouse.connect(carol).removeLiquidity({
                         baseToken: baseToken.address,

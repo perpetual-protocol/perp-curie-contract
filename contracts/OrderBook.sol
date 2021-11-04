@@ -251,8 +251,12 @@ contract OrderBook is
             removeLiquidityResponse.base = removeLiquidityResponse.base.add(response.base);
             removeLiquidityResponse.quote = removeLiquidityResponse.quote.add(response.quote);
             removeLiquidityResponse.fee = removeLiquidityResponse.fee.add(response.fee);
-            removeLiquidityResponse.realizedBase = removeLiquidityResponse.realizedBase.add(response.realizedBase);
-            removeLiquidityResponse.realizedQuote = removeLiquidityResponse.realizedQuote.add(response.realizedQuote);
+            removeLiquidityResponse.deltaTakerBase = removeLiquidityResponse.deltaTakerBase.add(
+                response.deltaTakerBase
+            );
+            removeLiquidityResponse.deltaTakerQuote = removeLiquidityResponse.deltaTakerQuote.add(
+                response.deltaTakerQuote
+            );
         }
 
         return removeLiquidityResponse;
@@ -576,8 +580,8 @@ contract OrderBook is
         // update token info based on existing open order
         (uint256 fee, uint256 deltaBaseDebt, uint256 deltaQuoteDebt) = _removeLiquidityFromOrder(params);
 
-        int256 realizedBase = response.base.toInt256().sub(deltaBaseDebt.toInt256());
-        int256 realizedQuote = response.quote.toInt256().sub(deltaQuoteDebt.toInt256());
+        int256 deltaTakerBase = response.base.toInt256().sub(deltaBaseDebt.toInt256());
+        int256 deltaTakerQuote = response.quote.toInt256().sub(deltaQuoteDebt.toInt256());
 
         // if flipped from initialized to uninitialized, clear the tick info
         if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.lowerTick)) {
@@ -605,8 +609,8 @@ contract OrderBook is
                 base: response.base,
                 quote: response.quote,
                 fee: fee,
-                realizedBase: realizedBase,
-                realizedQuote: realizedQuote
+                deltaTakerBase: deltaTakerBase,
+                deltaTakerQuote: deltaTakerQuote
             });
     }
 

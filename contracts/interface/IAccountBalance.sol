@@ -35,8 +35,8 @@ interface IAccountBalance {
         address baseToken,
         int256 base,
         int256 quote,
-        int256 realizedBase,
-        int256 realizedQuote,
+        int256 deltaTakerBase,
+        int256 deltaTakerQuote,
         int256 fee
     ) external;
 

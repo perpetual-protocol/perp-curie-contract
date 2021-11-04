@@ -35,8 +35,8 @@ interface IOrderBook {
         uint256 base;
         uint256 quote;
         uint256 fee;
-        int256 realizedBase;
-        int256 realizedQuote;
+        int256 deltaTakerBase;
+        int256 deltaTakerQuote;
     }
 
     struct ReplaySwapParams {
