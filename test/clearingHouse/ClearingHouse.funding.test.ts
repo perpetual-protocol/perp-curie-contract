@@ -1136,6 +1136,68 @@ describe("ClearingHouse funding", () => {
             })
         })
     })
+
+    describe("# funding payment accounting", async () => {
+        it("taker get funding in taker's quote balance and settle to pnl", async () => {
+            // alice add liquidity
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("10"),
+                quote: parseEther("1000"),
+                lowerTick: 50200,
+                upperTick: 50600,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // bob long 1 ETH
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // carol long 1 ETH
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // taker get funding
+            await forward(300)
+            await exchange.settleAllFunding(bob.address)
+
+            const accountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            expect(accountInfo.quoteBalance).to.eq(accountInfo.takerQuoteBalance)
+
+            // taker close position
+            await clearingHouse.connect(bob).closePosition({
+                baseToken: baseToken.address,
+                oppositeAmountBound: 0,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // expect bob quoteBalance and takerQuoteBalance should be zero
+            expect((await accountBalance.getAccountInfo(bob.address, baseToken.address)).quoteBalance).to.be.deep.eq(0)
+            expect(
+                (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerQuoteBalance,
+            ).to.be.deep.eq(0)
+        })
+    })
 })
 
 // // === useful console.log for verifying stats ===
