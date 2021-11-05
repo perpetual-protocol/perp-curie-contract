@@ -180,8 +180,7 @@ contract Exchange is
             response.exchangedPositionSize,
             response.exchangedPositionNotional.sub(response.fee.toInt256()),
             response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            0
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
         );
 
         int256 realizedPnl;
@@ -311,7 +310,7 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).addBalanceForTaker(trader, address(0), 0, 0, fundingPayment.neg256());
+            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 

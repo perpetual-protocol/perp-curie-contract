@@ -83,20 +83,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 deltaTakerQuote,
         int256 fee
     ) external override onlyClearingHouse {
-        _addBalance(maker, baseToken, base, quote, fee);
+        _addBalance(maker, baseToken, base, quote);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         _settleQuoteBalance(maker, baseToken);
         _deregisterBaseToken(maker, baseToken);
+        _addOwedRealizedPnl(maker, fee);
     }
 
     function addBalance(
         address trader,
         address baseToken,
         int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
+        int256 quote
     ) external override onlyClearingHouse {
-        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
+        _addBalance(trader, baseToken, base, quote);
     }
 
     function addTakerBalances(
@@ -105,10 +105,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 base,
         int256 quote,
         int256 deltaTakerBase,
-        int256 deltaTakerQuote,
-        int256 owedRealizedPnl
+        int256 deltaTakerQuote
     ) external override onlyExchangeOrClearingHouse {
-        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
+        _addBalance(trader, baseToken, base, quote);
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
@@ -339,13 +338,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
+        int256 quote
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.baseBalance = accountInfo.baseBalance.add(base);
         accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        _addOwedRealizedPnl(trader, owedRealizedPnl);
     }
 
     function _modifyTakerBalance(

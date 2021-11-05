@@ -239,19 +239,19 @@ contract ClearingHouse is
                 response.base.neg256(),
                 response.quote.neg256(),
                 deltaBaseDebt,
-                deltaQuoteDebt,
-                response.fee.toInt256()
+                deltaQuoteDebt
             );
         } else {
             IAccountBalance(_accountBalance).addBalance(
                 trader,
                 params.baseToken,
                 response.base.neg256(),
-                response.quote.neg256(),
-                response.fee.toInt256()
+                response.quote.neg256()
             );
         }
+
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);

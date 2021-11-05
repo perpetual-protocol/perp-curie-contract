@@ -44,8 +44,7 @@ interface IAccountBalance {
         address trader,
         address baseToken,
         int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
+        int256 quote
     ) external;
 
     function addTakerBalances(
@@ -54,8 +53,7 @@ interface IAccountBalance {
         int256 base,
         int256 quote,
         int256 deltaTakerBase,
-        int256 deltaTakerQuote,
-        int256 owedRealizedPnl
+        int256 deltaTakerQuote
     ) external;
 
     function addOwedRealizedPnl(address trader, int256 delta) external;
