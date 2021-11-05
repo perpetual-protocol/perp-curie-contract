@@ -686,7 +686,7 @@ describe("ClearingHouse closePosition", () => {
             upperTick = getMaxTick(tickSpacing)
         })
 
-        it.only("taker close position only effect taker position size", async () => {
+        it("taker close position only effect taker position size", async () => {
             // alice add liquidity
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
