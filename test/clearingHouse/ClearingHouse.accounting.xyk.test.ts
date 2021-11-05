@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers"
+import { BigNumber, BigNumberish, ContractTransaction } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { it } from "mocha"
@@ -28,7 +28,7 @@ import {
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward, forwardTimestamp } from "../shared/time"
-import { encodePriceSqrt, filterLogs } from "../shared/utilities"
+import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -141,15 +141,6 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         await collateral.mint(taker3.address, takerCollateral)
         await deposit(taker3, vault, 100, collateral)
     })
-
-    function getTakerFee(receipt: ContractReceipt): BigNumber {
-        const logs = filterLogs(receipt, exchange.interface.getEventTopic("PositionChanged"), exchange)
-        let fees = BigNumber.from(0)
-        for (const log of logs) {
-            fees = fees.add(log.args.fee)
-        }
-        return fees
-    }
 
     function takerLongExactInput(amount): Promise<ContractTransaction> {
         return clearingHouse.connect(taker).openPosition({
@@ -625,6 +616,65 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker open
             await q2bExactInput(fixture, taker, 150)
+        })
+    })
+
+    describe("Liquidity outage", async () => {
+        it("swap all liquidity", async () => {
+            // set index price to let taker pay funding fee
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+
+            // prepare collateral
+            takerCollateral = parseUnits("100", collateralDecimals)
+            await collateral.mint(taker.address, takerCollateral)
+            await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
+            await deposit(taker, vault, 100, collateral)
+
+            // maker remove liquidity
+            await removeAllOrders(fixture, maker)
+
+            // maker add liquidity, current tick 23027
+            await addOrder(fixture, maker, 10, 1000, 22000, 24000)
+
+            // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
+            await q2bExactInput(fixture, taker, 2000)
+
+            // failed to swap again
+            await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
+
+            // maker's fee are collected
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 22000,
+                    upperTick: 24000,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee).to.be.gt("0")
+
+            // fundings are all correct
+            await forwardTimestamp(clearingHouse, 200)
+            await exchange.settleFunding(taker.address, baseToken.address)
+            await forwardTimestamp(clearingHouse, 200)
+
+            // TODO: need to discuss this bug
+            // no one could do any action in this market bc of the overflow revert
+            await expect(b2qExactInput(fixture, taker2, 5)).to.be.revertedWith(
+                "revert SignedSafeMath: multiplication overflow",
+            )
+            // expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
+
+            // // add more liquidity
+            // await addOrder(fixture, maker, 5, 5000, lowerTick, upperTick)
+
+            // // taker can keep on swapping
+            // await q2bExactOutput(fixture, taker, 1)
         })
     })
 })
