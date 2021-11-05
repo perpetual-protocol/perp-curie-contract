@@ -686,7 +686,7 @@ describe("ClearingHouse closePosition", () => {
             upperTick = getMaxTick(tickSpacing)
         })
 
-        it("taker close position only effect taker position size", async () => {
+        it.only("taker close position only effect taker position size", async () => {
             // alice add liquidity
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
@@ -694,18 +694,30 @@ describe("ClearingHouse closePosition", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice has maker position
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
+            const totalPositionSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
+            const takerPositionSize = await accountBalance.getTakerPositionSize(alice.address, baseToken.address)
+            const makerPositionSize = totalPositionSize.sub(takerPositionSize)
+            expect(makerPositionSize).to.be.lt(0)
+            expect(takerPositionSize).to.be.eq(0)
 
             // alice has taker position, swap 100 quote to 0.49 base
             await q2bExactInput(fixture, alice, 100)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 "496742576407532823",
             )
+            // total position unchanged
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                totalPositionSize,
+            )
 
             // alice close position
             await closePosition(fixture, alice)
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(0)
+            // taker position size is 0
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            // total position(only maker) unchanged
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+                makerPositionSize,
+            )
         })
 
         it("force error, alice has 0 taker position, close nothing", async () => {
