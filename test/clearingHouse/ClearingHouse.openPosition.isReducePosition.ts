@@ -220,7 +220,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPIBS")
+            ).to.be.revertedWith("EX_OPLBS")
 
             // update block timestamp to update _lastUpdatedTickMap
             await forwardTimestamp(clearingHouse)
@@ -238,7 +238,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPIAS")
+            ).to.be.revertedWith("EX_OPLAS")
         })
 
         it("alice provides liquidity below price then open short position", async () => {
@@ -374,7 +374,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPIBS")
+            ).to.be.revertedWith("EX_OPLBS")
 
             // update block timestamp to update _lastUpdatedTickMap
             await forwardTimestamp(clearingHouse)
@@ -392,7 +392,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPIAS")
+            ).to.be.revertedWith("EX_OPLAS")
         })
     })
 })

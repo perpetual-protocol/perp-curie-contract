@@ -108,7 +108,7 @@ contract Exchange is
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
-        // EX_BTNE: base token not exists
+        // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
@@ -130,47 +130,46 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
+        // for closing position, positionSize(int256) == param.amount(uint256)
         int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
-        bool isPartialClose;
 
+        bool isPartialClose;
+        uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
         // if over price limit when
-        // 1. close a position, then partial close the position
-        // 2. reduce a position, then revert
+        // 1. closing a position, then partially close the position
+        // 2. reducing a position, then revert
         if (params.isClose && positionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, positionSize)
+                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, params.amount)
             ) {
+                uint256 timestamp = _blockTimestamp();
                 // EX_AOPLO: already over price limit once
-                require(
-                    _blockTimestamp() != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken],
-                    "EX_AOPLO"
-                );
-                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = _blockTimestamp();
-                params.amount = positionSize.abs().mulRatio(
-                    IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio()
-                );
+                require(timestamp != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "EX_AOPLO");
+
+                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = timestamp;
+                params.amount = params.amount.mulRatio(partialCloseRatio);
                 isPartialClose = true;
             }
         } else {
             if (isReducePosition) {
-                // EX_OPIBS: over price limit before swap
-                require(!_isOverPriceLimit(params.baseToken), "EX_OPIBS");
+                // EX_OPLBS: over price limit before swap
+                require(!_isOverPriceLimit(params.baseToken), "EX_OPLBS");
             }
         }
 
+        // get openNotional before swap
         int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
-
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducePosition) {
-            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPIAS");
+            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
         // examples:
@@ -184,11 +183,13 @@ contract Exchange is
         );
 
         int256 realizedPnl;
-
         // there is only realizedPnl when it's not increasing the position size
         if (isReducePosition) {
             // closedRatio is based on the position size
-            uint256 closedRatio = FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
+            uint256 closedRatio =
+                isPartialClose
+                    ? partialCloseRatio
+                    : FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
             int256 deltaAvailableQuote =
                 params.isBaseToQuote ? response.deltaAvailableQuote.toInt256() : response.deltaAvailableQuote.neg256();
 
@@ -238,15 +239,14 @@ contract Exchange is
                     deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
                 realizedPnl = oldOpenNotional.add(closedPositionNotional);
             }
-
-            if (realizedPnl != 0) {
-                // https://app.asana.com/0/1200338471046334/1201034555932071/f
-                IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
-            }
         }
-        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
 
+        if (realizedPnl != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
+        }
         IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
+
+        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
         uint256 sqrtPrice =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
@@ -281,17 +281,17 @@ contract Exchange is
     }
 
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    /// this function 1. settles personal funding payment 2. updates global funding growth
-    /// personal funding payment is settled whenever there is pending funding payment
-    /// the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @dev it's fine to be called by anyone
+    ///      while it doesn't matter who calls this function
+    ///      this function 1. settles personal funding payment 2. updates global funding growth
+    ///      personal funding payment is settled whenever there is pending funding payment
+    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override
         returns (Funding.Growth memory fundingGrowthGlobal)
     {
-        // EX_BTNE: base token not exists
+        // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
         uint256 markTwap;
@@ -309,24 +309,26 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).addBalance(trader, address(0), 0, 0, fundingPayment.neg256());
+            // the sign of funding payment is the opposite of that of pnl
+            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
 
+        uint256 timestamp = _blockTimestamp();
         // update states before further actions in this block; once per block
-        if (_blockTimestamp() != _lastSettledTimestampMap[baseToken]) {
-            // update fundingGrowthGlobal
+        if (timestamp != _lastSettledTimestampMap[baseToken]) {
+            // update fundingGrowthGlobal and _lastSettledTimestamp
             Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
             (
                 _lastSettledTimestampMap[baseToken],
                 lastFundingGrowthGlobal.twPremiumX96,
                 lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
-            ) = (_blockTimestamp(), fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
-
-            // update tick
-            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
+            ) = (timestamp, fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
             emit FundingUpdated(baseToken, markTwap, indexTwap);
+
+            // update tick for price limit checks
+            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
         }
 
         IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
@@ -408,30 +410,30 @@ contract Exchange is
             uint256 indexTwap
         )
     {
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-
-        // get mark twap
-        uint32 twapIntervalArg = 0;
-        // shorten twapInterval if prior observations are not enough for twapInterval
+        uint32 twapInterval;
+        // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
-            twapIntervalArg = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
             uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
-            if (twapIntervalArg > deltaTimestamp) {
-                twapIntervalArg = deltaTimestamp;
-            }
+            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
-        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapIntervalArg).formatSqrtPriceX96ToPriceX96();
+        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapIntervalArg);
+        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
+        uint256 timestamp = _blockTimestamp();
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        if (_blockTimestamp() != lastSettledTimestamp && lastSettledTimestamp != 0) {
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
+            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        } else {
             int256 twPremiumDeltaX96 =
                 markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
-                    _blockTimestamp().sub(lastSettledTimestamp).toInt256()
+                    timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
 
@@ -441,9 +443,6 @@ contract Exchange is
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
                 (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(uint256(getSqrtMarkTwapX96(baseToken, 0)).toInt256())
             );
-        } else {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
         }
 
         return (fundingGrowthGlobal, markTwap, indexTwap);
@@ -475,7 +474,7 @@ contract Exchange is
     function _isOverPriceLimitByReplayReverseSwap(
         address baseToken,
         bool isBaseToQuote,
-        int256 positionSize
+        uint256 positionSize
     ) internal returns (bool) {
         // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
         InternalReplaySwapParams memory replaySwapParams =
@@ -483,7 +482,7 @@ contract Exchange is
                 baseToken: baseToken,
                 isBaseToQuote: !isBaseToQuote,
                 isExactInput: !isBaseToQuote,
-                amount: positionSize.abs(),
+                amount: positionSize,
                 sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
             });
         return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));

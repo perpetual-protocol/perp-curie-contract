@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - rename `AccountBalance.getLiquidateMarginRequirement` to `AccountBalance.getMarginRequirementForLiquidation`
 - rename `Vault.balanceOf` to `Vault.getBalance`
+- fix error codes in Exchange.sol 1. `EX_OPIBS` to `EX_OPLBS` 2. `EX_OPIAS` to `EX_OPLAS`
 
 ### Removed
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`

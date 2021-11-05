@@ -191,7 +191,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.revertedWith("EX_OPIAS")
+            ).to.revertedWith("EX_OPLAS")
         })
     })
 
@@ -395,7 +395,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPIBS")
+            ).to.be.revertedWith("EX_OPLBS")
 
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("50.350174276881928348"),
