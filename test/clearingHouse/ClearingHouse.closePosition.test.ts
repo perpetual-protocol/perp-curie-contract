@@ -706,8 +706,9 @@ describe("ClearingHouse closePosition", () => {
                 "496742576407532823",
             )
             // total position unchanged
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 totalPositionSize,
+                1,
             )
 
             // alice close position
@@ -715,8 +716,9 @@ describe("ClearingHouse closePosition", () => {
             // taker position size is 0
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
             // total position(only maker) unchanged
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 makerPositionSize,
+                1,
             )
         })
 
