@@ -104,7 +104,7 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // maker base/quote: -80b, -1250q
                 // maker in pool: 100b, 1000q
                 // impermanent pos: 20b, -250q
-                // taker pos: +20b -250q => +40b, -500q
+                // taker pos: +20b -250q => +40b, -500q (increase position)
                 expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("40"))
                 expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-500"))
             })
@@ -124,7 +124,7 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // remove 50% from the pool: 50b, 500q
                 // 50% of maker base/quote: -40b, -625q
                 // realize pos: 10b, -125q
-                // taker pos: +20b -250q => +30b, -375q
+                // taker pos: +20b -250q => +30b, -375q (increase position)
                 expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("20"))
                 expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-375"))
             })
@@ -185,9 +185,15 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // maker base/quote: -50b, -500q
                 // maker in pool: 31.25b, 800q
                 // impermanent pos: -18.75b, 300q
-                // taker pos: +17.5b -350q => -1.25b, -50q shit
+                // taker pos: +17.5b -350q
+                // (17.5b -18.75b = opens a larger reverse position)
+                // close 17.5b, the positionNotional of the 17.5b from the impermanent pos is 300/18.75*17.5 = 280
+                // realizePnl from closing 17.5b = -350 + 280 = -70
+                // TODO add expect realizePnl = -70
+                // the remaining taker position: 17.5b - 18.75b = -1.25b
+                // the remaining open notional: 300q - 280q = 20q
                 expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("-1.25"))
-                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-50"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("20"))
             })
         }
 
@@ -204,10 +210,16 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // impermanent pos: -18.75b, 300q
                 // remove 50% from the pool: 15.625b, 400q
                 // 50% of maker base/quote: -25b, -250q
-                // realize pos: 9.375b, 150q
-                // taker pos: +17.5b -350q => +26.875b, -200q
-                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("26.875"))
-                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-200"))
+                // realize pos: -9.375b, 150q
+                // taker pos: +17.5b -350q
+
+                // reduce 9.375b, the openNotional of the 9.375b from the taker pos is 350/17.5*9.375 = 187.5
+                // realizePnl from reducing 9.375b = 150 - 187.5 = -37.5
+                // TODO add expect realizePnl = -37.5
+                // the remaining taker position: 17.5b - 9.375b = 8.125b
+                // the remaining open notional: -350/17.5*8.125 = -162.5
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("8.125"))
+                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-162.5"))
             })
         }
 
