@@ -11,6 +11,7 @@ interface IClearingHouse {
         int24 upperTick;
         uint256 minBase;
         uint256 minQuote;
+        bool useTakerPosition;
         uint256 deadline;
     }
 

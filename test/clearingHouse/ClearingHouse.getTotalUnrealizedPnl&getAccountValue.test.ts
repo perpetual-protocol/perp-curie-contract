@@ -76,6 +76,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             upperTick: 100000,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 

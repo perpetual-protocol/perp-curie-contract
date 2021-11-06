@@ -77,6 +77,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -91,6 +92,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 

@@ -13,6 +13,7 @@ interface IOrderBook {
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
+        bool useTakerPosition;
         Funding.Growth fundingGrowthGlobal;
     }
 
@@ -35,8 +36,8 @@ interface IOrderBook {
         uint256 base;
         uint256 quote;
         uint256 fee;
-        int256 realizedBase;
-        int256 realizedQuote;
+        int256 deltaTakerBase;
+        int256 deltaTakerQuote;
     }
 
     struct ReplaySwapParams {
@@ -75,6 +76,7 @@ interface IOrderBook {
         int256 base,
         int256 quote,
         int128 liquidity,
+        bool useTakerPosition,
         uint256 quoteFee
     );
 

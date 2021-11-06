@@ -166,6 +166,16 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
         address trader = _msgSender();
+
+        if (params.useTakerPosition) {
+            // CH_TPSNE: taker position size not enough
+            require(
+                IAccountBalance(_accountBalance).getTakerPositionSize(trader, params.baseToken) >=
+                    params.base.toInt256(),
+                "CH_TPSNE"
+            );
+        }
+
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -182,20 +192,32 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
+                    useTakerPosition: params.useTakerPosition,
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // collect fee to owedRealizedPnl
-        IAccountBalance(_accountBalance).addBalance(
-            trader,
-            params.baseToken,
-            response.base.neg256(),
-            response.quote.neg256(),
-            response.fee.toInt256()
-        );
+        // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
+        if (params.useTakerPosition) {
+            IAccountBalance(_accountBalance).addBalanceForTaker(
+                trader,
+                params.baseToken,
+                response.base.neg256(),
+                response.quote.neg256(),
+                response.fee.toInt256()
+            );
+        } else {
+            IAccountBalance(_accountBalance).addBalance(
+                trader,
+                params.baseToken,
+                response.base.neg256(),
+                response.quote.neg256(),
+                response.fee.toInt256()
+            );
+        }
+        // fee is collected to owedRealizedPnl
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
@@ -239,8 +261,8 @@ contract ClearingHouse is
             params.baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
-            response.realizedBase,
-            response.realizedQuote,
+            response.deltaTakerBase,
+            response.deltaTakerQuote,
             response.fee.toInt256()
         );
 
@@ -536,8 +558,8 @@ contract ClearingHouse is
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
-            response.realizedBase,
-            response.realizedQuote,
+            response.deltaTakerBase,
+            response.deltaTakerQuote,
             response.fee.toInt256()
         );
     }

@@ -79,6 +79,7 @@ describe("ClearingHouse closePosition", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             }
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
@@ -255,6 +256,7 @@ describe("ClearingHouse closePosition", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             }
             // transfer 0.002450462523 base to pool
@@ -269,6 +271,7 @@ describe("ClearingHouse closePosition", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             }
             // transfer 0.000816820841 base to pool
@@ -345,6 +348,7 @@ describe("ClearingHouse closePosition", () => {
                     upperTick, // 151.3733069
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.002450462523 base to pool
@@ -359,6 +363,7 @@ describe("ClearingHouse closePosition", () => {
                     upperTick, // 151.3733069
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.000816820841 base to pool
@@ -489,6 +494,7 @@ describe("ClearingHouse closePosition", () => {
                     upperTick, // 151.3733069
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.002450462523 base to pool
@@ -503,6 +509,7 @@ describe("ClearingHouse closePosition", () => {
                     upperTick, // 151.3733069
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.000816820841 base to pool
@@ -541,14 +548,14 @@ describe("ClearingHouse closePosition", () => {
                 expect(carolPos).to.be.eq(parseEther("-0.00018897233202709"))
 
                 // carol get short position
-                // carol's openBase: 0.000816820841
-                // carol's openQuote: 0
+                // carol's baseDebt: 0.000816820841
+                // carol's quoteDebt: 0
                 // carol's base in pool: 0.000816820841-0.00018897233 = 0.00062784851
                 // carol's quote in pool: 0.112414646*0.25 = 0.0281036615
-                // carol's deltaOpenBase: 0.000816820841 / 2 = 0.00040841042
-                // carol's deltaOpenQuote: 0
-                // realizedBase: removedBase - deltaOpenBase = (0.00062784851/2)- 0.00040841042 = -0.00009448616
-                // realizedQuote: removedQuote - deltaOpenQuote = (0.0281036615/2)- 0 = 0.01405183075
+                // carol's deltaBaseDebt: 0.000816820841 / 2 = 0.00040841042
+                // carol's deltaQuoteDebt: 0
+                // deltaTakerBase: removedBase - deltaBaseDebt = (0.00062784851/2)- 0.00040841042 = -0.00009448616
+                // deltaTakerQuote: removedQuote - deltaQuoteDebt = (0.0281036615/2)- 0 = 0.01405183075
                 await expect(
                     clearingHouse.connect(carol).removeLiquidity({
                         baseToken: baseToken.address,
@@ -623,6 +630,7 @@ describe("ClearingHouse closePosition", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
+                useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             }
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)

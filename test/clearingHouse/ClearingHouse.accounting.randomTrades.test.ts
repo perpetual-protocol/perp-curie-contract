@@ -130,6 +130,7 @@ describe.skip("ClearingHouse accounting", () => {
             upperTick: maxTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -142,6 +143,7 @@ describe.skip("ClearingHouse accounting", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 

@@ -74,6 +74,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -88,6 +89,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
+            useTakerPosition: false,
             deadline: ethers.constants.MaxUint256,
         })
     })
