@@ -25,12 +25,15 @@ import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
+import { IOrderBookCallback } from "./interface/IOrderBookCallback.sol";
+import { AccountMarket } from "./lib/AccountMarket.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     IClearingHouse,
+    IOrderBookCallback,
     BlockContext,
     ReentrancyGuardUpgradeable,
     OwnerPausable,
@@ -88,6 +91,14 @@ contract ClearingHouse is
         // For caller validation purposes it would be more efficient and more reliable to use
         // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
         require(msg.sender == _exchange, "CH_OE");
+        _;
+    }
+
+    modifier onlyOrderBook() {
+        // For caller validation purposes it would be more efficient and more reliable to use
+        // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
+        // not orderbook
+        require(msg.sender == _orderBook, "CH_NOB");
         _;
     }
 
@@ -436,12 +447,7 @@ contract ClearingHouse is
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external override {
-        // not orderBook
-        // For caller validation purposes it would be more efficient and more reliable to use
-        // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
-        require(msg.sender == _orderBook, "CH_NOB");
-
+    ) external override onlyOrderBook {
         IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));
 
         if (amount0Owed > 0) {
@@ -478,6 +484,36 @@ contract ClearingHouse is
         // swap
         // CH_TF: Transfer failed
         require(IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay), "CH_TF");
+    }
+
+    /// @inheritdoc IOrderBookCallback
+    function addLiquidityFromTakerCallback(
+        address trader,
+        address baseToken,
+        bool isBase,
+        uint256 amount
+    ) external override onlyOrderBook returns (uint256) {
+        // shift portion of open notional to maker's debt
+        AccountMarket.Info memory accountMarketInfo =
+            IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
+
+        uint256 debt;
+
+        // the amount added to pool is in base
+        if (isBase) {
+            debt = accountMarketInfo.quoteBalance.abs().mul(amount).div(accountMarketInfo.baseBalance.abs());
+
+            // decrease quote debt and return to orderbook
+            IAccountBalance(_accountBalance).addBalanceForTaker(trader, baseToken, 0, debt.neg256(), 0);
+            return debt;
+        }
+
+        // the amount added to pool is in quote
+        debt = accountMarketInfo.baseBalance.abs().mul(amount).div(accountMarketInfo.quoteBalance.abs());
+
+        // decrease base debt and return to orderbook
+        IAccountBalance(_accountBalance).addBalanceForTaker(trader, baseToken, debt.neg256(), 0, 0);
+        return debt;
     }
 
     //
