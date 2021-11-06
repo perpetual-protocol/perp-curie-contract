@@ -76,6 +76,7 @@ interface IOrderBook {
         int256 base,
         int256 quote,
         int128 liquidity,
+        // @audit suggest remove, feels redundant especially it will always be false when removeLiquidity @wraecca
         bool useTakerPosition,
         uint256 quoteFee
     );
