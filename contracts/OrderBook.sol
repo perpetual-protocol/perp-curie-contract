@@ -25,6 +25,7 @@ import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
+import { IOrderBookCallback } from "./interface/IOrderBookCallback.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract OrderBook is
@@ -676,6 +677,7 @@ contract OrderBook is
         }
     }
 
+    // only use by addLiquidity (bypass stack too deep error)
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
@@ -719,6 +721,27 @@ contract OrderBook is
         if (!params.useTakerPosition) {
             openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
             openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
+        } else {
+            bool isBase = params.deltaBase > 0;
+            bool isQuote = params.deltaQuote > 0;
+
+            // taker can't add liquidity within range
+            require(!(isBase && isQuote), "OB_TCALWR");
+            uint256 amount = isBase ? params.deltaBase : params.deltaQuote;
+            uint256 debt =
+                IOrderBookCallback(_clearingHouse).addLiquidityFromTakerCallback(
+                    params.maker,
+                    params.baseToken,
+                    isBase,
+                    amount
+                );
+
+            // shift taker's openNotional to maker's debt in quote if the added token is base
+            if (isBase) {
+                openOrder.quoteDebt = openOrder.quoteDebt.add(debt);
+            } else {
+                openOrder.baseDebt = openOrder.baseDebt.add(debt);
+            }
         }
 
         return fee;
