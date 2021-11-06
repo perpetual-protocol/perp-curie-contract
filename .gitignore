@@ -9,3 +9,4 @@ slither
 /.DS_Store
 .idea
 contracts/hardhat-dependency-compiler/*
+.openzeppelin/unknown-31337.json
