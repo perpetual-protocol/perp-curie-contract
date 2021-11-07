@@ -13,7 +13,6 @@ interface IOrderBook {
         uint256 quote;
         int24 lowerTick;
         int24 upperTick;
-        bool useTakerPosition;
         Funding.Growth fundingGrowthGlobal;
     }
 
@@ -30,6 +29,7 @@ interface IOrderBook {
         uint256 quote;
         uint256 fee;
         uint128 liquidity;
+        bytes32 orderId;
     }
 
     struct RemoveLiquidityResponse {
@@ -76,8 +76,6 @@ interface IOrderBook {
         int256 base,
         int256 quote,
         int128 liquidity,
-        // @audit suggest remove, feels redundant especially it will always be false when removeLiquidity @wraecca
-        bool useTakerPosition,
         uint256 quoteFee
     );
 
@@ -101,6 +99,12 @@ interface IOrderBook {
     ) external returns (int256 liquidityCoefficientInFundingPayment);
 
     function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory);
+
+    function updateOrderDebt(
+        bytes32 orderId,
+        int256 baseDebtDelta,
+        int256 quoteDebtDelta
+    ) external;
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);
 

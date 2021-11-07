@@ -771,7 +771,6 @@ describe("ClearingHouse funding", () => {
                         "-272977241071563599",
                         "-8536030653991754908",
                         "-203202869155103601574",
-                        false,
                         parseEther("0.829279386920164902"),
                     )
                     .to.emit(exchange, "FundingPaymentSettled")
@@ -817,7 +816,6 @@ describe("ClearingHouse funding", () => {
                         "-272977241071563599",
                         "-8536030653991754908",
                         "-203202869155103601574",
-                        false,
                         "0",
                     )
                     .to.emit(exchange, "FundingPaymentSettled")
@@ -861,7 +859,6 @@ describe("ClearingHouse funding", () => {
                         "-654045517856872800",
                         "0",
                         "-808767873126541797029",
-                        false,
                         parseEther("1"),
                     )
                     .to.emit(exchange, "FundingPaymentSettled")
@@ -961,7 +958,6 @@ describe("ClearingHouse funding", () => {
                             "0",
                             "0",
                             "0",
-                            false,
                             parseEther("0.829279386920164902"),
                         )
                         .to.emit(exchange, "FundingPaymentSettled")
@@ -1119,7 +1115,6 @@ describe("ClearingHouse funding", () => {
                             "-545954482143127198",
                             "-18031070591189734109",
                             "-816895716963038010374",
-                            false,
                             parseEther("0.819689294088102658"),
                         )
                         .to.emit(exchange, "FundingPaymentSettled")

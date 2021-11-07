@@ -25,7 +25,6 @@ import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
-import { IOrderBookCallback } from "./interface/IOrderBookCallback.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
@@ -33,7 +32,6 @@ contract ClearingHouse is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     IClearingHouse,
-    IOrderBookCallback,
     BlockContext,
     ReentrancyGuardUpgradeable,
     OwnerPausable,
@@ -178,15 +176,6 @@ contract ClearingHouse is
         //   minBase, minQuote & deadline: here
         address trader = _msgSender();
 
-        if (params.useTakerPosition) {
-            // CH_TPSNE: taker position size not enough
-            require(
-                IAccountBalance(_accountBalance).getTakerPositionSize(trader, params.baseToken) >=
-                    params.base.toInt256(),
-                "CH_TPSNE"
-            );
-        }
-
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -203,15 +192,52 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    useTakerPosition: params.useTakerPosition,
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
+
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
         if (params.useTakerPosition) {
+            bool isBase = response.base > 0;
+            bool isQuote = response.quote > 0;
+
+            // can't add liquidity within range from take position
+            require(!(isBase && isQuote), "CH_CALWRFTP");
+
+            int256 amount = isBase ? response.base.toInt256() : response.quote.toInt256();
+
+            // shift portion of open notional to maker's debt
+            AccountMarket.Info memory accountMarketInfo =
+                IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
+            int256 debt;
+            if (isBase) {
+                // the amount added to pool is in base
+                // taker base not enough
+                require(IAccountBalance(_accountBalance).getBase(trader, params.baseToken) > amount, "CH_TBNE");
+
+                // shifted quote debt from taker to maker = takerQuoteDebt * baseAddToPool / totalTakerBase
+                debt = accountMarketInfo.quoteBalance.mul(amount).div(accountMarketInfo.baseBalance);
+
+                // increase orderbook quote debt (it's negative so we neg again to make it positive)
+                // decrease orderbook base debt because it's from taker position
+                IOrderBook(_orderBook).updateOrderDebt(response.orderId, amount.neg256(), debt.neg256());
+            } else {
+                // the amount added to pool is in quote
+                // taker quote not enough
+                require(IAccountBalance(_accountBalance).getQuote(trader, params.baseToken) > amount, "CH_TQNE");
+
+                // shifted base debt from taker to maker = takerBaseDebt * quoteAddToPool / totalTakerQuote
+                debt = accountMarketInfo.baseBalance.mul(amount).div(accountMarketInfo.quoteBalance);
+
+                // increase orderbook base debt (it's negative so we neg again to make it positive)
+                // decrease orderbook base debt because it's from taker position
+                IOrderBook(_orderBook).updateOrderDebt(response.orderId, debt.neg256(), amount.neg256());
+            }
+
+            // decrease taker's base or quote debt, collect fee
             IAccountBalance(_accountBalance).addBalanceForTaker(
                 trader,
                 params.baseToken,
@@ -484,36 +510,6 @@ contract ClearingHouse is
         // swap
         // CH_TF: Transfer failed
         require(IERC20Metadata(token).transfer(address(callbackData.pool), amountToPay), "CH_TF");
-    }
-
-    /// @inheritdoc IOrderBookCallback
-    function addLiquidityFromTakerCallback(
-        address trader,
-        address baseToken,
-        bool isBase,
-        uint256 amount
-    ) external override onlyOrderBook returns (uint256) {
-        // shift portion of open notional to maker's debt
-        AccountMarket.Info memory accountMarketInfo =
-            IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
-
-        uint256 debt;
-
-        // the amount added to pool is in base
-        if (isBase) {
-            debt = accountMarketInfo.quoteBalance.abs().mul(amount).div(accountMarketInfo.baseBalance.abs());
-
-            // decrease quote debt and return to orderbook
-            IAccountBalance(_accountBalance).addBalanceForTaker(trader, baseToken, 0, debt.neg256(), 0);
-            return debt;
-        }
-
-        // the amount added to pool is in quote
-        debt = accountMarketInfo.baseBalance.abs().mul(amount).div(accountMarketInfo.quoteBalance.abs());
-
-        // decrease base debt and return to orderbook
-        IAccountBalance(_accountBalance).addBalanceForTaker(trader, baseToken, debt.neg256(), 0, 0);
-        return debt;
     }
 
     //

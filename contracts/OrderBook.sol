@@ -25,7 +25,6 @@ import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
-import { IOrderBookCallback } from "./interface/IOrderBookCallback.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract OrderBook is
@@ -63,7 +62,6 @@ contract OrderBook is
         uint128 liquidity;
         uint256 deltaBase;
         uint256 deltaQuote;
-        bool useTakerPosition;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -163,7 +161,7 @@ contract OrderBook is
         }
 
         // state changes; if adding liquidity to an existing order, get fees accrued
-        uint256 fee =
+        (bytes32 orderId, uint256 fee) =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
                     maker: params.trader,
@@ -175,7 +173,6 @@ contract OrderBook is
                     liquidity: response.liquidity,
                     deltaBase: response.base,
                     deltaQuote: response.quote,
-                    useTakerPosition: params.useTakerPosition,
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
@@ -189,7 +186,6 @@ contract OrderBook is
             response.base.toInt256(),
             response.quote.toInt256(),
             response.liquidity.toInt128(),
-            params.useTakerPosition,
             fee
         );
 
@@ -198,7 +194,8 @@ contract OrderBook is
                 base: response.base,
                 quote: response.quote,
                 fee: fee,
-                liquidity: response.liquidity
+                liquidity: response.liquidity,
+                orderId: orderId
             });
     }
 
@@ -302,6 +299,26 @@ contract OrderBook is
         }
 
         return liquidityCoefficientInFundingPayment;
+    }
+
+    function updateOrderDebt(
+        bytes32 orderId,
+        int256 baseDebtDelta,
+        int256 quoteDebtDelta
+    ) external override onlyClearingHouse {
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
+        uint256 absBaseDebtDelta = baseDebtDelta.abs();
+        uint256 absQuoteDebtDelta = quoteDebtDelta.abs();
+        if (baseDebtDelta > 0) {
+            openOrder.baseDebt.add(absBaseDebtDelta);
+        } else {
+            openOrder.baseDebt.sub(absBaseDebtDelta);
+        }
+        if (quoteDebtDelta > 0) {
+            openOrder.quoteDebt.add(absQuoteDebtDelta);
+        } else {
+            openOrder.quoteDebt.sub(absQuoteDebtDelta);
+        }
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -605,7 +622,6 @@ contract OrderBook is
             response.base.neg256(),
             response.quote.neg256(),
             liquidity,
-            false,
             fee
         );
 
@@ -678,7 +694,7 @@ contract OrderBook is
     }
 
     // only use by addLiquidity (bypass stack too deep error)
-    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
+    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (bytes32, uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
@@ -718,33 +734,10 @@ contract OrderBook is
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
-        if (!params.useTakerPosition) {
-            openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
-            openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
-        } else {
-            bool isBase = params.deltaBase > 0;
-            bool isQuote = params.deltaQuote > 0;
+        openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
+        openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
 
-            // taker can't add liquidity within range
-            require(!(isBase && isQuote), "OB_TCALWR");
-            uint256 amount = isBase ? params.deltaBase : params.deltaQuote;
-            uint256 debt =
-                IOrderBookCallback(_clearingHouse).addLiquidityFromTakerCallback(
-                    params.maker,
-                    params.baseToken,
-                    isBase,
-                    amount
-                );
-
-            // shift taker's openNotional to maker's debt in quote if the added token is base
-            if (isBase) {
-                openOrder.quoteDebt = openOrder.quoteDebt.add(debt);
-            } else {
-                openOrder.baseDebt = openOrder.baseDebt.add(debt);
-            }
-        }
-
-        return fee;
+        return (orderId, fee);
     }
 
     //
