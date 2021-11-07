@@ -177,6 +177,7 @@ contract OrderBook is
                 })
             );
 
+        // @audit can move to ClearingHouse for bytecode size - @wraecca
         emit LiquidityChanged(
             params.trader,
             params.baseToken,
@@ -613,6 +614,8 @@ contract OrderBook is
         }
 
         int128 liquidity = params.liquidity.neg128();
+
+        // @audit can move to ClearingHouse for bytecode size - @wraecca
         emit LiquidityChanged(
             params.maker,
             params.baseToken,
