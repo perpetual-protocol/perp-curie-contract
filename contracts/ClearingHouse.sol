@@ -92,14 +92,6 @@ contract ClearingHouse is
         _;
     }
 
-    modifier onlyOrderBook() {
-        // For caller validation purposes it would be more efficient and more reliable to use
-        // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
-        // not orderbook
-        require(msg.sender == _orderBook, "CH_NOB");
-        _;
-    }
-
     modifier checkDeadline(uint256 deadline) {
         // transaction expires
         require(_blockTimestamp() <= deadline, "CH_TE");
@@ -473,7 +465,12 @@ contract ClearingHouse is
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external override onlyOrderBook {
+    ) external override {
+        // For caller validation purposes it would be more efficient and more reliable to use
+        // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
+        // not orderbook
+        require(msg.sender == _orderBook, "CH_NOB");
+
         IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));
 
         if (amount0Owed > 0) {
