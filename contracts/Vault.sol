@@ -88,6 +88,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// @param amountX10_D the amount of the token to deposit in decimals D (D = _decimals)
     function deposit(address token, uint256 amountX10_D)
         external
+        override
         whenNotPaused
         nonReentrant
         onlySettlementToken(token)
@@ -113,6 +114,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// @param amountX10_D the amount of the token to withdraw in decimals D (D = _decimals)
     function withdraw(address token, uint256 amountX10_D)
         external
+        override
         whenNotPaused
         nonReentrant
         onlySettlementToken(token)
