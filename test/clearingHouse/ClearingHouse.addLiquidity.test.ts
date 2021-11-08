@@ -726,6 +726,10 @@ describe("ClearingHouse addLiquidity", () => {
     })
 
     describe("# addLiquidity using taker's position", () => {
+        let bobTakerQuote
+        let bobBase
+        let bobQuote
+
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
             // add pool after it's initialized
@@ -745,11 +749,16 @@ describe("ClearingHouse addLiquidity", () => {
 
             // bob long 1 base token
             await q2bExactOutput(fixture, bob, 1)
+            bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerQuoteBalance
+
+            bobBase = await accountBalance.getBase(bob.address, baseToken.address)
+            bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
         })
 
         it("existing position size is enough for adding liquidity", async () => {
             const lowerTick = 50400
             const upperTick = 50600
+
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
@@ -764,9 +773,20 @@ describe("ClearingHouse addLiquidity", () => {
                 }),
             )
                 .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(bob.address, baseToken.address, parseEther("-0.5"), 0)
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("-0.5"),
+                    bobTakerQuote.div(2).mul(-1), // move half of taker quote to maker
+                )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
+
+            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            expect(bobAccountInfo.takerBaseBalance).to.eq(parseEther("0.5"))
+            expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote.div(2))
+            expect(bobAccountInfo.baseBalance).to.eq(bobBase)
+            expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
         })
 
         // TODO removeLiquidity is WIP
@@ -799,12 +819,18 @@ describe("ClearingHouse addLiquidity", () => {
                 }),
             )
                 .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(bob.address, baseToken.address, parseEther("0.499999999999999999"), 0)
+                .withArgs(bob.address, baseToken.address, parseEther("0.499999999999999999"), bobTakerQuote.div(2))
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("1"),
                 1,
             )
+
+            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("1"), 1)
+            expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote)
+            expect(bobAccountInfo.baseBalance).to.eq(bobBase)
+            expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
         })
 
         // TODO add liquidity within range will revert, skip this and need to add another test
@@ -872,8 +898,8 @@ describe("ClearingHouse addLiquidity", () => {
 
         // TODO add liquidity within range will revert, skip this and need to add another test
         it.skip("adding liquidity twice, one is using taker position and the second one without using taker position", async () => {
-            const lowerTick = 50200
-            const upperTick = 50400
+            const lowerTick = 50400
+            const upperTick = 50600
 
             // remove alice liquidity to maker test easier
             const aliceLiquidity = (
@@ -885,7 +911,7 @@ describe("ClearingHouse addLiquidity", () => {
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
-                    quote: parseEther("200"),
+                    quote: "0",
                     lowerTick: lowerTick,
                     upperTick: upperTick,
                     minBase: 0,
@@ -899,7 +925,7 @@ describe("ClearingHouse addLiquidity", () => {
                     bob.address,
                     baseToken.address,
                     parseEther("-0.5"),
-                    parseEther("-0.764587724766731814"), // we don't care about this value. it's from console.log.
+                    bobTakerQuote.div(2).mul(-1), // we don't care about this value. it's from console.log.
                 )
 
             // alice long 0.1 base token
@@ -910,7 +936,7 @@ describe("ClearingHouse addLiquidity", () => {
                 await clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
-                    quote: parseEther("200"),
+                    quote: "0",
                     lowerTick: lowerTick,
                     upperTick: upperTick,
                     minBase: 0,
@@ -931,6 +957,7 @@ describe("ClearingHouse addLiquidity", () => {
                 parseEther("0.8"),
                 1,
             )
+            // TODO: should check accountInfo.quoteBalance and accountInfo.baseBalance
         })
 
         it("force error, existing position size is not enough for adding liquidity", async () => {
@@ -948,6 +975,23 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.be.revertedWith("CH_TBNE")
+        })
+
+        it("force error, cannot add liquidity within range", async () => {
+            // bob has only 1 base, thus cannot add liquidity using more than 1 base/ taker's position size
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("1.5"),
+                    quote: parseEther("150"),
+                    lowerTick: "50200",
+                    upperTick: "50600",
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPosition: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.be.revertedWith("CH_CALWRFTP")
         })
     })
 
