@@ -15,6 +15,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
     event SettlementTokenBalanceCapChanged(uint256 cap);
+    event MaxFundingPriceSpreadRatioChanged(uint24 ratio);
 
     //
     // MODIFIER
@@ -36,6 +37,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         _mmRatio = 0.0625e6; // minimum-margin ratio, 6.25% in decimal 6
         _liquidationPenaltyRatio = 0.025e6; // initial penalty ratio, 2.5% in decimal 6
         _partialCloseRatio = 0.25e6; // partial close ratio, 25% in decimal 6
+        _maxFundingPriceSpreadRatio = 0.25e6; // max funding price spread ratio, 25% in decimal 6
         _twapInterval = 15 minutes;
         _settlementTokenBalanceCap = type(uint256).max;
     }
@@ -78,6 +80,11 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit SettlementTokenBalanceCapChanged(cap);
     }
 
+    function setFundingPriceSpreadLimitRatio(uint24 ratio) external onlyOwner {
+        _maxFundingPriceSpreadRatio = ratio;
+        emit MaxFundingPriceSpreadRatioChanged(ratio);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -115,5 +122,10 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function getSettlementTokenBalanceCap() external view override returns (uint256) {
         return _settlementTokenBalanceCap;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getMaxFundingPriceSpreadRatio() external view override returns (uint24) {
+        return _maxFundingPriceSpreadRatio;
     }
 }
