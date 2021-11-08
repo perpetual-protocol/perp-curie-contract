@@ -68,4 +68,20 @@ library PerpMath {
     function mulRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
         return FullMath.mulDiv(value, ratio, 1e6);
     }
+
+    function mulDiv(
+        int256 a,
+        int256 b,
+        uint256 denominator
+    ) internal pure returns (int256 result) {
+        uint256 unsignedA = a < 0 ? uint256(neg256(a)) : uint256(a);
+        uint256 unsignedB = b < 0 ? uint256(neg256(b)) : uint256(b);
+        bool negative = ((a < 0 && b > 0) || (a > 0 && b < 0)) ? true : false;
+
+        uint256 unsignedResult = FullMath.mulDiv(unsignedA, unsignedB, denominator);
+
+        result = negative ? neg256(unsignedResult) : PerpSafeCast.toInt256(unsignedResult);
+
+        return result;
+    }
 }

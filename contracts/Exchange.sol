@@ -442,7 +442,7 @@ contract Exchange is
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(uint256(getSqrtMarkTwapX96(baseToken, 0)).toInt256())
+                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96.IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
         }
 

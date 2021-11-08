@@ -640,6 +640,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
             await q2bExactInput(fixture, taker, 2000)
+            console.log(`current tick ${(await pool.slot0()).tick}`)
 
             // failed to swap again
             await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
@@ -658,23 +659,18 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             ).fee
             expect(fee).to.be.gt("0")
 
-            // fundings are all correct
+            // funding are all correct
             await forwardTimestamp(clearingHouse, 200)
             await exchange.settleFunding(taker.address, baseToken.address)
             await forwardTimestamp(clearingHouse, 200)
 
-            // TODO: need to discuss this bug
-            // no one could do any action in this market bc of the overflow revert
-            await expect(b2qExactInput(fixture, taker2, 5)).to.be.revertedWith(
-                "revert SignedSafeMath: multiplication overflow",
-            )
-            // expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
+            expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
 
-            // // add more liquidity
-            // await addOrder(fixture, maker, 5, 5000, lowerTick, upperTick)
+            // add more liquidity
+            await addOrder(fixture, maker, 0, 2000, 22000, 24000)
 
-            // // taker can keep on swapping
-            // await q2bExactOutput(fixture, taker, 1)
+            // taker2 can keep on swapping
+            await b2qExactOutput(fixture, taker2, 1)
         })
     })
 })
