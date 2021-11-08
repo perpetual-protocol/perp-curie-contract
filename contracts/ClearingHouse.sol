@@ -193,48 +193,57 @@ contract ClearingHouse is
 
         // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
         if (params.useTakerPosition) {
-            bool isBase = response.base > 0;
-            bool isQuote = response.quote > 0;
+            bool isBaseAdded = response.base > 0;
+            bool isQuoteAdded = response.quote > 0;
 
             // can't add liquidity within range from take position
-            require(!(isBase && isQuote), "CH_CALWRFTP");
+            require(isBaseAdded != isQuoteAdded, "CH_CALWRFTP");
 
-            int256 amount = isBase ? response.base.toInt256() : response.quote.toInt256();
-
-            // shift portion of open notional to maker's debt
             AccountMarket.Info memory accountMarketInfo =
                 IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
-            int256 debt;
-            if (isBase) {
-                // the amount added to pool is in base
+
+            // the signs of deltaBaseDebt and deltaQuoteDebt are always the opposite.
+            int256 deltaBaseDebt;
+            int256 deltaQuoteDebt;
+            if (isBaseAdded) {
                 // taker base not enough
-                require(IAccountBalance(_accountBalance).getBase(trader, params.baseToken) > amount, "CH_TBNE");
+                require(
+                    IAccountBalance(_accountBalance).getBase(trader, params.baseToken) > response.base.toInt256(),
+                    "CH_TBNE"
+                );
 
-                // shifted quote debt from taker to maker = takerQuoteDebt * baseAddToPool / totalTakerBase
-                debt = accountMarketInfo.quoteBalance.mul(amount).div(accountMarketInfo.baseBalance);
+                deltaBaseDebt = response.base.neg256();
 
-                // increase orderbook quote debt (it's negative so we neg again to make it positive)
-                // decrease orderbook base debt because it's from taker position
-                IOrderBook(_orderBook).updateOrderDebt(response.orderId, amount.neg256(), debt.neg256());
+                // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
+                // TODO: inspect overflow
+                deltaQuoteDebt = accountMarketInfo.takerQuoteBalance.mul(deltaBaseDebt).div(
+                    accountMarketInfo.takerBaseBalance
+                );
             } else {
-                // the amount added to pool is in quote
                 // taker quote not enough
-                require(IAccountBalance(_accountBalance).getQuote(trader, params.baseToken) > amount, "CH_TQNE");
+                require(
+                    IAccountBalance(_accountBalance).getQuote(trader, params.baseToken) > response.quote.toInt256(),
+                    "CH_TQNE"
+                );
 
-                // shifted base debt from taker to maker = takerBaseDebt * quoteAddToPool / totalTakerQuote
-                debt = accountMarketInfo.baseBalance.mul(amount).div(accountMarketInfo.quoteBalance);
+                deltaQuoteDebt = response.quote.neg256();
 
-                // increase orderbook base debt (it's negative so we neg again to make it positive)
-                // decrease orderbook base debt because it's from taker position
-                IOrderBook(_orderBook).updateOrderDebt(response.orderId, debt.neg256(), amount.neg256());
+                // move base debt from taker to maker: takerBaseDebt(-) * quoteRemovedFromTaker(-) / totalTakerQuote(+)
+                // TODO: inspect overflow
+                deltaBaseDebt = accountMarketInfo.takerBaseBalance.mul(deltaQuoteDebt).div(
+                    accountMarketInfo.takerQuoteBalance
+                );
             }
 
-            // decrease taker's base or quote debt, collect fee
-            IAccountBalance(_accountBalance).addBalanceForTaker(
+            // update orderDebt to record the cost of this order
+            IOrderBook(_orderBook).updateOrderDebt(response.orderId, deltaBaseDebt, deltaQuoteDebt);
+
+            // update takerBalances as we're using takerBalances to provide liquidity
+            IAccountBalance(_accountBalance).addTakerBalance(
                 trader,
                 params.baseToken,
-                response.base.neg256(),
-                response.quote.neg256(),
+                deltaBaseDebt,
+                deltaQuoteDebt,
                 response.fee.toInt256()
             );
         } else {
@@ -246,7 +255,7 @@ contract ClearingHouse is
                 response.fee.toInt256()
             );
         }
-        // fee is collected to owedRealizedPnl
+        // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);

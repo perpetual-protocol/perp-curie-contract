@@ -99,7 +99,18 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
     }
 
-    function addBalanceForTaker(
+    function addTakerBalance(
+        address trader,
+        address baseToken,
+        int256 base,
+        int256 quote,
+        int256 owedRealizedPnl
+    ) external override onlyExchangeOrClearingHouse {
+        _modifyTakerBalance(trader, baseToken, base, quote);
+        _addOwedRealizedPnl(trader, owedRealizedPnl);
+    }
+
+    function addBothBalances(
         address trader,
         address baseToken,
         int256 base,
