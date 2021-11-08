@@ -102,8 +102,8 @@ interface IOrderBook {
 
     function updateOrderDebt(
         bytes32 orderId,
-        int256 baseDebtDelta,
-        int256 quoteDebtDelta
+        int256 deltaBaseDebt,
+        int256 deltaQuoteDebt
     ) external;
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);

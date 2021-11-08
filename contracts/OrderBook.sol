@@ -304,12 +304,12 @@ contract OrderBook is
 
     function updateOrderDebt(
         bytes32 orderId,
-        int256 baseDebtDelta,
-        int256 quoteDebtDelta
+        int256 deltaBaseDebt,
+        int256 deltaQuoteDebt
     ) external override onlyClearingHouse {
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
-        openOrder.baseDebt = openOrder.baseDebt.toInt256().add(baseDebtDelta).toUint256();
-        openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(quoteDebtDelta).toUint256();
+        openOrder.baseDebt = openOrder.baseDebt.toInt256().add(deltaBaseDebt).toUint256();
+        openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(deltaQuoteDebt).toUint256();
     }
 
     /// @inheritdoc IUniswapV3MintCallback
