@@ -308,18 +308,8 @@ contract OrderBook is
         int256 quoteDebtDelta
     ) external override onlyClearingHouse {
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
-        uint256 absBaseDebtDelta = baseDebtDelta.abs();
-        uint256 absQuoteDebtDelta = quoteDebtDelta.abs();
-        if (baseDebtDelta > 0) {
-            openOrder.baseDebt.add(absBaseDebtDelta);
-        } else {
-            openOrder.baseDebt.sub(absBaseDebtDelta);
-        }
-        if (quoteDebtDelta > 0) {
-            openOrder.quoteDebt.add(absQuoteDebtDelta);
-        } else {
-            openOrder.quoteDebt.sub(absQuoteDebtDelta);
-        }
+        openOrder.baseDebt = openOrder.baseDebt.toInt256().add(baseDebtDelta).toUint256();
+        openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(quoteDebtDelta).toUint256();
     }
 
     /// @inheritdoc IUniswapV3MintCallback
