@@ -5,6 +5,10 @@ interface IVault {
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
+    function deposit(address token, uint256 amountX10_D) external;
+
+    function withdraw(address token, uint256 amountX10_D) external;
+
     function getBalance(address account) external view returns (int256);
 
     function getFreeCollateralByRatio(address trader, uint24 ratio) external view returns (int256);
