@@ -17,7 +17,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { b2qExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -63,12 +63,12 @@ describe("ClearingHouse addLiquidity", () => {
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
-        collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
+        collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
 
         // prepare collateral for alice
-        const amount = parseUnits("1000", await collateral.decimals())
+        const amount = parseUnits("10000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
-        await deposit(alice, vault, 1000, collateral)
+        await deposit(alice, vault, 10000, collateral)
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
     })
@@ -738,8 +738,8 @@ describe("ClearingHouse addLiquidity", () => {
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("100"),
-                quote: 0,
-                lowerTick: "50200",
+                quote: parseEther("10000"),
+                lowerTick: "50000",
                 upperTick: "50400",
                 minBase: 0,
                 minQuote: 0,
@@ -975,6 +975,25 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.be.revertedWith("CH_TBNE")
+        })
+
+        it("force error, existing taker quote is not enough for adding liquidity", async () => {
+            await b2qExactInput(fixture, bob, 2)
+
+            // bob has only -1 base and ? quote, thus cannot add liquidity using more than ? taker quote
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: 0,
+                    quote: parseEther("10000"),
+                    lowerTick: "49800",
+                    upperTick: "50000",
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerPosition: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.be.revertedWith("CH_TQNE")
         })
 
         it("force error, cannot add liquidity within range", async () => {
