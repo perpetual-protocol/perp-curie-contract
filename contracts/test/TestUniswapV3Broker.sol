@@ -11,6 +11,7 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/libraries/Path.sol";
 import "../lib/UniswapV3Broker.sol";
 import "../interface/IERC20Metadata.sol";
+import "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 
 contract TestUniswapV3Broker is IUniswapV3MintCallback, IUniswapV3SwapCallback, Initializable {
     using Path for bytes;

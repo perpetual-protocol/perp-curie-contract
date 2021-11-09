@@ -5,7 +5,6 @@ pragma abicoder v2;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
@@ -167,6 +166,10 @@ library UniswapV3Broker {
         return SwapResponse(amount0, amount1);
     }
 
+    //
+    // VIEW
+    //
+
     function getPool(
         address factory,
         address quoteToken,
@@ -179,10 +182,6 @@ library UniswapV3Broker {
 
     function getTickSpacing(address pool) internal view returns (int24 tickSpacing) {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
-    }
-
-    function getLiquidity(address pool) internal view returns (uint128 liquidity) {
-        liquidity = IUniswapV3Pool(pool).liquidity();
     }
 
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
@@ -268,13 +267,14 @@ library UniswapV3Broker {
         uint256 feeGrowthGlobalX128
     ) internal view returns (SwapState memory) {
         (uint160 sqrtMarkPrice, int24 tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        uint128 liquidity = IUniswapV3Pool(pool).liquidity();
         return
             SwapState({
                 tick: tick,
                 sqrtPriceX96: sqrtMarkPrice,
                 amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                 feeGrowthGlobalX128: feeGrowthGlobalX128,
-                liquidity: getLiquidity(pool)
+                liquidity: liquidity
             });
     }
 

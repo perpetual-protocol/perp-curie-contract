@@ -54,20 +54,22 @@ library FeeMath {
         uint256 amount,
         uint24 clearingHouseFeeRatio,
         uint24 uniswapFeeRatio
-    ) internal pure returns (uint256 scaledAmount) {
+    ) internal pure returns (uint256) {
         // let x : uniswapFeeRatio, y : clearingHouseFeeRatio
         // 1. isBaseToQuote && isExactInput   --> input base / (1 - x)
         // 2. isBaseToQuote && !isExactInput  --> output quote / (1 - y)
         // 3. !isBaseToQuote && isExactInput  --> input quote * (1 - y) / (1 - x)
         // 4. !isBaseToQuote && !isExactInput --> output base
         if (isBaseToQuote) {
-            scaledAmount = isExactInput
-                ? calcAmountScaledByFeeRatio(amount, uniswapFeeRatio, true)
-                : calcAmountScaledByFeeRatio(amount, clearingHouseFeeRatio, true);
-        } else {
-            scaledAmount = isExactInput
+            return
+                isExactInput
+                    ? calcAmountScaledByFeeRatio(amount, uniswapFeeRatio, true)
+                    : calcAmountScaledByFeeRatio(amount, clearingHouseFeeRatio, true);
+        }
+
+        return
+            isExactInput
                 ? calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, clearingHouseFeeRatio, true)
                 : amount;
-        }
     }
 }
