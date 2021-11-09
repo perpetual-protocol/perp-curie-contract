@@ -7,6 +7,7 @@ import {
     AccountBalance,
     BaseToken,
     ClearingHouse,
+    ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
@@ -15,15 +16,17 @@ import {
     Vault,
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
+import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
@@ -35,20 +38,22 @@ describe("ClearingHouse funding", () => {
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
     let collateralDecimals: number
+    let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
-        clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture(false))
+        clearingHouse = fixture.clearingHouse as ClearingHouse
+        clearingHouseConfig = fixture.clearingHouseConfig
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         // price at 50400 == 154.4310961
@@ -1133,6 +1138,70 @@ describe("ClearingHouse funding", () => {
                         parseEther("-0.034627969348706857"),
                     )
                 })
+            })
+        })
+
+        describe("max funding rate exceeded", async () => {
+            beforeEach(async () => {
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150.953124", 6), 0, 0, 0]
+                })
+
+                // set max funding rate to 10%
+                await clearingHouseConfig.setMaxFundingRate(0.1e6)
+
+                // alice provides liquidity with the range inside
+                await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("10"),
+                    quote: parseEther("10000"),
+                    lowerTick: 20000,
+                    upperTick: 80000,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+
+                await collateral.mint(bob.address, parseUnits("1000000", collateralDecimals))
+                await deposit(bob, vault, 1000000, collateral)
+            })
+
+            it("markTwap above indexTwap and exceeded max funding rate", async () => {
+                // initial mark price 154.4310961
+                await q2bExactOutput(fixture, bob, 5)
+
+                // current mark price 409.86647972
+                await forward(100)
+
+                // diff: 409.86647972 - 150.953124 > 150.953124 * 10%
+                // bob's funding payment = 5 * 150.953124 * 10% * 100 / 86400 = 0.08735713194444444
+                expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.be.eq(
+                    parseEther("0.087357131944444444"),
+                )
+
+                // alice's funding payment = -5 * 150.953124 * 10% * 100 / 86400 = -0.08735713194444444
+                expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.be.eq(
+                    parseEther("-0.087357131944444444"),
+                )
+            })
+
+            it("markTwap below indexTwap and exceeded max funding rate", async () => {
+                // initial mark price 154.4310961
+                await b2qExactInput(fixture, bob, 5)
+
+                // current mark price 80.3711255154
+                await forward(100)
+
+                // diff: 150.953124 - 80.3711255154 > 150.953124 * 10%
+                // bob's funding payment = 5 * 150.953124 * 10% * 100 / 86400 = 0.08735713194444444
+                expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.be.eq(
+                    parseEther("0.087357131944444444"),
+                )
+
+                // alice's funding payment = -5 * 150.953124 * 10% * 100 / 86400 = -0.08735713194444444
+                expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.be.eq(
+                    parseEther("-0.087357131944444444"),
+                )
             })
         })
     })

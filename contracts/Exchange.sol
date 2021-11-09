@@ -718,8 +718,8 @@ contract Exchange is
     }
 
     function _getPriceDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
-        uint24 ratio = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingPriceSpreadRatio();
-        uint256 maxPriceDiffX96 = indexTwapX96.mulRatio(ratio);
+        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
+        uint256 maxPriceDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
         uint256 markDiffX96;
         if (markTwapX96 > indexTwapX96) {
             markDiffX96 = markTwapX96.sub(indexTwapX96);

@@ -16,5 +16,5 @@ interface IClearingHouseConfig {
 
     function getSettlementTokenBalanceCap() external view returns (uint256);
 
-    function getMaxFundingPriceSpreadRatio() external view returns (uint24);
+    function getMaxFundingRate() external view returns (uint24);
 }
