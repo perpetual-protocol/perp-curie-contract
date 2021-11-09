@@ -304,15 +304,7 @@ contract ClearingHouse is
                 })
             );
 
-        IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            trader,
-            params.baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.deltaTakerBase,
-            response.deltaTakerQuote,
-            response.fee.toInt256()
-        );
+        _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -614,13 +606,38 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
+        _settleBalanceAndRealizePnl(maker, baseToken, response);
+    }
+
+    function _settleBalanceAndRealizePnl(
+        address trader,
+        address baseToken,
+        IOrderBook.RemoveLiquidityResponse memory response
+    ) internal {
+        (bool isReducingPosition, int256 takerPositionSize, ) =
+            IExchange(_exchange).getIsReducingPosition(trader, baseToken, response.deltaTakerBase < 0);
+        int256 pnlToBeRealized =
+            isReducingPosition
+                ? IExchange(_exchange).getPnlToBeRealized(
+                    IExchange.RealizePnlParams({
+                        trader: trader,
+                        baseToken: baseToken,
+                        takerPositionSize: takerPositionSize,
+                        takerOpenNotional: IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken),
+                        deltaAvailableBase: response.deltaTakerBase,
+                        deltaAvailableQuote: response.deltaTakerQuote
+                    })
+                )
+                : 0;
+
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            maker,
+            trader,
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
             response.deltaTakerBase,
             response.deltaTakerQuote,
+            pnlToBeRealized,
             response.fee.toInt256()
         );
     }

@@ -33,6 +33,15 @@ interface IExchange {
         uint256 fee;
     }
 
+    struct RealizePnlParams {
+        address trader;
+        address baseToken;
+        int256 takerPositionSize;
+        int256 takerOpenNotional;
+        int256 deltaAvailableBase;
+        int256 deltaAvailableQuote;
+    }
+
     //
     // EVENT
     //
@@ -82,6 +91,19 @@ interface IExchange {
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
+    function getIsReducingPosition(
+        address trader,
+        address baseToken,
+        bool isBaseToQuote
+    )
+        external
+        view
+        returns (
+            bool,
+            int256,
+            bool
+        );
+
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 
     function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
@@ -93,4 +115,6 @@ interface IExchange {
     function getClearingHouseConfig() external view returns (address);
 
     function getInsuranceFund() external view returns (address);
+
+    function getPnlToBeRealized(RealizePnlParams memory params) external pure returns (int256);
 }
