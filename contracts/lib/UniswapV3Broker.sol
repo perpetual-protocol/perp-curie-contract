@@ -218,10 +218,6 @@ library UniswapV3Broker {
         return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
     }
 
-    function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {
-        return IUniswapV3Pool(pool).tickBitmap(wordPos);
-    }
-
     // copied from UniswapV3-core
     /// @param isBaseToQuote originally lte, meaning that the next tick < the current tick
     function getNextInitializedTickWithinOneWord(
@@ -237,7 +233,7 @@ library UniswapV3Broker {
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed);
             // all the 1s at or to the right of the current bitPos
             uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
-            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+            uint256 masked = _getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
             initialized = masked != 0;
@@ -250,7 +246,7 @@ library UniswapV3Broker {
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed + 1);
             // all the 1s at or to the left of the bitPos
             uint256 mask = ~((1 << bitPos) - 1);
-            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+            uint256 masked = _getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the left of the current tick, return leftmost in the word
             initialized = masked != 0;
@@ -276,6 +272,14 @@ library UniswapV3Broker {
                 feeGrowthGlobalX128: feeGrowthGlobalX128,
                 liquidity: liquidity
             });
+    }
+
+    //
+    // PRIVATE
+    //
+
+    function _getTickBitmap(address pool, int16 wordPos) private view returns (uint256 tickBitmap) {
+        return IUniswapV3Pool(pool).tickBitmap(wordPos);
     }
 
     function _getPositionOfInitializedTickWithinOneWord(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {
