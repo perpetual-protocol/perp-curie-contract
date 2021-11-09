@@ -12,6 +12,7 @@
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin ./node_modules/@openzeppelin/contracts/build/contracts/**/*.json",
     "typechain-perp-oracle": "typechain --target ethers-v5 --out-dir ./typechain/perp-oracle ./node_modules/@perp/perp-oracle-contract/artifacts/contracts/**/*.json",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
+    "clean-hardhat": "rm -rf deployments/hardhat",
     "test": "rm -rf deployments/hardhat | hardhat test",
     "parallel-test": "rm -rf deployments/hardhat | hardhat test --parallel",
     "build": "npm run typechain && hardhat compile",
