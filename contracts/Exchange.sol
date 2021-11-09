@@ -180,7 +180,8 @@ contract Exchange is
             response.exchangedPositionSize,
             response.exchangedPositionNotional.sub(response.fee.toInt256()),
             response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256())
+            response.exchangedPositionNotional.sub(response.fee.toInt256()),
+            0
         );
 
         int256 realizedPnl;
