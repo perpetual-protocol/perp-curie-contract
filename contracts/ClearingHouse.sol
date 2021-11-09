@@ -25,6 +25,7 @@ import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
+import { AccountMarket } from "./lib/AccountMarket.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -167,15 +168,6 @@ contract ClearingHouse is
         //   minBase, minQuote & deadline: here
         address trader = _msgSender();
 
-        if (params.useTakerPosition) {
-            // CH_TPSNE: taker position size not enough
-            require(
-                IAccountBalance(_accountBalance).getTakerPositionSize(trader, params.baseToken) >=
-                    params.base.toInt256(),
-                "CH_TPSNE"
-            );
-        }
-
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -192,20 +184,62 @@ contract ClearingHouse is
                     quote: params.quote,
                     lowerTick: params.lowerTick,
                     upperTick: params.upperTick,
-                    useTakerPosition: params.useTakerPosition,
                     fundingGrowthGlobal: fundingGrowthGlobal
                 })
             );
+
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
         // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
         if (params.useTakerPosition) {
-            IAccountBalance(_accountBalance).addBalanceForTaker(
+            bool isBaseAdded = response.base > 0;
+            bool isQuoteAdded = response.quote > 0;
+
+            // can't add liquidity within range from take position
+            require(isBaseAdded != isQuoteAdded, "CH_CALWRFTP");
+
+            AccountMarket.Info memory accountMarketInfo =
+                IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
+
+            // the signs of deltaBaseDebt and deltaQuoteDebt are always the opposite.
+            int256 deltaBaseDebt;
+            int256 deltaQuoteDebt;
+            if (isBaseAdded) {
+                // taker base not enough
+                require(accountMarketInfo.takerBaseBalance > response.base.toInt256(), "CH_TBNE");
+
+                deltaBaseDebt = response.base.neg256();
+
+                // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
+                // TODO: inspect overflow
+                deltaQuoteDebt = accountMarketInfo.takerQuoteBalance.mul(deltaBaseDebt).div(
+                    accountMarketInfo.takerBaseBalance
+                );
+            } else {
+                // taker quote not enough
+                require(accountMarketInfo.takerQuoteBalance > response.quote.toInt256(), "CH_TQNE");
+
+                deltaQuoteDebt = response.quote.neg256();
+
+                // move base debt from taker to maker: takerBaseDebt(-) * quoteRemovedFromTaker(-) / totalTakerQuote(+)
+                // TODO: inspect overflow
+                deltaBaseDebt = accountMarketInfo.takerBaseBalance.mul(deltaQuoteDebt).div(
+                    accountMarketInfo.takerQuoteBalance
+                );
+            }
+
+            // update orderDebt to record the cost of this order
+            IOrderBook(_orderBook).updateOrderDebt(response.orderId, deltaBaseDebt, deltaQuoteDebt);
+
+            // update takerBalances as we're using takerBalances to provide liquidity
+            IAccountBalance(_accountBalance).addTakerBalances(
                 trader,
                 params.baseToken,
                 response.base.neg256(),
                 response.quote.neg256(),
+                deltaBaseDebt,
+                deltaQuoteDebt,
                 response.fee.toInt256()
             );
         } else {
@@ -217,7 +251,7 @@ contract ClearingHouse is
                 response.fee.toInt256()
             );
         }
-        // fee is collected to owedRealizedPnl
+        // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
@@ -437,9 +471,9 @@ contract ClearingHouse is
         uint256 amount1Owed,
         bytes calldata data
     ) external override {
-        // not orderBook
         // For caller validation purposes it would be more efficient and more reliable to use
         // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
+        // not orderbook
         require(msg.sender == _orderBook, "CH_NOB");
 
         IOrderBook.MintCallbackData memory callbackData = abi.decode(data, (IOrderBook.MintCallbackData));

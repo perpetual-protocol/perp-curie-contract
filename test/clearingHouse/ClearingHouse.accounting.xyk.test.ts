@@ -350,7 +350,6 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             "-99999999999999999982", // return base
             "-1000000000000000000019", // return quote
             "-316227766016837933205", // liquidity
-            false,
             "179909999999999999", // fee (100000000000000001 + 99900000000000001) * 90%
         )
 

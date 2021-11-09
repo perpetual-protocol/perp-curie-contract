@@ -62,7 +62,6 @@ contract OrderBook is
         uint128 liquidity;
         uint256 deltaBase;
         uint256 deltaQuote;
-        bool useTakerPosition;
         Funding.Growth globalFundingGrowth;
     }
 
@@ -162,7 +161,7 @@ contract OrderBook is
         }
 
         // state changes; if adding liquidity to an existing order, get fees accrued
-        uint256 fee =
+        (bytes32 orderId, uint256 fee) =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
                     maker: params.trader,
@@ -174,11 +173,11 @@ contract OrderBook is
                     liquidity: response.liquidity,
                     deltaBase: response.base,
                     deltaQuote: response.quote,
-                    useTakerPosition: params.useTakerPosition,
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
 
+        // @audit can move to ClearingHouse for bytecode size - @wraecca
         emit LiquidityChanged(
             params.trader,
             params.baseToken,
@@ -188,7 +187,6 @@ contract OrderBook is
             response.base.toInt256(),
             response.quote.toInt256(),
             response.liquidity.toInt128(),
-            params.useTakerPosition,
             fee
         );
 
@@ -197,7 +195,8 @@ contract OrderBook is
                 base: response.base,
                 quote: response.quote,
                 fee: fee,
-                liquidity: response.liquidity
+                liquidity: response.liquidity,
+                orderId: orderId
             });
     }
 
@@ -301,6 +300,16 @@ contract OrderBook is
         }
 
         return liquidityCoefficientInFundingPayment;
+    }
+
+    function updateOrderDebt(
+        bytes32 orderId,
+        int256 deltaBaseDebt,
+        int256 deltaQuoteDebt
+    ) external override onlyClearingHouse {
+        OpenOrder.Info storage openOrder = _openOrderMap[orderId];
+        openOrder.baseDebt = openOrder.baseDebt.toInt256().add(deltaBaseDebt).toUint256();
+        openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(deltaQuoteDebt).toUint256();
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -595,6 +604,8 @@ contract OrderBook is
         }
 
         int128 liquidity = params.liquidity.neg128();
+
+        // @audit can move to ClearingHouse for bytecode size - @wraecca
         emit LiquidityChanged(
             params.maker,
             params.baseToken,
@@ -604,7 +615,6 @@ contract OrderBook is
             response.base.neg256(),
             response.quote.neg256(),
             liquidity,
-            false,
             fee
         );
 
@@ -676,7 +686,8 @@ contract OrderBook is
         }
     }
 
-    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
+    // only use by addLiquidity (bypass stack too deep error)
+    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (bytes32, uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
@@ -716,12 +727,10 @@ contract OrderBook is
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
         openOrder.lastFeeGrowthInsideX128 = feeGrowthInsideX128;
-        if (!params.useTakerPosition) {
-            openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
-            openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
-        }
+        openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
+        openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
 
-        return fee;
+        return (orderId, fee);
     }
 
     //
