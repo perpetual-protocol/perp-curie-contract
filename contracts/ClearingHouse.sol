@@ -251,6 +251,7 @@ contract ClearingHouse is
                 response.fee.toInt256()
             );
         }
+
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
 
         // after token balances are updated, we can check if there is enough free collateral
@@ -629,7 +630,7 @@ contract ClearingHouse is
         internal
         returns (IExchange.SwapResponse memory)
     {
-        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");

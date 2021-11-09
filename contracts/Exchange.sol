@@ -130,8 +130,7 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
-        // for closing position, positionSize(int256) == param.amount(uint256)
-        int256 positionSize = IAccountBalance(_accountBalance).getPositionSize(params.trader, params.baseToken);
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
         // is position increased
         bool isOldPositionShort = positionSize < 0;
         bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
@@ -165,7 +164,7 @@ contract Exchange is
         }
 
         // get openNotional before swap
-        int256 oldOpenNotional = getOpenNotional(params.trader, params.baseToken);
+        int256 oldTakerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducePosition) {
@@ -217,7 +216,7 @@ contract Exchange is
                 // range of oldOpenNotional = [-2^255 / 1e18, 2^255 / 1e18]
                 // only overflow when oldOpenNotional < -2^255 / 1e18 or oldOpenNotional > 2^255 / 1e18.
                 int256 reducedOpenNotional =
-                    oldOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
+                    oldTakerOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
                 realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
             } else {
                 //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
@@ -240,7 +239,7 @@ contract Exchange is
                 // max of delta quote = (sqrt(1.0001^887272) - 1) * 2**128 = 6.2768658e+57 < 2^255/1e18
                 int256 closedPositionNotional =
                     deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
-                realizedPnl = oldOpenNotional.add(closedPositionNotional);
+                realizedPnl = oldTakerOpenNotional.add(closedPositionNotional);
             }
         }
 
@@ -249,7 +248,7 @@ contract Exchange is
         }
         IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
-        int256 openNotional = getOpenNotional(params.trader, params.baseToken);
+        int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
         uint256 sqrtPrice =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
@@ -258,7 +257,7 @@ contract Exchange is
             response.exchangedPositionSize,
             response.exchangedPositionNotional,
             response.fee,
-            openNotional,
+            takerOpenNotional,
             realizedPnl,
             sqrtPrice
         );
@@ -312,7 +311,6 @@ contract Exchange is
             );
 
         if (fundingPayment != 0) {
-            // the sign of funding payment is the opposite of that of pnl
             IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, fundingPayment.neg256());
             emit FundingPaymentSettled(trader, baseToken, fundingPayment);
         }
@@ -468,6 +466,10 @@ contract Exchange is
             IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
                 IAccountBalance(_accountBalance).getQuote(trader, baseToken)
             );
+    }
+
+    function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
+        return IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
     }
 
     //

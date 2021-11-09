@@ -276,7 +276,8 @@ contract OrderBook is
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        uint256 orderIdLength = orderIds.length;
+        for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(

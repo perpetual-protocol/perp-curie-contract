@@ -226,7 +226,17 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             const carolNetQuoteBalance = await accountBalance.getNetQuoteBalance(carol.address)
             expect(aliceNetQuoteBalance.add(carolNetQuoteBalance).mul(-1)).to.be.closeTo(bobNetQuoteBalance, 10)
 
-            const quoteSwapped = (
+            await clearingHouse.connect(carol).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50800,
+                liquidity: (await orderBook.getOpenOrder(carol.address, baseToken.address, 50000, 50800)).liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            const carolDeltaQuote = (
                 await clearingHouse.connect(carol).callStatic.closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
@@ -234,7 +244,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-            )[1]
+            ).deltaQuote
 
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
@@ -253,9 +263,8 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
             // when bob shorts, carol is forced to long -> when carol closes position, it's short
             // thus, the last maker alice is forced to long more -> even smaller netQuoteBalance
-            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.be.closeTo(
-                aliceNetQuoteBalance.sub(quoteSwapped),
-                10,
+            expect(await accountBalance.getNetQuoteBalance(alice.address)).to.be.eq(
+                aliceNetQuoteBalance.sub(carolDeltaQuote),
             )
         })
     })

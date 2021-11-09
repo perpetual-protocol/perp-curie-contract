@@ -266,6 +266,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken].quoteBalance;
     }
 
+    // @inheritdoc IAccountBalance
+    function getTakerQuote(address trader, address baseToken) public view override returns (int256) {
+        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
+    }
+
     /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
         int256 totalQuoteBalance;
@@ -376,6 +381,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
+        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
         _addOwedRealizedPnl(trader, amount);
     }
 
