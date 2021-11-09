@@ -1159,6 +1159,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 80000,
                     minBase: 0,
                     minQuote: 0,
+                    useTakerPosition: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
