@@ -96,15 +96,32 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
             // alice swap
             // alice maker positionSize : -6
+            // alice taker positionSize : 1
+            // taker open notional will be: -11311321501691042565
             await q2bExactOutput(fixture, alice, 1)
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("1"),
             )
 
+            // bob swap to let alice taker position pnl > 0
+            // alice maker positionSize : -7
+            // alice taker positionSize : 1
+            await q2bExactOutput(fixture, bob, 1)
+
             // alice reduce position
-            // alice maker positionSize : -5.5
-            await b2qExactInput(fixture, alice, 0.5)
+            // alice maker positionSize : -6.5
+            // alice taker positionSize : 0.5
+            await expect(b2qExactInput(fixture, alice, 0.5)).to.emit(exchange, "PositionChanged").withArgs(
+                alice.address,
+                baseToken.address,
+                parseEther("-0.5"),
+                "5750100626760968316",
+                "57501006267609684",
+                "-5655660750845521283",
+                "36938869647837350", // 5692599620493358632(deltaQuote) - 11311321501691042565(old taker open notional) * 0.5 = 3.693886965E16
+                "267958768315559284688164142991",
+            )
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("0.5"),
@@ -112,7 +129,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
             // total position size = taker position size + maker position size
             expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
-                parseEther("-5"),
+                parseEther("-6"),
                 1,
             )
         })
@@ -128,6 +145,8 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
             // alice swap
             // alice maker positionSize : -4
+            // alice taker positionSize : -1
+            // taker open notional will be: 10855263157894736841
             await b2qExactInput(fixture, alice, 1)
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
@@ -136,7 +155,17 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
             // alice reduce position
             // alice maker positionSize : -4.5
-            await q2bExactOutput(fixture, alice, 0.5)
+            // alice taker positionSize : -0.5
+            await expect(q2bExactOutput(fixture, alice, 0.5)).to.emit(exchange, "PositionChanged").withArgs(
+                alice.address,
+                baseToken.address,
+                parseEther("0.5"),
+                "-5453752181500872601",
+                "55088405873746188",
+                "5427631578947368421",
+                "-81209008427250369", // -5508840587374618789(deltaQuote) + 10855263157894736841(old taker open notional) * 0.5 = -8.12090084e16
+                "262347066361306734224496029540",
+            )
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("-0.5"),
@@ -149,7 +178,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             )
         })
 
-        it("reduce taker position and partial close", async () => {
+        it("force error, reduce taker position and partial close when excess price limit", async () => {
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
 
