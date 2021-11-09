@@ -91,6 +91,8 @@ interface IExchange {
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
+    function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);
+
     function getIsReducingPosition(
         address trader,
         address baseToken,
@@ -115,6 +117,4 @@ interface IExchange {
     function getClearingHouseConfig() external view returns (address);
 
     function getInsuranceFund() external view returns (address);
-
-    function getPnlToBeRealized(RealizePnlParams memory params) external pure returns (int256);
 }

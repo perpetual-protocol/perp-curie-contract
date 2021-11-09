@@ -86,12 +86,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) external override onlyClearingHouse {
         _addBalance(maker, baseToken, base, quote, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
+
+        // to avoid dust, let realizedPnl = getQuote() when it's the last order
         if (
             getTakerPositionSize(maker, baseToken) == 0 &&
             IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
         ) {
             // AB_IQBAR: inconsistent quote balance and realizedPnl
-            require(realizedPnl == getQuote(maker, baseToken), "AB_IQBAR");
+            require(realizedPnl <= getQuote(maker, baseToken), "AB_IQBAR");
+            realizedPnl = getQuote(maker, baseToken);
         }
         _settleQuoteToPnl(maker, baseToken, realizedPnl);
         _deregisterBaseToken(maker, baseToken);

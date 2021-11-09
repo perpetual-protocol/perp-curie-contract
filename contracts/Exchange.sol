@@ -415,7 +415,7 @@ contract Exchange is
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
-    function getPnlToBeRealized(RealizePnlParams memory params) public pure override returns (int256) {
+    function getPnlToBeRealized(RealizePnlParams memory params) public view override returns (int256) {
         // closedRatio is based on the position size
         uint256 closedRatio =
             FullMath.mulDiv(params.deltaAvailableBase.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
