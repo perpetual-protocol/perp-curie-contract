@@ -40,7 +40,6 @@ contract OrderBook is
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for uint256;
     using PerpMath for uint160;
-    using PerpMath for uint128;
     using PerpMath for int256;
     using PerpMath for int128;
     using PerpSafeCast for uint256;
@@ -89,15 +88,9 @@ contract OrderBook is
     // EXTERNAL NON-VIEW
     //
 
-    function initialize(address marketRegistryArg, address quoteTokenArg) external initializer {
+    function initialize(address marketRegistryArg) external initializer {
         __ClearingHouseCallee_init();
         __UniswapV3CallbackBridge_init(marketRegistryArg);
-
-        // QuoteToken is 0
-        require(quoteTokenArg != address(0), "OB_QT0");
-
-        // update states
-        _quoteToken = quoteTokenArg;
     }
 
     function setExchange(address exchangeArg) external onlyOwner {
@@ -176,19 +169,6 @@ contract OrderBook is
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
-
-        // @audit can move to ClearingHouse for bytecode size - @wraecca
-        emit LiquidityChanged(
-            params.trader,
-            params.baseToken,
-            _quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.liquidity.toInt128(),
-            fee
-        );
 
         return
             AddLiquidityResponse({
@@ -455,11 +435,6 @@ contract OrderBook is
         return _exchange;
     }
 
-    /// @inheritdoc IOrderBook
-    function getQuoteToken() external view override returns (address) {
-        return _quoteToken;
-    }
-
     function getOpenOrderIds(address trader, address baseToken) external view override returns (bytes32[] memory) {
         return _openOrderIdsMap[trader][baseToken];
     }
@@ -603,21 +578,6 @@ contract OrderBook is
         if (!UniswapV3Broker.getIsTickInitialized(params.pool, params.upperTick)) {
             _growthOutsideTickMap[params.baseToken].clear(params.upperTick);
         }
-
-        int128 liquidity = params.liquidity.neg128();
-
-        // @audit can move to ClearingHouse for bytecode size - @wraecca
-        emit LiquidityChanged(
-            params.maker,
-            params.baseToken,
-            _quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            response.base.neg256(),
-            response.quote.neg256(),
-            liquidity,
-            fee
-        );
 
         return
             RemoveLiquidityResponse({
@@ -767,7 +727,9 @@ contract OrderBook is
         uint160 sqrtMarkPriceX96 =
             UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(baseToken));
         uint256 tokenAmount;
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        uint256 orderIdLength = orderIds.length;
+
+        for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
 
             uint256 amount;

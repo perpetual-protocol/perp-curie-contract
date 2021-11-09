@@ -80,6 +80,22 @@ interface IClearingHouse {
         address liquidator
     );
 
+    /// @param base the amount of base token added (> 0) / removed (< 0) as liquidity; fees not included
+    /// @param quote the amount of quote token added ... (same as the above)
+    /// @param liquidity the amount of liquidity unit added (> 0) / removed (< 0)
+    /// @param quoteFee the amount of quote token the maker received as fees
+    event LiquidityChanged(
+        address indexed maker,
+        address indexed baseToken,
+        address indexed quoteToken,
+        int24 lowerTick,
+        int24 upperTick,
+        int256 base,
+        int256 quote,
+        int128 liquidity,
+        uint256 quoteFee
+    );
+
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     event TrustedForwarderChanged(address indexed forwarder);

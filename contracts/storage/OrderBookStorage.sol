@@ -10,7 +10,6 @@ import { OpenOrder } from "../lib/OpenOrder.sol";
 /// OrderBookStorageVX.
 abstract contract OrderBookStorageV1 {
     address internal _exchange;
-    address internal _quoteToken;
 
     // first key: trader, second key: base token
     mapping(address => mapping(address => bytes32[])) internal _openOrderIdsMap;
