@@ -785,12 +785,15 @@ describe("ClearingHouse addLiquidity", () => {
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
             expect(bobAccountInfo.takerBaseBalance).to.eq(parseEther("0.5"))
             expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote.div(2))
-            expect(bobAccountInfo.baseBalance).to.eq(bobBase)
+            expect(bobAccountInfo.baseBalance).to.eq(parseEther("0.5"))
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
+
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
+            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
-        // TODO removeLiquidity is WIP
-        it.skip("has the same taker position size after removing liquidity if no one else trade", async () => {
+        it("has the same taker position size after removing liquidity if no one else trade", async () => {
             const lowerTick = 50400
             const upperTick = 50600
             await clearingHouse.connect(bob).addLiquidity({
@@ -829,8 +832,12 @@ describe("ClearingHouse addLiquidity", () => {
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("1"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote)
-            expect(bobAccountInfo.baseBalance).to.eq(bobBase)
+            expect(bobAccountInfo.baseBalance).to.be.closeTo(bobBase, 1)
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
+
+            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
+            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         // TODO add liquidity within range will revert, skip this and need to add another test

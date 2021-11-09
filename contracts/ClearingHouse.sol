@@ -233,9 +233,11 @@ contract ClearingHouse is
             IOrderBook(_orderBook).updateOrderDebt(response.orderId, deltaBaseDebt, deltaQuoteDebt);
 
             // update takerBalances as we're using takerBalances to provide liquidity
-            IAccountBalance(_accountBalance).addTakerBalance(
+            IAccountBalance(_accountBalance).addTakerBalances(
                 trader,
                 params.baseToken,
+                response.base.neg256(),
+                response.quote.neg256(),
                 deltaBaseDebt,
                 deltaQuoteDebt,
                 response.fee.toInt256()
