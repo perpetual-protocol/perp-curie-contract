@@ -562,6 +562,7 @@ contract ClearingHouse is
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
+        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl
         return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
     }
 
@@ -695,18 +696,21 @@ contract ClearingHouse is
             if (params.isExactInput) {
                 // too little received when short
                 require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLRS");
-            } else {
-                // too much requested when short
-                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
+                return;
             }
-        } else {
-            if (params.isExactInput) {
-                // too little received when long
-                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
-            } else {
-                // too much requested when long
-                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
-            }
+
+            // too much requested when short
+            require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
+            return;
         }
+
+        if (params.isExactInput) {
+            // too little received when long
+            require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
+            return;
+        }
+
+        // too much requested when long
+        require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
     }
 }
