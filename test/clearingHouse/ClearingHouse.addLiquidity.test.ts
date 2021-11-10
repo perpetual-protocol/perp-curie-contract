@@ -790,7 +790,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
@@ -837,7 +837,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         // TODO add liquidity within range will revert, skip this and need to add another test

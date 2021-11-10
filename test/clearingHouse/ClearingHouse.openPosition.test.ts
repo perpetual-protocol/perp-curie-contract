@@ -843,7 +843,7 @@ describe("ClearingHouse openPosition", () => {
             )
 
             // openNotional = 8.0412624948
-            expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
+            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
 
             // realizedPnl = -0.04126249485
             const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
@@ -1039,7 +1039,7 @@ describe("ClearingHouse openPosition", () => {
 
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
-            const openNotional = await exchange.getOpenNotional(taker.address, baseToken.address)
+            const openNotional = await exchange.getTotalOpenNotional(taker.address, baseToken.address)
             const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
             expect(openNotional).to.eq(parseEther("-8").sub(pnl[0]))
