@@ -696,21 +696,18 @@ contract ClearingHouse is
             if (params.isExactInput) {
                 // too little received when short
                 require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLRS");
-                return;
+            } else {
+                // too much requested when short
+                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
             }
-
-            // too much requested when short
-            require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
-            return;
+        } else {
+            if (params.isExactInput) {
+                // too little received when long
+                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
+            } else {
+                // too much requested when long
+                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
+            }
         }
-
-        if (params.isExactInput) {
-            // too little received when long
-            require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
-            return;
-        }
-
-        // too much requested when long
-        require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
     }
 }
