@@ -45,6 +45,11 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
         return await exchange.getTakerOpenNotional(taker.address, baseToken.address)
     }
 
+    async function getOweRealizedPnl(taker: Wallet): Promise<BigNumberish> {
+        const results = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+        return results[0]
+    }
+
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse
@@ -187,7 +192,7 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // (17.5b -18.75b = opens a larger reverse position)
                 // close 17.5b, the positionNotional of the 17.5b from the impermanent pos is 300/18.75*17.5 = 280
                 // realizePnl from closing 17.5b = -350 + 280 = -70
-                // TODO add expect realizePnl = -70
+                expect(await getOweRealizedPnl(alice)).closeTo(parseEther("-70"), 150)
                 // the remaining taker position: 17.5b - 18.75b = -1.25b
                 // the remaining open notional: 300q - 280q = 20q
                 expect(await getTakerPositionSize(alice, baseToken)).closeTo(parseEther("-1.25"), 3)
@@ -213,7 +218,8 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
 
                 // reduce 9.375b, the openNotional of the 9.375b from the taker pos is 350/17.5*9.375 = 187.5
                 // realizePnl from reducing 9.375b = 150 - 187.5 = -37.5
-                // TODO add expect realizePnl = -37.5
+                expect(await getOweRealizedPnl(alice)).closeTo(parseEther("-37.5"), 100)
+
                 // the remaining taker position: 17.5b - 9.375b = 8.125b
                 // the remaining open notional: -350/17.5*8.125 = -162.5
                 expect(await getTakerPositionSize(alice, baseToken)).closeTo(parseEther("8.125"), 1)
