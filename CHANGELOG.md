@@ -13,13 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.getPositionValue` to `AccountBalance.getTotalPositionValue`
 - rename `Exchange.getOpenNotional` to `Exchange.getTotalOpenNotional`
 - fix error codes in Exchange.sol 1. `EX_OPIBS` to `EX_OPLBS` 2. `EX_OPIAS` to `EX_OPLAS`
+- add field `useTakerPosition` to `ClearingHouse.AddLiquidityParams`
+- move event `LiquidityChanged` from `OrderBook` to `ClearingHouse`
+
+### Added
 - add `AccountBalance.getTakerQuote()` to get taker's quote balance
 - add `Exchange.getTakerOpenNotional()` to get taker's open notional
 - add `ClearingHouseConfig.getMaxFundingRate()` and `ClearingHouseConfig.setMaxFundingRate()`
-- add `event MaxFundingRateChanged` on `ClearingHouseConfig.sol`
+- add `MarketRegistry.hasPool()`
+- add event `MaxFundingRateChanged` to `ClearingHouseConfig`
+- add event `TrustedForwarderChanged` to `ClearingHouse`
+- add event `TakerBalancesChanged` to `AccountBalance`
+- add event `MaxTickCrossedWithinBlockChanged` to `Exchange`
+- add event `AccountBalanceChanged` to `Exchange`
+- add event `BorrowerChanged` to `InsuranceFund`
 
 ### Removed
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`
+- remove `Quoter` and `Multicall2` contracts from core. You can find these contracts in [curie-periphery](https://www.npmjs.com/package/@perp/curie-periphery).
+
 ## [0.12.6] -2021-10-25
 - bug fixes
   - rounding error at `ClearingHouse.closePosition()` and `Vault.withdraw()`
