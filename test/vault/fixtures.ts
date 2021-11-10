@@ -41,7 +41,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const orderBookFactory = await ethers.getContractFactory("OrderBook")
     const orderBook = (await orderBookFactory.deploy()) as OrderBook
-    await orderBook.initialize(marketRegistry.address, USDC.address)
+    await orderBook.initialize(marketRegistry.address)
 
     const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
     const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
