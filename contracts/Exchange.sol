@@ -433,7 +433,7 @@ contract Exchange is
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
             int256 twPremiumDeltaX96 =
-                markTwapX96.toInt256().sub(indexTwap.formatX10_18ToX96().toInt256()).mul(
+                _getPriceDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
@@ -442,7 +442,7 @@ contract Exchange is
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                (twPremiumDeltaX96.mul(PerpFixedPoint96.IQ96)).div(uint256(getSqrtMarkTwapX96(baseToken, 0)).toInt256())
+                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96.IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
         }
 
@@ -715,5 +715,18 @@ contract Exchange is
 
         return
             liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
+    }
+
+    function _getPriceDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
+        uint256 maxPriceDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 markDiffX96;
+        if (markTwapX96 > indexTwapX96) {
+            markDiffX96 = markTwapX96.sub(indexTwapX96);
+            twapDeltaX96 = markDiffX96 > maxPriceDiffX96 ? maxPriceDiffX96.toInt256() : markDiffX96.toInt256();
+        } else {
+            markDiffX96 = indexTwapX96.sub(markTwapX96);
+            twapDeltaX96 = markDiffX96 > maxPriceDiffX96 ? maxPriceDiffX96.neg256() : markDiffX96.neg256();
+        }
     }
 }

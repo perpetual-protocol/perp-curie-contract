@@ -855,12 +855,11 @@ contract OrderBook is
                     .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
                     .sub(
                     // ΔtwPremiumGrowthInsideX96
-                    (
-                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96).mul(
-                            PerpFixedPoint96.IQ96
-                        )
+                    PerpMath.mulDiv(
+                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96),
+                        PerpFixedPoint96.IQ96,
+                        sqrtPriceX96AtUpperTick
                     )
-                        .div(sqrtPriceX96AtUpperTick)
                 )
             );
 
