@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.getLiquidateMarginRequirement` to `AccountBalance.getMarginRequirementForLiquidation`
 - rename `Vault.balanceOf` to `Vault.getBalance`
 - fix error codes in Exchange.sol 1. `EX_OPIBS` to `EX_OPLBS` 2. `EX_OPIAS` to `EX_OPLAS`
+- add `AccountBalance.getTakerQuote()` to get taker's quote balance
+- add `Exchange.getTakerOpenNotional()` to get taker's open notional
+- add `ClearingHouseConfig.getMaxFundingRate()` and `ClearingHouseConfig.setMaxFundingRate()`
+- add `event MaxFundingRateChanged` on `ClearingHouseConfig.sol`
 
 ### Removed
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`
