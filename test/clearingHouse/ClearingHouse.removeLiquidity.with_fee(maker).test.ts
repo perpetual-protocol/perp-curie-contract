@@ -36,8 +36,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let fixture: ClearingHouseFixture
 
     function findLiquidityChangedEvents(receipt: TransactionReceipt): LogDescription[] {
-        const topic = orderBook.interface.getEventTopic("LiquidityChanged")
-        return receipt.logs.filter(log => log.topics[0] === topic).map(log => orderBook.interface.parseLog(log))
+        const topic = clearingHouse.interface.getEventTopic("LiquidityChanged")
+        return receipt.logs.filter(log => log.topics[0] === topic).map(log => clearingHouse.interface.parseLog(log))
     }
 
     beforeEach(async () => {
