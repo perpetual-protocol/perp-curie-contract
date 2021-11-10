@@ -5,7 +5,6 @@ pragma abicoder v2;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { TickMath } from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import { PositionKey } from "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import { LiquidityAmounts } from "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { BitMath } from "@uniswap/v3-core/contracts/libraries/BitMath.sol";
@@ -167,6 +166,10 @@ library UniswapV3Broker {
         return SwapResponse(amount0, amount1);
     }
 
+    //
+    // VIEW
+    //
+
     function getPool(
         address factory,
         address quoteToken,
@@ -179,10 +182,6 @@ library UniswapV3Broker {
 
     function getTickSpacing(address pool) internal view returns (int24 tickSpacing) {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
-    }
-
-    function getLiquidity(address pool) internal view returns (uint128 liquidity) {
-        liquidity = IUniswapV3Pool(pool).liquidity();
     }
 
     function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
@@ -219,10 +218,6 @@ library UniswapV3Broker {
         return TickMath.getSqrtRatioAtTick(int24((tickCumulatives[1] - tickCumulatives[0]) / twapInterval));
     }
 
-    function getTickBitmap(address pool, int16 wordPos) internal view returns (uint256 tickBitmap) {
-        return IUniswapV3Pool(pool).tickBitmap(wordPos);
-    }
-
     // copied from UniswapV3-core
     /// @param isBaseToQuote originally lte, meaning that the next tick < the current tick
     function getNextInitializedTickWithinOneWord(
@@ -238,7 +233,7 @@ library UniswapV3Broker {
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed);
             // all the 1s at or to the right of the current bitPos
             uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
-            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+            uint256 masked = _getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
             initialized = masked != 0;
@@ -251,7 +246,7 @@ library UniswapV3Broker {
             (int16 wordPos, uint8 bitPos) = _getPositionOfInitializedTickWithinOneWord(compressed + 1);
             // all the 1s at or to the left of the bitPos
             uint256 mask = ~((1 << bitPos) - 1);
-            uint256 masked = getTickBitmap(pool, wordPos) & mask;
+            uint256 masked = _getTickBitmap(pool, wordPos) & mask;
 
             // if there are no initialized ticks to the left of the current tick, return leftmost in the word
             initialized = masked != 0;
@@ -268,14 +263,23 @@ library UniswapV3Broker {
         uint256 feeGrowthGlobalX128
     ) internal view returns (SwapState memory) {
         (uint160 sqrtMarkPrice, int24 tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        uint128 liquidity = IUniswapV3Pool(pool).liquidity();
         return
             SwapState({
                 tick: tick,
                 sqrtPriceX96: sqrtMarkPrice,
                 amountSpecifiedRemaining: signedScaledAmountForReplaySwap,
                 feeGrowthGlobalX128: feeGrowthGlobalX128,
-                liquidity: getLiquidity(pool)
+                liquidity: liquidity
             });
+    }
+
+    //
+    // PRIVATE
+    //
+
+    function _getTickBitmap(address pool, int16 wordPos) private view returns (uint256 tickBitmap) {
+        return IUniswapV3Pool(pool).tickBitmap(wordPos);
     }
 
     function _getPositionOfInitializedTickWithinOneWord(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {

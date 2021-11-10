@@ -587,6 +587,7 @@ contract ClearingHouse is
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
+        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl
         return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
     }
 

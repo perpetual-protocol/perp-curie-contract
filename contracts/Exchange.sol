@@ -412,12 +412,13 @@ contract Exchange is
         )
     {
         uint32 twapInterval;
+        uint256 timestamp = _blockTimestamp();
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
             twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
             twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
@@ -425,13 +426,13 @@ contract Exchange is
         markTwap = markTwapX96.formatX96ToX10_18();
         indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
-        uint256 timestamp = _blockTimestamp();
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
         if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
+            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
             int256 twPremiumDeltaX96 =
                 _getPriceDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
@@ -441,6 +442,7 @@ contract Exchange is
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
                 PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96.IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
