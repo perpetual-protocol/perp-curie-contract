@@ -133,7 +133,9 @@ describe("ClearingHouse customized fee", () => {
                         "974862428376799548021608444199", // sqrtPriceAfter
                     )
 
-                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6473478014450606")
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                    "6473478014450606",
+                )
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -177,7 +179,9 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0"), // realizedPnl
                         "988522032908775036581348357236", // sqrtPriceAfter
                     )
-                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                    parseEther("1"),
+                )
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -222,7 +226,9 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0"), // realizedPnl
                         "961404421142614700863221952241", // sqrtPriceAfter
                     )
-                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                    parseEther("-1"),
+                )
 
                 const fee = (
                     await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -263,7 +269,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0"), // realizedPnl
                         "974683282523420024722339861717", // sqrtPriceAfter
                     )
-                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("-0.006741636644634247"),
                 )
 
@@ -331,7 +337,7 @@ describe("ClearingHouse customized fee", () => {
                 ).fee
                 expect(fee).to.be.closeTo(parseEther("0.06"), 1)
 
-                expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                     "19416937961245645",
                 )
             })
@@ -421,7 +427,9 @@ describe("ClearingHouse customized fee", () => {
                     "974863771696553005985543622107", // sqrtPriceAfter
                 )
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6572552804907016")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "6572552804907016",
+            )
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -466,7 +474,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                     "988522032908775036581348357236", // sqrtPriceAfter
                 )
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -511,7 +519,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                     "961404421142614700863221952241", // sqrtPriceAfter
                 )
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -552,7 +560,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0"), // realizedPnl
                     "974684660145975104164388030226", // sqrtPriceAfter
                 )
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 parseEther("-0.006639994546394814"),
             )
 
@@ -617,7 +625,9 @@ describe("ClearingHouse customized fee", () => {
                     "974949296387523163022749948882", // sqrtPriceAfter
                 )
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("12879752442217497")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "12879752442217497",
+            )
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -661,7 +671,9 @@ describe("ClearingHouse customized fee", () => {
                     "974951087480527773641330186092", // sqrtPriceAfter
                 )
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("13011828563053424")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "13011828563053424",
+            )
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({
@@ -719,7 +731,9 @@ describe("ClearingHouse customized fee", () => {
                     "975034373305242167405311216355", // sqrtPriceAfter
                 )
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("19152832300036026")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "19152832300036026",
+            )
 
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({

@@ -205,7 +205,7 @@ describe("ClearingHouse.swap", () => {
                 sqrtPriceLimitX96: 0,
             })
             initOpenNotional = await exchange.getOpenNotional(bob.address, baseToken.address)
-            posSizeBefore = await accountBalance.getPositionSize(bob.address, baseToken.address)
+            posSizeBefore = await accountBalance.getTotalPositionSize(bob.address, baseToken.address)
         })
 
         it("openNotional++", async () => {
@@ -240,7 +240,7 @@ describe("ClearingHouse.swap", () => {
                     sqrtPriceLimitX96: 0,
                 })
 
-                const bobPosSize = await accountBalance.getPositionSize(bob.address, baseToken.address)
+                const bobPosSize = await accountBalance.getTotalPositionSize(bob.address, baseToken.address)
                 const partial = bobPosSize.div(4).mul(3)
                 // bob reduce 75% position
                 await clearingHouse.connect(bob).swap({

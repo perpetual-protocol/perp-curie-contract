@@ -128,7 +128,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             )
 
             // total position size = taker position size + maker position size
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 parseEther("-6"),
                 1,
             )
@@ -172,7 +172,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             )
 
             // total position size = taker position size + maker position size
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 parseEther("-5"),
                 1,
             )

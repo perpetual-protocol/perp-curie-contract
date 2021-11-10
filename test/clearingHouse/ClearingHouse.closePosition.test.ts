@@ -118,8 +118,8 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // assure that the position of the taker is closed completely, and so is maker's position
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
 
             // taker sells all quote, making netQuoteBalance == 0
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
@@ -197,9 +197,9 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // assure that position of takers are closed completely, and so is maker's position
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
 
             // takers sell all quote, making netQuoteBalance == 0
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
@@ -311,9 +311,9 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // assure that the position of the taker is closed completely, and so is maker's position
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).to.eq(0)
 
             // taker sells all quote, making netQuoteBalance == 0
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
@@ -403,8 +403,10 @@ describe("ClearingHouse closePosition", () => {
                 })
 
                 // carol has 1/4 of the opposite position of bob = short 0.0007558893279 / 4 = 0.000188972332 base
-                expect((await accountBalance.getPositionSize(carol.address, baseToken.address)).abs()).to.be.closeTo(
-                    (await accountBalance.getPositionSize(bob.address, baseToken.address)).abs().div(4),
+                expect(
+                    (await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).abs(),
+                ).to.be.closeTo(
+                    (await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).abs().div(4),
                     10,
                 )
 
@@ -430,7 +432,7 @@ describe("ClearingHouse closePosition", () => {
                 // 3 * (1 / sqrt(149.0615125299) - 1 / sqrt(149.2910515224)) = 0.000188972332
                 // 3 * (sqrt(149.2910515224) - sqrt(149.0615125299)) = 0.02819018155 (imprecision)
 
-                expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).to.eq(0)
+                expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).to.eq(0)
                 // netQuoteBalance == 0 after closing position
                 expect(await accountBalance.getNetQuoteBalance(carol.address)).to.eq(0)
 
@@ -463,8 +465,8 @@ describe("ClearingHouse closePosition", () => {
                 // 3 * (sqrt(149.2910515224) - sqrt(148.3760629231)) = 0.1125011661
 
                 // assure that the position of the taker is closed completely, and so is maker's position
-                expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-                expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+                expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
+                expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
 
                 // taker sells all quote, making netQuoteBalance == 0
                 expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(0)
@@ -551,7 +553,7 @@ describe("ClearingHouse closePosition", () => {
 
                 // carol has 25% liquidity of range
                 // positionSize: -0.0007558893279 * 0.25 = -0.00018897233
-                const carolPos = await accountBalance.getPositionSize(carol.address, baseToken.address)
+                const carolPos = await accountBalance.getTotalPositionSize(carol.address, baseToken.address)
                 expect(carolPos).to.be.eq(parseEther("-0.00018897233202709"))
 
                 // carol get short position
@@ -666,8 +668,8 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // assure that the position of the taker is closed completely, and so is maker's position
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(0)
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
         })
     })
 
@@ -694,7 +696,7 @@ describe("ClearingHouse closePosition", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice has maker position
-            const totalPositionSize = await accountBalance.getPositionSize(alice.address, baseToken.address)
+            const totalPositionSize = await accountBalance.getTotalPositionSize(alice.address, baseToken.address)
             const takerPositionSize = await accountBalance.getTakerPositionSize(alice.address, baseToken.address)
             const makerPositionSize = totalPositionSize.sub(takerPositionSize)
             expect(makerPositionSize).to.be.lt(0)
@@ -706,7 +708,7 @@ describe("ClearingHouse closePosition", () => {
                 "496742576407532823",
             )
             // total position unchanged
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 totalPositionSize,
                 1,
             )
@@ -714,9 +716,9 @@ describe("ClearingHouse closePosition", () => {
             // alice close position
             await closePosition(fixture, alice)
             // taker position size is 0
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.lt(0)
             // total position(only maker) unchanged
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 makerPositionSize,
                 1,
             )
@@ -729,7 +731,7 @@ describe("ClearingHouse closePosition", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice has maker position and 0 taker position
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.lt(0)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
 
             // alice close position

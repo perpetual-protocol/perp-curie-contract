@@ -289,7 +289,7 @@ describe("ClearingHouse liquidate", () => {
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 
             // alice has partial close when first liquidity
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("0.441305633515980014"),
             )
             // tick should be pushed to the edge of the new liquidity since there's nothing left elsewhere
@@ -300,7 +300,7 @@ describe("ClearingHouse liquidate", () => {
 
             // second liquidation should be liquidate all positionSize since the liquidity here is plenty
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
         })
 
         it("fails to close due to no liquidity", async () => {
@@ -734,6 +734,6 @@ describe("ClearingHouse liquidate", () => {
 // console.log(`timestamp (before liquidation): ${(await ethers.provider.getBlock("latest")).timestamp}`)
 // console.log(`mark twap: ${formatEther(parseEther((await clearingHouse.getMarkTwapX96(baseToken.address)).toString()).div(BigNumber.from(2).pow(96)))}`)
 // console.log(`index price: ${formatEther(await clearingHouse.getIndexPrice(baseToken.address))}`)
-// console.log(`position size: ${formatEther(await accountBalance.getPositionSize(alice.address, baseToken.address))}`)
+// console.log(`position size: ${formatEther(await accountBalance.getTotalPositionSize(alice.address, baseToken.address))}`)
 // console.log(`getAllPendingFundingPayment: ${formatEther(await clearingHouse.getAllPendingFundingPayment(alice.address))}`)
 // // === useful console.log for verifying stats ===

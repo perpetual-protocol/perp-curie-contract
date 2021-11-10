@@ -288,7 +288,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getPositionSize(address trader, address baseToken) public view override returns (int256) {
+    function getTotalPositionSize(address trader, address baseToken) public view override returns (int256) {
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
@@ -312,7 +312,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function getPositionValue(address trader, address baseToken) public view override returns (int256) {
-        int256 positionSize = getPositionSize(trader, baseToken);
+        int256 positionSize = getTotalPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = _getIndexPrice(baseToken);
@@ -367,7 +367,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _settleQuoteBalance(address trader, address baseToken) internal {
         if (
-            getPositionSize(trader, baseToken) == 0 &&
+            getTotalPositionSize(trader, baseToken) == 0 &&
             IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
         ) {
             _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));

@@ -1240,7 +1240,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             await removeAllOrders(fixture, alice)
 
             // maker's position should be zero
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.deep.eq(0)
             // maker's freeCollateral = original freeCollateral + fee
             expect(await vault.getFreeCollateral(alice.address)).to.be.deep.eq(makerFreeCollateral.add(fee.div(1e12)))
             // maker can withdraw all freeCollateral

@@ -788,7 +788,7 @@ describe("ClearingHouse addLiquidity", () => {
             expect(bobAccountInfo.baseBalance).to.eq(parseEther("0.5"))
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
             expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
@@ -835,7 +835,7 @@ describe("ClearingHouse addLiquidity", () => {
             expect(bobAccountInfo.baseBalance).to.be.closeTo(bobBase, 1)
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
             expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
