@@ -38,13 +38,11 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
     let orderBefore: { liquidity: BigNumber; lowerTick: number; upperTick: number }
 
     async function getTakerPositionSize(taker: Wallet, baseToken: BaseToken): Promise<BigNumberish> {
-        // TODO rename interface after contact is updated
-        return await accountBalance.getPositionSize(taker.address, baseToken.address)
+        return await accountBalance.getTakerPositionSize(taker.address, baseToken.address)
     }
 
     async function getTakerOpenNotional(taker: Wallet, baseToken: BaseToken): Promise<BigNumberish> {
-        // TODO rename interface after contact is updated
-        return await exchange.getOpenNotional(taker.address, baseToken.address)
+        return await exchange.getTakerOpenNotional(taker.address, baseToken.address)
     }
 
     beforeEach(async () => {
