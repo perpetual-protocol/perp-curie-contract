@@ -239,7 +239,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken));
+            totalPositionValue = totalPositionValue.add(getTotalPositionValue(trader, baseToken));
         }
         int256 unrealizedPnl = getNetQuoteBalance(trader).add(totalPositionValue);
 
@@ -311,7 +311,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getPositionValue(address trader, address baseToken) public view override returns (int256) {
+    function getTotalPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getTotalPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
@@ -330,7 +330,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = tokens[i];
             // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            uint256 positionValue = getTotalPositionValue(trader, baseToken).abs();
             totalPositionValue = totalPositionValue.add(positionValue);
         }
         return totalPositionValue;
