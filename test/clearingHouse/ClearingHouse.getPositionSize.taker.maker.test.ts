@@ -165,8 +165,8 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
         })
 
         it("taker position = exact return from the swap", async () => {
-            expect(takerPositionBefore.toString()).eq(parseEther("-17.5"))
-            expect(takerOpenNotionalBefore.toString()).eq(parseEther("350"))
+            expect(takerPositionBefore.toString()).eq(parseEther("17.5"))
+            expect(takerOpenNotionalBefore.toString()).eq(parseEther("-350"))
         })
 
         testRemoveAllOrders()
@@ -190,8 +190,8 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // TODO add expect realizePnl = -70
                 // the remaining taker position: 17.5b - 18.75b = -1.25b
                 // the remaining open notional: 300q - 280q = 20q
-                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("-1.25"))
-                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("20"))
+                expect(await getTakerPositionSize(alice, baseToken)).closeTo(parseEther("-1.25"), 3)
+                expect(await getTakerOpenNotional(alice, baseToken)).closeTo(parseEther("20"), 150)
             })
         }
 
@@ -216,8 +216,8 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
                 // TODO add expect realizePnl = -37.5
                 // the remaining taker position: 17.5b - 9.375b = 8.125b
                 // the remaining open notional: -350/17.5*8.125 = -162.5
-                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("8.125"))
-                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-162.5"))
+                expect(await getTakerPositionSize(alice, baseToken)).closeTo(parseEther("8.125"), 1)
+                expect(await getTakerOpenNotional(alice, baseToken)).closeTo(parseEther("-162.5"), 100)
             })
         }
 
@@ -239,7 +239,7 @@ describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () 
             await closePosition(fixture, alice)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
-            expect(await getOrderIds(fixture, alice)).eq(orderIdsBefore)
+            expect(await getOrderIds(fixture, alice)).deep.eq(orderIdsBefore)
         })
     }
 })
