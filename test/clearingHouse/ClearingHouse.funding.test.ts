@@ -761,7 +761,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -806,7 +806,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -849,7 +849,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -948,7 +948,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(orderBook, "LiquidityChanged")
+                        .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
@@ -1105,7 +1105,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(orderBook, "LiquidityChanged")
+                        .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,

@@ -118,7 +118,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -175,7 +175,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -248,7 +248,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -305,7 +305,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -565,7 +565,7 @@ describe("ClearingHouse addLiquidity", () => {
                         useTakerPosition: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.emit(orderBook, "LiquidityChanged")
+                ).to.emit(clearingHouse, "LiquidityChanged")
             })
 
             it("force error, markets number exceeded", async () => {
@@ -625,7 +625,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -682,7 +682,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,

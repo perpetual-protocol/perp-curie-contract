@@ -341,7 +341,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        expect(makerRemoveLiquidityTx).to.emit(orderBook, "LiquidityChanged").withArgs(
+        expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
             maker.address,
             baseToken.address,
             quoteToken.address,
