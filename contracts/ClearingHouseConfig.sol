@@ -37,7 +37,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         _mmRatio = 0.0625e6; // minimum-margin ratio, 6.25% in decimal 6
         _liquidationPenaltyRatio = 0.025e6; // initial penalty ratio, 2.5% in decimal 6
         _partialCloseRatio = 0.25e6; // partial close ratio, 25% in decimal 6
-        _maxFundingRate = 0.025e6; // max funding rate, 2.5% in decimal 6
+        _maxFundingRate = 0.1e6; // max funding rate, 10% in decimal 6
         _twapInterval = 15 minutes;
         _settlementTokenBalanceCap = type(uint256).max;
     }
