@@ -207,7 +207,7 @@ contract ClearingHouse is
             int256 deltaQuoteDebt;
             if (isBaseAdded) {
                 // taker base not enough
-                require(accountMarketInfo.takerBaseBalance > response.base.toInt256(), "CH_TBNE");
+                require(accountMarketInfo.takerBaseBalance >= response.base.toInt256(), "CH_TBNE");
 
                 deltaBaseDebt = response.base.neg256();
 
@@ -218,7 +218,7 @@ contract ClearingHouse is
                 );
             } else {
                 // taker quote not enough
-                require(accountMarketInfo.takerQuoteBalance > response.quote.toInt256(), "CH_TQNE");
+                require(accountMarketInfo.takerQuoteBalance >= response.quote.toInt256(), "CH_TQNE");
 
                 deltaQuoteDebt = response.quote.neg256();
 

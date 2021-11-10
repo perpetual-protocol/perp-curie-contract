@@ -15,4 +15,6 @@ interface IClearingHouseConfig {
     function getTwapInterval() external view returns (uint32);
 
     function getSettlementTokenBalanceCap() external view returns (uint256);
+
+    function getMaxFundingRate() external view returns (uint24);
 }
