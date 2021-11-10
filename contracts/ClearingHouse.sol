@@ -614,10 +614,12 @@ contract ClearingHouse is
         address baseToken,
         IOrderBook.RemoveLiquidityResponse memory response
     ) internal {
-        (bool isReducingPosition, int256 takerPositionSize, ) =
-            IExchange(_exchange).getIsReducingPosition(trader, baseToken, response.deltaTakerBase < 0);
-        int256 pnlToBeRealized =
-            isReducingPosition
+        int256 pnlToBeRealized;
+
+        if (response.deltaTakerBase != 0) {
+            (bool isReducingPosition, int256 takerPositionSize, ) =
+                IExchange(_exchange).getIsReducingPosition(trader, baseToken, response.deltaTakerBase < 0);
+            pnlToBeRealized = isReducingPosition
                 ? IExchange(_exchange).getPnlToBeRealized(
                     IExchange.RealizePnlParams({
                         trader: trader,
@@ -629,6 +631,7 @@ contract ClearingHouse is
                     })
                 )
                 : 0;
+        }
 
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             trader,
