@@ -73,7 +73,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
 
     describe("no swap, netQuoteBalance should be 0", () => {
         it("taker has no position", async () => {
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0"))
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("0"))
         })
 
@@ -90,7 +90,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
             expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(0)
         })
 
@@ -107,7 +107,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.eq(parseEther("0"))
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(parseEther("0"))
             expect(await accountBalance.getNetQuoteBalance(alice.address)).to.eq(parseEther("0"))
         })
 
@@ -123,7 +123,9 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 useTakerPosition: false,
                 deadline: ethers.constants.MaxUint256,
             })
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).to.deep.eq(parseEther("0"))
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.deep.eq(
+                parseEther("0"),
+            )
             expect(await accountBalance.getNetQuoteBalance(alice.address)).to.deep.eq(0)
         })
     })

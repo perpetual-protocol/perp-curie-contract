@@ -118,7 +118,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -175,7 +175,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -248,7 +248,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -305,7 +305,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -565,7 +565,7 @@ describe("ClearingHouse addLiquidity", () => {
                         useTakerPosition: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.emit(orderBook, "LiquidityChanged")
+                ).to.emit(clearingHouse, "LiquidityChanged")
             })
 
             it("force error, markets number exceeded", async () => {
@@ -625,7 +625,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -682,7 +682,7 @@ describe("ClearingHouse addLiquidity", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -788,9 +788,9 @@ describe("ClearingHouse addLiquidity", () => {
             expect(bobAccountInfo.baseBalance).to.eq(parseEther("0.5"))
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
@@ -835,9 +835,9 @@ describe("ClearingHouse addLiquidity", () => {
             expect(bobAccountInfo.baseBalance).to.be.closeTo(bobBase, 1)
             expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         // TODO add liquidity within range will revert, skip this and need to add another test

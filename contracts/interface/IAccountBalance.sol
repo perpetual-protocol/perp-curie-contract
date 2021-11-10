@@ -105,15 +105,15 @@ interface IAccountBalance {
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function getNetQuoteBalance(address trader) external view returns (int256);
 
-    function getPositionSize(address trader, address baseToken) external view returns (int256);
+    function getTotalPositionSize(address trader, address baseToken) external view returns (int256);
 
     function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
 
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
-    function getPositionValue(address trader, address baseToken) external view returns (int256);
+    function getTotalPositionValue(address trader, address baseToken) external view returns (int256);
 
-    /// @return sum up positions value of every market, it calls `getPositionValue` internally
+    /// @return sum up positions value of every market, it calls `getTotalPositionValue` internally
     function getTotalAbsPositionValue(address trader) external view returns (uint256);
 
     function getClearingHouseConfig() external view returns (address);

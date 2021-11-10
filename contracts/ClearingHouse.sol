@@ -46,6 +46,7 @@ contract ClearingHouse is
     using PerpSafeCast for int256;
     using PerpMath for uint256;
     using PerpMath for uint160;
+    using PerpMath for uint128;
     using PerpMath for int256;
     using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
@@ -257,6 +258,18 @@ contract ClearingHouse is
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
 
+        emit LiquidityChanged(
+            trader,
+            params.baseToken,
+            _quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.toInt256(),
+            response.quote.toInt256(),
+            response.liquidity.toInt128(),
+            response.fee
+        );
+
         return
             AddLiquidityResponse({
                 base: response.base,
@@ -303,6 +316,18 @@ contract ClearingHouse is
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
+
+        emit LiquidityChanged(
+            trader,
+            params.baseToken,
+            _quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            response.base.neg256(),
+            response.quote.neg256(),
+            params.liquidity.neg128(),
+            response.fee
+        );
 
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }

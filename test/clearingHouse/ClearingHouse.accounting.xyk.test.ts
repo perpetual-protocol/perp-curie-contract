@@ -219,8 +219,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     }
 
     async function getTakerMakerPositionSizeDelta(): Promise<BigNumberish> {
-        const takerPosSize = await accountBalance.getPositionSize(taker.address, baseToken.address)
-        const makerPosSize = await accountBalance.getPositionSize(maker.address, baseToken.address)
+        const takerPosSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
+        const makerPosSize = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
         return takerPosSize.add(makerPosSize)
     }
 
@@ -259,7 +259,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
-            expect((await accountBalance.getPositionSize(maker.address, baseToken.address)).toString()).eq("0")
+            expect((await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).toString()).eq("0")
 
             await makerRemoveLiquidity()
         })
@@ -269,7 +269,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
-            expect((await accountBalance.getPositionSize(maker.address, baseToken.address)).toString()).eq("0")
+            expect((await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).toString()).eq("0")
 
             await makerRemoveLiquidity()
         })
@@ -279,7 +279,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
-            expect((await accountBalance.getPositionSize(maker.address, baseToken.address)).toString()).eq("0")
+            expect((await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).toString()).eq("0")
 
             await makerRemoveLiquidity()
         })
@@ -289,7 +289,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
-            expect((await accountBalance.getPositionSize(maker.address, baseToken.address)).toString()).eq("0")
+            expect((await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).toString()).eq("0")
 
             await makerRemoveLiquidity()
         })
@@ -332,7 +332,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        expect(makerRemoveLiquidityTx).to.emit(orderBook, "LiquidityChanged").withArgs(
+        expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
             maker.address,
             baseToken.address,
             quoteToken.address,
@@ -388,7 +388,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker close
             await closePosition(fixture, taker)
-            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
             // maker account value = freeCollateral + unsettled PnL
             const makerAccountValue = await clearingHouse.getAccountValue(maker.address)
@@ -419,7 +419,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await closePosition(fixture, taker2)
             await closePosition(fixture, taker3)
 
-            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
@@ -440,9 +440,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await closePosition(fixture, taker2)
             await closePosition(fixture, taker3)
 
-            const maker1PositionSize = await accountBalance.getPositionSize(maker.address, baseToken.address)
-            const maker2PositionSize = await accountBalance.getPositionSize(maker2.address, baseToken.address)
-            const maker3PositionSize = await accountBalance.getPositionSize(maker3.address, baseToken.address)
+            const maker1PositionSize = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
+            const maker2PositionSize = await accountBalance.getTotalPositionSize(maker2.address, baseToken.address)
+            const maker3PositionSize = await accountBalance.getTotalPositionSize(maker3.address, baseToken.address)
             expect(maker1PositionSize.add(maker2PositionSize).add(maker3PositionSize)).to.be.closeTo("0", 10)
 
             // makers remove liquidity
@@ -466,8 +466,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker close position
             await closePosition(fixture, taker)
 
-            const maker1PositionSize = await accountBalance.getPositionSize(maker.address, baseToken.address)
-            const maker2PositionSize = await accountBalance.getPositionSize(maker2.address, baseToken.address)
+            const maker1PositionSize = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
+            const maker2PositionSize = await accountBalance.getTotalPositionSize(maker2.address, baseToken.address)
             expect(maker1PositionSize.add(maker2PositionSize)).to.be.closeTo("0", 10)
 
             // maker remove liquidity
@@ -494,7 +494,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker close
             await closePosition(fixture, taker)
 
-            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
@@ -515,7 +515,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker close
             await closePosition(fixture, taker)
 
-            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
@@ -555,11 +555,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             })
 
             // liquidate taker
-            while ((await accountBalance.getPositionSize(taker.address, baseToken.address)).gt(0)) {
+            while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
                 await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
             }
 
-            expect(await accountBalance.getPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
+            expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
@@ -584,7 +584,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             }
 
             // liquidate taker
-            while ((await accountBalance.getPositionSize(taker.address, baseToken.address)).gt(0)) {
+            while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
                 await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
             }
         })

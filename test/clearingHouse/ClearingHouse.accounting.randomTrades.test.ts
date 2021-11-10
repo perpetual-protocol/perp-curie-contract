@@ -198,7 +198,7 @@ describe.skip("ClearingHouse accounting", () => {
 
         for (const user of [maker, taker1, taker2, taker3]) {
             totalPositionSize = totalPositionSize.add(
-                await accountBalance.getPositionSize(user.address, baseToken.address),
+                await accountBalance.getTotalPositionSize(user.address, baseToken.address),
             )
         }
         // sum of position size should be close to zero
@@ -217,7 +217,7 @@ describe.skip("ClearingHouse accounting", () => {
 
     it("sum of realized pnl should close to zero after everyone close positions", async () => {
         for (const taker of [taker1, taker2, taker3]) {
-            const positionSize = await accountBalance.getPositionSize(taker.address, baseToken.address)
+            const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
             if (positionSize.eq(0)) {
                 continue
             }
@@ -238,7 +238,7 @@ describe.skip("ClearingHouse accounting", () => {
         }
 
         // maker's position size should be close to 0
-        const makerPositionSize = await accountBalance.getPositionSize(maker.address, baseToken.address)
+        const makerPositionSize = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
         expect(makerPositionSize).to.closeTo("0", 200)
 
         // maker remove all liquidity and collect fee

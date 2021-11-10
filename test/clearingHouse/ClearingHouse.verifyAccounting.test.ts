@@ -70,7 +70,7 @@ describe("ClearingHouse verify accounting", () => {
         }
 
         async function checkPosSizeEmpty(wallet: Wallet, baseToken: string) {
-            expect(await fixture.accountBalance.getPositionSize(wallet.address, baseToken)).be.closeTo(
+            expect(await fixture.accountBalance.getTotalPositionSize(wallet.address, baseToken)).be.closeTo(
                 BigNumber.from(0),
                 dustPosSize,
             )

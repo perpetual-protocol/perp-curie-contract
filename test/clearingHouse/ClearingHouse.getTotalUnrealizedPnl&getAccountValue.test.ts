@@ -114,7 +114,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // position value = 0.980943170969551031 * 101.855079 = 99.9140441736
             // open notional = -100
             // pnl = -100 + 99.9140441736 = -0.0859558264
-            expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq(parseEther("-100"))
+            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).to.eq(parseEther("-100"))
 
             totalUnrealizedPnl = "-0.085955826385873143"
             const [, takerUnrealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
@@ -146,7 +146,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // taker1
             // position value = 0.980943170969551031 * 103.727208 = 101.7504963313
             // pnl = -100 + 101.7504963313 = 1.7504963313
-            expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq(parseEther("-100"))
+            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).to.eq(parseEther("-100"))
 
             totalUnrealizedPnl = "1.750496331338181459"
             const [, takerAfterUnrealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
@@ -376,7 +376,10 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             //  - position value = -0.980943170969551031 * 101.855079 = -99.9140441736
             //  - open notional = 100 * (1 - 1%) + 1(fee) = 100
             //  - pnl = 100 + (-99.9140441736) = 0.0859558264
-            expect(await exchange.getOpenNotional(maker.address, baseToken.address)).to.be.closeTo(parseEther("100"), 2)
+            expect(await exchange.getTotalOpenNotional(maker.address, baseToken.address)).to.be.closeTo(
+                parseEther("100"),
+                2,
+            )
 
             totalUnrealizedPnl = "0.085955826385873040"
             const [, makerUnrealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(maker.address)
@@ -415,7 +418,10 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             //  - position value = 1.009413830572328542 * 98.143490 = 99.0673961866
             //  - open notional = -99
             //  - pnl = -99 + 99.0673961866 = 0.0673961866
-            expect(await exchange.getOpenNotional(maker.address, baseToken.address)).to.be.closeTo(parseEther("-99"), 2)
+            expect(await exchange.getTotalOpenNotional(maker.address, baseToken.address)).to.be.closeTo(
+                parseEther("-99"),
+                2,
+            )
 
             totalUnrealizedPnl = "0.067396186637020438"
             const [, makerUnrealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(maker.address)

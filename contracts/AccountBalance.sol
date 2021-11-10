@@ -239,7 +239,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            totalPositionValue = totalPositionValue.add(getPositionValue(trader, baseToken));
+            totalPositionValue = totalPositionValue.add(getTotalPositionValue(trader, baseToken));
         }
         int256 unrealizedPnl = getNetQuoteBalance(trader).add(totalPositionValue);
 
@@ -288,7 +288,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getPositionSize(address trader, address baseToken) public view override returns (int256) {
+    function getTotalPositionSize(address trader, address baseToken) public view override returns (int256) {
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
@@ -311,8 +311,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getPositionValue(address trader, address baseToken) public view override returns (int256) {
-        int256 positionSize = getPositionSize(trader, baseToken);
+    function getTotalPositionValue(address trader, address baseToken) public view override returns (int256) {
+        int256 positionSize = getTotalPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
         uint256 indexTwap = _getIndexPrice(baseToken);
@@ -330,7 +330,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = tokens[i];
             // will not use negative value in this case
-            uint256 positionValue = getPositionValue(trader, baseToken).abs();
+            uint256 positionValue = getTotalPositionValue(trader, baseToken).abs();
             totalPositionValue = totalPositionValue.add(positionValue);
         }
         return totalPositionValue;
@@ -367,7 +367,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _settleQuoteBalance(address trader, address baseToken) internal {
         if (
-            getPositionSize(trader, baseToken) == 0 &&
+            getTotalPositionSize(trader, baseToken) == 0 &&
             IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
         ) {
             _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));

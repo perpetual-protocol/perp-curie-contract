@@ -549,7 +549,9 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
             // pos size: 0.01961501593
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("19615015933642630")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "19615015933642630",
+            )
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
@@ -587,7 +589,9 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("26150976705867546")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "26150976705867546",
+            )
         })
 
         it("reduce position", async () => {
@@ -621,7 +625,9 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.gt(parseEther("0"))
 
             // pos size: 0.006538933220746361
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("6538933220746361")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "6538933220746361",
+            )
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
             expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
                 "6538933220746361",
@@ -670,7 +676,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("999.960200", 6))
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
             expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq("0")
 
             // response.exchangedPositionSize
@@ -748,7 +754,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("1000.33288", 6))
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("close position with loss", async () => {
@@ -814,7 +820,7 @@ describe("ClearingHouse openPosition", () => {
             const freeCollateral = await vault.getFreeCollateral(taker.address)
             expect(freeCollateral).deep.eq(parseUnits("999.613355", collateralDecimals))
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
 
         it("open larger reverse position", async () => {
@@ -832,10 +838,12 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // position size = -0.05368894844
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("-53688948443543907")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "-53688948443543907",
+            )
 
             // openNotional = 8.0412624948
-            expect(await exchange.getOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
+            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).to.eq("8041262494847024252")
 
             // realizedPnl = -0.04126249485
             const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
@@ -922,7 +930,9 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("1"))
 
             // pos size: -0.02002431581853605
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("-20024315818536050")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "-20024315818536050",
+            )
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("3"))
 
             // ((2 (beforeEach) + 1 (now)) / 0.99 )* 1% = 0.030303030303030304
@@ -963,7 +973,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-1"))
 
             // pos size: baseBalanceBefore / 2 = reducedBase
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("1"))
 
             // fee = 0.030404113776447206
@@ -1002,7 +1012,7 @@ describe("ClearingHouse openPosition", () => {
             expect(baseBalanceDelta).be.deep.eq(posSize)
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-2"))
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("0")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
             expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("0"))
 
             // fee = 0.040608101214161821
@@ -1023,11 +1033,13 @@ describe("ClearingHouse openPosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await accountBalance.getPositionSize(taker.address, baseToken.address)).to.eq("52017742202701754")
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
+                "52017742202701754",
+            )
 
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
-            const openNotional = await exchange.getOpenNotional(taker.address, baseToken.address)
+            const openNotional = await exchange.getTotalOpenNotional(taker.address, baseToken.address)
             const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
             expect(openNotional).to.eq(parseEther("-8").sub(pnl[0]))
@@ -1054,7 +1066,10 @@ describe("ClearingHouse openPosition", () => {
 
         it("will not affect her range order", async () => {
             // taker open position will not effect maker2's position
-            const maker2PositionSizeBefore = await accountBalance.getPositionSize(maker2.address, baseToken.address)
+            const maker2PositionSizeBefore = await accountBalance.getTotalPositionSize(
+                maker2.address,
+                baseToken.address,
+            )
 
             // taker long 1 USD
             await clearingHouse.connect(taker).openPosition({
@@ -1067,7 +1082,7 @@ describe("ClearingHouse openPosition", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            const maker2PositionSizeAfter = await accountBalance.getPositionSize(maker2.address, baseToken.address)
+            const maker2PositionSizeAfter = await accountBalance.getTotalPositionSize(maker2.address, baseToken.address)
 
             expect(maker2PositionSizeBefore).to.deep.eq(maker2PositionSizeAfter)
         })
@@ -1076,7 +1091,7 @@ describe("ClearingHouse openPosition", () => {
     describe("maker has order within price range", () => {
         it("will not affect her range order if maker and trader is the same person", async () => {
             // maker and trader is the same person, openPosition will not change her positionSize
-            const makerPositionSizeBefore = await accountBalance.getPositionSize(maker.address, baseToken.address)
+            const makerPositionSizeBefore = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
             // maker long 1 USD
             await clearingHouse.connect(maker).openPosition({
                 baseToken: baseToken.address,
@@ -1088,7 +1103,7 @@ describe("ClearingHouse openPosition", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            const makerPositionSizeAfter = await accountBalance.getPositionSize(maker.address, baseToken.address)
+            const makerPositionSizeAfter = await accountBalance.getTotalPositionSize(maker.address, baseToken.address)
 
             expect(makerPositionSizeBefore).to.deep.eq(makerPositionSizeAfter)
         })

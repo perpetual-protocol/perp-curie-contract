@@ -18,7 +18,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse.getPositionValue", () => {
+describe("ClearingHouse.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -75,10 +75,10 @@ describe("ClearingHouse.getPositionValue", () => {
             await marketRegistry.addPool(baseToken.address, 10000)
         })
 
-        // see more desc in getPositionSize test
+        // see more desc in getTotalPositionSize test
         it("value = 0, if position size = 0", async () => {
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -92,8 +92,8 @@ describe("ClearingHouse.getPositionValue", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(0)
-            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(0)
+            expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(0)
         })
 
         it("bob(taker) swaps 1 time", async () => {
@@ -147,17 +147,19 @@ describe("ClearingHouse.getPositionValue", () => {
                 return [0, parseUnits("149.852206", 6), 0, 0, 0]
             })
 
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.408410420499999999"),
             )
             // 149.852206 * 0.408410420499999999 = 61.2012024653
-            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
                 parseEther("61.201202465312622850"),
             )
 
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104205"))
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
+                parseEther("-0.4084104205"),
+            )
             // 149.852206 * -0.4084104205 = -61.2012024653
-            expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
                 parseEther("-61.201202465312623000"),
             )
         })
@@ -223,18 +225,20 @@ describe("ClearingHouse.getPositionValue", () => {
             })
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
-            expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
                 parseEther("0.408410420599999999"),
             )
             // 150.092150 * 0.408410420599999999 = 61.2991981103
-            expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
                 parseEther("61.299198110258289849"),
             )
 
             // short
-            expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(parseEther("-0.4084104206"))
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
+                parseEther("-0.4084104206"),
+            )
             // 150.092150 * -0.4084104206 = -61.2991981103
-            expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
                 parseEther("-61.299198110258290000"),
             )
         })
@@ -329,27 +333,29 @@ describe("ClearingHouse.getPositionValue", () => {
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
-        expect(await accountBalance.getPositionSize(alice.address, baseToken.address)).eq(
+        expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
             parseEther("-1.465065799750044640"),
         )
         // 152.711203 * -1.465065799750044640 = -223.731960754
-        expect(await accountBalance.getPositionValue(alice.address, baseToken.address)).eq(
+        expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
             parseEther("-223.731960753986416278"),
         )
 
         // 1.633641682 + 0.6482449586 = 2.2818866406
-        expect(await accountBalance.getPositionSize(bob.address, baseToken.address)).eq(
+        expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
             parseEther("2.281886640750044638"),
         )
         // 152.711203 * 2.281886640750044638 = 348.4696540186
-        expect(await accountBalance.getPositionValue(bob.address, baseToken.address)).eq(
+        expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
             parseEther("348.469654018568138972"),
         )
 
         // -1.633641682 / 2 = -0.816820841
-        expect(await accountBalance.getPositionSize(carol.address, baseToken.address)).eq(parseEther("-0.816820841"))
+        expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(
+            parseEther("-0.816820841"),
+        )
         // 152.711203 * -0.816820841 = -124.7376932646
-        expect(await accountBalance.getPositionValue(carol.address, baseToken.address)).eq(
+        expect(await accountBalance.getTotalPositionValue(carol.address, baseToken.address)).eq(
             parseEther("-124.737693264581723000"),
         )
     })
@@ -360,14 +366,14 @@ describe("ClearingHouse.getPositionValue", () => {
 // console.log((await clearingHouse.getSqrtMarkTwapX96(baseToken.address)).toString())
 
 // console.log("alice")
-// console.log("getPositionSize")
-// console.log((await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
-// console.log("getPositionValue")
-// console.log((await accountBalance.getPositionValue(alice.address, baseToken.address)).toString())
+// console.log("getTotalPositionSize")
+// console.log((await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).toString())
+// console.log("getTotalPositionValue")
+// console.log((await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).toString())
 
 // console.log("bob")
-// console.log("getPositionSize")
-// console.log((await accountBalance.getPositionSize(bob.address, baseToken.address)).toString())
-// console.log("getPositionValue")
-// console.log((await accountBalance.getPositionValue(bob.address, baseToken.address)).toString())
+// console.log("getTotalPositionSize")
+// console.log((await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).toString())
+// console.log("getTotalPositionValue")
+// console.log((await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).toString())
 // // === useful console.log for verifying stats ===

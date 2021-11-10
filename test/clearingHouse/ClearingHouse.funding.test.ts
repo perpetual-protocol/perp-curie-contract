@@ -766,7 +766,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -811,7 +811,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -854,7 +854,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(orderBook, "LiquidityChanged")
+                    .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
                         baseToken.address,
@@ -953,7 +953,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(orderBook, "LiquidityChanged")
+                        .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
@@ -1110,7 +1110,7 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
-                        .to.emit(orderBook, "LiquidityChanged")
+                        .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
                             baseToken.address,
@@ -1219,11 +1219,11 @@ describe("ClearingHouse funding", () => {
 //     "pendingFundingPayment: ",
 //     (await exchange.getPendingFundingPayment(carol.address, baseToken.address)).toString(),
 // )
-// console.log("positionSize: ", (await accountBalance.getPositionSize(carol.address, baseToken.address)).toString())
+// console.log("positionSize: ", (await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).toString())
 // console.log("alice")
 // console.log(
 //     "pendingFundingPayment: ",
 //     (await exchange.getPendingFundingPayment(alice.address, baseToken.address)).toString(),
 // )
-// console.log("positionSize: ", (await accountBalance.getPositionSize(alice.address, baseToken.address)).toString())
+// console.log("positionSize: ", (await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).toString())
 // // === useful console.log for verifying stats ===
