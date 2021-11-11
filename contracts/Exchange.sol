@@ -186,19 +186,19 @@ contract Exchange is
         );
 
         // when reducing/not increasing the position size, it's necessary to realize pnl
-        int256 pnlToBeRealized =
-            isReducingPosition
-                ? getPnlToBeRealized(
-                    RealizePnlParams({
-                        trader: params.trader,
-                        baseToken: params.baseToken,
-                        takerPositionSize: takerPositionSize,
-                        takerOpenNotional: oldTakerOpenNotional,
-                        deltaAvailableBase: response.deltaAvailableBase,
-                        deltaAvailableQuote: response.deltaAvailableQuote
-                    })
-                )
-                : 0;
+        int256 pnlToBeRealized;
+        if (isReducingPosition) {
+            pnlToBeRealized = getPnlToBeRealized(
+                RealizePnlParams({
+                    trader: params.trader,
+                    baseToken: params.baseToken,
+                    takerPositionSize: takerPositionSize,
+                    takerOpenNotional: oldTakerOpenNotional,
+                    deltaAvailableBase: response.deltaAvailableBase,
+                    deltaAvailableQuote: response.deltaAvailableQuote
+                })
+            );
+        }
 
         if (pnlToBeRealized != 0) {
             IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);

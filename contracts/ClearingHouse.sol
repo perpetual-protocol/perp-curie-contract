@@ -619,8 +619,8 @@ contract ClearingHouse is
         if (response.deltaTakerBase != 0) {
             (bool isReducingPosition, int256 takerPositionSize, ) =
                 IExchange(_exchange).getIsReducingPosition(trader, baseToken, response.deltaTakerBase < 0);
-            pnlToBeRealized = isReducingPosition
-                ? IExchange(_exchange).getPnlToBeRealized(
+            if (isReducingPosition) {
+                pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
                     IExchange.RealizePnlParams({
                         trader: trader,
                         baseToken: baseToken,
@@ -629,8 +629,8 @@ contract ClearingHouse is
                         deltaAvailableBase: response.deltaTakerBase,
                         deltaAvailableQuote: response.deltaTakerQuote
                     })
-                )
-                : 0;
+                );
+            }
         }
 
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
