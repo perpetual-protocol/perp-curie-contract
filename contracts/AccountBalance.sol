@@ -86,14 +86,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) external override onlyClearingHouse {
         _addBalance(maker, baseToken, base, quote, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
-        // to avoid dust, let realizedPnl = getQuote() when it's the last order
+        // to avoid dust, let realizedPnl = getQuote() when there's no order
         if (
             getTakerPositionSize(maker, baseToken) == 0 &&
             IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
         ) {
             // AB_IQBAR: inconsistent quote balance and realizedPnl
-            require(realizedPnl.abs() <= getQuote(maker, baseToken).abs(), "AB_IQBAR");
-            realizedPnl = getQuote(maker, baseToken);
+            int256 takerQuote = _accountMarketMap[maker][baseToken].takerQuoteBalance;
+            require(realizedPnl.abs() <= takerQuote.abs(), "AB_IQBAR");
+            realizedPnl = takerQuote;
         }
         _settleQuoteToPnl(maker, baseToken, realizedPnl);
         _deregisterBaseToken(maker, baseToken);
@@ -154,7 +155,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         }
 
         // only register if there is no taker's position nor any openOrder (whether in base or quote token)
-        if (getBase(trader, baseToken) == 0 && IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0) {
+        if (
+            _accountMarketMap[trader][baseToken].takerBaseBalance == 0 &&
+            IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
+        ) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 if (tokens[i] == baseToken) {
                     return;
@@ -266,16 +270,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken];
     }
 
-    /// @inheritdoc IAccountBalance
-    function getBase(address trader, address baseToken) public view override returns (int256) {
-        return _accountMarketMap[trader][baseToken].baseBalance;
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getQuote(address trader, address baseToken) public view override returns (int256) {
-        return _accountMarketMap[trader][baseToken].quoteBalance;
-    }
-
     // @inheritdoc IAccountBalance
     function getTakerQuote(address trader, address baseToken) external view override returns (int256) {
         return _accountMarketMap[trader][baseToken].takerQuoteBalance;
@@ -284,16 +278,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // @audit suggest to remove - @wraecca
     /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
-        int256 totalQuoteBalance;
+        int256 totalTakerQuoteBalance;
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            totalQuoteBalance = totalQuoteBalance.add(getQuote(trader, baseToken));
+            totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerQuoteBalance);
         }
 
         // owedFee is included
-        uint256 totalQuoteInPools = IOrderBook(_orderBook).getTotalQuoteAmountInPools(trader, _baseTokensMap[trader]);
-        int256 netQuoteBalance = totalQuoteBalance.add(totalQuoteInPools.toInt256());
+        int256 totalMakerQuoteBalance = IOrderBook(_orderBook).getTotalQuoteBalance(trader, _baseTokensMap[trader]);
+        int256 netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
 
         return netQuoteBalance.abs() < _DUST ? 0 : netQuoteBalance;
     }
@@ -303,16 +297,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
-        int256 positionSize =
-            IOrderBook(_orderBook)
-                .getTotalTokenAmountInPool(
-                trader,
-                baseToken,
-                true // get base token amount
-            )
-                .toInt256()
-                .add(getBase(trader, baseToken));
-        return positionSize.abs() < _DUST ? 0 : positionSize;
+        int256 makerBaseBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, true);
+        int256 takerBaseBalance = _accountMarketMap[trader][baseToken].takerBaseBalance;
+        int256 totalPositionSize = makerBaseBalance.add(takerBaseBalance);
+        return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;
     }
 
     /// @inheritdoc IAccountBalance
