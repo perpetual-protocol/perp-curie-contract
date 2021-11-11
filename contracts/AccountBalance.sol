@@ -81,7 +81,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 deltaTakerQuote,
         int256 realizedPnl,
         int256 fee
-    ) external override onlyClearingHouse {
+    ) external override {
+        _requireClearingHouse();
         _addOwedRealizedPnl(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         // to avoid dust, let realizedPnl = getQuote() when there's no order
@@ -128,11 +129,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
-    function deregisterBaseToken(address trader, address baseToken) external override onlyClearingHouse {
+    function deregisterBaseToken(address trader, address baseToken) external override {
+        _requireClearingHouse();
         _deregisterBaseToken(trader, baseToken);
     }
 
-    function registerBaseToken(address trader, address baseToken) external override onlyClearingHouse {
+    function registerBaseToken(address trader, address baseToken) external override {
+        _requireClearingHouse();
         address[] memory tokens = _baseTokensMap[trader];
         if (tokens.length == 0) {
             _baseTokensMap[trader].push(baseToken);

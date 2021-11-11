@@ -22,15 +22,6 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     event ClearingHouseChanged(address indexed clearingHouse);
 
     //
-    // MODIFIER
-    //
-    modifier onlyClearingHouse() {
-        // only ClearingHouse
-        require(_msgSender() == _clearingHouse, "CHD_OCH");
-        _;
-    }
-
-    //
     // CONSTRUCTOR
     //
 
@@ -48,5 +39,10 @@ abstract contract ClearingHouseCallee is SafeOwnable {
 
     function getClearingHouse() external view returns (address) {
         return _clearingHouse;
+    }
+
+    function _requireClearingHouse() internal view {
+        // only ClearingHouse
+        require(_msgSender() == _clearingHouse, "CHD_OCH");
     }
 }

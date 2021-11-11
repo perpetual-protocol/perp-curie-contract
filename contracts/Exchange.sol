@@ -138,7 +138,8 @@ contract Exchange is
         IUniswapV3SwapCallback(_clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
-    function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
+    function swap(SwapParams memory params) external override returns (SwapResponse memory) {
+        _requireClearingHouse();
         // for closing position, takerPositionSize(int256) == param.amount(uint256)
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
