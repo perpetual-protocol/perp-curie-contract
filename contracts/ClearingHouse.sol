@@ -162,7 +162,7 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (AddLiquidityResponse memory)
     {
-        // input checks:
+        // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
         //   base & quote: in UniswapV3Broker.addLiquidity()
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
@@ -288,6 +288,11 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (RemoveLiquidityResponse memory)
     {
+        // input requirement checks:
+        //   baseToken: in Exchange.settleFunding()
+        //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
+        //   liquidity: in OrderBook._removeLiquidity()
+        //   minBase, minQuote & deadline: here
         address trader = _msgSender();
 
         // must settle funding first
@@ -333,6 +338,14 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
+        // input requirement checks:
+        //   baseToken: in Exchange.settleFunding()
+        //   isBaseToQuote & isExactInput: X
+        //   amount: in UniswapV3Broker.swap()
+        //   oppositeAmountBound: in _checkSlippage()
+        //   deadline: here
+        //   sqrtPriceLimitX96: X (this is not for slippage protection)
+        //   referralCode: X
         address trader = _msgSender();
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -377,6 +390,12 @@ contract ClearingHouse is
         checkDeadline(params.deadline)
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
+        // input requirement checks:
+        //   baseToken: in Exchange.settleFunding()
+        //   sqrtPriceLimitX96: X (this is not for slippage protection)
+        //   oppositeAmountBound: in _checkSlippage()
+        //   deadline: here
+        //   referralCode: X
         address trader = _msgSender();
 
         // must settle funding first
@@ -398,6 +417,7 @@ contract ClearingHouse is
             response.isPartialClose
                 ? params.oppositeAmountBound.mulRatio(IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio())
                 : params.oppositeAmountBound;
+
         _checkSlippage(
             InternalCheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
@@ -414,9 +434,6 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
-        // per liquidation specs:
-        //   https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-        //
         // liquidation trigger:
         //   accountMarginRatio < accountMaintenanceMarginRatio
         //   => accountValue / sum(abs(positionValue_market)) <
@@ -424,6 +441,10 @@ contract ClearingHouse is
         //   => accountValue < sum(mmRatio * abs(positionValue_market))
         //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
         //
+
+        // input requirement checks:
+        //   trader: here
+        //   baseToken: in Exchange.settleFunding()
 
         // CH_NEO: not empty order
         require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_NEO");
@@ -474,11 +495,19 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] calldata orderIds
     ) external override whenNotPaused nonReentrant {
+        // input requirement checks:
+        //   maker: in _cancelExcessOrders()
+        //   baseToken: in Exchange.settleFunding()
+        //   orderIds: in OrderBook.removeLiquidityByIds()
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
     /// @inheritdoc IClearingHouse
     function cancelAllExcessOrders(address maker, address baseToken) external override whenNotPaused nonReentrant {
+        // input requirement checks:
+        //   maker: in _cancelExcessOrders()
+        //   baseToken: in Exchange.settleFunding()
+        //   orderIds: in OrderBook.removeLiquidityByIds()
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
@@ -489,6 +518,11 @@ contract ClearingHouse is
         uint256 amount1Owed,
         bytes calldata data
     ) external override {
+        // input requirement checks:
+        //   amount0Owed: here
+        //   amount1Owed: here
+        //   data: X
+
         // For caller validation purposes it would be more efficient and more reliable to use
         // "msg.sender" instead of "_msgSender()" as contracts never call each other through GSN.
         // not orderbook
@@ -514,9 +548,14 @@ contract ClearingHouse is
         int256 amount1Delta,
         bytes calldata data
     ) external override onlyExchange {
+        // input requirement checks:
+        //   amount0Delta: here
+        //   amount1Delta: here
+        //   data: X
+
         // swaps entirely within 0-liquidity regions are not supported -> 0 swap is forbidden
         // CH_F0S: forbidden 0 swap
-        require(amount0Delta > 0 || amount1Delta > 0, "CH_F0S");
+        require((amount0Delta > 0 && amount1Delta < 0) || (amount0Delta < 0 && amount1Delta > 0), "CH_F0S");
 
         IExchange.SwapCallbackData memory callbackData = abi.decode(data, (IExchange.SwapCallbackData));
         IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(callbackData.pool);
