@@ -18,7 +18,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 
 //docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1507179977
 
-describe.only("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
+describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     const wallets = waffle.provider.getWallets()
     const [admin, maker, alice, bob] = wallets
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
