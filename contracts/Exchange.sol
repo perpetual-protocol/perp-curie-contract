@@ -159,7 +159,7 @@ contract Exchange is
                 _isOverPriceLimitByReplayReverseSwap(
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
-                    params.amount
+                    params.amount // it's the same as takerPositionSize but in uint256
                 )
             ) {
                 uint256 timestamp = _blockTimestamp();
@@ -189,7 +189,6 @@ contract Exchange is
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        // @audit suggest to move to CH, so only CH can addBalance - @wraecca
         IAccountBalance(_accountBalance).addTakerBalances(
             params.trader,
             params.baseToken,
@@ -706,7 +705,7 @@ contract Exchange is
 
             // overflow inspection:
             // max & min tick = 887272, -887272; max liquidity = 2 ^ 128
-            // max delta quote = 2 ^ 128 * (sqrt(1.0001 ^ 887272) - sqrt(1.0001 ^ -887272)) = 6.276865796e57 < 2 ^ 255
+            // max delta quote = 2^128 * (sqrt(1.0001^887272) - sqrt(1.0001^-887272)) = 6.276865796e57 < 2^255 / 1e18
             int256 closedPositionNotional =
                 params.deltaAvailableQuote.mul(int256(_FULLY_CLOSED_RATIO)).div(closedRatio.toInt256());
             pnlToBeRealized = params.takerOpenNotional.add(closedPositionNotional);
