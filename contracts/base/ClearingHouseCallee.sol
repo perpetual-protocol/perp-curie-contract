@@ -33,6 +33,8 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     //
     // CONSTRUCTOR
     //
+
+    // solhint-disable-next-line func-order
     function __ClearingHouseCallee_init() internal initializer {
         __SafeOwnable_init();
     }
