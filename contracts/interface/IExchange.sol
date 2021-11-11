@@ -36,8 +36,6 @@ interface IExchange {
     struct RealizePnlParams {
         address trader;
         address baseToken;
-        int256 takerPositionSize;
-        int256 takerOpenNotional;
         int256 deltaAvailableBase;
         int256 deltaAvailableQuote;
     }
@@ -92,19 +90,6 @@ interface IExchange {
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
     function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);
-
-    function getIsReducingPosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    )
-        external
-        view
-        returns (
-            bool,
-            int256,
-            bool
-        );
 
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 

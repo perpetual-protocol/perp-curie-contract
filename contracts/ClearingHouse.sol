@@ -615,22 +615,15 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response
     ) internal {
         int256 pnlToBeRealized;
-
         if (response.deltaTakerBase != 0) {
-            (bool isReducingPosition, int256 takerPositionSize, ) =
-                IExchange(_exchange).getIsReducingPosition(trader, baseToken, response.deltaTakerBase < 0);
-            if (isReducingPosition) {
-                pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
-                    IExchange.RealizePnlParams({
-                        trader: trader,
-                        baseToken: baseToken,
-                        takerPositionSize: takerPositionSize,
-                        takerOpenNotional: IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken),
-                        deltaAvailableBase: response.deltaTakerBase,
-                        deltaAvailableQuote: response.deltaTakerQuote
-                    })
-                );
-            }
+            pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
+                IExchange.RealizePnlParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    deltaAvailableBase: response.deltaTakerBase,
+                    deltaAvailableQuote: response.deltaTakerQuote
+                })
+            );
         }
 
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
