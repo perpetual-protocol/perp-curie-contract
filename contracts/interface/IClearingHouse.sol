@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 interface IClearingHouse {
-    /// @params useTakerPosition = true is not supported yet (test case WIP)
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;
@@ -12,7 +11,7 @@ interface IClearingHouse {
         int24 upperTick;
         uint256 minBase;
         uint256 minQuote;
-        bool useTakerPosition;
+        bool useTakerBalance;
         uint256 deadline;
     }
 

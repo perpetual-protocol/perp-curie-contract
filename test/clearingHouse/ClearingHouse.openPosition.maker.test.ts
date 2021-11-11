@@ -84,7 +84,7 @@ describe("ClearingHouse maker close position", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -99,7 +99,7 @@ describe("ClearingHouse maker close position", () => {
             upperTick,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
     })
@@ -290,7 +290,7 @@ describe("ClearingHouse maker close position", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -305,7 +305,7 @@ describe("ClearingHouse maker close position", () => {
                 upperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
         })

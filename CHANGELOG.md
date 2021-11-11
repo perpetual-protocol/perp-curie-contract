@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.getPositionValue` to `AccountBalance.getTotalPositionValue`
 - rename `Exchange.getOpenNotional` to `Exchange.getTotalOpenNotional`
 - fix error codes in Exchange.sol 1. `EX_OPIBS` to `EX_OPLBS` 2. `EX_OPIAS` to `EX_OPLAS`
-- add field `useTakerPosition` to `ClearingHouse.AddLiquidityParams`
+- add field `useTakerBalance` to `ClearingHouse.AddLiquidityParams`
 - move event `LiquidityChanged` from `OrderBook` to `ClearingHouse`
 
 ### Added

@@ -80,7 +80,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -97,7 +97,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -139,7 +139,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
                 upperTick: 50200,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -207,7 +207,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(alice).addLiquidity(addLiquidityParamsAlice)
@@ -221,7 +221,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
             quote: "0",
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         }
         await clearingHouse.connect(carol).addLiquidity(addLiquidityParamsCarol)
