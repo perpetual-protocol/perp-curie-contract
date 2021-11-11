@@ -1,6 +1,6 @@
 {
   "name": "@perp/curie-contract",
-  "version": "0.13.0-staging",
+  "version": "0.13.1-staging",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
