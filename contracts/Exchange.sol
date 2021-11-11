@@ -139,9 +139,11 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
-        // for closing position, positionSize(int256) == param.amount(uint256)
-        (int256 takerPositionSize, bool isReducingPosition) =
-            _getTakerPositionSizeAndIsReducingPosition(params.trader, params.baseToken, params.isBaseToQuote);
+        // for closing position, takerPositionSize(int256) == param.amount(uint256)
+        int256 takerPositionSize =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        // when takerPositionSize < 0, it's a short position
+        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
 
         bool isPartialClose;
         uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
@@ -429,10 +431,11 @@ contract Exchange is
     }
 
     function getPnlToBeRealized(RealizePnlParams memory params) public view override returns (int256) {
-        bool isBaseToQuote = params.deltaAvailableBase < 0;
-        (int256 takerPositionSize, bool isReducingPosition) =
-            _getTakerPositionSizeAndIsReducingPosition(params.trader, params.baseToken, isBaseToQuote);
-        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(params.trader, params.baseToken);
+        int256 takerPositionSize =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
+        bool isReducingPosition =
+            takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
         return
             isReducingPosition
@@ -441,7 +444,7 @@ contract Exchange is
                         trader: params.trader,
                         baseToken: params.baseToken,
                         takerPositionSize: takerPositionSize,
-                        takerOpenNotional: takerOpenNotional,
+                        takerOpenNotional: getTakerOpenNotional(params.trader, params.baseToken),
                         deltaAvailableBase: params.deltaAvailableBase,
                         deltaAvailableQuote: params.deltaAvailableQuote
                     })
@@ -655,17 +658,6 @@ contract Exchange is
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
-    }
-
-    function _getTakerPositionSizeAndIsReducingPosition(
-        address trader,
-        address baseToken,
-        bool isBaseToQuote
-    ) internal view returns (int256, bool) {
-        int256 takerPositionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
-        // when takerPositionSize < 0, it's a short position
-        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != isBaseToQuote;
-        return (takerPositionSize, isReducingPosition);
     }
 
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
