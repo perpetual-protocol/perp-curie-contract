@@ -328,6 +328,10 @@ describe("ClearingHouse realizedPnl", () => {
             expect(await accountBalance.getTakerQuote(alice.address, baseToken.address)).to.be.eq(
                 parseEther("-50.740344136615483168"),
             )
+            expect(await accountBalance.getBase(alice.address, baseToken.address)).to.be.closeTo(parseEther("-0.5"), 1)
+            expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(
+                parseEther("-50.740344136615483168"),
+            )
             let owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
             expect(owedRealizedPnl).to.be.eq(parseEther("1.278606433085450338"))
 
@@ -368,6 +372,8 @@ describe("ClearingHouse realizedPnl", () => {
             // alice might have dust position. so can not totally settle alice's quote and base balance
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
             expect(await accountBalance.getTakerQuote(alice.address, baseToken.address)).to.be.eq(0)
+            expect(await accountBalance.getBase(alice.address, baseToken.address)).to.be.eq(0)
+            expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(0)
             owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
             expect(owedRealizedPnl).to.be.eq(parseEther("2.557212866170900675"))
         })

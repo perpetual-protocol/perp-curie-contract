@@ -98,6 +98,10 @@ interface IAccountBalance {
 
     function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory);
 
+    function getBase(address trader, address baseToken) external view returns (int256);
+
+    function getQuote(address trader, address baseToken) external view returns (int256);
+
     function getTakerQuote(address trader, address baseToken) external view returns (int256);
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
