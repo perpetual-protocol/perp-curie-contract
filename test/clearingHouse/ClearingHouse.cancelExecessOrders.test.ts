@@ -233,7 +233,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         // _getOrderId() with baseToken2 would generate a non-existent orderId
         await expect(
             clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
-        ).to.be.revertedWith("OB_IO")
+        ).to.be.reverted
 
         const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
