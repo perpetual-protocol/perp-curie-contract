@@ -487,7 +487,7 @@ contract OrderBook is
         int256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
-            int256 makerQuoteBalance = getMakerBalance(trader, baseToken, false);
+            int256 makerQuoteBalance = _getMakerBalance(trader, baseToken, false);
             totalQuoteAmountInPools = totalQuoteAmountInPools.add(makerQuoteBalance);
         }
         return totalQuoteAmountInPools;
@@ -507,19 +507,6 @@ contract OrderBook is
             totalOrderDebt = totalOrderDebt.add(orderDebt);
         }
         return totalOrderDebt;
-    }
-
-    // @audit consider remove for bytecode size - @wraecca
-    /// @dev note the return value includes maker fee.
-    function getMakerBalance(
-        address trader,
-        address baseToken,
-        bool fetchBase
-    ) public view override returns (int256) {
-        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
-        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
-        // makerBalance = totalTokenAmountInPool - totalOrderDebt
-        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
     }
 
     /// @dev the returned quote amount does not include funding payment because
@@ -742,6 +729,18 @@ contract OrderBook is
     //
     // INTERNAL VIEW
     //
+
+    /// @dev note the return value includes maker fee.
+    function _getMakerBalance(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) internal view returns (int256) {
+        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
+    }
 
     /// @dev Get total amount of the specified tokens in the specified pool.
     ///      Note:

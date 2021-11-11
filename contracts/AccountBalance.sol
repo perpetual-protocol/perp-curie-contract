@@ -300,7 +300,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
-        int256 makerBaseBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, true);
+
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        uint256 totalBaseBalanceFromOrders = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 totalBaseDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
+        int256 makerBaseBalance = totalBaseBalanceFromOrders.toInt256().sub(totalBaseDebtFromOrder.toInt256());
+
         int256 takerBaseBalance = _accountMarketMap[trader][baseToken].takerBaseBalance;
         int256 totalPositionSize = makerBaseBalance.add(takerBaseBalance);
         return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;

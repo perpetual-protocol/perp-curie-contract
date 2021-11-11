@@ -120,13 +120,6 @@ interface IOrderBook {
         bool fetchBase
     ) external view returns (uint256);
 
-    // getMakerBalance = totalTokenAmountInPool - totalOrderDebt
-    function getMakerBalance(
-        address trader,
-        address baseToken,
-        bool fetchBase
-    ) external view returns (int256);
-
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
