@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2-staging] - 2021-11-11
+
+### Changed
+
+- update artifacts
+
+## [0.13.1-staging] - 2021-11-11
+
+### Added
+
+- add `optimismKovan.json` and `rinkeby.json` of `v0.12.7`
+
 ## [0.13.0-staging] - 2021-11-10
 
 ### Changed
@@ -40,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`
 - remove `Quoter` and `Multicall2` contracts from core.
     - You can find these contracts in [@perp/curie-periphery](https://www.npmjs.com/package/@perp/curie-periphery).
+
+## [0.12.7] - 2021-11-09
+
+- deploy on Optimism Kovan
 
 ## [0.12.6] - 2021-10-25
 
