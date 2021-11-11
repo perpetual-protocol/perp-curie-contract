@@ -105,12 +105,15 @@ interface IOrderBook {
 
     function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256);
 
+    function getTotalQuoteBalance(address trader, address[] calldata baseTokens) external view returns (int256);
+
     function getTotalTokenAmountInPool(
         address trader,
         address baseToken,
         bool fetchBase
     ) external view returns (uint256 tokenAmount);
 
+    // getMakerBalance = totalTokenAmountInPool - totalOrderDebt
     function getMakerBalance(
         address trader,
         address baseToken,
