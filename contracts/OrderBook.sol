@@ -478,6 +478,23 @@ contract OrderBook is
         return totalQuoteAmountInPools;
     }
 
+    // getMakerBalance = totalTokenAmountInPool - totalOrderDebt
+    function getMakerBalance(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) external view override returns (int256) {
+        int256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase).toInt256();
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
+        uint256 orderIdLength = orderIds.length;
+        for (uint256 i = 0; i < orderIdLength; i++) {
+            OpenOrder.Info memory orderInfo = _openOrderMap[orderIds[i]];
+            uint256 orderDebt = fetchBase ? orderInfo.baseDebt : orderInfo.quoteDebt;
+            totalBalanceFromOrders = totalBalanceFromOrders.sub(orderDebt.toInt256());
+        }
+        return totalBalanceFromOrders;
+    }
+
     /// @dev the returned quote amount does not include funding payment because
     ///      the latter is counted directly toward realizedPnl.
     ///      please refer to _getTotalTokenAmountInPool() docstring for specs
