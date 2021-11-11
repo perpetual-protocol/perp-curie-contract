@@ -451,6 +451,7 @@ contract Exchange is
                 : 0;
     }
 
+    // TODO move to AccountBalance
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
@@ -459,6 +460,7 @@ contract Exchange is
         return makerQuoteBalance.add(takerQuoteBalance);
     }
 
+    // @audit why do we need this instead of calling accountBalance directly? - @wraecca
     function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
         return IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
     }
