@@ -410,7 +410,7 @@ describe("ClearingHouse addLiquidity", () => {
                         useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
-                ).to.be.revertedWith("UB_ZIs")
+                ).to.be.reverted
             })
 
             it("force error, add base-only liquidity below price", async () => {

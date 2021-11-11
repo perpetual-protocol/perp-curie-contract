@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
@@ -34,7 +33,6 @@ contract OrderBook is
     UniswapV3CallbackBridge,
     OrderBookStorageV1
 {
-    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -94,8 +92,6 @@ contract OrderBook is
     }
 
     function setExchange(address exchangeArg) external onlyOwner {
-        // Exchange is 0
-        require(exchangeArg != address(0), "OB_CH0");
         _exchange = exchangeArg;
         emit ExchangeChanged(exchangeArg);
     }
@@ -208,10 +204,7 @@ contract OrderBook is
         RemoveLiquidityResponse memory removeLiquidityResponse;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-
             bytes32 orderId = OrderKey.compute(maker, baseToken, order.lowerTick, order.upperTick);
-            // OB_IO: invalid orderId
-            require(orderIds[i] == orderId, "OB_IO");
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -301,6 +294,7 @@ contract OrderBook is
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
+        // only Exchange
         require(_msgSender() == _exchange, "OB_OEX");
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
@@ -578,13 +572,6 @@ contract OrderBook is
         internal
         returns (RemoveLiquidityResponse memory)
     {
-        // load existing open order
-        OpenOrder.Info memory openOrder = _openOrderMap[params.orderId];
-        // non-existent openOrder
-        require(openOrder.liquidity > 0, "OB_NEO");
-        // not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "OB_NEL");
-
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(

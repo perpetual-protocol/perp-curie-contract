@@ -80,9 +80,6 @@ library UniswapV3Broker {
     uint256 internal constant _DUST = 10;
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
-        // zero inputs
-        require(params.base > 0 || params.quote > 0, "UB_ZIs");
-
         (uint160 sqrtMarkPrice, , , , , , ) = getSlot0(params.pool);
 
         // get the equivalent amount of liquidity from amount0 & amount1 with current price
@@ -94,9 +91,6 @@ library UniswapV3Broker {
                 params.base,
                 params.quote
             );
-
-        // UB_ZL: zero liquidity
-        require(liquidity > 0, "UB_ZL");
 
         // call mint()
         (uint256 addedAmount0, uint256 addedAmount1) =
@@ -127,9 +121,6 @@ library UniswapV3Broker {
     }
 
     function swap(SwapParams memory params) internal returns (SwapResponse memory response) {
-        // zero input
-        require(params.amount > 0, "UB_ZI");
-
         // UniswapV3Pool uses the sign to determine isExactInput or not
         int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : params.amount.neg256();
 

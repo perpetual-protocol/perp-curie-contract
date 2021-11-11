@@ -2,12 +2,9 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeOwnable } from "./SafeOwnable.sol";
 
 abstract contract ClearingHouseCallee is SafeOwnable {
-    using AddressUpgradeable for address;
-
     //
     // STATE
     //
@@ -31,8 +28,6 @@ abstract contract ClearingHouseCallee is SafeOwnable {
     }
 
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
-        // ClearingHouse is not contract
-        require(clearingHouseArg.isContract(), "CHD_CHNC");
         _clearingHouse = clearingHouseArg;
         emit ClearingHouseChanged(clearingHouseArg);
     }
