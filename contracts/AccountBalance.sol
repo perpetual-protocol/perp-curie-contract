@@ -103,8 +103,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 deltaTakerBase,
-        int256 deltaTakerQuote,
-        int256 owedRealizedPnl
+        int256 deltaTakerQuote
     ) external override onlyExchangeOrClearingHouse {
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
@@ -260,6 +259,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken];
     }
 
+    // @inheritdoc IAccountBalance
+    function getTakerQuote(address trader, address baseToken) external view override returns (int256) {
+        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
+    }
+
     /// @inheritdoc IAccountBalance
     function getBase(address trader, address baseToken) public view override returns (int256) {
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
@@ -272,11 +276,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
         // quote = takerQuoteBalance - orderQuoteDebt
         return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
-    }
-
-    // @inheritdoc IAccountBalance
-    function getTakerQuote(address trader, address baseToken) external view override returns (int256) {
-        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
     }
 
     // @audit suggest to change to internal if no one use it - @wraecca

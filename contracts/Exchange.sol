@@ -45,10 +45,6 @@ contract Exchange is
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
-    // CONSTANT
-    uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
-    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
-
     //
     // STRUCT
     //
@@ -79,6 +75,10 @@ contract Exchange is
         int256 deltaAvailableBase;
         int256 deltaAvailableQuote;
     }
+
+    // CONSTANT
+    uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
+    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
     //
     // EXTERNAL NON-VIEW
@@ -193,8 +193,7 @@ contract Exchange is
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            0
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
         );
 
         // when reducing/not increasing the position size, it's necessary to realize pnl

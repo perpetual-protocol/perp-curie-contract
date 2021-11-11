@@ -104,6 +104,7 @@ contract ClearingHouse is
     //
 
     /// @dev this function is public for testing
+    // solhint-disable-next-line func-order
     function initialize(
         address clearingHouseConfigArg,
         address vaultArg,
@@ -234,18 +235,11 @@ contract ClearingHouse is
             IOrderBook(_orderBook).updateOrderDebt(response.orderId, deltaBaseDebt, deltaQuoteDebt);
 
             // update takerBalances as we're using takerBalances to provide liquidity
-            IAccountBalance(_accountBalance).addTakerBalances(
-                trader,
-                params.baseToken,
-                deltaBaseDebt,
-                deltaQuoteDebt,
-                response.fee.toInt256()
-            );
-        } else {
-            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
+            IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
@@ -568,6 +562,7 @@ contract ClearingHouse is
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
+        // solhint-disable-next-line var-name-mixedcase
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
