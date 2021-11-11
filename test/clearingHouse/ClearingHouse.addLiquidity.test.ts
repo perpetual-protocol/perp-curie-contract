@@ -723,8 +723,8 @@ describe("ClearingHouse addLiquidity", () => {
 
     describe("# addLiquidity using taker's position", () => {
         let bobTakerQuote
-        let bobBase
-        let bobQuote
+        let bobTotalPosSizeBefore
+        let bobTotalOpenNotionalBefore
 
         const aliceLowerTick = 50000
         const aliceUpperTick = 50400
@@ -749,8 +749,8 @@ describe("ClearingHouse addLiquidity", () => {
             // bob long 1 base token
             await q2bExactOutput(fixture, bob, 1)
             bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerQuoteBalance
-            bobBase = await accountBalance.getBase(bob.address, baseToken.address)
-            bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
+            bobTotalPosSizeBefore = await accountBalance.getTotalPositionSize(bob.address, baseToken.address)
+            bobTotalOpenNotionalBefore = await exchange.getTotalOpenNotional(bob.address, baseToken.address)
             // bob's account info:
             // totalQuote: -152.925362473060470222
             // totalBase: 1
@@ -788,12 +788,15 @@ describe("ClearingHouse addLiquidity", () => {
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
             expect(bobAccountInfo.takerBaseBalance).to.eq(parseEther("0.5"))
             expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote.div(2))
-            expect(bobAccountInfo.baseBalance).to.eq(parseEther("0.5"))
-            expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
-            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                bobTotalPosSizeBefore,
+                1,
+            )
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobTotalOpenNotionalBefore)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                bobTotalOpenNotionalBefore,
+            )
         })
 
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
@@ -835,12 +838,15 @@ describe("ClearingHouse addLiquidity", () => {
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("1"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(bobTakerQuote)
-            expect(bobAccountInfo.baseBalance).to.be.closeTo(bobBase, 1)
-            expect(bobAccountInfo.quoteBalance).to.eq(bobQuote)
 
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
-            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                bobTotalPosSizeBefore,
+                1,
+            )
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobTotalOpenNotionalBefore)
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                bobTotalOpenNotionalBefore,
+            )
         })
 
         it("adding liquidity using taker position and somebody trade", async () => {

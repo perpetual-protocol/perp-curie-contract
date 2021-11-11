@@ -189,13 +189,11 @@ describe("ClearingHouse.swap", () => {
     })
 
     describe("increase long position (Q2B)", () => {
-        let bobQuoteBalanceBefore
         let initOpenNotional
         let posSizeBefore
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
             await deposit(bob, vault, 25, collateral)
-            ;[, bobQuoteBalanceBefore] = await clearingHouse.getTokenBalance(bob.address, quoteToken.address)
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
