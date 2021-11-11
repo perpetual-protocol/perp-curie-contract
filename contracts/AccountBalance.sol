@@ -89,8 +89,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             getTakerPositionSize(maker, baseToken) == 0 &&
             IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
         ) {
-            // AB_IQBAR: inconsistent quote balance and realizedPnl
+            // only need to take care of taker's accounting when there's no order
             int256 takerQuote = _accountMarketMap[maker][baseToken].takerQuoteBalance;
+            // AB_IQBAR: inconsistent quote balance and realizedPnl
             require(realizedPnl.abs() <= takerQuote.abs(), "AB_IQBAR");
             realizedPnl = takerQuote;
         }
