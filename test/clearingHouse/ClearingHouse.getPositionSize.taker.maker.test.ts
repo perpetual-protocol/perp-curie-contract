@@ -2,6 +2,7 @@ import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook } from "../../typechain"
 import {
     addOrder,
+    b2qExactInput,
     closePosition,
     getOrderIds,
     q2bExactInput,
@@ -85,7 +86,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // bob: -40b +500q
             // pool: 160/2500 => 200/2000
             await mintAndDeposit(fixture, bob, 1000)
-            await q2bExactInput(fixture, bob, 40, baseToken.address)
+            await b2qExactInput(fixture, bob, 40, baseToken.address)
         })
 
         it("won't impact taker's position", async () => {
@@ -108,7 +109,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
                 // maker in pool: 100b, 1000q
                 // impermanent pos: 20b, -250q
                 // taker pos: +20b -250q => +40b, -500q (increase position)
-                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("40"))
+                expect(await getTakerPositionSize(alice, baseToken)).closeTo(parseEther("40"), 2)
                 expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-500"))
             })
         }
@@ -128,8 +129,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
                 // 50% of maker base/quote: -40b, -625q
                 // realize pos: 10b, -125q
                 // taker pos: +20b -250q => +30b, -375q (increase position)
-                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("20"))
-                expect(await getTakerOpenNotional(alice, baseToken)).eq(parseEther("-375"))
+                expect(await getTakerPositionSize(alice, baseToken)).eq(parseEther("30"))
+                expect(await getTakerOpenNotional(alice, baseToken)).closeTo(parseEther("-375"), 1)
             })
         }
 
