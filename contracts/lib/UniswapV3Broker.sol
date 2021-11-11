@@ -83,10 +83,12 @@ library UniswapV3Broker {
         // zero inputs
         require(params.base > 0 || params.quote > 0, "UB_ZIs");
 
+        (uint160 sqrtMarkPrice, , , , , , ) = getSlot0(params.pool);
+
         // get the equivalent amount of liquidity from amount0 & amount1 with current price
         uint128 liquidity =
             LiquidityAmounts.getLiquidityForAmounts(
-                getSqrtMarkPriceX96(params.pool),
+                sqrtMarkPrice,
                 TickMath.getSqrtRatioAtTick(params.lowerTick),
                 TickMath.getSqrtRatioAtTick(params.upperTick),
                 params.base,
@@ -184,12 +186,20 @@ library UniswapV3Broker {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
-    function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
-        (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
-    }
-
-    function getTick(address pool) internal view returns (int24 tick) {
-        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+    function getSlot0(address pool)
+        internal
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint8 feeProtocol,
+            bool unlocked
+        )
+    {
+        return IUniswapV3Pool(pool).slot0();
     }
 
     function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
@@ -205,7 +215,8 @@ library UniswapV3Broker {
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
         // return the current price as twapInterval is too short/ meaningless
         if (twapInterval < 10) {
-            return getSqrtMarkPriceX96(pool);
+            (uint160 sqrtMarkPrice, , , , , , ) = getSlot0(pool);
+            return sqrtMarkPrice;
         }
         uint32[] memory secondsAgos = new uint32[](2);
 
@@ -262,7 +273,7 @@ library UniswapV3Broker {
         int256 signedScaledAmountForReplaySwap,
         uint256 feeGrowthGlobalX128
     ) internal view returns (SwapState memory) {
-        (uint160 sqrtMarkPrice, int24 tick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        (uint160 sqrtMarkPrice, int24 tick, , , , , ) = getSlot0(pool);
         uint128 liquidity = IUniswapV3Pool(pool).liquidity();
         return
             SwapState({

@@ -216,8 +216,8 @@ contract Exchange is
         }
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
-        uint256 sqrtPrice =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
+        (uint256 sqrtPrice, , , , , , ) =
+            UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
             params.trader,
             params.baseToken,
@@ -417,7 +417,8 @@ contract Exchange is
     }
 
     function getTick(address baseToken) public view override returns (int24) {
-        return UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        return tick;
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {

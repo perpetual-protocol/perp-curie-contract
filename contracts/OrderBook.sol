@@ -127,7 +127,7 @@ contract OrderBook is
                 )
             );
 
-            int24 currentTick = UniswapV3Broker.getTick(pool);
+            (, int24 currentTick, , , , , ) = UniswapV3Broker.getSlot0(pool);
             // initialize tick info
             if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
                 tickMap.initialize(
@@ -257,13 +257,14 @@ contract OrderBook is
 
         // funding of liquidity coefficient
         uint256 orderIdLength = orderIds.length;
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(pool),
+                    tick,
                     fundingGrowthGlobal.twPremiumX96,
                     fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                 );
@@ -533,13 +534,14 @@ contract OrderBook is
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(pool),
+                    tick,
                     fundingGrowthGlobal.twPremiumX96,
                     fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                 );
@@ -696,12 +698,13 @@ contract OrderBook is
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
 
+            (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(params.pool);
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     openOrder.lowerTick,
                     openOrder.upperTick,
-                    UniswapV3Broker.getTick(params.pool),
+                    tick,
                     params.globalFundingGrowth.twPremiumX96,
                     params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
@@ -768,8 +771,8 @@ contract OrderBook is
         // if current price > lower tick, maker has quote
         // case 2 : current price > upper tick
         //  --> maker only has quote token
-        uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        (uint160 sqrtMarkPriceX96, , , , , , ) =
+            UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         uint256 tokenAmount;
         uint256 orderIdLength = orderIds.length;
 
@@ -812,11 +815,12 @@ contract OrderBook is
         view
         returns (uint256 owedFee, uint256 feeGrowthInsideX128)
     {
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
             order.lowerTick,
             order.upperTick,
-            UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken)),
+            tick,
             _feeGrowthGlobalX128Map[baseToken]
         );
         owedFee = FullMath.mulDiv(
