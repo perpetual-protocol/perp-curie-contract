@@ -453,13 +453,10 @@ contract Exchange is
 
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
         // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-
-        return
-            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                IAccountBalance(_accountBalance).getQuote(trader, baseToken)
-            );
+        int256 makerQuoteBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, false);
+        int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
+        return makerQuoteBalance.add(takerQuoteBalance);
     }
 
     function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
