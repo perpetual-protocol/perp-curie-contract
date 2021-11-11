@@ -42,14 +42,6 @@ interface IAccountBalance {
         int256 fee
     ) external;
 
-    function addBalance(
-        address trader,
-        address baseToken,
-        int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
-    ) external;
-
     function addTakerBalances(
         address trader,
         address baseToken,

@@ -84,7 +84,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 realizedPnl,
         int256 fee
     ) external override onlyClearingHouse {
-        _addBalance(maker, baseToken, base, quote, fee);
+        _owedRealizedPnlMap(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         // to avoid dust, let realizedPnl = getQuote() when there's no order
         if (
@@ -100,16 +100,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _deregisterBaseToken(maker, baseToken);
     }
 
-    function addBalance(
-        address trader,
-        address baseToken,
-        int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
-    ) external override onlyClearingHouse {
-        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
-    }
-
     function addTakerBalances(
         address trader,
         address baseToken,
@@ -119,7 +109,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 deltaTakerQuote,
         int256 owedRealizedPnl
     ) external override onlyExchangeOrClearingHouse {
-        _addBalance(trader, baseToken, base, quote, owedRealizedPnl);
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
@@ -351,20 +340,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // INTERNAL NON-VIEW
     //
 
-    // TODO no more base/quote
-    function _addBalance(
-        address trader,
-        address baseToken,
-        int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
-    ) internal {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.baseBalance = accountInfo.baseBalance.add(base);
-        accountInfo.quoteBalance = accountInfo.quoteBalance.add(quote);
-        _addOwedRealizedPnl(trader, owedRealizedPnl);
-    }
-
     function _modifyTakerBalance(
         address trader,
         address baseToken,
@@ -383,7 +358,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 amount
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.quoteBalance = accountInfo.quoteBalance.sub(amount);
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
         _addOwedRealizedPnl(trader, amount);
     }

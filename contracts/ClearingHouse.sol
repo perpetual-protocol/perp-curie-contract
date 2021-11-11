@@ -192,7 +192,7 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // if useTakerBalance, use addTakerBalance() instead of addBalance() to modify takerBalances
+        // if !useTakerBalance, takerBalance won't change, only need to collects fee to oweRealizedPnl
         if (params.useTakerBalance) {
             bool isBaseAdded = response.base > 0;
             bool isQuoteAdded = response.quote > 0;
@@ -244,13 +244,7 @@ contract ClearingHouse is
                 response.fee.toInt256()
             );
         } else {
-            IAccountBalance(_accountBalance).addBalance(
-                trader,
-                params.baseToken,
-                response.base.neg256(),
-                response.quote.neg256(),
-                response.fee.toInt256()
-            );
+            IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
