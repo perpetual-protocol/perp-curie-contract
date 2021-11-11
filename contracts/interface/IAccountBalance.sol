@@ -29,6 +29,7 @@ interface IAccountBalance {
     /// @param baseToken The address of the market's base token
     /// @param base Amount of base token removed from pool
     /// @param quote Amount of quote token removed from pool
+    /// @param realizedPnl Amount of pnl realized
     /// @param fee Amount of fee collected from pool
     function settleBalanceAndDeregister(
         address maker,
@@ -37,6 +38,7 @@ interface IAccountBalance {
         int256 quote,
         int256 deltaTakerBase,
         int256 deltaTakerQuote,
+        int256 realizedPnl,
         int256 fee
     ) external;
 

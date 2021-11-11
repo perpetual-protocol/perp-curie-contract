@@ -150,7 +150,7 @@ describe("ClearingHouse closePosition", () => {
 
             // after removing liquidity, maker's unrealizedPnl becomes owedRealizedPnl, thus getting the first element [0] of the array
             owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
-            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
+            expect(owedOrUnrealizedPnlMaker).to.be.closeTo(pnlMaker, 1)
         })
 
         it("two takers open position and then close; one maker", async () => {
@@ -235,7 +235,7 @@ describe("ClearingHouse closePosition", () => {
 
             // after removing liquidity, maker's unrealizedPnl becomes owedRealizedPnl, thus getting the first element [0] of the array
             owedOrUnrealizedPnlMaker = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
-            expect(owedOrUnrealizedPnlMaker).to.eq(pnlMaker)
+            expect(owedOrUnrealizedPnlMaker).to.be.closeTo(pnlMaker, 1)
         })
     })
 

@@ -1096,6 +1096,9 @@ describe("ClearingHouse funding", () => {
                     let liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 50000, 50200))
                         .liquidity
 
+                    // takerBaseBalance: -1.2
+                    // takerQuoteBalance: 180.149240114722163229
+
                     // carol removes all her liquidity; all pending funding payment should be settled
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.654045517856872802 * (148.9111525791 - 150.953124) * 3601 / 86400 = 0.05566305164
@@ -1124,12 +1127,24 @@ describe("ClearingHouse funding", () => {
                         )
                         .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
+                        .to.emit(accountBalance, "TakerBalancesChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            "545954482143127198", // deltaTakerBase
+                            "-81968929408810265891", // deltaTakerQuote
+                        )
+                    // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998
+                    // reducedOpenNotional = 0.4549620685 * 180.149240114722163229 = 81.961070912759179239
+                    // deltaAvailableQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
+                    // realized pnl: 81.961070912759179239 + -81.968929408810265891 = -0.007858496051
 
                     let collectedFee = parseEther("0.819689294088102658")
                     let fundingPayment = parseEther("0.055663051642020131")
                     // verify owedRealizedPnl
                     const [owedRealizedPnlAfter] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
+                    // -0.055663051642020131(fundingPayment) + 0.819689294088102658(fee) + (-0.007858496051(realizedPnl)) = 0.756167746394995875
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.756167746394995875"))
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
 
                     // alice's funding payment shouldn't be affected by carol's liquidity removal

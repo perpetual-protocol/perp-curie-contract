@@ -9,8 +9,8 @@ import { MockContract } from "@eth-optimism/smock"
 export async function initMarket(
     fixture: ClearingHouseFixture,
     initPrice: BigNumberish,
-    exFeeRatio: BigNumberish,
-    ifFeeRatio: BigNumberish,
+    exFeeRatio: BigNumberish = 1000, // 0.1%
+    ifFeeRatio: BigNumberish = 100000, // 10%
     baseToken: string = fixture.baseToken.address,
     mockedBaseAggregator: MockContract = fixture.mockedBaseAggregator,
 ): Promise<{ minTick: number; maxTick: number }> {

@@ -33,6 +33,13 @@ interface IExchange {
         uint256 fee;
     }
 
+    struct RealizePnlParams {
+        address trader;
+        address baseToken;
+        int256 deltaAvailableBase;
+        int256 deltaAvailableQuote;
+    }
+
     //
     // EVENT
     //
@@ -81,6 +88,8 @@ interface IExchange {
     function getTick(address baseToken) external view returns (int24);
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
+
+    function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);
 
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 

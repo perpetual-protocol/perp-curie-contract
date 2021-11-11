@@ -85,9 +85,8 @@ describe("ClearingHouse verify accounting", () => {
                 await checkPosSizeEmpty(wallet, baseToken)
             }
 
-            await removeOrder(fixture, maker, 0, lowerTick, upperTick, baseToken) // collect fee
-            await closePosition(fixture, maker, dustPosSize, baseToken)
             await removeAllOrders(fixture, maker, baseToken)
+            await closePosition(fixture, maker, dustPosSize, baseToken)
             await checkPosSizeEmpty(maker, baseToken)
         }
 

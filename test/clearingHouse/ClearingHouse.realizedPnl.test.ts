@@ -18,13 +18,15 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse realizedPnl", () => {
-    const [admin, maker, taker] = waffle.provider.getWallets()
+    const [admin, maker, taker, alice] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
@@ -46,22 +48,22 @@ describe("ClearingHouse realizedPnl", () => {
     const upperTick: number = 46400
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance
-        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
-        vault = _clearingHouseFixture.vault
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        baseToken2 = _clearingHouseFixture.baseToken2
-        quoteToken = _clearingHouseFixture.quoteToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
-        pool = _clearingHouseFixture.pool
-        pool2 = _clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        accountBalance = fixture.accountBalance
+        clearingHouseConfig = fixture.clearingHouseConfig
+        vault = fixture.vault
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        baseToken2 = fixture.baseToken2
+        quoteToken = fixture.quoteToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        pool = fixture.pool
+        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -100,6 +102,11 @@ describe("ClearingHouse realizedPnl", () => {
         await collateral.mint(taker.address, takerUsdcBalanceBefore)
         await collateral.connect(taker).approve(clearingHouse.address, takerUsdcBalanceBefore)
         await deposit(taker, vault, 1000, collateral)
+
+        // prepare collateral for alice
+        await collateral.mint(alice.address, takerUsdcBalanceBefore)
+        await collateral.connect(alice).approve(clearingHouse.address, takerUsdcBalanceBefore)
+        await deposit(alice, vault, 1000, collateral)
     })
 
     function findPnlRealizedEvents(receipt: TransactionReceipt): LogDescription[] {
@@ -241,5 +248,134 @@ describe("ClearingHouse realizedPnl", () => {
 
         // 1,000,000 + 9.542011399247233629 = 1,000,009.542011
         expect(makerUsdcBalance).to.deep.eq(parseUnits("1000009.542011", collateralDecimals))
+    })
+
+    describe("realize pnl when removing liquidity without fee", () => {
+        beforeEach(async () => {
+            await marketRegistry.setFeeRatio(baseToken.address, 0)
+        })
+
+        it("long first and get short position when removing liquidity", async () => {
+            // alice long 1 base token
+            await q2bExactOutput(fixture, alice, 1)
+            // base: 1.0
+            // quote: -101.480688273230966335
+            // takerBase 1.0
+            // takerQuote: -101.480688273230966335
+
+            // remove maker liquidity to maker test easier
+            const makerLiquidity = (
+                await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick)
+            ).liquidity
+            await removeOrder(fixture, maker, makerLiquidity, lowerTick, upperTick, baseToken.address)
+
+            // alice add liquidity without from taker
+            const aliceLowerTick = 46400
+            const aliceUpperTick = 46600
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: parseEther("2"),
+                quote: 0,
+                lowerTick: aliceLowerTick,
+                upperTick: aliceUpperTick,
+                minBase: parseEther("0"),
+                minQuote: parseEther("0"),
+                useTakerPosition: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+            // base: 1 - 2 = -1
+            // quote: -101.480688273230966335
+            // takerBase 1.0
+            // takerQuote: -101.480688273230966335
+            // makerBaseDebt: 2
+            // makerQuoteDebt: 0
+
+            // taker long 1 base token
+            await q2bExactOutput(fixture, taker, 1)
+            // taker's base: 1
+            // taker's quote: -104.037901139401867011
+
+            const aliceLiquidity = (
+                await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
+            ).liquidity
+
+            // remove 50% liquidity
+            await removeOrder(fixture, alice, aliceLiquidity.div(2), aliceLowerTick, aliceUpperTick, baseToken.address)
+            // baseFromPool: 0.5
+            // quoteFromPool: (104.037901139401867011) / 2 = 52.0189505697
+            // deltaTakerBase: -0.5
+            // deltaTakerQuote: 52.0189505697
+            // makerBaseDebt: 1
+            // makerQuoteDebt: 0
+            // realizedPnL: takerOpenNotional * reduceRatio + deltaTakerQuote
+            //            = -101.480688273230966335 * 0.5 + 52.0189505697
+            //            = 1.27860643308
+
+            // takerBase = 1 + (-0.5) = 0.5
+            // takerQuote: takerOpenNotional + deltaTakerQuote - realizedPnL
+            //           = -101.480688273230966335 + 52.0189505697 - 1.27860643308
+            //           = -50.7403441366
+
+            // base: base + baseFromPool = -1 + 0.5 = -0.5
+            // quote: quote + quoteFromPool - realizedPnL
+            //      = -101.480688273230966335 + 52.0189505697 - 1.27860643308
+            //      = -50.7403441366
+
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+                parseEther("0.5"),
+                1,
+            )
+            expect(await accountBalance.getTakerQuote(alice.address, baseToken.address)).to.be.eq(
+                parseEther("-50.740344136615483168"),
+            )
+            expect(await accountBalance.getBase(alice.address, baseToken.address)).to.be.closeTo(parseEther("-0.5"), 1)
+            expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(
+                parseEther("-50.740344136615483168"),
+            )
+            let owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
+            expect(owedRealizedPnl).to.be.eq(parseEther("1.278606433085450338"))
+
+            // remove the remaining liquidity
+            await removeOrder(
+                fixture,
+                alice,
+                (
+                    await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
+                ).liquidity,
+                aliceLowerTick,
+                aliceUpperTick,
+                baseToken.address,
+            )
+            // baseFromPool: 0.5
+            // quoteFromPool: (104.037901139401867011) / 2 = 52.0189505697
+            // deltaTakerBase: -0.5
+            // deltaTakerQuote: 52.0189505697
+
+            // before settle:
+            // base: base + baseFromPool = -0.5 + 0.5 = 0
+            // takerBase = 0.5 + (-0.5) = 0
+            // quote = takerQuote (no open order)
+            //       = quote + quoteFromPool
+            //       = -50.7403441366 + 52.0189505697
+            //       = 1.2786064331
+            // takerQuote: takerOpenNotional + deltaTakerQuote
+            //           = -50.740344136615483168 + 52.0189505697 - 1.27860643308
+            //           = -50.7403441366
+            // realizedPnL = quoteBalance = 1.2786064331
+
+            // after settle:
+            // quote = takerQuote
+            //       = quote - realizedPnL
+            //       = 1.2786064331 - 1.2786064331 = 0
+            // owedRealizedPnl = 1.278606433085450338 + 1.2786064331  = 2.55721286619
+
+            // alice might have dust position. so can not totally settle alice's quote and base balance
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
+            expect(await accountBalance.getTakerQuote(alice.address, baseToken.address)).to.be.eq(0)
+            expect(await accountBalance.getBase(alice.address, baseToken.address)).to.be.eq(0)
+            expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(0)
+            owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
+            expect(owedRealizedPnl).to.be.eq(parseEther("2.557212866170900675"))
+        })
     })
 })

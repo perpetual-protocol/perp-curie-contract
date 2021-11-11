@@ -304,15 +304,7 @@ contract ClearingHouse is
                 })
             );
 
-        IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            trader,
-            params.baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.deltaTakerBase,
-            response.deltaTakerQuote,
-            response.fee.toInt256()
-        );
+        _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -614,13 +606,34 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
+        _settleBalanceAndRealizePnl(maker, baseToken, response);
+    }
+
+    function _settleBalanceAndRealizePnl(
+        address trader,
+        address baseToken,
+        IOrderBook.RemoveLiquidityResponse memory response
+    ) internal {
+        int256 pnlToBeRealized;
+        if (response.deltaTakerBase != 0) {
+            pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
+                IExchange.RealizePnlParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    deltaAvailableBase: response.deltaTakerBase,
+                    deltaAvailableQuote: response.deltaTakerQuote
+                })
+            );
+        }
+
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            maker,
+            trader,
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
             response.deltaTakerBase,
             response.deltaTakerQuote,
+            pnlToBeRealized,
             response.fee.toInt256()
         );
     }

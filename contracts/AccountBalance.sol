@@ -81,11 +81,21 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 quote,
         int256 deltaTakerBase,
         int256 deltaTakerQuote,
+        int256 realizedPnl,
         int256 fee
     ) external override onlyClearingHouse {
         _addBalance(maker, baseToken, base, quote, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
-        _settleQuoteBalance(maker, baseToken);
+        // to avoid dust, let realizedPnl = getQuote() when it's the last order
+        if (
+            getTakerPositionSize(maker, baseToken) == 0 &&
+            IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
+        ) {
+            // AB_IQBAR: inconsistent quote balance and realizedPnl
+            require(realizedPnl.abs() <= getQuote(maker, baseToken).abs(), "AB_IQBAR");
+            realizedPnl = getQuote(maker, baseToken);
+        }
+        _settleQuoteToPnl(maker, baseToken, realizedPnl);
         _deregisterBaseToken(maker, baseToken);
     }
 
@@ -305,7 +315,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getTakerPositionSize(address trader, address baseToken) external view override returns (int256) {
+    function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
@@ -363,15 +373,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(deltaBase);
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
         emit TakerBalancesChanged(trader, baseToken, deltaBase, deltaQuote);
-    }
-
-    function _settleQuoteBalance(address trader, address baseToken) internal {
-        if (
-            getTotalPositionSize(trader, baseToken) == 0 &&
-            IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
-        ) {
-            _settleQuoteToPnl(trader, baseToken, getQuote(trader, baseToken));
-        }
     }
 
     function _settleQuoteToPnl(
