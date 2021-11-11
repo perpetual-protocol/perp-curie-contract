@@ -1,6 +1,33 @@
 # Deployment
 
-1. Deploy contracts
+1. Add required network settings or external addresses to `hardhat.config.ts`
+
+```ts
+const config: HardhatUserConfig = {
+    networks: {
+        hardhat: {
+            allowUnlimitedContractSize: true,
+        },
+        arbitrumRinkeby: {
+            chainId: ChainId.ARBITRUM_RINKEBY_CHAIN_ID,
+            url: ARBITRUM_RINKEBY_WEB3_ENDPOINT,
+            accounts: {
+                mnemonic: ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
+            },
+        },
+    },
+    namedAccounts: {
+        gnosisSafeAddress: {
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x123",
+        },
+        ethUsdChainlinkAggregator: {
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x456",
+        },
+    },
+}
+```
+
+2. Deploy contracts
 
 ```bash
 export ARBITRUM_RINKEBY_WEB3_ENDPOINT="YOUR_RPC_ENDPOINT"
@@ -15,28 +42,29 @@ npm run deploy:arbitrumRinkeby
 npm run deploy:arbitrumRinkeby -- --tags ClearingHouse
 ```
 
-2. **Manually execute transactions if you see the following message during deploying**
+3. **Manually execute transactions if you see the following message during deploying**
 
 ```bash
 ---------------------------------------------------------------------------------------
-No signer for YOUR_MULTISIG_WALLET_ADDRESS
+No signer for MULTISIG_WALLET_ADDRESS
 Please execute the following:
 
-from: YOUR_MULTISIG_WALLET_ADDRESS
-to: YOUR_CONTRACT_ADDRESS
+from: MULTISIG_WALLET_ADDRESS
+to: PROXYADMIN_ADDRESS
 method: upgrade
 args:
-  - 0x789
+  - PROXY_ADDRESS
+  - NEW_IMPLEMENTATION_ADDRESS
 
 (raw data: 0xabc123456789)
 ---------------------------------------------------------------------------------------
 ```
 
-3. Update CHANGELOG.md
+4. Update CHANGELOG.md
 
-4. Update `version` of `package.json` and `package-lock.json`
+5. Update `version` of `package.json` and `package-lock.json`
 
-5. Verify contracts on Tenderly
+6. Verify contracts on Tenderly
    - apply `access_key` from Tenderly settings
       - the access token on the Tenderly dashboard, under Settings -> Authorization.
    - create a `config.yaml` file at `$HOME/.tenderly/config.yaml` and add an access_key field to it:
@@ -46,13 +74,13 @@ args:
    - run `export RINKEBY_WEB3_ENDPOINT=YOUR_RPC_ENDPOINT`
    - run `npm run verify-tenderly:rinkeby`
 
-6. Verify what's included in the packed npm package
+7. Verify what's included in the packed npm package
 
 ```bash
 npm pack
 ```
 
-7. Publish npm package
+8. Publish npm package
 
 ```bash
 # push tag to trigger "Publish NPM package" workflow

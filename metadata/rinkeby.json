@@ -40,6 +40,11 @@
       "createdBlockNumber": 9491558,
       "name": "contracts/MarketRegistry.sol:MarketRegistry"
     },
+    "Multicall2": {
+      "address": "0x842fDD8707Bd9b700eC6C231E8393d463D73C74D",
+      "createdBlockNumber": 9491642,
+      "name": "contracts/lens/Multicall2.sol:Multicall2"
+    },
     "OrderBook": {
       "address": "0x7cbc678B6be9075516d84480bb5f1bE7ea67cD0F",
       "createdBlockNumber": 9491571,
@@ -49,6 +54,11 @@
       "address": "0xd6971B00d02e3e6FC9490dAf3a01BF79F604d814",
       "createdBlockNumber": 9491544,
       "name": "contracts/QuoteToken.sol:QuoteToken"
+    },
+    "Quoter": {
+      "address": "0x17c9C37A9BFb3D980cf5110541D67BcB7B1F48Ee",
+      "createdBlockNumber": 9491640,
+      "name": "contracts/lens/Quoter.sol:Quoter"
     },
     "Vault": {
       "address": "0x85130812FA2021dBF824cb5a89494A53b8abF77D",
