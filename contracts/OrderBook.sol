@@ -494,22 +494,32 @@ contract OrderBook is
         return totalQuoteAmountInPools;
     }
 
-    /// @dev note the return value includes maker fee.
-    //       getMakerBalance = totalTokenAmountInPool - totalOrderDebt
-    function getMakerBalance(
+    function getTotalOrderDebt(
         address trader,
         address baseToken,
         bool fetchBase
-    ) public view override returns (int256) {
-        int256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase).toInt256();
+    ) public view override returns (uint256) {
+        uint256 totalOrderDebt;
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         uint256 orderIdLength = orderIds.length;
         for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info memory orderInfo = _openOrderMap[orderIds[i]];
             uint256 orderDebt = fetchBase ? orderInfo.baseDebt : orderInfo.quoteDebt;
-            totalBalanceFromOrders = totalBalanceFromOrders.sub(orderDebt.toInt256());
+            totalOrderDebt = totalOrderDebt.add(orderDebt);
         }
-        return totalBalanceFromOrders;
+        return totalOrderDebt;
+    }
+
+    /// @dev note the return value includes maker fee.
+    function getMakerBalance(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) public view override returns (int256) {
+        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
     }
 
     /// @dev the returned quote amount does not include funding payment because
