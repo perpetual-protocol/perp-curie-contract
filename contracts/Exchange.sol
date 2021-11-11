@@ -665,7 +665,7 @@ contract Exchange is
         uint256 closedRatio =
             FullMath.mulDiv(params.deltaAvailableBase.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
 
-        int256 realizedPnl;
+        int256 pnlToBeRealized;
         // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
         if (closedRatio <= _FULLY_CLOSED_RATIO) {
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
@@ -687,7 +687,7 @@ contract Exchange is
             // only overflow when oldOpenNotional < -2 ^ 255 / 1e18 or oldOpenNotional > 2 ^ 255 / 1e18
             int256 reducedOpenNotional =
                 params.takerOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULLY_CLOSED_RATIO));
-            realizedPnl = params.deltaAvailableQuote.add(reducedOpenNotional);
+            pnlToBeRealized = params.deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
             // taker:
@@ -709,10 +709,10 @@ contract Exchange is
             // max delta quote = 2 ^ 128 * (sqrt(1.0001 ^ 887272) - sqrt(1.0001 ^ -887272)) = 6.276865796e57 < 2 ^ 255
             int256 closedPositionNotional =
                 params.deltaAvailableQuote.mul(int256(_FULLY_CLOSED_RATIO)).div(closedRatio.toInt256());
-            realizedPnl = params.takerOpenNotional.add(closedPositionNotional);
+            pnlToBeRealized = params.takerOpenNotional.add(closedPositionNotional);
         }
 
-        return realizedPnl;
+        return pnlToBeRealized;
     }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
