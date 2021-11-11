@@ -83,7 +83,7 @@ describe("ClearingHouse withdraw", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             }
             // will mint 0.122414646 quote and transfer to pool
@@ -165,7 +165,7 @@ describe("ClearingHouse withdraw", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -251,7 +251,7 @@ describe("ClearingHouse withdraw", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

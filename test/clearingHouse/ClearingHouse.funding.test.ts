@@ -89,7 +89,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -146,7 +146,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50600,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 // settleFunding:
@@ -164,7 +164,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 51200,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 // settleFunding:
@@ -259,7 +259,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
@@ -277,7 +277,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
             })
@@ -488,7 +488,7 @@ describe("ClearingHouse funding", () => {
                     //         upperTick: 50400,
                     //         minBase: 0,
                     //         minQuote: 0,
-                    //         useTakerPosition: false,
+                    //         useTakerBalance: false,
                     //         deadline: ethers.constants.MaxUint256,
                     //     }),
                     // )
@@ -506,7 +506,7 @@ describe("ClearingHouse funding", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     })
 
@@ -694,7 +694,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -723,7 +723,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -898,7 +898,7 @@ describe("ClearingHouse funding", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     })
 
@@ -1034,7 +1034,7 @@ describe("ClearingHouse funding", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     })
 
@@ -1174,7 +1174,7 @@ describe("ClearingHouse funding", () => {
                     upperTick: 80000,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 

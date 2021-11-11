@@ -69,7 +69,7 @@ describe("Vault test", () => {
             upperTick: 150000,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
     })
