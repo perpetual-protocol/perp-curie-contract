@@ -84,7 +84,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 realizedPnl,
         int256 fee
     ) external override onlyClearingHouse {
-        _owedRealizedPnlMap(maker, fee);
+        _addOwedRealizedPnl(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         // to avoid dust, let realizedPnl = getQuote() when there's no order
         if (
