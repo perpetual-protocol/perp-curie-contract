@@ -610,7 +610,7 @@ contract ClearingHouse is
     }
 
     function _settleBalanceAndRealizePnl(
-        address trader,
+        address maker,
         address baseToken,
         IOrderBook.RemoveLiquidityResponse memory response
     ) internal {
@@ -618,7 +618,7 @@ contract ClearingHouse is
         if (response.deltaTakerBase != 0) {
             pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
                 IExchange.RealizePnlParams({
-                    trader: trader,
+                    trader: maker,
                     baseToken: baseToken,
                     deltaAvailableBase: response.deltaTakerBase,
                     deltaAvailableQuote: response.deltaTakerQuote
@@ -627,7 +627,7 @@ contract ClearingHouse is
         }
 
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            trader,
+            maker,
             baseToken,
             response.base.toInt256(),
             response.quote.toInt256(),
