@@ -231,13 +231,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            AccountMarket.Info memory info = _accountMarketMap[trader][baseToken];
+            int256 baseBalance = getBase(trader, baseToken);
             int256 baseDebtValue =
-                info.baseBalance >= 0 ? 0 : info.baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
+                baseBalance >= 0 ? 0 : baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
 
             // we can't calculate totalQuoteDebtValue until we have totalQuoteBalance
-            totalQuoteBalance = totalQuoteBalance.add(info.quoteBalance);
+            totalQuoteBalance = totalQuoteBalance.add(getQuote(trader, baseToken));
         }
         int256 totalQuoteDebtValue = totalQuoteBalance >= 0 ? 0 : totalQuoteBalance;
 
@@ -268,6 +268,18 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         returns (AccountMarket.Info memory)
     {
         return _accountMarketMap[trader][baseToken];
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getBase(address trader, address baseToken) public view override returns (int256) {
+        uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
+        return _accountMarketMap[trader][baseToken].takerBaseBalance.sub(orderDebt.toInt256());
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getQuote(address trader, address baseToken) public view override returns (int256) {
+        uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
+        return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
     }
 
     // @inheritdoc IAccountBalance
@@ -339,6 +351,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // INTERNAL NON-VIEW
     //
 
+    // TODO no more base/quote
     function _addBalance(
         address trader,
         address baseToken,
@@ -385,7 +398,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @dev this function is expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         AccountMarket.Info memory info = _accountMarketMap[trader][baseToken];
-        if (info.baseBalance.abs() >= _DUST || info.quoteBalance.abs() >= _DUST) {
+        if (info.takerBaseBalance.abs() >= _DUST || info.takerQuoteBalance.abs() >= _DUST) {
             return;
         }
 

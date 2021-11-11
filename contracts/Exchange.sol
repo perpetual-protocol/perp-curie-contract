@@ -270,13 +270,12 @@ contract Exchange is
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
         int256 fundingPayment =
             _updateFundingGrowth(
                 trader,
                 baseToken,
-                accountInfo.baseBalance,
-                accountInfo.lastTwPremiumGrowthGlobalX96,
+                IAccountBalance(_accountBalance).getBase(trader, baseToken),
+                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal
             );
 
