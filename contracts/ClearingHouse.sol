@@ -621,8 +621,6 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
             response.deltaTakerBase,
             response.deltaTakerQuote,
             pnlToBeRealized,

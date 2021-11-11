@@ -77,8 +77,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
-        int256 base,
-        int256 quote,
         int256 deltaTakerBase,
         int256 deltaTakerQuote,
         int256 realizedPnl,
