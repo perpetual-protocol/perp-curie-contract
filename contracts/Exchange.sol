@@ -352,15 +352,14 @@ contract Exchange is
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
-        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
             IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _getPendingFundingPaymentWithLiquidityCoefficient(
-                accountInfo.baseBalance,
-                accountInfo.lastTwPremiumGrowthGlobalX96,
+                IAccountBalance(_accountBalance).getBase(trader, baseToken),
+                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
