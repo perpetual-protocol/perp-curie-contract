@@ -509,6 +509,7 @@ contract OrderBook is
         return totalOrderDebt;
     }
 
+    // @audit consider remove for bytecode size - @wraecca
     /// @dev note the return value includes maker fee.
     function getMakerBalance(
         address trader,
