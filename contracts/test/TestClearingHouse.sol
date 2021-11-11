@@ -7,9 +7,6 @@ import "./TestAccountBalance.sol";
 import "./TestExchange.sol";
 
 contract TestClearingHouse is ClearingHouse {
-    using PerpSafeCast for uint256;
-    using SignedSafeMathUpgradeable for int256;
-
     uint256 private _testBlockTimestamp;
 
     function __TestClearingHouse_init(
@@ -70,25 +67,9 @@ contract TestClearingHouse is ClearingHouse {
             );
     }
 
-    // legacy function, leave it here for test case backward compatible
-    function getTokenBalance(address trader, address baseToken) external view returns (int256 base, int256 quote) {
-        {
-            // getBase = takerBase - totalOrderDebt(base)
-            // totalOrderDebt(base) = totalTokenAmountInPool(base) - makerBalance(base)
-            uint256 totalTokenAmountInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
-            int256 makerBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, true);
-            int256 totalOrderDebt = totalTokenAmountInPool.toInt256().sub(makerBalance);
-            int256 takerBase = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
-            base = takerBase.sub(totalOrderDebt);
-        }
-        {
-            // getQuote = takerQuote - totalOrderDebt(quote)
-            // totalOrderDebt(quote) = totalTokenAmountInPool(quote) - makerBalance(quote)
-            uint256 totalTokenAmountInPool = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-            int256 makerBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, false);
-            int256 totalOrderDebt = totalTokenAmountInPool.toInt256().sub(makerBalance);
-            int256 takerQuote = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
-            quote = takerQuote.sub(totalOrderDebt);
-        }
+    function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {
+        int256 base = IAccountBalance(_accountBalance).getBase(trader, baseToken);
+        int256 quote = IAccountBalance(_accountBalance).getQuote(trader, baseToken);
+        return (base, quote);
     }
 }
