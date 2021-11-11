@@ -899,7 +899,7 @@ describe("ClearingHouse addLiquidity", () => {
                     parseEther("-60.988779581551447382"), // we don't care about this value. it's from console.log.
                 )
                 .to.emit(clearingHouse, "TakerBalancesChanged")
-                .to.emit(orderBook, "LiquidityChanged")
+                .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
