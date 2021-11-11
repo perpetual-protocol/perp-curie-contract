@@ -750,7 +750,7 @@ describe("ClearingHouse addLiquidity", () => {
             await q2bExactOutput(fixture, bob, 1)
             bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerQuoteBalance
             bobBase = await accountBalance.getBase(bob.address, baseToken.address)
-            bobQuote = await exchange.getQuote(bob.address, baseToken.address)
+            bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
             // bob's account info:
             // totalQuote: -152.925362473060470222
             // totalBase: 1
