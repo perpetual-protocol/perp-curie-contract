@@ -281,6 +281,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken].takerQuoteBalance;
     }
 
+    // @audit suggest to remove - @wraecca
     /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
         int256 totalQuoteBalance;

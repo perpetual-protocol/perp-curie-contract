@@ -461,7 +461,6 @@ contract OrderBook is
         return false;
     }
 
-    // TODO @deprecated
     /// @dev note the return value includes maker fee.
     ///      For more details please refer to _getTotalTokenAmountInPool() docstring
     function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens)
