@@ -29,7 +29,6 @@ interface IOrderBook {
         uint256 quote;
         uint256 fee;
         uint128 liquidity;
-        bytes32 orderId;
     }
 
     struct RemoveLiquidityResponse {

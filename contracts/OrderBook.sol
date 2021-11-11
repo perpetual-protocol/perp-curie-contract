@@ -171,8 +171,7 @@ contract OrderBook is
                 base: response.base,
                 quote: response.quote,
                 fee: fee,
-                liquidity: response.liquidity,
-                orderId: orderId
+                liquidity: response.liquidity
             });
     }
 
