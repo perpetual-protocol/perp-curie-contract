@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- use the new NPM package name: `@perp/curie-contract`
 - rename `AccountBalance.getLiquidateMarginRequirement` to `AccountBalance.getMarginRequirementForLiquidation`
 - rename `Vault.balanceOf` to `Vault.getBalance`
 - rename `AccountBalance.getPositionSize` to `AccountBalance.getTotalPositionSize`
