@@ -194,8 +194,6 @@ contract Exchange is
             params.baseToken,
             response.exchangedPositionSize,
             response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
             0
         );
 

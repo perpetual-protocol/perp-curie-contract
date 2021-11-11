@@ -237,8 +237,6 @@ contract ClearingHouse is
             IAccountBalance(_accountBalance).addTakerBalances(
                 trader,
                 params.baseToken,
-                response.base.neg256(),
-                response.quote.neg256(),
                 deltaBaseDebt,
                 deltaQuoteDebt,
                 response.fee.toInt256()

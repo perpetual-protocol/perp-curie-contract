@@ -103,8 +103,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function addTakerBalances(
         address trader,
         address baseToken,
-        int256 base,
-        int256 quote,
         int256 deltaTakerBase,
         int256 deltaTakerQuote,
         int256 owedRealizedPnl
@@ -221,8 +219,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
             int256 baseBalance = getBase(trader, baseToken);
-            int256 baseDebtValue =
-                baseBalance >= 0 ? 0 : baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
+            int256 baseDebtValue;
+            // baseDebt = baseBalance when it's negative
+            if (baseBalance < 0) {
+                // baseDebtValue = baseDebt * indexPrice
+                baseDebtValue = baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
+            }
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
 
             // we can't calculate totalQuoteDebtValue until we have totalQuoteBalance
@@ -262,12 +264,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getBase(address trader, address baseToken) public view override returns (int256) {
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
+        // base = takerBaseBalance - orderBaseDebt
         return _accountMarketMap[trader][baseToken].takerBaseBalance.sub(orderDebt.toInt256());
     }
 
     /// @inheritdoc IAccountBalance
     function getQuote(address trader, address baseToken) public view override returns (int256) {
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
+        // quote = takerQuoteBalance - orderQuoteDebt
         return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
     }
 
@@ -276,7 +280,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken].takerQuoteBalance;
     }
 
-    // @audit suggest to remove - @wraecca
+    // @audit suggest to change to internal if no one use it - @wraecca
     /// @inheritdoc IAccountBalance
     function getNetQuoteBalance(address trader) public view override returns (int256) {
         int256 totalTakerQuoteBalance;
