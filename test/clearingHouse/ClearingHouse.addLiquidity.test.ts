@@ -40,8 +40,6 @@ describe("ClearingHouse addLiquidity", () => {
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let collateralDecimals: number
-    let baseAmount: BigNumber
-    let quoteAmount: BigNumber
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -59,8 +57,6 @@ describe("ClearingHouse addLiquidity", () => {
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
-        baseAmount = parseUnits("100", await baseToken.decimals())
-        quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
@@ -95,7 +91,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 expect(result.base).to.be.eq("0")
@@ -114,7 +110,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -171,7 +167,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -225,7 +221,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 expect(result.base).to.be.eq(parseUnits("66.061845430469484023", await baseToken.decimals()))
@@ -244,7 +240,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -301,7 +297,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -357,7 +353,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -369,7 +365,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -411,7 +407,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZIs")
@@ -427,7 +423,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -443,7 +439,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -459,7 +455,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -475,7 +471,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -491,7 +487,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("CH_NEFCI")
@@ -507,7 +503,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("UB_ZL")
@@ -533,7 +529,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -547,7 +543,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("OB_ONE")
@@ -562,7 +558,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.emit(clearingHouse, "LiquidityChanged")
@@ -580,7 +576,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -594,7 +590,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 ).to.be.revertedWith("AB_MNE")
@@ -621,7 +617,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -678,7 +674,7 @@ describe("ClearingHouse addLiquidity", () => {
                         upperTick: 50400,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
@@ -730,6 +726,9 @@ describe("ClearingHouse addLiquidity", () => {
         let bobBase
         let bobQuote
 
+        const aliceLowerTick = 50000
+        const aliceUpperTick = 50400
+
         beforeEach(async () => {
             await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
             // add pool after it's initialized
@@ -739,20 +738,24 @@ describe("ClearingHouse addLiquidity", () => {
                 baseToken: baseToken.address,
                 base: parseEther("100"),
                 quote: parseEther("10000"),
-                lowerTick: "50000",
-                upperTick: "50400",
+                lowerTick: aliceLowerTick,
+                upperTick: aliceUpperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
             // bob long 1 base token
             await q2bExactOutput(fixture, bob, 1)
             bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerQuoteBalance
-
             bobBase = await accountBalance.getBase(bob.address, baseToken.address)
             bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
+            // bob's account info:
+            // totalQuote: -152.925362473060470222
+            // totalBase: 1
+            // takerQuote: -152.925362473060470222
+            // takerBase: 1
         })
 
         it("existing position size is enough for adding liquidity", async () => {
@@ -768,7 +771,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
@@ -804,7 +807,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: upperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: true,
+                useTakerBalance: true,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -840,27 +843,26 @@ describe("ClearingHouse addLiquidity", () => {
             expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
-        // TODO add liquidity within range will revert, skip this and need to add another test
-        it.skip("adding liquidity using taker position and somebody trade", async () => {
-            const lowerTick = 50200
-            const upperTick = 50400
+        it("adding liquidity using taker position and somebody trade", async () => {
+            const lowerTick = 50400
+            const upperTick = 50600
 
             // remove alice liquidity to maker test easier
             const aliceLiquidity = (
-                await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
             ).liquidity
-            await removeOrder(fixture, alice, aliceLiquidity, lowerTick, upperTick, baseToken.address)
+            await removeOrder(fixture, alice, aliceLiquidity, aliceLowerTick, aliceUpperTick, baseToken.address)
 
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
-                    quote: parseEther("200"),
+                    quote: 0,
                     lowerTick: lowerTick,
                     upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
@@ -868,8 +870,8 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"),
-                    parseEther("-0.764587724766731814"), // we don't care about this value. it's from console.log.
+                    parseEther("-0.5"), // using 50% taker base to add liquidity
+                    bobTakerQuote.div(2).mul(-1), // move 50% taker quote debt to maker
                 )
 
             // alice long 0.1 base token
@@ -894,25 +896,59 @@ describe("ClearingHouse addLiquidity", () => {
                     bob.address,
                     baseToken.address,
                     parseEther("0.399999999999999999"),
-                    parseEther("15.934819950449552973"), // we don't care about this value. it's from console.log.
+                    parseEther("-60.988779581551447382"), // we don't care about this value. it's from console.log.
+                )
+                .to.emit(clearingHouse, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "LiquidityChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    quoteToken.address,
+                    lowerTick,
+                    upperTick,
+                    parseEther("-0.399999999999999999"),
+                    parseEther("-15.473901654978787729"), // we don't care about this value. it's from console.log.
+                    bobLiquidity.mul(-1),
+                    parseEther("0.156302036918977653"), // we don't care about this value. it's from console.log.
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("0.9"),
                 1,
             )
+
+            // totalQuote = totalQuote(before) + quoteRemovedFromPool
+            //            = -152.925362473060470222 + 15.473901654978787729
+            //            = -137.451460818
+
+            // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
+            //            = -152.925362473060470222 /2 + (-60.988779581551447382)
+            //            = -137.451460818
+            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.9"), 1)
+            expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-137.451460818081682493"))
+            expect(bobAccountInfo.baseBalance).to.be.closeTo(parseEther("0.9"), 1)
+            expect(bobAccountInfo.quoteBalance).to.eq(parseEther("-137.451460818081682493"))
+
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                parseEther("0.9"),
+                1,
+            )
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-137.451460818081682493"))
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                parseEther("-137.451460818081682493"),
+            )
         })
 
-        // TODO add liquidity within range will revert, skip this and need to add another test
-        it.skip("adding liquidity twice, one is using taker position and the second one without using taker position", async () => {
+        it("adding liquidity twice, one is using taker position and the second one without using taker position", async () => {
             const lowerTick = 50400
             const upperTick = 50600
 
             // remove alice liquidity to maker test easier
             const aliceLiquidity = (
-                await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
             ).liquidity
-            await removeOrder(fixture, alice, aliceLiquidity, lowerTick, upperTick, baseToken.address)
+            await removeOrder(fixture, alice, aliceLiquidity, aliceLowerTick, aliceUpperTick, baseToken.address)
 
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
@@ -923,7 +959,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
@@ -943,12 +979,12 @@ describe("ClearingHouse addLiquidity", () => {
                 await clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
-                    quote: "0",
+                    quote: parseEther("19.342377068723484663"),
                     lowerTick: lowerTick,
                     upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.not.emit(accountBalance, "TakerBalancesChanged")
@@ -958,13 +994,40 @@ describe("ClearingHouse addLiquidity", () => {
 
             const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
                 .liquidity
+
             await removeOrder(fixture, bob, bobLiquidity, lowerTick, upperTick, baseToken.address)
+
+            // baseRemovedFromPool: 0.799999999999999999
+            // quoteRemovedFromPool: 50.334785991896479848
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("0.8"),
                 1,
             )
-            // TODO: should check accountInfo.quoteBalance and accountInfo.baseBalance
+
+            // totalQuote = totalQuote(before) - quoteDebt + quoteRemovedFromPool
+            //            = -152.925362473060470222 - 19.342377068723484663 + 50.334785991896479848
+            //            = -121.93295355
+
+            // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
+            //            = takerQuote(before) * ratio to add liquidity + (quoteRemovedFromPool - (quoteDebt from taker + quoteDebt))
+            //            = -152.925362473060470222*0.5 + (50.334785991896479848-(152.925362473060470222*0.5+19.342377068723484663))
+            //            = -121.93295355
+
+            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.8"), 1)
+            expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-121.932953549887475037"))
+            expect(bobAccountInfo.baseBalance).to.be.closeTo(parseEther("0.8"), 1)
+            expect(bobAccountInfo.quoteBalance).to.eq(parseEther("-121.932953549887475037"))
+
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                parseEther("0.8"),
+                1,
+            )
+            expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-121.932953549887475037"))
+            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                parseEther("-121.932953549887475037"),
+            )
         })
 
         it("force error, existing position size is not enough for adding liquidity", async () => {
@@ -978,7 +1041,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: "50600",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.be.revertedWith("CH_TBNE")
@@ -997,7 +1060,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: "50000",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.be.revertedWith("CH_TQNE")
@@ -1014,7 +1077,7 @@ describe("ClearingHouse addLiquidity", () => {
                     upperTick: "50600",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: true,
+                    useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
                 }),
             ).to.be.revertedWith("CH_CALWRFTP")
@@ -1035,7 +1098,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -1047,7 +1110,7 @@ describe("ClearingHouse addLiquidity", () => {
                 upperTick: 50600,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
         })

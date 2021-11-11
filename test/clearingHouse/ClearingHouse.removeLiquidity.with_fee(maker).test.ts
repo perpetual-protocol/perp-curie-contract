@@ -100,7 +100,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     upperTick, // 151.3733069
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // will mint 0.122414646 quote -> transfer to pool
@@ -230,7 +230,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }
                     // 0.000816820841 base -> transfer to pool
@@ -337,7 +337,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         quote: "0",
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     }
                     // 0.000816820841 base -> transfer to pool
@@ -476,7 +476,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     quote: "0",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.002450462523 base to pool
@@ -491,7 +491,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     quote: "0",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // transfer 0.000816820841 base to pool
@@ -654,7 +654,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     quote: "0",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // will transfer 0.001625514583 base to pool
@@ -670,7 +670,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     quote: "0",
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }
                 // will transfer 0.000816820841 base to pool
@@ -887,7 +887,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     upperTick,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 // alice.liquidity = 82.510524933187653357
@@ -921,7 +921,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         upperTick: upperTick + 200,
                         minBase: 0,
                         minQuote: 0,
-                        useTakerPosition: false,
+                        useTakerBalance: false,
                         deadline: ethers.constants.MaxUint256,
                     })
                 ).wait()
@@ -960,7 +960,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 upperTick, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             }
             await clearingHouse.connect(alice).addLiquidity(addLiquidityParams)
@@ -1049,7 +1049,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 quote: "0",
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             }
             // transfer 0.002450462523 base to pool
@@ -1064,7 +1064,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 quote: "0",
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             }
             // transfer 0.000816820841 base to pool

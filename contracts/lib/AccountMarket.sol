@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
-import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpFixedPoint96 } from "./PerpFixedPoint96.sol";
 import { PerpMath } from "./PerpMath.sol";
 

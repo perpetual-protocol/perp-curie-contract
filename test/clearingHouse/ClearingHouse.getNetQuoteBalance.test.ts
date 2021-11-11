@@ -86,7 +86,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 50200, // 151.3733069
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -103,7 +103,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 50800,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -120,7 +120,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 100000, // $22015.4560485522
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.deep.eq(
@@ -140,7 +140,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 100000, // 22015.4560485522
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -193,7 +193,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 100000, // 22015.4560485522
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -205,7 +205,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 upperTick: 50800, // 160.7332272258
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 

@@ -86,7 +86,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 upperTick: 50400,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
@@ -169,7 +169,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50200,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -236,7 +236,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -302,7 +302,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -369,7 +369,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
                 const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400))
@@ -399,7 +399,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     upperTick: 50400,
                     minBase: 0,
                     minQuote: 0,
-                    useTakerPosition: false,
+                    useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 })
 
@@ -434,7 +434,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             upperTick: 50400,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
         const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity

@@ -103,7 +103,7 @@ export function addOrder(
     quote: BigNumberish,
     lowerTick: BigNumberish,
     upperTick: BigNumberish,
-    useTakerPosition: boolean = false,
+    useTakerBalance: boolean = false,
     baseToken: string = fixture.baseToken.address,
 ): Promise<ContractTransaction> {
     return fixture.clearingHouse.connect(wallet).addLiquidity({
@@ -114,7 +114,7 @@ export function addOrder(
         upperTick,
         minBase: 0,
         minQuote: 0,
-        useTakerPosition,
+        useTakerBalance,
         deadline: ethers.constants.MaxUint256,
     })
 }
@@ -142,14 +142,23 @@ export async function removeOrder(
     })
 }
 
+export async function getOrderIds(
+    fixture: ClearingHouseFixture,
+    wallet: Wallet,
+    baseToken: string = fixture.baseToken.address,
+): Promise<string[]> {
+    const orderBook: OrderBook = fixture.orderBook
+    return await orderBook.getOpenOrderIds(wallet.address, baseToken)
+}
+
 export async function removeAllOrders(
     fixture: ClearingHouseFixture,
     wallet: Wallet,
     baseToken: string = fixture.baseToken.address,
 ): Promise<void> {
-    const orderBook: OrderBook = fixture.orderBook
+    const orderIds = await getOrderIds(fixture, wallet, baseToken)
     const clearingHouse: ClearingHouse = fixture.clearingHouse
-    const orderIds = await orderBook.getOpenOrderIds(wallet.address, baseToken)
+    const orderBook: OrderBook = fixture.orderBook
     for (const orderId of orderIds) {
         const { lowerTick, upperTick, liquidity } = await orderBook.getOpenOrderById(orderId)
         await clearingHouse.connect(wallet).removeLiquidity({

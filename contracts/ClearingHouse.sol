@@ -192,8 +192,8 @@ contract ClearingHouse is
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
 
-        // if useTakerPosition, use addBalanceForTaker() instead of addBalance() to modify takerBalances
-        if (params.useTakerPosition) {
+        // if useTakerBalance, use addTakerBalance() instead of addBalance() to modify takerBalances
+        if (params.useTakerBalance) {
             bool isBaseAdded = response.base > 0;
             bool isQuoteAdded = response.quote > 0;
 
@@ -304,15 +304,7 @@ contract ClearingHouse is
                 })
             );
 
-        IAccountBalance(_accountBalance).settleBalanceAndDeregister(
-            trader,
-            params.baseToken,
-            response.base.toInt256(),
-            response.quote.toInt256(),
-            response.deltaTakerBase,
-            response.deltaTakerQuote,
-            response.fee.toInt256()
-        );
+        _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -587,6 +579,7 @@ contract ClearingHouse is
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
+        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl
         return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
     }
 
@@ -613,6 +606,26 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
+        _settleBalanceAndRealizePnl(maker, baseToken, response);
+    }
+
+    function _settleBalanceAndRealizePnl(
+        address maker,
+        address baseToken,
+        IOrderBook.RemoveLiquidityResponse memory response
+    ) internal {
+        int256 pnlToBeRealized;
+        if (response.deltaTakerBase != 0) {
+            pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
+                IExchange.RealizePnlParams({
+                    trader: maker,
+                    baseToken: baseToken,
+                    deltaAvailableBase: response.deltaTakerBase,
+                    deltaAvailableQuote: response.deltaTakerQuote
+                })
+            );
+        }
+
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
@@ -620,6 +633,7 @@ contract ClearingHouse is
             response.quote.toInt256(),
             response.deltaTakerBase,
             response.deltaTakerQuote,
+            pnlToBeRealized,
             response.fee.toInt256()
         );
     }

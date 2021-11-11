@@ -46,7 +46,7 @@ contract Exchange is
     using PerpSafeCast for int256;
 
     // CONSTANT
-    uint256 internal constant _FULL_CLOSED_RATIO = 1e18;
+    uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
     //
@@ -62,13 +62,22 @@ contract Exchange is
     }
 
     struct InternalSwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
+        int256 deltaAvailableBase;
+        int256 deltaAvailableQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
         uint256 insuranceFundFee;
         int24 tick;
+    }
+
+    struct InternalRealizePnlParams {
+        address trader;
+        address baseToken;
+        int256 takerPositionSize;
+        int256 takerOpenNotional;
+        int256 deltaAvailableBase;
+        int256 deltaAvailableQuote;
     }
 
     //
@@ -130,23 +139,28 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
-        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
-        // is position increased
-        bool isOldPositionShort = positionSize < 0;
-        bool isReducePosition = !(positionSize == 0 || isOldPositionShort == params.isBaseToQuote);
+        // for closing position, takerPositionSize(int256) == param.amount(uint256)
+        int256 takerPositionSize =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        // when takerPositionSize < 0, it's a short position
+        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
 
         bool isPartialClose;
         uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
         // if over price limit when
         // 1. closing a position, then partially close the position
         // 2. reducing a position, then revert
-        if (params.isClose && positionSize != 0) {
+        if (params.isClose && takerPositionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplayReverseSwap(params.baseToken, isOldPositionShort, params.amount)
+                _isOverPriceLimitByReplayReverseSwap(
+                    params.baseToken,
+                    takerPositionSize < 0, // it's a short position
+                    params.amount // it's the same as takerPositionSize but in uint256
+                )
             ) {
                 uint256 timestamp = _blockTimestamp();
                 // EX_AOPLO: already over price limit once
@@ -157,7 +171,7 @@ contract Exchange is
                 isPartialClose = true;
             }
         } else {
-            if (isReducePosition) {
+            if (isReducingPosition) {
                 // EX_OPLBS: over price limit before swap
                 require(!_isOverPriceLimit(params.baseToken), "EX_OPLBS");
             }
@@ -167,13 +181,14 @@ contract Exchange is
         int256 oldTakerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        if (!params.isClose && isReducePosition) {
+        if (!params.isClose && isReducingPosition) {
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
+        IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
+
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        // @audit suggest to move to CH, so only CH can addBalance - @wraecca
         IAccountBalance(_accountBalance).addTakerBalances(
             params.trader,
             params.baseToken,
@@ -184,69 +199,24 @@ contract Exchange is
             0
         );
 
-        int256 realizedPnl;
-        // there is only realizedPnl when it's not increasing the position size
-        if (isReducePosition) {
-            // closedRatio is based on the position size
-            uint256 closedRatio =
-                isPartialClose
-                    ? partialCloseRatio
-                    : FullMath.mulDiv(response.deltaAvailableBase, _FULL_CLOSED_RATIO, positionSize.abs());
-            int256 deltaAvailableQuote =
-                params.isBaseToQuote ? response.deltaAvailableQuote.toInt256() : response.deltaAvailableQuote.neg256();
-
-            // if closedRatio <= 1 (decimals = 18),
-            // it's reducing or closing a position; else, it's opening a larger reverse position
-            if (closedRatio <= _FULL_CLOSED_RATIO) {
-                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
-                // taker:
-                // step 1: long 20 base
-                // openNotionalFraction = 252.53
-                // openNotional = -252.53
-                // step 2: short 10 base (reduce half of the position)
-                // deltaAvailableQuote = 137.5
-                // closeRatio = 10/20 = 0.5
-                // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
-                // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
-                //                      = 252.53 - 137.5 + 11.235 = 126.265
-                // openNotional = -openNotionalFraction = 126.265
-                // overflow inspection:
-                // maximum of closedRatio = 1e18
-                // range of oldOpenNotional = [-2^255 / 1e18, 2^255 / 1e18]
-                // only overflow when oldOpenNotional < -2^255 / 1e18 or oldOpenNotional > 2^255 / 1e18.
-                int256 reducedOpenNotional =
-                    oldTakerOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULL_CLOSED_RATIO));
-                realizedPnl = deltaAvailableQuote.add(reducedOpenNotional);
-            } else {
-                //https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
-                // taker:
-                // step 1: long 20 base
-                // openNotionalFraction = 252.53
-                // openNotional = -252.53
-                // step 2: short 30 base (open a larger reverse position)
-                // deltaAvailableQuote = 337.5
-                // closeRatio = 30/20 = 1.5
-                // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
-                // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
-                // realizedPnl = closedPositionNotional + openNotional = -252.53 + 225 = -27.53
-                // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
-                //                      = 252.53 - 337.5 + -27.53 = -112.5
-                // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
-                // overflow inspection:
-                // Due to price limitation,
-                // assume the max tick = 887272 and max of liquidity = 2^128
-                // max of delta quote = (sqrt(1.0001^887272) - 1) * 2**128 = 6.2768658e+57 < 2^255/1e18
-                int256 closedPositionNotional =
-                    deltaAvailableQuote.mul(int256(_FULL_CLOSED_RATIO)).div(closedRatio.toInt256());
-                realizedPnl = oldTakerOpenNotional.add(closedPositionNotional);
-            }
+        // when reducing/not increasing the position size, it's necessary to realize pnl
+        int256 pnlToBeRealized;
+        if (isReducingPosition) {
+            pnlToBeRealized = _getPnlToBeRealized(
+                InternalRealizePnlParams({
+                    trader: params.trader,
+                    baseToken: params.baseToken,
+                    takerPositionSize: takerPositionSize,
+                    takerOpenNotional: oldTakerOpenNotional,
+                    deltaAvailableBase: response.deltaAvailableBase,
+                    deltaAvailableQuote: response.deltaAvailableQuote
+                })
+            );
         }
 
-        if (realizedPnl != 0) {
-            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, realizedPnl);
+        if (pnlToBeRealized != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);
         }
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
         uint256 sqrtPrice =
@@ -258,14 +228,14 @@ contract Exchange is
             response.exchangedPositionNotional,
             response.fee,
             takerOpenNotional,
-            realizedPnl,
+            pnlToBeRealized,
             sqrtPrice
         );
 
         return
             SwapResponse({
-                deltaAvailableBase: response.deltaAvailableBase,
-                deltaAvailableQuote: response.deltaAvailableQuote,
+                deltaAvailableBase: response.deltaAvailableBase.abs(),
+                deltaAvailableQuote: response.deltaAvailableQuote.abs(),
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
                 tick: response.tick,
@@ -412,12 +382,13 @@ contract Exchange is
         )
     {
         uint32 twapInterval;
+        uint256 timestamp = _blockTimestamp();
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
             twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
             // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            uint32 deltaTimestamp = _blockTimestamp().sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
             twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
@@ -425,13 +396,13 @@ contract Exchange is
         markTwap = markTwapX96.formatX96ToX10_18();
         indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
-        uint256 timestamp = _blockTimestamp();
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
         if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
-            // if this is the latest updated block, values in _globalFundingGrowthX96Map are up-to-date already
+            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
+            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
             int256 twPremiumDeltaX96 =
                 _getPriceDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
@@ -441,6 +412,7 @@ contract Exchange is
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
                 PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96.IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
@@ -455,6 +427,28 @@ contract Exchange is
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
+    }
+
+    function getPnlToBeRealized(RealizePnlParams memory params) public view override returns (int256) {
+        int256 takerPositionSize =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
+        bool isReducingPosition =
+            takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
+
+        return
+            isReducingPosition
+                ? _getPnlToBeRealized(
+                    InternalRealizePnlParams({
+                        trader: params.trader,
+                        baseToken: params.baseToken,
+                        takerPositionSize: takerPositionSize,
+                        takerOpenNotional: getTakerOpenNotional(params.trader, params.baseToken),
+                        deltaAvailableBase: params.deltaAvailableBase,
+                        deltaAvailableQuote: params.deltaAvailableQuote
+                    })
+                )
+                : 0;
     }
 
     /// @dev the amount of quote token paid for a position when opening
@@ -600,8 +594,8 @@ contract Exchange is
 
         return
             InternalSwapResponse({
-                deltaAvailableBase: exchangedPositionSize.abs(),
-                deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()).abs(),
+                deltaAvailableBase: exchangedPositionSize,
+                deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()),
                 exchangedPositionSize: exchangedPositionSize,
                 exchangedPositionNotional: exchangedPositionNotional,
                 fee: replayResponse.fee,
@@ -663,6 +657,61 @@ contract Exchange is
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
+    }
+
+    function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
+        // closedRatio is based on the position size
+        uint256 closedRatio =
+            FullMath.mulDiv(params.deltaAvailableBase.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
+
+        int256 pnlToBeRealized;
+        // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
+        if (closedRatio <= _FULLY_CLOSED_RATIO) {
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 10 base (reduce half of the position)
+            // deltaAvailableQuote = 137.5
+            // closeRatio = 10/20 = 0.5
+            // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
+            // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
+            // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 137.5 + 11.235 = 126.265
+            // openNotional = -openNotionalFraction = 126.265
+
+            // overflow inspection:
+            // max closedRatio = 1e18; range of oldOpenNotional = (-2 ^ 255, 2 ^ 255)
+            // only overflow when oldOpenNotional < -2 ^ 255 / 1e18 or oldOpenNotional > 2 ^ 255 / 1e18
+            int256 reducedOpenNotional =
+                params.takerOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULLY_CLOSED_RATIO));
+            pnlToBeRealized = params.deltaAvailableQuote.add(reducedOpenNotional);
+        } else {
+            // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
+            // taker:
+            // step 1: long 20 base
+            // openNotionalFraction = 252.53
+            // openNotional = -252.53
+            // step 2: short 30 base (open a larger reverse position)
+            // deltaAvailableQuote = 337.5
+            // closeRatio = 30/20 = 1.5
+            // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
+            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+            // realizedPnl = closedPositionNotional + openNotional = -252.53 + 225 = -27.53
+            // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
+            //                      = 252.53 - 337.5 + -27.53 = -112.5
+            // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
+
+            // overflow inspection:
+            // max & min tick = 887272, -887272; max liquidity = 2 ^ 128
+            // max delta quote = 2^128 * (sqrt(1.0001^887272) - sqrt(1.0001^-887272)) = 6.276865796e57 < 2^255 / 1e18
+            int256 closedPositionNotional =
+                params.deltaAvailableQuote.mul(int256(_FULLY_CLOSED_RATIO)).div(closedRatio.toInt256());
+            pnlToBeRealized = params.takerOpenNotional.add(closedPositionNotional);
+        }
+
+        return pnlToBeRealized;
     }
 
     /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()

@@ -121,7 +121,7 @@ describe("ClearingHouse liquidate", () => {
             upperTick: 51400,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
         await clearingHouse.connect(carol).addLiquidity({
@@ -132,7 +132,7 @@ describe("ClearingHouse liquidate", () => {
             upperTick: 51400,
             minBase: 0,
             minQuote: 0,
-            useTakerPosition: false,
+            useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
 
@@ -281,7 +281,7 @@ describe("ClearingHouse liquidate", () => {
                 upperTick: 200,
                 minBase: 0,
                 minQuote: 0,
-                useTakerPosition: false,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
             })
 
