@@ -15,13 +15,13 @@ library Tick {
     }
 
     /// @dev call this function only if (liquidityGrossBefore == 0 && liquidityDelta != 0)
+    /// @dev per Uniswap: we assume that all growths before a tick is initialized happen "below" the tick
     function initialize(
         mapping(int24 => GrowthInfo) storage self,
         int24 tick,
         int24 currentTick,
         GrowthInfo memory globalGrowthInfo
     ) internal {
-        // per Uniswap: we assume that all growths before a tick is initialized happens "below" the tick
         if (tick <= currentTick) {
             GrowthInfo storage growthInfo = self[tick];
             growthInfo.feeX128 = globalGrowthInfo.feeX128;
@@ -48,6 +48,7 @@ library Tick {
     }
 
     /// @dev all values in this function are scaled by 2^128 (X128), thus adding the suffix to external params
+    /// @return feeGrowthInsideX128 this value can underflow per Tick.feeGrowthOutside specs
     function getFeeGrowthInsideX128(
         mapping(int24 => GrowthInfo) storage self,
         int24 lowerTick,
@@ -63,10 +64,11 @@ library Tick {
         uint256 feeGrowthAbove =
             currentTick < upperTick ? upperFeeGrowthOutside : feeGrowthGlobalX128 - upperFeeGrowthOutside;
 
-        // this value can underflow per Tick.feeGrowthOutside specs
         return feeGrowthGlobalX128 - feeGrowthBelow - feeGrowthAbove;
     }
 
+    /// @return all values returned can underflow per feeGrowthOutside specs;
+    ///         see https://www.notion.so/32990980ba8b43859f6d2541722a739b
     function getAllFundingGrowth(
         mapping(int24 => GrowthInfo) storage self,
         int24 lowerTick,
@@ -102,8 +104,6 @@ library Tick {
                 ? upperTwPremiumDivBySqrtPriceGrowthOutsideX96
                 : twPremiumDivBySqrtPriceGrowthGlobalX96 - upperTwPremiumDivBySqrtPriceGrowthOutsideX96;
 
-        // these values can underflow per feeGrowthOutside specs
-        // can see "Uniswap v3 Growth Accumulator Properties with Signed-integer" in Notion
         fundingGrowthRangeInfo.twPremiumGrowthInsideX96 =
             twPremiumGrowthGlobalX96 -
             fundingGrowthRangeInfo.twPremiumGrowthBelowX96 -

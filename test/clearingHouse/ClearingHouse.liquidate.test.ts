@@ -146,6 +146,12 @@ describe("ClearingHouse liquidate", () => {
         await clearingHouse.setBlockTimestamp(blockTimeStamp)
     })
 
+    it("force error, zero address should fail", async () => {
+        await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
+            "CH_EAV",
+        )
+    })
+
     describe("alice long ETH; price doesn't change", () => {
         it("force error, margin ratio is above the requirement", async () => {
             await clearingHouse.connect(alice).openPosition({
