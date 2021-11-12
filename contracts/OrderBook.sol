@@ -820,12 +820,12 @@ contract OrderBook is
                     // ΔtwPremiumGrowthInsideX96
                     PerpMath.mulDiv(
                         fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96),
-                        PerpFixedPoint96.IQ96,
+                        PerpFixedPoint96._IQ96,
                         sqrtPriceX96AtUpperTick
                     )
                 )
             );
 
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
+        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96._IQ96);
     }
 }

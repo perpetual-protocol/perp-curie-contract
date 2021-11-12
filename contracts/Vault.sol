@@ -93,6 +93,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         nonReentrant
         onlySettlementToken(token)
     {
+        // input requirement checks:
+        //   token: here
+        //   amountX10_D: here
         address from = _msgSender();
         _modifyBalance(from, token, amountX10_D.toInt256());
 
@@ -119,6 +122,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         nonReentrant
         onlySettlementToken(token)
     {
+        // input requirement checks:
+        //   token: here
+        //   amountX10_D: here
+
         // the full process of withdrawal:
         // 1. settle funding payment to owedRealizedPnl
         // 2. collect fee to owedRealizedPnl
@@ -252,6 +259,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     // INTERNAL NON-VIEW
     //
 
+    /// @param amount can be 0; do not require this
     function _modifyBalance(
         address trader,
         address token,
