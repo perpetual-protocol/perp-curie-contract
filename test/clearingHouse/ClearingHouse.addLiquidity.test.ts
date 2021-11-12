@@ -908,6 +908,8 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
+                // FIXME: The first `to.emit.withArgs` would be ignored
+                // if we chain multiple `to.emit.withArgs` that are emitted from the same contract
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
                     bob.address,

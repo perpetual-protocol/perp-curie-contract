@@ -1115,16 +1115,8 @@ describe("ClearingHouse funding", () => {
                     )
                         .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
-                        .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
-                        .withArgs(
-                            carol.address,
-                            baseToken.address,
-                            "545954482143127198", // exchangedPositionSize
-                            "-81968929408810265891", // exchangedPositionNotional
-                            "98188169201962983990", // openNotional
-                            "-7858496051086652", // realizedPnl
-                            Object, // sqrtPriceAfter
-                        )
+                        // FIXME: The first `to.emit.withArgs` would be ignored
+                        // if we chain multiple `to.emit.withArgs` that are emitted from the same contract
                         .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
@@ -1136,6 +1128,16 @@ describe("ClearingHouse funding", () => {
                             "-18031070591189734109",
                             "-816895716963038010374",
                             parseEther("0.819689294088102658"),
+                        )
+                        .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            "545954482143127198", // exchangedPositionSize
+                            "-81968929408810265891", // exchangedPositionNotional
+                            "98188169201962983990", // openNotional
+                            "-7858496051086652", // realizedPnl
+                            Object, // sqrtPriceAfter
                         )
 
                     // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998

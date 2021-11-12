@@ -13,3 +13,10 @@ export async function runTxAndReturnEvent(txFunction: Promise<ContractTransactio
     const receipt = await tx.wait()
     return await findEvent(receipt.events, name)
 }
+
+// function findPnlRealizedEvents(receipt: TransactionReceipt): LogDescription[] {
+//     const pnlRealizedTopic = accountBalance.interface.getEventTopic("PnlRealized")
+//     return receipt.logs
+//         .filter(log => log.topics[0] === pnlRealizedTopic)
+//         .map(log => accountBalance.interface.parseLog(log))
+// }
