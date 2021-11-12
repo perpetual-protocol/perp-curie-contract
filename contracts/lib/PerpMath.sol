@@ -34,7 +34,7 @@ library PerpMath {
     }
 
     function abs(int256 value) internal pure returns (uint256) {
-        return value > 0 ? value.toUint256() : neg256(value).toUint256();
+        return value >= 0 ? value.toUint256() : neg256(value).toUint256();
     }
 
     function neg256(int256 a) internal pure returns (int256) {
@@ -69,6 +69,7 @@ library PerpMath {
         return FullMath.mulDiv(value, ratio, 1e6);
     }
 
+    /// @param denominator cannot be 0 and is checked in FullMath.mulDiv()
     function mulDiv(
         int256 a,
         int256 b,

@@ -24,7 +24,7 @@ library AccountMarket {
             PerpMath.mulDiv(
                 baseBalance,
                 twPremiumGrowthGlobalX96.sub(lastTwPremiumGrowthGlobalX96),
-                uint256(PerpFixedPoint96.IQ96)
+                uint256(PerpFixedPoint96._IQ96)
             );
     }
 }

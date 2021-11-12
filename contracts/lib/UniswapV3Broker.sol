@@ -49,9 +49,11 @@ library UniswapV3Broker {
         uint128 liquidity;
     }
 
+    /// @param base amount of base token received from burning the liquidity (excl. fee)
+    /// @param quote amount of quote token received from burning the liquidity (excl. fee)
     struct RemoveLiquidityResponse {
-        uint256 base; // amount of base token received from burning the liquidity (excl. fee)
-        uint256 quote; // amount of quote token received from burning the liquidity (excl. fee)
+        uint256 base;
+        uint256 quote;
     }
 
     struct SwapState {
@@ -68,7 +70,7 @@ library UniswapV3Broker {
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        uint160 sqrtPriceLimitX96;
         bytes data;
     }
 
@@ -96,7 +98,6 @@ library UniswapV3Broker {
         // UB_ZL: zero liquidity
         require(liquidity > 0, "UB_ZL");
 
-        // call mint()
         (uint256 addedAmount0, uint256 addedAmount1) =
             IUniswapV3Pool(params.pool).mint(address(this), params.lowerTick, params.upperTick, liquidity, params.data);
 
@@ -120,7 +121,6 @@ library UniswapV3Broker {
             type(uint128).max
         );
 
-        // make base & quote into the right order
         return RemoveLiquidityResponse({ base: amount0Burned, quote: amount1Burned });
     }
 

@@ -48,7 +48,7 @@ contract OrderBook is
     using Tick for mapping(int24 => Tick.GrowthInfo);
 
     //
-    // Struct
+    // STRUCT
     //
 
     struct InternalAddLiquidityToOrderParams {
@@ -303,6 +303,7 @@ contract OrderBook is
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
+        // OB_OEX: only exchange
         require(_msgSender() == _exchange, "OB_OEX");
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
@@ -692,7 +693,7 @@ contract OrderBook is
         }
     }
 
-    // only use by addLiquidity (bypass stack too deep error)
+    /// @dev this function is extracted from and only used by addLiquidity() to avoid stack too deep error
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (bytes32, uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
@@ -864,12 +865,12 @@ contract OrderBook is
                     // ΔtwPremiumGrowthInsideX96
                     PerpMath.mulDiv(
                         fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96),
-                        PerpFixedPoint96.IQ96,
+                        PerpFixedPoint96._IQ96,
                         sqrtPriceX96AtUpperTick
                     )
                 )
             );
 
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96.IQ96);
+        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96._IQ96);
     }
 }
