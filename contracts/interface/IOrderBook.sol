@@ -102,16 +102,16 @@ interface IOrderBook {
 
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool);
 
-    // @audit suggest to remove, especially if we can remove AccountBalance.getNetQuoteBalance - @wraecca
-    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens) external view returns (uint256);
-
-    function getTotalQuoteBalance(address trader, address[] calldata baseTokens) external view returns (int256);
+    function getTotalQuoteBalance(address trader, address[] calldata baseTokens)
+        external
+        view
+        returns (int256 totalQuoteAmountInPools, uint256 totalPendingFee);
 
     function getTotalTokenAmountInPool(
         address trader,
         address baseToken,
         bool fetchBase
-    ) external view returns (uint256 tokenAmount);
+    ) external view returns (uint256 tokenAmount, uint256 totalPendingFee);
 
     function getTotalOrderDebt(
         address trader,

@@ -231,10 +231,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
         int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18) =
+        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18, uint256 feeX10_18) =
             IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
         int256 totalCollateralValueX10_D =
-            getBalance(trader).add(owedRealizedPnlX10_18.sub(fundingPaymentX10_18).formatSettlementToken(_decimals));
+            getBalance(trader).add(
+                owedRealizedPnlX10_18.sub(fundingPaymentX10_18).add(feeX10_18.toInt256()).formatSettlementToken(
+                    _decimals
+                )
+            );
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));

@@ -51,7 +51,7 @@ describe("Vault withdraw test", () => {
         if (!hasAccountValue) {
             expect(accountValue).to.be.eq(0)
         }
-        expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        await expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
     }
 
     beforeEach(async () => {
@@ -83,9 +83,9 @@ describe("Vault withdraw test", () => {
         await deposit(alice, vault, 1000000, usdc)
 
         // bob mint and add liquidity
-        await usdc.mint(bob.address, parseUnits("10000000", usdcDecimals))
-        await deposit(bob, vault, 1000000, usdc)
-        await addOrder(fixture, bob, 200, 100000, 0, 150000)
+        await usdc.mint(bob.address, parseUnits("1000", usdcDecimals))
+        await deposit(bob, vault, 1000, usdc)
+        await addOrder(fixture, bob, 10, 1500, 0, 150000)
     })
 
     describe("withdraw check", async () => {
@@ -123,6 +123,69 @@ describe("Vault withdraw test", () => {
 
             await check(bob, true)
             await check(alice, true)
+        })
+
+        it.skip("free collateral", async () => {
+            marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
+            for (let i = 0; i < 20; i++) {
+                await q2bExactInput(fixture, alice, 100)
+                // await closePosition(fixture, alice)
+            }
+
+            // mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            //     return [0, parseUnits("400.373306", 6), 0, 0, 0]
+            // })
+
+            let bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
+            console.log(`bob free collateral before: ${bobFreeCollateral}`)
+            console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
+
+            // await clearingHouse.connect(bob).removeLiquidity({
+            //     baseToken: baseToken.address,
+            //     lowerTick: 0,
+            //     upperTick: 150000,
+            //     liquidity: 0,
+            //     minBase: 0,
+            //     minQuote: 0,
+            //     deadline: ethers.constants.MaxUint256,
+            // })
+            // bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
+            // console.log(`bob free collateral after: ${bobFreeCollateral}`)
+            // console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
+
+            await check(bob, true)
+
+            bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
+            console.log(`bob free collateral after withdraw: ${bobFreeCollateral}`)
+
+            const fee = (
+                await clearingHouse.connect(bob).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: 0,
+                    upperTick: 150000,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            console.log(`bob maker fee ${fee}`)
+
+            await clearingHouse.connect(bob).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 0,
+                upperTick: 150000,
+                liquidity: 0,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
+            console.log(`bob free collateral after collect fee: ${bobFreeCollateral}`)
+            console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
+
+            console.log(`bob's vault balance: ${await vault.getBalance(bob.address)}`)
         })
     })
 })

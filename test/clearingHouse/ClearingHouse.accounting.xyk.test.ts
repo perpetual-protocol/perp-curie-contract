@@ -393,11 +393,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker account value = freeCollateral + unsettled PnL
             const makerAccountValue = await clearingHouse.getAccountValue(maker.address)
             const makerCollateral = await vault.getBalance(maker.address)
-            const [makerOwedRealizedPnl, makerUnsettledPnL] = await accountBalance.getOwedAndUnrealizedPnl(
+            const [makerOwedRealizedPnl, makerUnsettledPnL, fee] = await accountBalance.getOwedAndUnrealizedPnl(
                 maker.address,
             )
             expect(makerAccountValue).to.be.deep.eq(
-                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL),
+                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL).add(fee),
             )
 
             // maker remove liquidity

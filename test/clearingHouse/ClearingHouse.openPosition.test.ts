@@ -552,7 +552,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "19615015933642630",
             )
-            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("-3"))
+            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("-3"))
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
             expect(await getMakerFee()).be.closeTo(parseEther("0.03"), 1)
@@ -628,7 +628,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "6538933220746361",
             )
-            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(quoteBalanceAfter)
+            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(quoteBalanceAfter)
             expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
                 "6538933220746361",
             )
@@ -935,7 +935,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "-20024315818536050",
             )
-            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("3"))
+            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("3"))
 
             // ((2 (beforeEach) + 1 (now)) / 0.99 )* 1% = 0.030303030303030304
             expect(await getMakerFee()).be.closeTo(parseEther("0.030303030303030304"), 1)
@@ -976,7 +976,7 @@ describe("ClearingHouse openPosition", () => {
 
             // pos size: baseBalanceBefore / 2 = reducedBase
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
-            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("1"))
+            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("1"))
 
             // fee = 0.030404113776447206
             expect(await getMakerFee()).be.deep.eq(parseEther("0.030404113776447206"))
@@ -1015,7 +1015,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-2"))
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect(await accountBalance.getNetQuoteBalance(taker.address)).to.eq(parseEther("0"))
+            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("0"))
 
             // fee = 0.040608101214161821
             expect(await getMakerFee()).be.deep.eq(parseEther("0.040608101214161821"))
@@ -1272,14 +1272,15 @@ describe("ClearingHouse openPosition", () => {
 
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = (-2) + (2) = 0
                 // positionValue = (0.013077866441492721 - 0.013077866441492721 + 0.000380470405593868) * 100 = 0.03804704056
-                // unrealizePnL = positionValue + openNotional = 0.03804704056 + 0 = 0.03804704056
+                // unrealizedPnL = positionValue + openNotional = 0.03804704056 + 0 = 0.03804704056
                 // total debt = 2
-                // free collateral = min(collateral, account value) - total debt * imRatio
-                // free collateral = min(100, 100+0.03804704056) - (2) * 0.1
-                //                 = 100 - (2) * 0.1
-                //                 = 99.800000
+                // fee = 2 * 0.01 = 0.02
+                // free collateral = min(collateral + fee, account value) - total debt * imRatio
+                // free collateral = min(100 + 0.02, 100+0.03804704056) - (2) * 0.1
+                //                 = 100.02 - (2) * 0.1
+                //                 = 99.82
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.800000", collateralDecimals))
+                expect(freeCollateral).to.be.closeTo(parseUnits("99.82", collateralDecimals), 1)
             })
         })
 
@@ -1354,14 +1355,15 @@ describe("ClearingHouse openPosition", () => {
 
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
                 // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
-                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // unrealizedPnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
                 // total debt = 0.013348304809274554 * 100
-                // free collateral = min(collateral, account value) - total debt * imRatio
-                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
-                //                 = 100 - (1.3348304809274554) * 0.1
-                //                 = 99.866516
+                // fee = 1 / 0.99 * 0.01
+                // free collateral = min(collateral + fee, account value) - total debt * imRatio
+                // free collateral = min(100 + fee, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100 + 0.010101 - (1.3348304809274554) * 0.1
+                //                 = 99.8766179519
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.866517", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.876618", collateralDecimals))
             })
 
             it("add other market liquidity below the current tick", async () => {
@@ -1400,14 +1402,15 @@ describe("ClearingHouse openPosition", () => {
 
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
                 // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
-                // unrealizePnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
+                // unrealizedPnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
                 // total debt = 0.013348304809274554 * 100
-                // free collateral = min(collateral, account value) - total debt * imRatio
-                // free collateral = min(100, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
-                //                 = 100 - (1.3348304809274554) * 0.1
-                //                 = 99.866516
+                // fee = 1 / 0.99 * 0.01 = 0.0101010
+                // free collateral = min(collateral + fee, account value) - total debt * imRatio
+                // free collateral = min(100 + 0.101010, 100 + 0.349378595944325698) - (1.3348304809274554) * 0.1
+                //                 = 100.0101010 - (1.3348304809274554) * 0.1
+                //                 = 99.8766179519
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.866517", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.876618", collateralDecimals))
             })
         })
     })

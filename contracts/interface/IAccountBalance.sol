@@ -83,7 +83,14 @@ interface IAccountBalance {
 
     function getTotalDebtValue(address trader) external view returns (uint256);
 
-    function getOwedAndUnrealizedPnl(address trader) external view returns (int256, int256);
+    function getOwedAndUnrealizedPnl(address trader)
+        external
+        view
+        returns (
+            int256 owedRealizedPnl,
+            int256 unrealizedPnl,
+            uint256 pendingFee
+        );
 
     function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory);
 
@@ -94,7 +101,7 @@ interface IAccountBalance {
     function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
-    function getNetQuoteBalance(address trader) external view returns (int256);
+    function getNetQuoteBalance(address trader) external view returns (int256 netQuoteBalance, uint256 pendingFee);
 
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 
