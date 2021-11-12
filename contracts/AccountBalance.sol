@@ -359,7 +359,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(deltaBase);
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
-        emit TakerBalancesChanged(trader, baseToken, deltaBase, deltaQuote);
     }
 
     function _settleQuoteToPnl(
