@@ -12,8 +12,7 @@ interface IExchange {
         bool isExactInput;
         bool isClose;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
-        Funding.Growth fundingGrowthGlobal;
+        uint160 sqrtPriceLimitX96;
     }
 
     struct SwapResponse {

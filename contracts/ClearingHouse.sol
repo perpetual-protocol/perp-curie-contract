@@ -64,14 +64,12 @@ contract ClearingHouse is
         uint256 amount;
         uint160 sqrtPriceLimitX96;
         bool skipMarginRequirementCheck;
-        Funding.Growth fundingGrowthGlobal;
     }
 
     struct InternalClosePositionParams {
         address trader;
         address baseToken;
         uint160 sqrtPriceLimitX96;
-        Funding.Growth fundingGrowthGlobal;
     }
 
     struct InternalCheckSlippageParams {
@@ -351,7 +349,7 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
-        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
+        IExchange(_exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _openPosition(
@@ -363,8 +361,7 @@ contract ClearingHouse is
                     amount: params.amount,
                     isClose: false,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: false,
-                    fundingGrowthGlobal: fundingGrowthGlobal
+                    skipMarginRequirementCheck: false
                 })
             );
 
@@ -400,15 +397,14 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         // must settle funding first
-        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
+        IExchange(_exchange).settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _closePosition(
                 InternalClosePositionParams({
                     trader: trader,
                     baseToken: params.baseToken,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: fundingGrowthGlobal
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 
@@ -457,16 +453,9 @@ contract ClearingHouse is
         );
 
         // must settle funding first
-        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, baseToken);
+        IExchange(_exchange).settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
-            _closePosition(
-                InternalClosePositionParams({
-                    trader: trader,
-                    baseToken: baseToken,
-                    sqrtPriceLimitX96: 0,
-                    fundingGrowthGlobal: fundingGrowthGlobal
-                })
-            );
+            _closePosition(InternalClosePositionParams({ trader: trader, baseToken: baseToken, sqrtPriceLimitX96: 0 }));
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
@@ -690,8 +679,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     isClose: params.isClose,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: params.fundingGrowthGlobal
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 
@@ -727,8 +715,7 @@ contract ClearingHouse is
                     isClose: true,
                     amount: positionSize.abs(),
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: true,
-                    fundingGrowthGlobal: params.fundingGrowthGlobal
+                    skipMarginRequirementCheck: true
                 })
             );
     }

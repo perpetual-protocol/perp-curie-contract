@@ -530,6 +530,7 @@ contract Exchange is
                 marketInfo.uniswapFeeRatio
             );
 
+        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(params.baseToken);
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
             IOrderBook(_orderBook).replaySwap(
@@ -541,7 +542,7 @@ contract Exchange is
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: marketInfo.exchangeFeeRatio,
                     uniswapFeeRatio: marketInfo.uniswapFeeRatio,
-                    globalFundingGrowth: params.fundingGrowthGlobal
+                    globalFundingGrowth: fundingGrowthGlobal
                 })
             );
         UniswapV3Broker.SwapResponse memory response =

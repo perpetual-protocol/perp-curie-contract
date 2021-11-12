@@ -49,8 +49,6 @@ contract TestClearingHouse is ClearingHouse {
 
     function swap(SwapParams memory params) external nonReentrant() returns (IExchange.SwapResponse memory) {
         IAccountBalance(_accountBalance).registerBaseToken(_msgSender(), params.baseToken);
-        (Funding.Growth memory fundingGrowthGlobal, , ) =
-            TestAccountBalance(_accountBalance).getFundingGrowthGlobalAndTwaps(params.baseToken);
 
         return
             IExchange(_exchange).swap(
@@ -61,8 +59,7 @@ contract TestClearingHouse is ClearingHouse {
                     isExactInput: params.isExactInput,
                     isClose: false,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    fundingGrowthGlobal: fundingGrowthGlobal
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
     }
