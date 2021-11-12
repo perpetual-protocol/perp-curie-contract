@@ -775,12 +775,15 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"),
-                    bobTakerQuote.div(2).mul(-1), // move half of taker quote to maker
+                    parseEther("-0.5"), // exchangedPositionChanged
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
@@ -799,6 +802,7 @@ describe("ClearingHouse addLiquidity", () => {
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
             const lowerTick = 50400
             const upperTick = 50600
+
             await clearingHouse.connect(bob).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0.5"),
@@ -824,8 +828,16 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(bob.address, baseToken.address, parseEther("0.499999999999999999"), bobTakerQuote.div(2))
+                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("0.499999999999999999"), // exchangedPositionChanged
+                    bobTakerQuote.div(2), // exchangedPositionNotional
+                    "-152925362473060470222", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
+                )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("1"),
@@ -866,12 +878,17 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"), // using 50% taker base to add liquidity
-                    bobTakerQuote.div(2).mul(-1), // move 50% taker quote debt to maker
+                    // using 50% taker base to add liquidity
+                    parseEther("-0.5"), // exchangedPositionChanged
+                    // move 50% taker quote debt to maker
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             // alice long 0.1 base token
@@ -891,14 +908,15 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    parseEther("0.399999999999999999"),
-                    parseEther("-60.988779581551447382"), // we don't care about this value. it's from console.log.
-                )
-                .to.emit(clearingHouse, "TakerBalancesChanged")
+                // FIXME: the order of ".to.emit()" must follow the actual order that events are emitted
+                // for instance, in removeLiquidity(), LiquidityChanged emitted first, then PositionChangedFromLiquidityChanged
+                // so we must write:
+                // .to.emit(clearingHouse, "LiquidityChanged")
+                // .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                // if we do:
+                // .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                // .to.emit(clearingHouse, "LiquidityChanged")
+                // this expect WILL ALWAYS PASS!!!
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
                     bob.address,
@@ -910,6 +928,16 @@ describe("ClearingHouse addLiquidity", () => {
                     parseEther("-15.473901654978787729"), // we don't care about this value. it's from console.log.
                     bobLiquidity.mul(-1),
                     parseEther("0.156302036918977653"), // we don't care about this value. it's from console.log.
+                )
+                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("0.399999999999999999"), // exchangedPositionChanged
+                    parseEther("-60.988779581551447382"), // exchangedPositionNotional
+                    "123", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
@@ -965,12 +993,15 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"),
-                    bobTakerQuote.div(2).mul(-1), // we don't care about this value. it's from console.log.
+                    parseEther("-0.5"), // exchangedPositionChanged
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             // alice long 0.1 base token
@@ -989,7 +1020,7 @@ describe("ClearingHouse addLiquidity", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.not.emit(accountBalance, "TakerBalancesChanged")
+            ).to.not.emit(clearingHouse, "PositionChangedFromLiquidityChanged") // since useTakerBalance: false
 
             // alice long 0.1 base token
             await q2bExactOutput(fixture, alice, 0.1)

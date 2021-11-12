@@ -325,7 +325,6 @@ contract ClearingHouse is
             params.baseToken,
             response.deltaTakerBase, // exchangedPositionChanged
             response.deltaTakerQuote, // exchangedPositionNotional
-            0, // fee
             takerOpenNotional,
             pnlToBeRealized,
             sqrtPrice

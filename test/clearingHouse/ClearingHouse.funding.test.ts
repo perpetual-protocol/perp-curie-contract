@@ -1113,6 +1113,18 @@ describe("ClearingHouse funding", () => {
                             deadline: ethers.constants.MaxUint256,
                         }),
                     )
+                        .to.emit(exchange, "FundingPaymentSettled")
+                        .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
+                        .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                        .withArgs(
+                            carol.address,
+                            baseToken.address,
+                            "545954482143127198", // exchangedPositionChanged
+                            "-81968929408810265891", // exchangedPositionNotional
+                            "98188169201962983990", // openNotional
+                            "-7858496051086652", // realizedPnl
+                            Object, // sqrtPriceAfter
+                        )
                         .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             carol.address,
@@ -1125,15 +1137,7 @@ describe("ClearingHouse funding", () => {
                             "-816895716963038010374",
                             parseEther("0.819689294088102658"),
                         )
-                        .to.emit(exchange, "FundingPaymentSettled")
-                        .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
-                        .to.emit(accountBalance, "TakerBalancesChanged")
-                        .withArgs(
-                            carol.address,
-                            baseToken.address,
-                            "545954482143127198", // deltaTakerBase
-                            "-81968929408810265891", // deltaTakerQuote
-                        )
+
                     // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998
                     // reducedOpenNotional = 0.4549620685 * 180.149240114722163229 = 81.961070912759179239
                     // deltaAvailableQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
@@ -1152,6 +1156,8 @@ describe("ClearingHouse funding", () => {
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
                         parseEther("-0.034627969348706857"),
                     )
+
+                    // TODO: missing the second time addLiquidity()?
                 })
             })
         })
