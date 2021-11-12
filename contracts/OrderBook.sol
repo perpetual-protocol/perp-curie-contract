@@ -146,7 +146,7 @@ contract OrderBook is
         }
 
         // state changes; if adding liquidity to an existing order, get fees accrued
-        (bytes32 orderId, uint256 fee) =
+        uint256 fee =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
                     maker: params.trader,
@@ -666,7 +666,7 @@ contract OrderBook is
     }
 
     // only use by addLiquidity (bypass stack too deep error)
-    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (bytes32, uint256) {
+    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
@@ -710,7 +710,7 @@ contract OrderBook is
         openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
         openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
 
-        return (orderId, fee);
+        return fee;
     }
 
     //
