@@ -54,6 +54,7 @@ contract ClearingHouse is
     //
     // STRUCT
     //
+    /// @param sqrtPriceLimitX96 tx will fill until it reaches this price but WON'T REVERT
     struct InternalOpenPositionParams {
         address trader;
         address baseToken;
@@ -61,7 +62,7 @@ contract ClearingHouse is
         bool isExactInput;
         bool isClose;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
+        uint160 sqrtPriceLimitX96;
         bool skipMarginRequirementCheck;
         Funding.Growth fundingGrowthGlobal;
     }

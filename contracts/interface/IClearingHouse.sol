@@ -49,7 +49,7 @@ interface IClearingHouse {
     /// @param sqrtPriceLimitX96
     // B2Q: the price cannot be less than this value after the swap
     // Q2B: the price cannot be greater than this value after the swap
-    // it will fill the trade until it reach the price limit but WON'T REVERT
+    // it will fill the trade until it reaches the price limit but WON'T REVERT
     // when it's set to 0, it will disable price limit;
     // when it's 0 and exact output, the output amount is required to be identical to the param amount
     struct OpenPositionParams {
