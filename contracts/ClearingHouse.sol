@@ -298,7 +298,7 @@ contract ClearingHouse is
                 })
             );
 
-        _settleBalanceAndRealizePnl(trader, params.baseToken, response);
+        int256 pnlToBeRealized = _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -313,6 +313,21 @@ contract ClearingHouse is
             response.quote.neg256(),
             params.liquidity.neg128(),
             response.fee
+        );
+
+        // TODO
+        int256 takerOpenNotional = IExchange(_exchange).getTakerOpenNotional(trader, params.baseToken);
+        uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
+
+        emit PositionChangedFromLiquidityChanged(
+            trader,
+            params.baseToken,
+            response.deltaTakerBase, // exchangedPositionChanged
+            response.deltaTakerQuote, // exchangedPositionNotional
+            0, // fee
+            takerOpenNotional,
+            pnlToBeRealized,
+            sqrtPrice
         );
 
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
@@ -633,7 +648,7 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         IOrderBook.RemoveLiquidityResponse memory response
-    ) internal {
+    ) internal returns (int256) {
         int256 pnlToBeRealized;
         if (response.deltaTakerBase != 0) {
             pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
@@ -654,6 +669,7 @@ contract ClearingHouse is
             pnlToBeRealized,
             response.fee.toInt256()
         );
+        return pnlToBeRealized;
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:

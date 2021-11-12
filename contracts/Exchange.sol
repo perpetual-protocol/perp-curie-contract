@@ -216,6 +216,7 @@ contract Exchange is
         }
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
+
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
