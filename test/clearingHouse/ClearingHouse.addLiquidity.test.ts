@@ -908,15 +908,6 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                // FIXME: the order of ".to.emit()" must follow the actual order that events are emitted
-                // for instance, in removeLiquidity(), LiquidityChanged emitted first, then PositionChangedFromLiquidityChanged
-                // so we must write:
-                // .to.emit(clearingHouse, "LiquidityChanged")
-                // .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
-                // if we do:
-                // .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
-                // .to.emit(clearingHouse, "LiquidityChanged")
-                // this expect WILL ALWAYS PASS!!!
                 .to.emit(clearingHouse, "LiquidityChanged")
                 .withArgs(
                     bob.address,
@@ -935,7 +926,7 @@ describe("ClearingHouse addLiquidity", () => {
                     baseToken.address,
                     parseEther("0.399999999999999999"), // exchangedPositionChanged
                     parseEther("-60.988779581551447382"), // exchangedPositionNotional
-                    "123", // openNotional
+                    "-137451460818081682493", // openNotional
                     "0", // realizedPnl
                     Object, // sqrtPriceAfter
                 )
