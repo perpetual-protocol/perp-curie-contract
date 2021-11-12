@@ -1119,7 +1119,7 @@ describe("ClearingHouse funding", () => {
                         .withArgs(
                             carol.address,
                             baseToken.address,
-                            "545954482143127198", // exchangedPositionChanged
+                            "545954482143127198", // exchangedPositionSize
                             "-81968929408810265891", // exchangedPositionNotional
                             "98188169201962983990", // openNotional
                             "-7858496051086652", // realizedPnl

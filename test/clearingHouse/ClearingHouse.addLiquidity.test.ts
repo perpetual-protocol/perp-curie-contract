@@ -779,7 +779,7 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"), // exchangedPositionChanged
+                    parseEther("-0.5"), // exchangedPositionSize
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
@@ -832,7 +832,7 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("0.499999999999999999"), // exchangedPositionChanged
+                    parseEther("0.499999999999999999"), // exchangedPositionSize
                     bobTakerQuote.div(2), // exchangedPositionNotional
                     "-152925362473060470222", // openNotional
                     "0", // realizedPnl
@@ -883,7 +883,7 @@ describe("ClearingHouse addLiquidity", () => {
                     bob.address,
                     baseToken.address,
                     // using 50% taker base to add liquidity
-                    parseEther("-0.5"), // exchangedPositionChanged
+                    parseEther("-0.5"), // exchangedPositionSize
                     // move 50% taker quote debt to maker
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
                     "-76462681236530235111", // openNotional
@@ -924,7 +924,7 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("0.399999999999999999"), // exchangedPositionChanged
+                    parseEther("0.399999999999999999"), // exchangedPositionSize
                     parseEther("-60.988779581551447382"), // exchangedPositionNotional
                     "-137451460818081682493", // openNotional
                     "0", // realizedPnl
@@ -988,7 +988,7 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"), // exchangedPositionChanged
+                    parseEther("-0.5"), // exchangedPositionSize
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl

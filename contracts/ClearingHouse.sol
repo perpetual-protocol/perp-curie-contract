@@ -210,8 +210,6 @@ contract ClearingHouse is
                 // taker base not enough
                 require(accountMarketInfo.takerBaseBalance >= response.base.toInt256(), "CH_TBNE");
 
-                // TODO: rename to baseRemovedFromTaker or
-                // TODO: rename to deltaTakerPositionSize
                 deltaBaseDebt = response.base.neg256();
 
                 // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
@@ -300,7 +298,7 @@ contract ClearingHouse is
                 })
             );
 
-        int256 pnlToBeRealized = _settleBalanceAndRealizePnl(trader, params.baseToken, response);
+        int256 realizedPnl = _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -319,14 +317,13 @@ contract ClearingHouse is
 
         int256 takerOpenNotional = IExchange(_exchange).getTakerOpenNotional(trader, params.baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
-
         emit PositionChangedFromLiquidityChanged(
             trader,
             params.baseToken,
-            response.deltaTakerBase, // exchangedPositionChanged
+            response.deltaTakerBase, // exchangedPositionSize
             response.deltaTakerQuote, // exchangedPositionNotional
-            takerOpenNotional,
-            pnlToBeRealized,
+            takerOpenNotional, // openNotional
+            realizedPnl, // realizedPnl
             sqrtPrice
         );
 
@@ -669,7 +666,7 @@ contract ClearingHouse is
             pnlToBeRealized,
             response.fee.toInt256()
         );
-        return pnlToBeRealized;
+        return pnlToBeRealized; // pnlToBeRealized is realized now
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:

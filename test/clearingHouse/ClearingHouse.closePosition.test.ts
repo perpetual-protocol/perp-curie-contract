@@ -571,7 +571,7 @@ describe("ClearingHouse closePosition", () => {
                     .withArgs(
                         carol.address,
                         baseToken.address,
-                        parseEther("-0.000094486166013545"), // exchangedPositionChanged
+                        parseEther("-0.000094486166013545"), // exchangedPositionSize
                         parseEther("0.014051830753124999"), // exchangedPositionNotional
                         parseEther("0.014051830753124999"), // openNotional
                         "0", // realizedPnl
