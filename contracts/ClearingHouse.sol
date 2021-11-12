@@ -210,6 +210,8 @@ contract ClearingHouse is
                 // taker base not enough
                 require(accountMarketInfo.takerBaseBalance >= response.base.toInt256(), "CH_TBNE");
 
+                // TODO: rename to baseRemovedFromTaker or
+                // TODO: rename to deltaTakerPositionSize
                 deltaBaseDebt = response.base.neg256();
 
                 // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
@@ -315,7 +317,6 @@ contract ClearingHouse is
             response.fee
         );
 
-        // TODO
         int256 takerOpenNotional = IExchange(_exchange).getTakerOpenNotional(trader, params.baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
 
