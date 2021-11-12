@@ -177,6 +177,7 @@ library UniswapV3Broker {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
+
     function getSlot0(address pool)
         internal
         view
@@ -191,6 +192,9 @@ library UniswapV3Broker {
         )
     {
         return IUniswapV3Pool(pool).slot0();
+
+    function getTick(address pool) internal view returns (int24 tick) {
+        (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
     function getIsTickInitialized(address pool, int24 tick) internal view returns (bool initialized) {
@@ -199,6 +203,10 @@ library UniswapV3Broker {
 
     function getTickLiquidityNet(address pool, int24 tick) internal view returns (int128 liquidityNet) {
         (, liquidityNet, , , , , , ) = IUniswapV3Pool(pool).ticks(tick);
+    }
+
+    function getSqrtMarkPriceX96(address pool) internal view returns (uint160 sqrtMarkPrice) {
+        (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
     /// @dev if twapInterval < 10 (should be less than 1 block), return mark price without twap directly,
