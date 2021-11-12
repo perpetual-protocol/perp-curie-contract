@@ -12,7 +12,7 @@ interface IClearingHouseConfig {
 
     function getPartialCloseRatio() external view returns (uint24);
 
-    /// @dev TWAP interval for funding payment market price, and index price
+    /// @return twapInterval for funding and prices (mark & index) calculations
     function getTwapInterval() external view returns (uint32);
 
     function getSettlementTokenBalanceCap() external view returns (uint256);
