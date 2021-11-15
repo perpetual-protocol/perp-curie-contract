@@ -567,12 +567,13 @@ describe("ClearingHouse closePosition", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,
                         parseEther("-0.000094486166013545"), // exchangedPositionSize
                         parseEther("0.014051830753124999"), // exchangedPositionNotional
+                        0, // fee
                         parseEther("0.014051830753124999"), // openNotional
                         "0", // realizedPnl
                         Object, // sqrtPriceAfter

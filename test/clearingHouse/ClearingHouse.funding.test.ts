@@ -1139,11 +1139,7 @@ describe("ClearingHouse funding", () => {
                         parseEther("0.819689294088102658"),
                     ])
 
-                    const positionChangedFromLiquidityChanged = retrieveEvent(
-                        receipt,
-                        clearingHouse,
-                        "PositionChangedFromLiquidityChanged",
-                    )
+                    const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
                     expect([
                         positionChangedFromLiquidityChanged.args.trader,
                         positionChangedFromLiquidityChanged.args.baseToken,

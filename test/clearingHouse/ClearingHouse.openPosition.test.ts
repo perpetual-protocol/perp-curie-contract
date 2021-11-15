@@ -349,7 +349,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(exchange, "PositionChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -391,7 +391,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(exchange, "PositionChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -432,7 +432,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(exchange, "PositionChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -473,7 +473,7 @@ describe("ClearingHouse openPosition", () => {
                         referralCode: ethers.constants.HashZero,
                     }),
                 )
-                    .to.emit(exchange, "PositionChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         taker.address, // trader
                         baseToken.address, // baseToken
@@ -1161,7 +1161,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(exchange, "PositionChanged")
+            ).to.emit(clearingHouse, "PositionChanged")
         })
 
         it("force error, markets number exceeded", async () => {
@@ -1176,7 +1176,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.emit(exchange, "PositionChanged")
+            ).to.emit(clearingHouse, "PositionChanged")
 
             await expect(
                 clearingHouse.connect(taker).openPosition({

@@ -297,7 +297,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("has same realizedPnl once everyone close their position", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).to.emit(exchange, "PositionChanged").withArgs(
+        expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "9082643876716065096", // exchangedPositionSize
@@ -309,7 +309,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         )
 
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).to.emit(exchange, "PositionChanged").withArgs(
+        expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "-9082643876716065096", // exchangedPositionSize

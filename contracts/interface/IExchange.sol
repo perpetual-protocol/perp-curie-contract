@@ -22,6 +22,10 @@ interface IExchange {
         uint256 deltaAvailableQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
+        uint256 fee;
+        int256 openNotional;
+        int256 realizedPnl;
+        uint256 sqrtPriceAfter;
         int24 tick;
         bool isPartialClose;
     }
@@ -44,16 +48,6 @@ interface IExchange {
     //
     // EVENT
     //
-    event PositionChanged(
-        address indexed trader,
-        address indexed baseToken,
-        int256 exchangedPositionSize,
-        int256 exchangedPositionNotional,
-        uint256 fee,
-        int256 openNotional,
-        int256 realizedPnl,
-        uint256 sqrtPriceAfterX96
-    );
 
     /// @param fundingPayment > 0: payment, < 0 : receipt
     event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);

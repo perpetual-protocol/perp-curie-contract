@@ -317,11 +317,12 @@ contract ClearingHouse is
 
         int256 takerOpenNotional = IExchange(_exchange).getTakerOpenNotional(trader, params.baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
-        emit PositionChangedFromLiquidityChanged(
+        emit PositionChanged(
             trader,
             params.baseToken,
             response.deltaTakerBase, // exchangedPositionSize
             response.deltaTakerQuote, // exchangedPositionNotional
+            0,
             takerOpenNotional, // openNotional
             realizedPnl, // realizedPnl
             sqrtPrice
@@ -689,6 +690,16 @@ contract ClearingHouse is
             // it's not closing the position, check margin ratio
             _requireEnoughFreeCollateral(params.trader);
         }
+        emit PositionChanged(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional,
+            response.fee,
+            response.openNotional,
+            response.realizedPnl,
+            response.sqrtPriceAfter
+        );
 
         IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 

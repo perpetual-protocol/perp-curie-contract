@@ -72,7 +72,7 @@ describe.skip("ClearingHouse accounting", () => {
         collateralDecimals = await collateral.decimals()
 
         getTakerRealizedPnlAndFees = (receipt: ContractReceipt): [BigNumber, BigNumber] => {
-            const logs = filterLogs(receipt, exchange.interface.getEventTopic("PositionChanged"), exchange)
+            const logs = filterLogs(receipt, clearingHouse.interface.getEventTopic("PositionChanged"), clearingHouse)
             let realizedPnl = BigNumber.from(0)
             let fees = BigNumber.from(0)
             for (const log of logs) {

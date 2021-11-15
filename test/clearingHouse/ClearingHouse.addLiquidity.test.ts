@@ -776,12 +776,13 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
                     parseEther("-0.5"), // exchangedPositionSize
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
                     Object, // sqrtPriceAfter
@@ -829,12 +830,13 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
                     parseEther("0.499999999999999999"), // exchangedPositionSize
                     bobTakerQuote.div(2), // exchangedPositionNotional
+                    0, // fee
                     "-152925362473060470222", // openNotional
                     "0", // realizedPnl
                     Object, // sqrtPriceAfter
@@ -879,7 +881,7 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
@@ -887,6 +889,7 @@ describe("ClearingHouse addLiquidity", () => {
                     parseEther("-0.5"), // exchangedPositionSize
                     // move 50% taker quote debt to maker
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
                     Object, // sqrtPriceAfter
@@ -933,11 +936,7 @@ describe("ClearingHouse addLiquidity", () => {
                 bobLiquidity.mul(-1),
             ])
 
-            const positionChangedFromLiquidityChanged = retrieveEvent(
-                receipt,
-                clearingHouse,
-                "PositionChangedFromLiquidityChanged",
-            )
+            const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
             expect([
                 positionChangedFromLiquidityChanged.args.trader,
                 positionChangedFromLiquidityChanged.args.baseToken,
@@ -1007,12 +1006,13 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(clearingHouse, "PositionChangedFromLiquidityChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
                     parseEther("-0.5"), // exchangedPositionSize
                     bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
                     Object, // sqrtPriceAfter
@@ -1034,7 +1034,7 @@ describe("ClearingHouse addLiquidity", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.not.emit(clearingHouse, "PositionChangedFromLiquidityChanged") // since useTakerBalance: false
+            ).to.not.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
 
             // alice long 0.1 base token
             await q2bExactOutput(fixture, alice, 0.1)

@@ -236,6 +236,10 @@ contract Exchange is
                 deltaAvailableQuote: response.deltaAvailableQuote.abs(),
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
+                fee: response.fee,
+                openNotional: takerOpenNotional,
+                realizedPnl: pnlToBeRealized,
+                sqrtPriceAfter: sqrtPrice,
                 tick: response.tick,
                 isPartialClose: isPartialClose
             });
