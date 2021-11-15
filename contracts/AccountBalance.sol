@@ -314,6 +314,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;
     }
 
+    /// @dev the amount of quote token paid for a position when opening
+    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
+        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
+
+        return
+            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
+                getQuote(trader, baseToken)
+            );
+    }
+
     /// @inheritdoc IAccountBalance
     function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;

@@ -130,60 +130,56 @@ describe("ClearingHouse verify accounting", () => {
     async function startTest() {
         describe("one trade", () => {
             it("q2bExactOutput", async () => {
-                const r = (await q2bExactOutput(fixture, alice, 1)).wait()
-                console.log((await r).gasUsed.toString())
+                await q2bExactOutput(fixture, alice, 1)
             })
 
             it("q2bExactInput", async () => {
-                const r = (await q2bExactInput(fixture, alice, 100)).wait()
-                console.log((await r).gasUsed.toString())
+                await q2bExactInput(fixture, alice, 100)
             })
 
             it("b2qExactOutput", async () => {
-                const r = (await b2qExactOutput(fixture, alice, 100)).wait()
-                console.log((await r).gasUsed.toString())
+                await b2qExactOutput(fixture, alice, 100)
             })
 
             it("b2qExactInput", async () => {
-                const r = (await b2qExactInput(fixture, alice, 1)).wait()
-                console.log((await r).gasUsed.toString())
+                await b2qExactInput(fixture, alice, 1)
             })
         })
 
-        // it("takerTradeWithOnlyOneMaker", async () => {
-        //     // alice
-        //     await q2bExactOutput(fixture, alice, 1)
+        it("takerTradeWithOnlyOneMaker", async () => {
+            // alice
+            await q2bExactOutput(fixture, alice, 1)
 
-        //     // bob
-        //     await b2qExactOutput(fixture, bob, 100)
+            // bob
+            await b2qExactOutput(fixture, bob, 100)
 
-        //     // carol
-        //     await b2qExactInput(fixture, carol, 1)
-        // })
+            // carol
+            await b2qExactInput(fixture, carol, 1)
+        })
 
-        // it("takerAddLiquidityWhileHavingPosition", async () => {
-        //     // alice take position
-        //     await q2bExactInput(fixture, alice, 100)
+        it("takerAddLiquidityWhileHavingPosition", async () => {
+            // alice take position
+            await q2bExactInput(fixture, alice, 100)
 
-        //     // bob take position, bob profit++
-        //     await q2bExactInput(fixture, bob, 100)
+            // bob take position, bob profit++
+            await q2bExactInput(fixture, bob, 100)
 
-        //     // alice
-        //     await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
-        //     await removeOrder(fixture, alice, 0, lowerTick, upperTick)
-        //     await closePosition(fixture, alice)
+            // alice
+            await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
+            await removeOrder(fixture, alice, 0, lowerTick, upperTick)
+            await closePosition(fixture, alice)
 
-        //     // bob
-        //     await closePosition(fixture, bob)
-        // })
+            // bob
+            await closePosition(fixture, bob)
+        })
 
-        // it("makerOpenPosition", async () => {
-        //     // alice
-        //     await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
-        //     await q2bExactInput(fixture, alice, 100)
+        it("makerOpenPosition", async () => {
+            // alice
+            await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
+            await q2bExactInput(fixture, alice, 100)
 
-        //     // bob take position, bob profit++
-        //     await q2bExactInput(fixture, bob, 100)
-        // })
+            // bob take position, bob profit++
+            await q2bExactInput(fixture, bob, 100)
+        })
     }
 })

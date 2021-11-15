@@ -86,10 +86,6 @@ interface IExchange {
 
     function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);
 
-    function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
-
-    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
-
     function getOrderBook() external view returns (address);
 
     function getAccountBalance() external view returns (address);

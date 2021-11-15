@@ -118,7 +118,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(
                 parseEther("19.839679358717434869"),
             )
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("-250"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("-250"))
         })
 
         it("increase positionSize and openNotional (negative for long) - exactOutput", async () => {
@@ -134,7 +134,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("20"))
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
                 parseEther("-252.525252525252525252"),
                 1,
             )
@@ -153,7 +153,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
         })
 
         it("increase -positionSize and openNotional (positive for short) - exactOutput", async () => {
@@ -169,7 +169,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
         })
     })
 
@@ -205,7 +205,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             it("increase positionSize and openNotional", async () => {
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("40"))
 
-                expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
+                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
                     parseEther("-673.400673400673400666"),
                     2,
                 )
@@ -232,7 +232,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             it("half the posSize and openNotional", async () => {
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("10"))
                 // 252.525252525252525252 / 2 = 126.2626262626
-                expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
                     parseEther("-126.262626262626262626"),
                 )
                 // this will be weirdly positive because of the nature of the average open notional pricing
@@ -271,7 +271,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             // trader's actual delta = 340.91 - 3.41 = 337.5
             // notional of original 20 ETH = 337.5 / 3 * 2 = 252.525252
             // remain 10 ETH's notional = openNotional = 337.5 - 252.5252 = 112.5
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("112.5"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("112.5"))
         })
     })
 
@@ -309,7 +309,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     parseEther("-12.5"),
                 )
                 // 198/2 = 99
-                expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("99"))
+                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("99"))
                 // this will be weirdly positive because of the nature of the average open notional pricing
                 // expect(await accountBalance.getOwedAndUnrealizedPnl(taker.address)).eq()
             })
@@ -345,7 +345,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             })
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("15"))
             // 142.58823529
-            expect(await exchange.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
                 parseEther("-142.602495543672014261"),
             )
         })

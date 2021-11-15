@@ -798,7 +798,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
@@ -855,7 +855,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("adding liquidity using taker position and somebody trade", async () => {
@@ -978,7 +978,7 @@ describe("ClearingHouse addLiquidity", () => {
                 1,
             )
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-137.451460818081682493"))
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
                 parseEther("-137.451460818081682493"),
             )
         })
@@ -1074,7 +1074,7 @@ describe("ClearingHouse addLiquidity", () => {
                 1,
             )
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-121.932953549887475037"))
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
                 parseEther("-121.932953549887475037"),
             )
         })

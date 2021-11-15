@@ -315,7 +315,7 @@ contract ClearingHouse is
             response.fee
         );
 
-        int256 takerOpenNotional = IExchange(_exchange).getTakerOpenNotional(trader, params.baseToken);
+        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(trader, params.baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
         emit PositionChanged(
             trader,

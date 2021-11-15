@@ -178,7 +178,7 @@ contract Exchange is
         }
 
         // get openNotional before swap
-        int256 oldTakerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
+        int256 oldTakerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducingPosition) {
@@ -216,7 +216,6 @@ contract Exchange is
         }
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
-
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
@@ -437,6 +436,7 @@ contract Exchange is
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
+        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(params.trader, params.baseToken);
         return
             isReducingPosition
                 ? _getPnlToBeRealized(
@@ -444,29 +444,12 @@ contract Exchange is
                         trader: params.trader,
                         baseToken: params.baseToken,
                         takerPositionSize: takerPositionSize,
-                        takerOpenNotional: getTakerOpenNotional(params.trader, params.baseToken),
+                        takerOpenNotional: takerOpenNotional,
                         deltaAvailableBase: params.deltaAvailableBase,
                         deltaAvailableQuote: params.deltaAvailableQuote
                     })
                 )
                 : 0;
-    }
-
-    // TODO move to AccountBalance
-    /// @dev the amount of quote token paid for a position when opening
-    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // makerBalance = totalTokenAmountInPool - totalOrderDebt
-        uint256 totalQuoteBalanceFromOrders =
-            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        uint256 totalQuoteDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
-        int256 makerQuoteBalance = totalQuoteBalanceFromOrders.toInt256().sub(totalQuoteDebtFromOrder.toInt256());
-        int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
-        return makerQuoteBalance.add(takerQuoteBalance);
-    }
-
-    // @audit why do we need this instead of calling accountBalance directly? - @wraecca
-    function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        return IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
     }
 
     //
