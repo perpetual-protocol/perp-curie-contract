@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `OrderBook.getTotalOrderDebt()`
 - add `OrderBook.getMakerBalance()`
 
+### Changed
+
+- move `getTotalOpenNotional()` from `Exchange` to `AccountBalance`
+- move `PositionChanged` event from `Exchange` to `ClearingHouse`
+
+### Removed
+
+- remove `Exchange.getTakerOpenNotional()` 
+
 ## [0.13.3-staging] - 2021-11-11
 
 ### Changed
