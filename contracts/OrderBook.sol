@@ -97,7 +97,7 @@ contract OrderBook is
     }
 
     function addLiquidity(AddLiquidityParams calldata params) external override returns (AddLiquidityResponse memory) {
-        _requireClearingHouse();
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
@@ -176,7 +176,7 @@ contract OrderBook is
         override
         returns (RemoveLiquidityResponse memory)
     {
-        _requireClearingHouse();
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         return
@@ -198,7 +198,7 @@ contract OrderBook is
         address baseToken,
         bytes32[] calldata orderIds
     ) external override returns (RemoveLiquidityResponse memory) {
-        _requireClearingHouse();
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         RemoveLiquidityResponse memory removeLiquidityResponse;
@@ -278,7 +278,7 @@ contract OrderBook is
         int256 deltaBaseDebt,
         int256 deltaQuoteDebt
     ) external override {
-        _requireClearingHouse();
+        _requireOnlyClearingHouse();
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
         openOrder.baseDebt = openOrder.baseDebt.toInt256().add(deltaBaseDebt).toUint256();
         openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(deltaQuoteDebt).toUint256();

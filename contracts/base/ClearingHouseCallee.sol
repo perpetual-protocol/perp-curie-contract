@@ -36,7 +36,7 @@ abstract contract ClearingHouseCallee is SafeOwnable {
         return _clearingHouse;
     }
 
-    function _requireClearingHouse() internal view {
+    function _requireOnlyClearingHouse() internal view {
         // only ClearingHouse
         require(_msgSender() == _clearingHouse, "CHD_OCH");
     }

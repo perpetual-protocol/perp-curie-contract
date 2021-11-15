@@ -139,7 +139,7 @@ contract Exchange is
     }
 
     function swap(SwapParams memory params) external override returns (SwapResponse memory) {
-        _requireClearingHouse();
+        _requireOnlyClearingHouse();
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
         // when takerPositionSize < 0, it's a short position
@@ -216,7 +216,7 @@ contract Exchange is
         }
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
-        (uint256 sqrtPrice, , , , , , ) =
+        (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
             params.trader,
@@ -226,7 +226,7 @@ contract Exchange is
             response.fee,
             takerOpenNotional,
             pnlToBeRealized,
-            sqrtPrice
+            sqrtPriceX96
         );
 
         return

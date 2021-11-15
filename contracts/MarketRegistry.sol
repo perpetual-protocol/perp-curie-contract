@@ -70,9 +70,9 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         // non-existent pool in uniswapV3 factory
         require(pool != address(0), "MR_NEP");
 
-        (uint256 sqrtPrice, , , , , , ) = UniswapV3Broker.getSlot0(pool);
+        (uint256 sqrtPriceX96, , , , , , ) = UniswapV3Broker.getSlot0(pool);
         // pool not (yet) initialized
-        require(sqrtPrice != 0, "MR_PNI");
+        require(sqrtPriceX96 != 0, "MR_PNI");
 
         // clearingHouse not in baseToken whitelist
         require(IVirtualToken(baseToken).isInWhitelist(_clearingHouse), "MR_CNBWL");
