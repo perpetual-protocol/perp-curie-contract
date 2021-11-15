@@ -8,6 +8,7 @@ abstract contract OwnerPausable is SafeOwnable, PausableUpgradeable {
     // __gap is reserved storage
     uint256[50] private __gap;
 
+    // solhint-disable-next-line func-order
     function __OwnerPausable_init() internal initializer {
         __SafeOwnable_init();
         __Pausable_init();

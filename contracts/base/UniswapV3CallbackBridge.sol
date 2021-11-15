@@ -33,6 +33,7 @@ abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
     //
     // CONSTRUCTOR
     //
+    // solhint-disable-next-line func-order
     function __UniswapV3CallbackBridge_init(address marketRegistryArg) internal initializer {
         __Context_init();
 

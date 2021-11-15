@@ -479,8 +479,53 @@ contract OrderBook is
         return totalQuoteAmountInPools;
     }
 
+    function getTotalQuoteBalance(address trader, address[] calldata baseTokens)
+        external
+        view
+        override
+        returns (int256)
+    {
+        int256 totalQuoteAmountInPools;
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            address baseToken = baseTokens[i];
+            int256 makerQuoteBalance = getMakerBalance(trader, baseToken, false);
+            totalQuoteAmountInPools = totalQuoteAmountInPools.add(makerQuoteBalance);
+        }
+        return totalQuoteAmountInPools;
+    }
+
+    function getTotalOrderDebt(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) public view override returns (uint256) {
+        uint256 totalOrderDebt;
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
+        uint256 orderIdLength = orderIds.length;
+        for (uint256 i = 0; i < orderIdLength; i++) {
+            OpenOrder.Info memory orderInfo = _openOrderMap[orderIds[i]];
+            uint256 orderDebt = fetchBase ? orderInfo.baseDebt : orderInfo.quoteDebt;
+            totalOrderDebt = totalOrderDebt.add(orderDebt);
+        }
+        return totalOrderDebt;
+    }
+
+    // @audit consider remove for bytecode size - @wraecca
+    /// @dev note the return value includes maker fee.
+    function getMakerBalance(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) public view override returns (int256) {
+        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
+    }
+
     /// @dev the returned quote amount does not include funding payment because
     ///      the latter is counted directly toward realizedPnl.
+    ///      the return value includes maker fee.
     ///      please refer to _getTotalTokenAmountInPool() docstring for specs
     function getTotalTokenAmountInPool(
         address trader,

@@ -27,37 +27,22 @@ interface IAccountBalance {
     /// @dev Settle account balance and deregister base token
     /// @param maker The address of the maker
     /// @param baseToken The address of the market's base token
-    /// @param base Amount of base token removed from pool
-    /// @param quote Amount of quote token removed from pool
     /// @param realizedPnl Amount of pnl realized
     /// @param fee Amount of fee collected from pool
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
-        int256 base,
-        int256 quote,
         int256 deltaTakerBase,
         int256 deltaTakerQuote,
         int256 realizedPnl,
         int256 fee
     ) external;
 
-    function addBalance(
-        address trader,
-        address baseToken,
-        int256 base,
-        int256 quote,
-        int256 owedRealizedPnl
-    ) external;
-
     function addTakerBalances(
         address trader,
         address baseToken,
-        int256 base,
-        int256 quote,
         int256 deltaTakerBase,
-        int256 deltaTakerQuote,
-        int256 owedRealizedPnl
+        int256 deltaTakerQuote
     ) external;
 
     function addOwedRealizedPnl(address trader, int256 delta) external;

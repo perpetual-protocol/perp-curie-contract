@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- add `OrderBook.getTotalQuoteBalance()`
+- add `OrderBook.getTotalOrderDebt()`
+- add `OrderBook.getMakerBalance()`
+
 ## [0.13.3-staging] - 2021-11-11
 
 ### Changed

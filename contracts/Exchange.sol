@@ -45,10 +45,6 @@ contract Exchange is
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
-    // CONSTANT
-    uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
-    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
-
     //
     // STRUCT
     //
@@ -79,6 +75,10 @@ contract Exchange is
         int256 deltaAvailableBase;
         int256 deltaAvailableQuote;
     }
+
+    // CONSTANT
+    uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
+    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
     //
     // EXTERNAL NON-VIEW
@@ -192,10 +192,7 @@ contract Exchange is
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256()),
-            0
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
         );
 
         // when reducing/not increasing the position size, it's necessary to realize pnl
@@ -269,13 +266,12 @@ contract Exchange is
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
         int256 fundingPayment =
             _updateFundingGrowth(
                 trader,
                 baseToken,
-                accountInfo.baseBalance,
-                accountInfo.lastTwPremiumGrowthGlobalX96,
+                IAccountBalance(_accountBalance).getBase(trader, baseToken),
+                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal
             );
 
@@ -352,15 +348,14 @@ contract Exchange is
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
-        AccountMarket.Info memory accountInfo = IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
             IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
             _getPendingFundingPaymentWithLiquidityCoefficient(
-                accountInfo.baseBalance,
-                accountInfo.lastTwPremiumGrowthGlobalX96,
+                IAccountBalance(_accountBalance).getBase(trader, baseToken),
+                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
@@ -450,16 +445,15 @@ contract Exchange is
                 : 0;
     }
 
+    // TODO move to AccountBalance
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // quote.pool[baseToken] + quote.owedFee[baseToken] + quoteBalance[baseToken]
-
-        return
-            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false).toInt256().add(
-                IAccountBalance(_accountBalance).getQuote(trader, baseToken)
-            );
+        int256 makerQuoteBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, false);
+        int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
+        return makerQuoteBalance.add(takerQuoteBalance);
     }
 
+    // @audit why do we need this instead of calling accountBalance directly? - @wraecca
     function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
         return IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
     }
