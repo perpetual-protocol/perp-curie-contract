@@ -119,11 +119,15 @@ describe("Vault spec", () => {
     describe("withdraw settlement token", async () => {
         let amount: ReturnType<typeof parseUnits>
         beforeEach(async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(
+                async () => ethers.constants.MaxUint256,
+            )
+
             amount = parseUnits("100", await usdc.decimals())
             await vault.connect(alice).deposit(usdc.address, amount)
 
             accountBalance.smocked.settleOwedRealizedPnl.will.return.with(0)
-            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount])
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, amount, 0])
             accountBalance.smocked.getTotalDebtValue.will.return.with(0)
         })
 
@@ -147,7 +151,7 @@ describe("Vault spec", () => {
 
         it("force error if the freeCollateral is not enough", async () => {
             // unrealizedPnl = -amount, so free collateral is not enough
-            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, parseEther("-100")])
+            accountBalance.smocked.getOwedAndUnrealizedPnl.will.return.with([0, parseEther("-100"), 0])
 
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })

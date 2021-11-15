@@ -968,6 +968,7 @@ describe("ClearingHouse addLiquidity", () => {
             //            = -152.925362473060470222 /2 + (-60.988779581551447382)
             //            = -137.451460818
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalance(bob.address))[0]
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.9"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-137.451460818081682493"))
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.9"), 1)
@@ -1065,6 +1066,7 @@ describe("ClearingHouse addLiquidity", () => {
             //            = -121.93295355
 
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalance(bob.address))[0]
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.8"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-121.932953549887475037"))
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.8"), 1)
