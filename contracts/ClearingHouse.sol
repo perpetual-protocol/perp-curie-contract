@@ -352,6 +352,35 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    function collectPendingFee(CollectPendingFeeParams memory params) external override returns (uint256 fee) {
+        IOrderBook.RemoveLiquidityResponse memory response =
+            IOrderBook(_orderBook).removeLiquidity(
+                IOrderBook.RemoveLiquidityParams({
+                    maker: params.trader,
+                    baseToken: params.baseToken,
+                    lowerTick: params.lowerTick,
+                    upperTick: params.upperTick,
+                    liquidity: 0
+                })
+            );
+
+        _settleBalanceAndRealizePnl(params.trader, params.baseToken, response);
+
+        emit LiquidityChanged(
+            params.trader,
+            params.baseToken,
+            _quoteToken,
+            params.lowerTick,
+            params.upperTick,
+            0,
+            0,
+            0,
+            response.fee
+        );
+
+        return response.fee;
+    }
+
     /// @inheritdoc IClearingHouse
     function openPosition(OpenPositionParams memory params)
         external

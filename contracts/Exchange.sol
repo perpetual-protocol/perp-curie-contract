@@ -23,8 +23,10 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -235,11 +237,27 @@ contract Exchange is
             });
     }
 
-    function settleAllFunding(address trader) external override {
+    function settleAllFundingAndPendingFee(address trader) external override {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
-
         for (uint256 i = 0; i < baseTokenLength; i++) {
+            // collect all pending fees from orders
+            bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseTokens[i]);
+            uint256 orderIdLength = orderIds.length;
+
+            for (uint256 j = 0; j < orderIdLength; j++) {
+                OpenOrder.Info memory orderInfo = IOrderBook(_orderBook).getOpenOrderById(orderIds[j]);
+                // will settle pending fee to owedRealizedPnl in ClearingHouse
+                IClearingHouse(_clearingHouse).collectPendingFee(
+                    IClearingHouse.CollectPendingFeeParams({
+                        trader: trader,
+                        baseToken: baseTokens[i],
+                        lowerTick: orderInfo.lowerTick,
+                        upperTick: orderInfo.upperTick
+                    })
+                );
+            }
+
             settleFunding(trader, baseTokens[i]);
         }
     }

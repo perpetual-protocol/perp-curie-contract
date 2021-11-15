@@ -135,10 +135,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         address to = _msgSender();
 
-        // settle all funding payments to owedRealizedPnl
-        IExchange(_exchange).settleAllFunding(to);
-
-        // collect pending fee to owedRealizedPnl
+        // settle all funding payments and pendingFee to owedRealizedPnl
+        IExchange(_exchange).settleAllFundingAndPendingFee(to);
 
         // settle owedRealizedPnl in AccountBalance
         int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);

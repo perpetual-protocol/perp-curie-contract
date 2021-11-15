@@ -71,6 +71,13 @@ interface IClearingHouse {
         bytes32 referralCode;
     }
 
+    struct CollectPendingFeeParams {
+        address trader;
+        address baseToken;
+        int24 lowerTick;
+        int24 upperTick;
+    }
+
     event ReferredPositionChanged(bytes32 indexed referralCode);
 
     event PositionLiquidated(
@@ -118,6 +125,8 @@ interface IClearingHouse {
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         returns (RemoveLiquidityResponse memory response);
+
+    function collectPendingFee(CollectPendingFeeParams calldata params) external returns (uint256 fee);
 
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote);
 

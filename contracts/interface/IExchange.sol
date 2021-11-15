@@ -59,7 +59,7 @@ interface IExchange {
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
-    function settleAllFunding(address trader) external;
+    function settleAllFundingAndPendingFee(address trader) external;
 
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
     ///      while it doesn't matter who calls this function
