@@ -136,7 +136,7 @@ describe("UniswapV3Broker addLiquidity", () => {
                 quote,
                 data: hexlify([]),
             }),
-        ).to.be.revertedWith("UB_ZL")
+        ).to.be.reverted
     })
 
     it("mint range order under current price", async () => {
@@ -185,6 +185,6 @@ describe("UniswapV3Broker addLiquidity", () => {
                 quote,
                 data: hexlify([]),
             }),
-        ).to.be.revertedWith("UB_ZL")
+        ).to.be.reverted
     })
 })

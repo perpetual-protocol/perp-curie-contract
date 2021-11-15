@@ -52,7 +52,7 @@ interface IExchange {
         uint256 fee,
         int256 openNotional,
         int256 realizedPnl,
-        uint256 sqrtPriceAfter
+        uint256 sqrtPriceAfterX96
     );
 
     /// @param fundingPayment > 0: payment, < 0 : receipt

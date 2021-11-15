@@ -26,6 +26,7 @@ import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
+import { OrderKey } from "./lib/OrderKey.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -195,10 +196,9 @@ contract ClearingHouse is
         // if !useTakerBalance, takerBalance won't change, only need to collects fee to oweRealizedPnl
         if (params.useTakerBalance) {
             bool isBaseAdded = response.base > 0;
-            bool isQuoteAdded = response.quote > 0;
 
             // can't add liquidity within range from take position
-            require(isBaseAdded != isQuoteAdded, "CH_CALWRFTP");
+            require(isBaseAdded != response.quote > 0, "CH_CALWRFTP");
 
             AccountMarket.Info memory accountMarketInfo =
                 IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
@@ -231,7 +231,11 @@ contract ClearingHouse is
             }
 
             // update orderDebt to record the cost of this order
-            IOrderBook(_orderBook).updateOrderDebt(response.orderId, deltaBaseDebt, deltaQuoteDebt);
+            IOrderBook(_orderBook).updateOrderDebt(
+                OrderKey.compute(trader, params.baseToken, params.lowerTick, params.upperTick),
+                deltaBaseDebt,
+                deltaQuoteDebt
+            );
 
             // update takerBalances as we're using takerBalances to provide liquidity
             IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);

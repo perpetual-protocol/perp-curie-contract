@@ -81,7 +81,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 deltaTakerQuote,
         int256 realizedPnl,
         int256 fee
-    ) external override onlyClearingHouse {
+    ) external override {
+        _requireOnlyClearingHouse();
         _addOwedRealizedPnl(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         // to avoid dust, let realizedPnl = getQuote() when there's no order
@@ -128,11 +129,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
-    function deregisterBaseToken(address trader, address baseToken) external override onlyClearingHouse {
+    function deregisterBaseToken(address trader, address baseToken) external override {
+        _requireOnlyClearingHouse();
         _deregisterBaseToken(trader, baseToken);
     }
 
-    function registerBaseToken(address trader, address baseToken) external override onlyClearingHouse {
+    function registerBaseToken(address trader, address baseToken) external override {
+        _requireOnlyClearingHouse();
         address[] memory tokens = _baseTokensMap[trader];
         if (tokens.length == 0) {
             _baseTokensMap[trader].push(baseToken);
@@ -300,7 +303,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // NOTE: when a token goes into UniswapV3 pool (addLiquidity or swap), there would be 1 wei rounding error
         // for instance, maker adds liquidity with 2 base (2000000000000000000),
         // the actual base amount in pool would be 1999999999999999999
-        int256 makerBaseBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, true);
+
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        uint256 totalBaseBalanceFromOrders = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+        uint256 totalBaseDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
+        int256 makerBaseBalance = totalBaseBalanceFromOrders.toInt256().sub(totalBaseDebtFromOrder.toInt256());
+
         int256 takerBaseBalance = _accountMarketMap[trader][baseToken].takerBaseBalance;
         int256 totalPositionSize = makerBaseBalance.add(takerBaseBalance);
         return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;

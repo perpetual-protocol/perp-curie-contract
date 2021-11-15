@@ -29,7 +29,6 @@ interface IOrderBook {
         uint256 quote;
         uint256 fee;
         uint128 liquidity;
-        bytes32 orderId;
     }
 
     struct RemoveLiquidityResponse {
@@ -119,13 +118,6 @@ interface IOrderBook {
         address baseToken,
         bool fetchBase
     ) external view returns (uint256);
-
-    // getMakerBalance = totalTokenAmountInPool - totalOrderDebt
-    function getMakerBalance(
-        address trader,
-        address baseToken,
-        bool fetchBase
-    ) external view returns (int256);
 
     function getLiquidityCoefficientInFundingPayment(
         address trader,

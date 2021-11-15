@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
@@ -34,7 +33,6 @@ contract OrderBook is
     UniswapV3CallbackBridge,
     OrderBookStorageV1
 {
-    using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint128;
     using SignedSafeMathUpgradeable for int256;
@@ -94,18 +92,12 @@ contract OrderBook is
     }
 
     function setExchange(address exchangeArg) external onlyOwner {
-        // Exchange is 0
-        require(exchangeArg != address(0), "OB_CH0");
         _exchange = exchangeArg;
         emit ExchangeChanged(exchangeArg);
     }
 
-    function addLiquidity(AddLiquidityParams calldata params)
-        external
-        override
-        onlyClearingHouse
-        returns (AddLiquidityResponse memory)
-    {
+    function addLiquidity(AddLiquidityParams calldata params) external override returns (AddLiquidityResponse memory) {
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
@@ -127,7 +119,7 @@ contract OrderBook is
                 )
             );
 
-            int24 currentTick = UniswapV3Broker.getTick(pool);
+            (, int24 currentTick, , , , , ) = UniswapV3Broker.getSlot0(pool);
             // initialize tick info
             if (!initializedBeforeLower && UniswapV3Broker.getIsTickInitialized(pool, params.lowerTick)) {
                 tickMap.initialize(
@@ -154,7 +146,7 @@ contract OrderBook is
         }
 
         // state changes; if adding liquidity to an existing order, get fees accrued
-        (bytes32 orderId, uint256 fee) =
+        uint256 fee =
             _addLiquidityToOrder(
                 InternalAddLiquidityToOrderParams({
                     maker: params.trader,
@@ -175,17 +167,16 @@ contract OrderBook is
                 base: response.base,
                 quote: response.quote,
                 fee: fee,
-                liquidity: response.liquidity,
-                orderId: orderId
+                liquidity: response.liquidity
             });
     }
 
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
-        onlyClearingHouse
         returns (RemoveLiquidityResponse memory)
     {
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         return
@@ -206,16 +197,14 @@ contract OrderBook is
         address maker,
         address baseToken,
         bytes32[] calldata orderIds
-    ) external override onlyClearingHouse returns (RemoveLiquidityResponse memory) {
+    ) external override returns (RemoveLiquidityResponse memory) {
+        _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         RemoveLiquidityResponse memory removeLiquidityResponse;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-
             bytes32 orderId = OrderKey.compute(maker, baseToken, order.lowerTick, order.upperTick);
-            // OB_IO: invalid orderId
-            require(orderIds[i] == orderId, "OB_IO");
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -257,13 +246,14 @@ contract OrderBook is
 
         // funding of liquidity coefficient
         uint256 orderIdLength = orderIds.length;
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(pool),
+                    tick,
                     fundingGrowthGlobal.twPremiumX96,
                     fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                 );
@@ -287,7 +277,8 @@ contract OrderBook is
         bytes32 orderId,
         int256 deltaBaseDebt,
         int256 deltaQuoteDebt
-    ) external override onlyClearingHouse {
+    ) external override {
+        _requireOnlyClearingHouse();
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
         openOrder.baseDebt = openOrder.baseDebt.toInt256().add(deltaBaseDebt).toUint256();
         openOrder.quoteDebt = openOrder.quoteDebt.toInt256().add(deltaQuoteDebt).toUint256();
@@ -488,7 +479,7 @@ contract OrderBook is
         int256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
-            int256 makerQuoteBalance = getMakerBalance(trader, baseToken, false);
+            int256 makerQuoteBalance = _getMakerBalance(trader, baseToken, false);
             totalQuoteAmountInPools = totalQuoteAmountInPools.add(makerQuoteBalance);
         }
         return totalQuoteAmountInPools;
@@ -508,19 +499,6 @@ contract OrderBook is
             totalOrderDebt = totalOrderDebt.add(orderDebt);
         }
         return totalOrderDebt;
-    }
-
-    // @audit consider remove for bytecode size - @wraecca
-    /// @dev note the return value includes maker fee.
-    function getMakerBalance(
-        address trader,
-        address baseToken,
-        bool fetchBase
-    ) public view override returns (int256) {
-        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
-        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
-        // makerBalance = totalTokenAmountInPool - totalOrderDebt
-        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
     }
 
     /// @dev the returned quote amount does not include funding payment because
@@ -547,13 +525,14 @@ contract OrderBook is
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
-                    UniswapV3Broker.getTick(pool),
+                    tick,
                     fundingGrowthGlobal.twPremiumX96,
                     fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
                 );
@@ -593,13 +572,6 @@ contract OrderBook is
         internal
         returns (RemoveLiquidityResponse memory)
     {
-        // load existing open order
-        OpenOrder.Info memory openOrder = _openOrderMap[params.orderId];
-        // non-existent openOrder
-        require(openOrder.liquidity > 0, "OB_NEO");
-        // not enough liquidity
-        require(params.liquidity <= openOrder.liquidity, "OB_NEL");
-
         UniswapV3Broker.RemoveLiquidityResponse memory response =
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
@@ -694,7 +666,7 @@ contract OrderBook is
     }
 
     /// @dev this function is extracted from and only used by addLiquidity() to avoid stack too deep error
-    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (bytes32, uint256) {
+    function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
         bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
@@ -710,12 +682,13 @@ contract OrderBook is
             openOrder.lowerTick = params.lowerTick;
             openOrder.upperTick = params.upperTick;
 
+            (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(params.pool);
             mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
             Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     openOrder.lowerTick,
                     openOrder.upperTick,
-                    UniswapV3Broker.getTick(params.pool),
+                    tick,
                     params.globalFundingGrowth.twPremiumX96,
                     params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
                 );
@@ -737,12 +710,24 @@ contract OrderBook is
         openOrder.baseDebt = openOrder.baseDebt.add(params.deltaBase);
         openOrder.quoteDebt = openOrder.quoteDebt.add(params.deltaQuote);
 
-        return (orderId, fee);
+        return fee;
     }
 
     //
     // INTERNAL VIEW
     //
+
+    /// @dev note the return value includes maker fee.
+    function _getMakerBalance(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) internal view returns (int256) {
+        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+        uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
+    }
 
     /// @dev Get total amount of the specified tokens in the specified pool.
     ///      Note:
@@ -770,8 +755,8 @@ contract OrderBook is
         // if current price > lower tick, maker has quote
         // case 2 : current price > upper tick
         //  --> maker only has quote token
-        uint160 sqrtMarkPriceX96 =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        (uint160 sqrtMarkPriceX96, , , , , , ) =
+            UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         uint256 tokenAmount;
         uint256 orderIdLength = orderIds.length;
 
@@ -814,11 +799,12 @@ contract OrderBook is
         view
         returns (uint256 owedFee, uint256 feeGrowthInsideX128)
     {
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
             order.lowerTick,
             order.upperTick,
-            UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken)),
+            tick,
             _feeGrowthGlobalX128Map[baseToken]
         );
         owedFee = FullMath.mulDiv(

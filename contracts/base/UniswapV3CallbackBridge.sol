@@ -4,12 +4,9 @@ pragma abicoder v2;
 
 import { ContextUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { IMarketRegistry } from "../interface/IMarketRegistry.sol";
 
 abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
-    using AddressUpgradeable for address;
-
     //
     // STATE
     //
@@ -37,8 +34,6 @@ abstract contract UniswapV3CallbackBridge is ContextUpgradeable {
     function __UniswapV3CallbackBridge_init(address marketRegistryArg) internal initializer {
         __Context_init();
 
-        // UCB_MRNC: MarketRegistry is not contract
-        require(marketRegistryArg.isContract(), "UCB_MRNC");
         _marketRegistry = marketRegistryArg;
     }
 

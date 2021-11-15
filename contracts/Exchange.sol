@@ -138,7 +138,8 @@ contract Exchange is
         IUniswapV3SwapCallback(_clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
-    function swap(SwapParams memory params) external override onlyClearingHouse returns (SwapResponse memory) {
+    function swap(SwapParams memory params) external override returns (SwapResponse memory) {
+        _requireOnlyClearingHouse();
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
         // when takerPositionSize < 0, it's a short position
@@ -215,8 +216,8 @@ contract Exchange is
         }
 
         int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
-        uint256 sqrtPrice =
-            UniswapV3Broker.getSqrtMarkPriceX96(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
+        (uint256 sqrtPriceX96, , , , , , ) =
+            UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         emit PositionChanged(
             params.trader,
             params.baseToken,
@@ -225,7 +226,7 @@ contract Exchange is
             response.fee,
             takerOpenNotional,
             pnlToBeRealized,
-            sqrtPrice
+            sqrtPriceX96
         );
 
         return
@@ -416,7 +417,8 @@ contract Exchange is
     }
 
     function getTick(address baseToken) public view override returns (int24) {
-        return UniswapV3Broker.getTick(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        return tick;
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
@@ -448,7 +450,11 @@ contract Exchange is
     // TODO move to AccountBalance
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        int256 makerQuoteBalance = IOrderBook(_orderBook).getMakerBalance(trader, baseToken, false);
+        // makerBalance = totalTokenAmountInPool - totalOrderDebt
+        uint256 totalQuoteBalanceFromOrders =
+            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
+        uint256 totalQuoteDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
+        int256 makerQuoteBalance = totalQuoteBalanceFromOrders.toInt256().sub(totalQuoteDebtFromOrder.toInt256());
         int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
         return makerQuoteBalance.add(takerQuoteBalance);
     }
