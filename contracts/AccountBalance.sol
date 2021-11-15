@@ -228,7 +228,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     /// @return owedRealizedPnl the pnl realized already but stored temporarily in AccountBalance
     /// @return unrealizedPnl the pnl not yet realized
-    function getOwedAndUnrealizedPnl(address trader)
+    /// @return pendingFee the pending fee of maker earned
+    function getPnlAndPendingFee(address trader)
         external
         view
         override
@@ -244,7 +245,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             address baseToken = _baseTokensMap[trader][i];
             totalPositionValue = totalPositionValue.add(getTotalPositionValue(trader, baseToken));
         }
-        (int256 netQuoteBalance, uint256 pendingFee) = getNetQuoteBalance(trader);
+        (int256 netQuoteBalance, uint256 pendingFee) = getNetQuoteBalanceAndPendingFee(trader);
         int256 unrealizedPnl = totalPositionValue.add(netQuoteBalance);
 
         return (_owedRealizedPnlMap[trader], unrealizedPnl, pendingFee);
@@ -281,7 +282,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     // @audit suggest to change to internal if no one use it - @wraecca
     /// @inheritdoc IAccountBalance
-    function getNetQuoteBalance(address trader) public view override returns (int256 netQuoteBalance, uint256 fee) {
+    function getNetQuoteBalanceAndPendingFee(address trader)
+        public
+        view
+        override
+        returns (int256 netQuoteBalance, uint256 pendingFee)
+    {
         int256 totalTakerQuoteBalance;
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
@@ -291,10 +297,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         // owedFee is included
         int256 totalMakerQuoteBalance;
-        (totalMakerQuoteBalance, fee) = IOrderBook(_orderBook).getTotalQuoteBalance(trader, _baseTokensMap[trader]);
+        (totalMakerQuoteBalance, pendingFee) = IOrderBook(_orderBook).getTotalQuoteBalanceAndPendingFee(
+            trader,
+            _baseTokensMap[trader]
+        );
         netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
 
-        return (netQuoteBalance, fee);
+        return (netQuoteBalance, pendingFee);
     }
 
     /// @inheritdoc IAccountBalance
@@ -305,7 +314,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         // makerBalance = totalTokenAmountInPool - totalOrderDebt
         (uint256 totalBaseBalanceFromOrders, ) =
-            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, true);
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, true);
         uint256 totalBaseDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
         int256 makerBaseBalance = totalBaseBalanceFromOrders.toInt256().sub(totalBaseDebtFromOrder.toInt256());
 
@@ -317,7 +326,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
         // quote.pool[baseToken] + quoteBalance[baseToken]
-        (uint256 quoteInPool, ) = IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
+        (uint256 quoteInPool, ) =
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
         int256 quoteBalance = getQuote(trader, baseToken);
         return quoteInPool.toInt256().add(quoteBalance);
     }

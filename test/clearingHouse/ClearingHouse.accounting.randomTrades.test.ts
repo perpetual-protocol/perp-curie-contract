@@ -271,7 +271,7 @@ describe.skip("ClearingHouse accounting", () => {
         ).wait()
         makerFee = makerFee.add(getMakerQuoteFees(receipt))
 
-        const insuranceFundFee = (await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address))[0]
+        const insuranceFundFee = (await accountBalance.getPnlAndPendingFee(insuranceFund.address))[0]
 
         // maker's fee + insurance fund fee should be close to taker's fees paid
         expect(makerFee.add(insuranceFundFee)).to.closeTo(totalTakerFees, 10)

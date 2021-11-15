@@ -796,7 +796,7 @@ describe("ClearingHouse addLiquidity", () => {
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
             expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
 
-            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalance(bob.address)
+            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(netQuoteBalance.add(fee)).to.eq(bobQuote)
             expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
@@ -854,7 +854,7 @@ describe("ClearingHouse addLiquidity", () => {
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
 
-            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalance(bob.address)
+            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(netQuoteBalance.add(fee)).to.eq(bobQuote)
             expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
@@ -968,7 +968,7 @@ describe("ClearingHouse addLiquidity", () => {
             //            = -152.925362473060470222 /2 + (-60.988779581551447382)
             //            = -137.451460818
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalance(bob.address))[0]
+            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address))[0]
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.9"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-137.451460818081682493"))
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.9"), 1)
@@ -1066,7 +1066,7 @@ describe("ClearingHouse addLiquidity", () => {
             //            = -121.93295355
 
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalance(bob.address))[0]
+            const bobNetQuoteBalance = (await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address))[0]
             expect(bobAccountInfo.takerBaseBalance).to.be.closeTo(parseEther("0.8"), 1)
             expect(bobAccountInfo.takerQuoteBalance).to.eq(parseEther("-121.932953549887475037"))
             expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.8"), 1)

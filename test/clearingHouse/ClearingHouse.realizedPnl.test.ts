@@ -332,7 +332,7 @@ describe("ClearingHouse realizedPnl", () => {
             expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(
                 parseEther("-50.740344136615483168"),
             )
-            let owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
+            let owedRealizedPnl = (await accountBalance.getPnlAndPendingFee(alice.address))[0]
             expect(owedRealizedPnl).to.be.eq(parseEther("1.278606433085450338"))
 
             // remove the remaining liquidity
@@ -374,7 +374,7 @@ describe("ClearingHouse realizedPnl", () => {
             expect(await accountBalance.getTakerOpenNotional(alice.address, baseToken.address)).to.be.eq(0)
             expect(await accountBalance.getBase(alice.address, baseToken.address)).to.be.eq(0)
             expect(await accountBalance.getQuote(alice.address, baseToken.address)).to.be.eq(0)
-            owedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(alice.address))[0]
+            owedRealizedPnl = (await accountBalance.getPnlAndPendingFee(alice.address))[0]
             expect(owedRealizedPnl).to.be.eq(parseEther("2.557212866170900675"))
         })
     })

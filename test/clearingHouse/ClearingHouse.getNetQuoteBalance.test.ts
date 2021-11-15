@@ -17,7 +17,7 @@ import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse getNetQuoteBalance", () => {
+describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
@@ -74,7 +74,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
     describe("no swap, netQuoteBalance should be 0", () => {
         it("taker has no position", async () => {
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0"))
-            const [netQuoteBalance] = await accountBalance.getNetQuoteBalance(bob.address)
+            const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
             expect(netQuoteBalance).to.eq(parseEther("0"))
         })
 
@@ -92,7 +92,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(0)
-            const [netQuoteBalance] = await accountBalance.getNetQuoteBalance(alice.address)
+            const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(alice.address)
             expect(netQuoteBalance).to.be.closeTo("0", 1)
         })
 
@@ -110,7 +110,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.eq(parseEther("0"))
-            const [netQuoteBalance] = await accountBalance.getNetQuoteBalance(alice.address)
+            const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(alice.address)
             expect(netQuoteBalance).to.eq(parseEther("0"))
         })
 
@@ -129,7 +129,7 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.deep.eq(
                 parseEther("0"),
             )
-            const [netQuoteBalance] = await accountBalance.getNetQuoteBalance(alice.address)
+            const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(alice.address)
             expect(netQuoteBalance).to.closeTo("0", 1)
         })
     })
@@ -164,9 +164,13 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
             // current price = 26.3852759058
 
-            let [netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalance(bob.address)
+            let [netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                bob.address,
+            )
             expect(netQuoteBalanceAlice.add(pendingFeeAlice)).to.eq(parseEther("63.106831428587933867"))
-            const [netQuoteBalanceBob, pendingFeeBob] = await accountBalance.getNetQuoteBalance(bob.address)
+            const [netQuoteBalanceBob, pendingFeeBob] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                bob.address,
+            )
             expect(netQuoteBalanceBob.add(pendingFeeBob)).to.be.eq(parseEther("63.106831428587933867"))
 
             // taker pays 63.7442741703 / 0.99 = 64.3881557276 quote to pay back 1 base
@@ -179,12 +183,14 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             })
 
             // taker sells all quote, making netQuoteBalance == 0
-            expect((await accountBalance.getNetQuoteBalance(bob.address)).netQuoteBalance).to.eq(0)
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)).netQuoteBalance).to.eq(0)
 
             // when taker swaps, maker gets 63.106831428587933867 / 0.99 * 0.01 = 0.6374427417
             // when taker closes position, maker gets 64.388155727566507365 * 0.01 = 0.6438815573
             // maker should get 0.6374427417 + 0.6438815573 = 1.281324299 quote as fee
-            ;[netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalance(alice.address)
+            ;[netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                alice.address,
+            )
             expect(netQuoteBalanceAlice).to.be.closeTo("0", 1)
             expect(pendingFeeAlice).to.eq(parseEther("1.281324298978573496"))
         })
@@ -228,9 +234,13 @@ describe("ClearingHouse getNetQuoteBalance", () => {
             // current price = 70.3806594937
 
             // expect taker's netQuoteBalance == makers' netQuoteBalance
-            let [aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalance(alice.address)
-            let [bobNetQuoteBalance, bobPendingFee] = await accountBalance.getNetQuoteBalance(bob.address)
-            let [carolNetQuoteBalance, carolPendingFee] = await accountBalance.getNetQuoteBalance(carol.address)
+            let [aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                alice.address,
+            )
+            let [bobNetQuoteBalance, bobPendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+            let [carolNetQuoteBalance, carolPendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                carol.address,
+            )
             expect(
                 aliceNetQuoteBalance.add(alicePendingFee).add(carolNetQuoteBalance).add(carolPendingFee).mul(-1),
             ).to.be.closeTo(bobNetQuoteBalance.add(bobPendingFee), 10)
@@ -265,9 +275,13 @@ describe("ClearingHouse getNetQuoteBalance", () => {
                 referralCode: ethers.constants.HashZero,
             })
             // current price = 26.3852759058
-            ;[aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalance(alice.address)
-            ;[bobNetQuoteBalance, bobPendingFee] = await accountBalance.getNetQuoteBalance(bob.address)
-            ;[carolNetQuoteBalance, carolPendingFee] = await accountBalance.getNetQuoteBalance(carol.address)
+            ;[aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                alice.address,
+            )
+            ;[bobNetQuoteBalance, bobPendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+            ;[carolNetQuoteBalance, carolPendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
+                carol.address,
+            )
 
             // carol's netQuoteBalance should be 0 after closing position
             expect(carolNetQuoteBalance).to.eq(0)

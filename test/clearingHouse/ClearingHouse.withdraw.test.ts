@@ -293,7 +293,7 @@ describe("ClearingHouse withdraw", () => {
             await b2qExactInput(fixture, alice, 0.1)
             await closePosition(fixture, bob)
 
-            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(bob.address)
+            const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
             expect(owedRealizedPnl).to.lt(0)
             const freeCollateral = await vault.getFreeCollateral(bob.address)
             await expect(vault.connect(bob).withdraw(fixture.USDC.address, freeCollateral)).not.reverted
@@ -311,7 +311,7 @@ describe("ClearingHouse withdraw", () => {
                 minQuote: 0,
                 deadline: ethers.constants.MaxUint256,
             })
-            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
             expect(owedRealizedPnl).to.gt(0)
 
             const freeCollateral = await vault.getFreeCollateral(alice.address)

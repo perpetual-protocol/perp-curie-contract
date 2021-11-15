@@ -635,7 +635,7 @@ contract ClearingHouse is
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl, uint256 pendingFee) =
-            IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
+            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
         // solhint-disable-next-line var-name-mixedcase
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);

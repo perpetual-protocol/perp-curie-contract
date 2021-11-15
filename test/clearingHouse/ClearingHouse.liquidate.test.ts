@@ -235,7 +235,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.142211", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("2102129818649289842")
         })
         it("partial closes due to not enough liquidity", async () => {
@@ -392,7 +392,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("1.315834", 6))
 
             // liquidator gets liquidation reward
-            const davidPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davidPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davidPnl[0]).to.eq("2383442912758163616")
         })
     })
@@ -498,7 +498,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.308364", 6))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("1015969115608315255")
         })
 
@@ -536,7 +536,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("9.169272", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("1114606049534825068")
         })
     })
@@ -646,10 +646,10 @@ describe("ClearingHouse liquidate", () => {
             // )
             // accountValue = collateral + totalMarketPnl
             // totalMarketPnl = netQuoteBalance + totalPosValue
-            // const getTotalUnrealizedPnl = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
-            // console.log(`getTotalUnrealizedPnl=${formatEther(getOwedAndUnrealizedPnl.toString())}`)
+            // const getTotalUnrealizedPnl = await accountBalance.getPnlAndPendingFee(alice.address)
+            // console.log(`getTotalUnrealizedPnl=${formatEther(getPnlAndPendingFee.toString())}`)
             // // netQuoteBalance = quote.ava - quote.debt + quoteInPool
-            // const netQuoteBalance = await accountBalance.getNetQuoteBalance(alice.address)
+            // const netQuoteBalance = await accountBalance.getNetQuoteBalanceAndPendingFee(alice.address)
             // console.log(`netQuoteBalance=${formatEther(netQuoteBalance.toString())}`)
             // {
             //     const tokenInfo = await clearingHouse.getTokenInfo(alice.address, quoteToken.address)
@@ -681,7 +681,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("8.241802", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("1251236066562123442")
         })
 
@@ -717,7 +717,7 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("7.942665", collateralDecimals))
 
             // liquidator gets liquidation reward
-            const davisPnl = await accountBalance.getOwedAndUnrealizedPnl(davis.address)
+            const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("1135472350272790574")
         })
     })

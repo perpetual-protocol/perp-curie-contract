@@ -47,7 +47,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     }
 
     async function getOweRealizedPnl(taker: Wallet): Promise<BigNumberish> {
-        const results = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+        const results = await accountBalance.getPnlAndPendingFee(taker.address)
         return results[0]
     }
 

@@ -552,7 +552,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "19615015933642630",
             )
-            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("-3"))
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(taker.address))[0]).to.eq(parseEther("-3"))
 
             // (2 (beforeEach) + 1 (now)) * 1% = 0.03
             expect(await getMakerFee()).be.closeTo(parseEther("0.03"), 1)
@@ -628,7 +628,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "6538933220746361",
             )
-            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(quoteBalanceAfter)
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(taker.address))[0]).to.eq(quoteBalanceAfter)
             expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq(
                 "6538933220746361",
             )
@@ -667,7 +667,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // 2 - 1.9602000000002648364741 = 0.0398000015
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).eq(parseEther("-0.039800000000000043")) // fee loss
             }
 
@@ -746,7 +746,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 2.3328803158 - 2 = 0.3328803158
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).deep.eq(parseEther("0.332880320006927809"))
             }
 
@@ -812,7 +812,7 @@ describe("ClearingHouse openPosition", () => {
                 expect(quoteBalance).be.deep.eq(parseEther("0"))
 
                 // pnl = 1.6133545031 -2 = -0.3866454969
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).deep.eq(parseEther("-0.386645498819609266"))
             }
 
@@ -848,7 +848,7 @@ describe("ClearingHouse openPosition", () => {
             )
 
             // realizedPnl = -0.04126249485
-            const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+            const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(pnl[0]).to.eq("-41262494847024252")
         })
 
@@ -935,7 +935,7 @@ describe("ClearingHouse openPosition", () => {
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 "-20024315818536050",
             )
-            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("3"))
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(taker.address))[0]).to.eq(parseEther("3"))
 
             // ((2 (beforeEach) + 1 (now)) / 0.99 )* 1% = 0.030303030303030304
             expect(await getMakerFee()).be.closeTo(parseEther("0.030303030303030304"), 1)
@@ -976,7 +976,7 @@ describe("ClearingHouse openPosition", () => {
 
             // pos size: baseBalanceBefore / 2 = reducedBase
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(-reducedBase)
-            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("1"))
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(taker.address))[0]).to.eq(parseEther("1"))
 
             // fee = 0.030404113776447206
             expect(await getMakerFee()).be.deep.eq(parseEther("0.030404113776447206"))
@@ -1015,7 +1015,7 @@ describe("ClearingHouse openPosition", () => {
             expect(quoteBalanceDelta).be.deep.eq(parseEther("-2"))
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
-            expect((await accountBalance.getNetQuoteBalance(taker.address))[0]).to.eq(parseEther("0"))
+            expect((await accountBalance.getNetQuoteBalanceAndPendingFee(taker.address))[0]).to.eq(parseEther("0"))
 
             // fee = 0.040608101214161821
             expect(await getMakerFee()).be.deep.eq(parseEther("0.040608101214161821"))
@@ -1042,7 +1042,7 @@ describe("ClearingHouse openPosition", () => {
             // because taker opens a larger reverse position, her position is closed and increase a new one
             // she spent $8 for the 2nd tx, openNotional = -8 - realizedPnlBcsOfFeeFromPrevTx
             const openNotional = await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)
-            const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+            const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(openNotional).to.eq("-7957914633138379981")
             expect(openNotional).to.eq(parseEther("-8").sub(pnl[0]))
         })

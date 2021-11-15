@@ -99,7 +99,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
     // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=238402888
     describe("taker open position from zero", () => {
         afterEach(async () => {
-            const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+            const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(pnl[0]).eq(parseEther("0"))
         })
 
@@ -210,7 +210,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     2,
                 )
 
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).eq("0")
             })
         })
@@ -236,7 +236,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     parseEther("-126.262626262626262626"),
                 )
                 // this will be weirdly positive because of the nature of the average open notional pricing
-                // expect(await accountBalance.getOwedAndUnrealizedPnl(taker.address)).eq()
+                // expect(await accountBalance.getPnlAndPendingFee(taker.address)).eq()
             })
 
             it("has loss when closed the pos", async () => {
@@ -251,7 +251,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).closeTo(parseEther("-5.025252525252525255"), 2)
             })
         })
@@ -311,7 +311,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 // 198/2 = 99
                 expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("99"))
                 // this will be weirdly positive because of the nature of the average open notional pricing
-                // expect(await accountBalance.getOwedAndUnrealizedPnl(taker.address)).eq()
+                // expect(await accountBalance.getPnlAndPendingFee(taker.address)).eq()
             })
 
             it("has loss when closed the pos", async () => {
@@ -327,7 +327,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     referralCode: ethers.constants.HashZero,
                 })
                 // should be exact -4?
-                const pnl = await accountBalance.getOwedAndUnrealizedPnl(taker.address)
+                const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
                 expect(pnl[0]).closeTo(parseEther("-4.020202020202020203"), 2)
             })
         })

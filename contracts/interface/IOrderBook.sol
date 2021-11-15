@@ -102,12 +102,12 @@ interface IOrderBook {
 
     function hasOrder(address trader, address[] calldata tokens) external view returns (bool);
 
-    function getTotalQuoteBalance(address trader, address[] calldata baseTokens)
+    function getTotalQuoteBalanceAndPendingFee(address trader, address[] calldata baseTokens)
         external
         view
         returns (int256 totalQuoteAmountInPools, uint256 totalPendingFee);
 
-    function getTotalTokenAmountInPool(
+    function getTotalTokenAmountInPoolAndPendingFee(
         address trader,
         address baseToken,
         bool fetchBase

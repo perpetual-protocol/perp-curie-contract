@@ -161,7 +161,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 250 * 1% * 60% * 10% ~= 0.15
             expect(resp2.fee).eq(parseEther("0.149999999999999999"))
 
-            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address)
+            const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
             // 250 * 1% * 40% ~= 1
             expect(owedRealizedPnl).eq(parseEther("1"))
         })
@@ -219,7 +219,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
             // 200 * 1% * 60% * 10% ~= 0.12
             expect(resp2.fee).eq(parseEther("0.119999999999999999"))
 
-            const [owedRealizedPnl] = await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address)
+            const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
             // 200 * 1% * 40% ~= 0.8
             expect(owedRealizedPnl).eq(parseEther("0.8"))
         })

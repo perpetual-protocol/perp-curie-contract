@@ -453,7 +453,7 @@ contract OrderBook is
         return false;
     }
 
-    function getTotalQuoteBalance(address trader, address[] calldata baseTokens)
+    function getTotalQuoteBalanceAndPendingFee(address trader, address[] calldata baseTokens)
         external
         view
         override
@@ -488,7 +488,7 @@ contract OrderBook is
     ///      the latter is counted directly toward realizedPnl.
     ///      the return value includes maker fee.
     ///      please refer to _getTotalTokenAmountInPool() docstring for specs
-    function getTotalTokenAmountInPool(
+    function getTotalTokenAmountInPoolAndPendingFee(
         address trader,
         address baseToken,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
@@ -741,7 +741,6 @@ contract OrderBook is
         //  --> maker only has quote token
         (uint160 sqrtMarkPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
-        uint256 tokenAmount;
         uint256 orderIdLength = orderIds.length;
 
         for (uint256 i = 0; i < orderIdLength; i++) {
