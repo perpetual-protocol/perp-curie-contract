@@ -136,22 +136,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function registerBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
-        address[] memory tokens = _baseTokensMap[trader];
-        // AB_MNE: markets number exceeds
-        require(tokens.length < IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
-
-        if (tokens.length == 0) {
-            _baseTokensMap[trader].push(baseToken);
+        address[] storage tokens = _baseTokensMap[trader];
+        if (_hasBaseToken(tokens, baseToken)) {
             return;
         }
 
-        if (
-            (getBase(trader, baseToken) == 0 &&
-                IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0) &&
-            !_hasBaseToken(tokens, baseToken)
-        ) {
-            _baseTokensMap[trader].push(baseToken);
-        }
+        tokens.push(baseToken);
+        // AB_MNE: markets number exceeds
+        require(tokens.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
     }
 
     /// @dev this function is only called by Vault.withdraw()
@@ -396,19 +388,17 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         }
 
         delete _accountMarketMap[trader][baseToken];
-        _removeBaseToken(_baseTokensMap[trader], baseToken);
-    }
 
-    function _removeBaseToken(address[] storage baseTokens, address baseToken) internal {
-        uint256 tokenLen = baseTokens.length;
+        address[] storage tokens = _baseTokensMap[trader];
+        uint256 tokenLen = tokens.length;
         for (uint256 i; i < tokenLen; i++) {
-            if (baseTokens[i] == baseToken) {
-                // if the item to be removed is the last one, pop it directly
-                // else, replace it with the last one and pop the last one
+            if (tokens[i] == baseToken) {
+                // if the target to be removed is the last one, pop it directly;
+                // else, replace it with the last one and pop the last one instead
                 if (i != tokenLen - 1) {
-                    baseTokens[i] = baseTokens[tokenLen - 1];
+                    tokens[i] = tokens[tokenLen - 1];
                 }
-                baseTokens.pop();
+                tokens.pop();
                 break;
             }
         }
