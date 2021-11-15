@@ -239,6 +239,19 @@ contract ClearingHouse is
 
             // update takerBalances as we're using takerBalances to provide liquidity
             IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);
+
+            int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(trader, params.baseToken);
+            uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
+            emit PositionChanged(
+                trader,
+                params.baseToken,
+                deltaBaseDebt, // exchangedPositionSize
+                deltaQuoteDebt, // exchangedPositionNotional
+                0, // fee
+                takerOpenNotional, // openNotional
+                0, // realizedPnl
+                sqrtPrice
+            );
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity

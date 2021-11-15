@@ -11,6 +11,7 @@ import {
     q2bExactInput,
     q2bExactOutput,
     removeAllOrders,
+    removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
