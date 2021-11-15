@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 
-// @dev decimals of settlementToken token MUST be less than 18
+/// @dev decimals of settlementToken token MUST be less than 18
 library SettlementTokenMath {
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;

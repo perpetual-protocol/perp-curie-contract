@@ -33,7 +33,7 @@ library FeeMath {
         uint24 clearingHouseFeeRatio,
         bool isReplacingUniswapFeeRatio
     ) internal pure returns (uint256) {
-        (uint24 newFee, uint24 replacedFee) =
+        (uint24 newFeeRatio, uint24 replacedFeeRatio) =
             isReplacingUniswapFeeRatio
                 ? (clearingHouseFeeRatio, uniswapFeeRatio)
                 : (uniswapFeeRatio, clearingHouseFeeRatio);
@@ -41,8 +41,8 @@ library FeeMath {
         return
             FullMath.mulDivRoundingUp(
                 amount,
-                uint256(_ONE_HUNDRED_PERCENT).sub(newFee),
-                uint256(_ONE_HUNDRED_PERCENT).sub(replacedFee)
+                uint256(_ONE_HUNDRED_PERCENT).sub(newFeeRatio),
+                uint256(_ONE_HUNDRED_PERCENT).sub(replacedFeeRatio)
             );
     }
 

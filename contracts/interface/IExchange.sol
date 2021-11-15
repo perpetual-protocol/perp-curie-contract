@@ -5,6 +5,8 @@ pragma abicoder v2;
 import { Funding } from "../lib/Funding.sol";
 
 interface IExchange {
+    /// @param amount when closing position, amount(uint256) == takerPositionSize(int256),
+    ///        as amount is assigned as takerPositionSize in ClearingHouse.closePosition()
     struct SwapParams {
         address trader;
         address baseToken;
@@ -12,8 +14,7 @@ interface IExchange {
         bool isExactInput;
         bool isClose;
         uint256 amount;
-        uint160 sqrtPriceLimitX96; // price slippage protection
-        Funding.Growth fundingGrowthGlobal;
+        uint160 sqrtPriceLimitX96;
     }
 
     struct SwapResponse {

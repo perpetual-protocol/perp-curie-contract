@@ -2,5 +2,5 @@
 pragma solidity 0.7.6;
 
 library PerpFixedPoint96 {
-    int256 internal constant IQ96 = 0x1000000000000000000000000;
+    int256 internal constant _IQ96 = 0x1000000000000000000000000;
 }

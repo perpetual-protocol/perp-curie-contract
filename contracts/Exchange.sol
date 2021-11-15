@@ -140,7 +140,6 @@ contract Exchange is
 
     function swap(SwapParams memory params) external override returns (SwapResponse memory) {
         _requireClearingHouse();
-        // for closing position, takerPositionSize(int256) == param.amount(uint256)
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
         // when takerPositionSize < 0, it's a short position
@@ -157,7 +156,7 @@ contract Exchange is
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
             if (
                 _isOverPriceLimit(params.baseToken) ||
-                _isOverPriceLimitByReplayReverseSwap(
+                _isOverPriceLimitBySimulatingClosingPosition(
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
                     params.amount // it's the same as takerPositionSize but in uint256
@@ -400,7 +399,7 @@ contract Exchange is
         } else {
             // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
             int256 twPremiumDeltaX96 =
-                _getPriceDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
@@ -410,7 +409,7 @@ contract Exchange is
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
             // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96.IQ96, getSqrtMarkTwapX96(baseToken, 0))
+                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
         }
 
@@ -451,14 +450,11 @@ contract Exchange is
     // TODO move to AccountBalance
     /// @dev the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // https://www.notion.so/perp/Perpetual-Swap-Contract-s-Specs-Simulations-96e6255bf77e4c90914855603ff7ddd1
-
         // makerBalance = totalTokenAmountInPool - totalOrderDebt
         uint256 totalQuoteBalanceFromOrders =
             IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
         uint256 totalQuoteDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
         int256 makerQuoteBalance = totalQuoteBalanceFromOrders.toInt256().sub(totalQuoteDebtFromOrder.toInt256());
-
         int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
         return makerQuoteBalance.add(takerQuoteBalance);
     }
@@ -472,21 +468,27 @@ contract Exchange is
     // INTERNAL NON-VIEW
     //
 
-    function _isOverPriceLimitByReplayReverseSwap(
+    /// @dev this function is used only when closePosition()
+    ///      inspect whether a tx will go over price limit by simulating closing position before swapping
+    function _isOverPriceLimitBySimulatingClosingPosition(
         address baseToken,
-        bool isBaseToQuote,
+        bool isOldPositionShort,
         uint256 positionSize
     ) internal returns (bool) {
-        // replaySwap: the given sqrtPriceLimitX96 is corresponding max tick + 1 or min tick - 1,
-        InternalReplaySwapParams memory replaySwapParams =
-            InternalReplaySwapParams({
-                baseToken: baseToken,
-                isBaseToQuote: !isBaseToQuote,
-                isExactInput: !isBaseToQuote,
-                amount: positionSize,
-                sqrtPriceLimitX96: _getSqrtPriceLimit(baseToken, isBaseToQuote)
-            });
-        return _isOverPriceLimitWithTick(baseToken, _replaySwap(replaySwapParams));
+        // to simulate closing position, isOldPositionShort -> quote to exact base/long; else, exact base to quote/short
+        return
+            _isOverPriceLimitWithTick(
+                baseToken,
+                _replaySwap(
+                    InternalReplaySwapParams({
+                        baseToken: baseToken,
+                        isBaseToQuote: !isOldPositionShort,
+                        isExactInput: !isOldPositionShort,
+                        amount: positionSize,
+                        sqrtPriceLimitX96: _getSqrtPriceLimitForReplaySwap(baseToken, isOldPositionShort)
+                    })
+                )
+            );
     }
 
     /// @return the resulting tick (derived from price) after replaying the swap
@@ -533,6 +535,7 @@ contract Exchange is
                 marketInfo.uniswapFeeRatio
             );
 
+        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(params.baseToken);
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
             IOrderBook(_orderBook).replaySwap(
@@ -544,7 +547,7 @@ contract Exchange is
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: marketInfo.exchangeFeeRatio,
                     uniswapFeeRatio: marketInfo.uniswapFeeRatio,
-                    globalFundingGrowth: params.fundingGrowthGlobal
+                    globalFundingGrowth: fundingGrowthGlobal
                 })
             );
         UniswapV3Broker.SwapResponse memory response =
@@ -636,6 +639,11 @@ contract Exchange is
     // INTERNAL VIEW
     //
 
+    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
+        int24 tick = getTick(baseToken);
+        return _isOverPriceLimitWithTick(baseToken, tick);
+    }
+
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
         if (maxTickDelta == 0) {
@@ -648,14 +656,11 @@ contract Exchange is
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
-    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = getTick(baseToken);
-        return _isOverPriceLimitWithTick(baseToken, tick);
-    }
-
-    function _getSqrtPriceLimit(address baseToken, bool isLong) internal view returns (uint160) {
+    /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
+    function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
@@ -768,16 +773,16 @@ contract Exchange is
             liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
     }
 
-    function _getPriceDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
         uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
-        uint256 maxPriceDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 markDiffX96;
+        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 twapDiffX96;
         if (markTwapX96 > indexTwapX96) {
-            markDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDeltaX96 = markDiffX96 > maxPriceDiffX96 ? maxPriceDiffX96.toInt256() : markDiffX96.toInt256();
+            twapDiffX96 = markTwapX96.sub(indexTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
         } else {
-            markDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDeltaX96 = markDiffX96 > maxPriceDiffX96 ? maxPriceDiffX96.neg256() : markDiffX96.neg256();
+            twapDiffX96 = indexTwapX96.sub(markTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
         }
     }
 }
