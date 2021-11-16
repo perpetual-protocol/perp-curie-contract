@@ -136,26 +136,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function registerBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
-        address[] memory tokens = _baseTokensMap[trader];
-        if (tokens.length == 0) {
-            _baseTokensMap[trader].push(baseToken);
+        address[] storage tokensStorage = _baseTokensMap[trader];
+        if (_hasBaseToken(tokensStorage, baseToken)) {
             return;
         }
 
-        // only register if there is no taker's position nor any openOrder (whether in base or quote token)
-        if (
-            _accountMarketMap[trader][baseToken].takerBaseBalance == 0 &&
-            IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0
-        ) {
-            for (uint256 i = 0; i < tokens.length; i++) {
-                if (tokens[i] == baseToken) {
-                    return;
-                }
-            }
-            // AB_MNE: markets number exceeds
-            require(tokens.length < IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
-            _baseTokensMap[trader].push(baseToken);
-        }
+        tokensStorage.push(baseToken);
+        // AB_MNE: markets number exceeds
+        require(tokensStorage.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
     }
 
     /// @dev this function is only called by Vault.withdraw()
@@ -401,15 +389,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         delete _accountMarketMap[trader][baseToken];
 
-        uint256 tokenLen = _baseTokensMap[trader].length;
+        address[] storage tokensStorage = _baseTokensMap[trader];
+        uint256 tokenLen = tokensStorage.length;
         for (uint256 i; i < tokenLen; i++) {
-            if (_baseTokensMap[trader][i] == baseToken) {
-                // if the item to be removed is the last one, pop it directly
-                // else, replace it with the last one and pop the last one
+            if (tokensStorage[i] == baseToken) {
+                // if the target to be removed is the last one, pop it directly;
+                // else, replace it with the last one and pop the last one instead
                 if (i != tokenLen - 1) {
-                    _baseTokensMap[trader][i] = _baseTokensMap[trader][tokenLen - 1];
+                    tokensStorage[i] = tokensStorage[tokenLen - 1];
                 }
-                _baseTokensMap[trader].pop();
+                tokensStorage.pop();
                 break;
             }
         }
@@ -421,5 +410,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+    }
+
+    function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            if (baseTokens[i] == baseToken) {
+                return true;
+            }
+        }
+        return false;
     }
 }

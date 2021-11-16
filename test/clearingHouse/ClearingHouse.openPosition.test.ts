@@ -1411,4 +1411,42 @@ describe("ClearingHouse openPosition", () => {
             })
         })
     })
+
+    describe("referral code", () => {
+        beforeEach(async () => {
+            await deposit(taker, vault, 1000, collateral)
+        })
+
+        it("can be emitted", async () => {
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.utils.formatBytes32String("Hello World"),
+                }),
+            )
+                .to.emit(clearingHouse, "ReferredPositionChanged")
+                .withArgs(ethers.utils.formatBytes32String("Hello World"))
+        })
+
+        it("won't be emitted if is 0", async () => {
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("2"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.not.emit(clearingHouse, "ReferredPositionChanged")
+        })
+    })
 })

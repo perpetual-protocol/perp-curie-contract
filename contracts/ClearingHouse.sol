@@ -168,8 +168,8 @@ contract ClearingHouse is
         //   base & quote: in UniswapV3Broker.addLiquidity()
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
-        address trader = _msgSender();
 
+        address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
@@ -302,6 +302,7 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   liquidity: in OrderBook._removeLiquidity()
         //   minBase, minQuote & deadline: here
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -368,7 +369,9 @@ contract ClearingHouse is
         //   deadline: here
         //   sqrtPriceLimitX96: X (this is not for slippage protection)
         //   referralCode: X
+
         address trader = _msgSender();
+        // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
@@ -398,7 +401,9 @@ contract ClearingHouse is
             })
         );
 
-        emit ReferredPositionChanged(params.referralCode);
+        if (params.referralCode != 0) {
+            emit ReferredPositionChanged(params.referralCode);
+        }
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
@@ -417,6 +422,7 @@ contract ClearingHouse is
         //   oppositeAmountBound: in _checkSlippage()
         //   deadline: here
         //   referralCode: X
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -448,7 +454,9 @@ contract ClearingHouse is
             })
         );
 
-        emit ReferredPositionChanged(params.referralCode);
+        if (params.referralCode != 0) {
+            emit ReferredPositionChanged(params.referralCode);
+        }
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
     }
 
