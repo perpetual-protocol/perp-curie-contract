@@ -394,7 +394,7 @@ contract ClearingHouse is
             })
         );
 
-        if (params.referralCode != "") {
+        if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
@@ -447,7 +447,7 @@ contract ClearingHouse is
             })
         );
 
-        if (params.referralCode != "") {
+        if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
         return (response.deltaAvailableBase, response.deltaAvailableQuote);
