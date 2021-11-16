@@ -136,14 +136,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function registerBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
-        address[] storage tokens = _baseTokensMap[trader];
-        if (_hasBaseToken(tokens, baseToken)) {
+        address[] storage tokensStorage = _baseTokensMap[trader];
+        if (_hasBaseToken(tokensStorage, baseToken)) {
             return;
         }
 
-        tokens.push(baseToken);
+        tokensStorage.push(baseToken);
         // AB_MNE: markets number exceeds
-        require(tokens.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
+        require(tokensStorage.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
     }
 
     /// @dev this function is only called by Vault.withdraw()
@@ -389,16 +389,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         delete _accountMarketMap[trader][baseToken];
 
-        address[] storage tokens = _baseTokensMap[trader];
-        uint256 tokenLen = tokens.length;
+        address[] storage tokensStorage = _baseTokensMap[trader];
+        uint256 tokenLen = tokensStorage.length;
         for (uint256 i; i < tokenLen; i++) {
-            if (tokens[i] == baseToken) {
+            if (tokensStorage[i] == baseToken) {
                 // if the target to be removed is the last one, pop it directly;
                 // else, replace it with the last one and pop the last one instead
                 if (i != tokenLen - 1) {
-                    tokens[i] = tokens[tokenLen - 1];
+                    tokensStorage[i] = tokensStorage[tokenLen - 1];
                 }
-                tokens.pop();
+                tokensStorage.pop();
                 break;
             }
         }
