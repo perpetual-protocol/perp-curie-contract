@@ -671,8 +671,7 @@ contract Exchange is
             // overflow inspection:
             // max closedRatio = 1e18; range of oldOpenNotional = (-2 ^ 255, 2 ^ 255)
             // only overflow when oldOpenNotional < -2 ^ 255 / 1e18 or oldOpenNotional > 2 ^ 255 / 1e18
-            int256 reducedOpenNotional =
-                params.takerOpenNotional.mul(closedRatio.toInt256()).div(int256(_FULLY_CLOSED_RATIO));
+            int256 reducedOpenNotional = params.takerOpenNotional.mulDiv(closedRatio.toInt256(), _FULLY_CLOSED_RATIO);
             pnlToBeRealized = params.deltaAvailableQuote.add(reducedOpenNotional);
         } else {
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
@@ -693,8 +692,7 @@ contract Exchange is
             // overflow inspection:
             // max & min tick = 887272, -887272; max liquidity = 2 ^ 128
             // max delta quote = 2^128 * (sqrt(1.0001^887272) - sqrt(1.0001^-887272)) = 6.276865796e57 < 2^255 / 1e18
-            int256 closedPositionNotional =
-                params.deltaAvailableQuote.mul(int256(_FULLY_CLOSED_RATIO)).div(closedRatio.toInt256());
+            int256 closedPositionNotional = params.deltaAvailableQuote.mulDiv(int256(_FULLY_CLOSED_RATIO), closedRatio);
             pnlToBeRealized = params.takerOpenNotional.add(closedPositionNotional);
         }
 
