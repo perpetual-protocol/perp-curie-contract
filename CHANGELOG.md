@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- move `getTotalOpenNotional()` from `Exchange` to `AccountBalance`
+- move `getTotalOpenNotional()` from `Exchange` to `AccountBalance` and rename to `getTakerOpenNotional`
 - move `PositionChanged` event from `Exchange` to `ClearingHouse`
 
 ### Removed

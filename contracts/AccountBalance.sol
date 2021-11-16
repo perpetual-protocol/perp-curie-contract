@@ -263,7 +263,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     // @inheritdoc IAccountBalance
-    function getTakerQuote(address trader, address baseToken) external view override returns (int256) {
+    function getTakerOpenNotional(address trader, address baseToken) external view override returns (int256) {
         return _accountMarketMap[trader][baseToken].takerQuoteBalance;
     }
 

@@ -43,7 +43,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     }
 
     async function getTakerOpenNotional(taker: Wallet, baseToken: BaseToken): Promise<BigNumberish> {
-        return await accountBalance.getTakerQuote(taker.address, baseToken.address)
+        return await accountBalance.getTakerOpenNotional(taker.address, baseToken.address)
     }
 
     async function getOweRealizedPnl(taker: Wallet): Promise<BigNumberish> {

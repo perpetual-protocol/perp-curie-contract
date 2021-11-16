@@ -178,7 +178,8 @@ contract Exchange is
         }
 
         // get openNotional before swap
-        int256 oldTakerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(params.trader, params.baseToken);
+        int256 oldTakerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducingPosition) {
@@ -436,7 +437,8 @@ contract Exchange is
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
-        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerQuote(params.trader, params.baseToken);
+        int256 takerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         return
             isReducingPosition
                 ? _getPnlToBeRealized(
