@@ -10,6 +10,7 @@ import {
     Exchange,
     InsuranceFund,
     MarketRegistry,
+    TestAccountBalance,
     TestERC20,
     UniswapV3Pool,
     Vault,
@@ -26,7 +27,7 @@ describe("Vault withdraw test", () => {
     let usdc: TestERC20
     let clearingHouse: ClearingHouse
     let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance
+    let accountBalance: AccountBalance | TestAccountBalance
     let exchange: Exchange
     let pool: UniswapV3Pool
     let baseToken: BaseToken
@@ -125,67 +126,20 @@ describe("Vault withdraw test", () => {
             await check(alice, true)
         })
 
-        it.skip("free collateral", async () => {
-            marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
-            for (let i = 0; i < 20; i++) {
-                await q2bExactInput(fixture, alice, 100)
-                // await closePosition(fixture, alice)
-            }
+        it("collect fee before withdraw when maker make profit", async () => {
+            // alice swap, bob has pending fee
+            await q2bExactInput(fixture, alice, 100)
+            await closePosition(fixture, alice)
 
-            // mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            //     return [0, parseUnits("400.373306", 6), 0, 0, 0]
-            // })
+            let pendingFee = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
+            expect(pendingFee).to.be.gt(0)
 
-            let bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
-            console.log(`bob free collateral before: ${bobFreeCollateral}`)
-            console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
+            // maker withdraw
+            const freeCollateral = await vault.getFreeCollateral(bob.address)
+            await vault.connect(bob).withdraw(usdc.address, freeCollateral)
 
-            // await clearingHouse.connect(bob).removeLiquidity({
-            //     baseToken: baseToken.address,
-            //     lowerTick: 0,
-            //     upperTick: 150000,
-            //     liquidity: 0,
-            //     minBase: 0,
-            //     minQuote: 0,
-            //     deadline: ethers.constants.MaxUint256,
-            // })
-            // bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
-            // console.log(`bob free collateral after: ${bobFreeCollateral}`)
-            // console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
-
-            await check(bob, true)
-
-            bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
-            console.log(`bob free collateral after withdraw: ${bobFreeCollateral}`)
-
-            const fee = (
-                await clearingHouse.connect(bob).callStatic.removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick: 0,
-                    upperTick: 150000,
-                    liquidity: 0,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                })
-            ).fee
-            console.log(`bob maker fee ${fee}`)
-
-            await clearingHouse.connect(bob).removeLiquidity({
-                baseToken: baseToken.address,
-                lowerTick: 0,
-                upperTick: 150000,
-                liquidity: 0,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            bobFreeCollateral = (await vault.getFreeCollateral(bob.address)).toString()
-            console.log(`bob free collateral after collect fee: ${bobFreeCollateral}`)
-            console.log(`bob account value: ${(await clearingHouse.getAccountValue(bob.address)).toString()}`)
-
-            console.log(`bob's vault balance: ${await vault.getBalance(bob.address)}`)
+            pendingFee = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
+            expect(pendingFee).to.be.deep.eq("0")
         })
     })
 })
