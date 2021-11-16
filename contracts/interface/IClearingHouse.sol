@@ -126,7 +126,7 @@ interface IClearingHouse {
         external
         returns (RemoveLiquidityResponse memory response);
 
-    function collectPendingFee(CollectPendingFeeParams calldata params) external returns (uint256 fee);
+    function settleAllFundingAndPendingFee(address trader) external;
 
     function openPosition(OpenPositionParams memory params) external returns (uint256 deltaBase, uint256 deltaQuote);
 

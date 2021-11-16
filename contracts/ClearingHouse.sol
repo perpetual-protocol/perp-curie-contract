@@ -27,6 +27,7 @@ import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -352,33 +353,45 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
-    function collectPendingFee(CollectPendingFeeParams memory params) external override returns (uint256 fee) {
-        IOrderBook.RemoveLiquidityResponse memory response =
-            IOrderBook(_orderBook).removeLiquidity(
-                IOrderBook.RemoveLiquidityParams({
-                    maker: params.trader,
-                    baseToken: params.baseToken,
-                    lowerTick: params.lowerTick,
-                    upperTick: params.upperTick,
-                    liquidity: 0
-                })
-            );
+    function settleAllFundingAndPendingFee(address trader) external override {
+        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
+        uint256 baseTokenLength = baseTokens.length;
+        for (uint256 i = 0; i < baseTokenLength; i++) {
+            // collect all pending fees from orders
+            bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseTokens[i]);
+            uint256 orderIdLength = orderIds.length;
 
-        _settleBalanceAndRealizePnl(params.trader, params.baseToken, response);
+            for (uint256 j = 0; j < orderIdLength; j++) {
+                OpenOrder.Info memory orderInfo = IOrderBook(_orderBook).getOpenOrderById(orderIds[j]);
+                // will settle pending fee to owedRealizedPnl in ClearingHouse
+                IOrderBook.RemoveLiquidityResponse memory response =
+                    IOrderBook(_orderBook).removeLiquidity(
+                        IOrderBook.RemoveLiquidityParams({
+                            maker: trader,
+                            baseToken: baseTokens[i],
+                            lowerTick: orderInfo.lowerTick,
+                            upperTick: orderInfo.upperTick,
+                            liquidity: 0
+                        })
+                    );
 
-        emit LiquidityChanged(
-            params.trader,
-            params.baseToken,
-            _quoteToken,
-            params.lowerTick,
-            params.upperTick,
-            0,
-            0,
-            0,
-            response.fee
-        );
+                _settleBalanceAndRealizePnl(trader, baseTokens[i], response);
 
-        return response.fee;
+                emit LiquidityChanged(
+                    trader,
+                    baseTokens[i],
+                    _quoteToken,
+                    orderInfo.lowerTick,
+                    orderInfo.upperTick,
+                    0,
+                    0,
+                    0,
+                    response.fee
+                );
+            }
+
+            IExchange(_exchange).settleFunding(trader, baseTokens[i]);
+        }
     }
 
     /// @inheritdoc IClearingHouse

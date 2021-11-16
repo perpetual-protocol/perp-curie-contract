@@ -17,6 +17,7 @@ import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
@@ -51,7 +52,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address insuranceFundArg,
         address clearingHouseConfigArg,
         address accountBalanceArg,
-        address exchangeArg
+        address exchangeArg,
+        address clearingHouseArg
     ) external initializer {
         address settlementTokenArg = IInsuranceFund(insuranceFundArg).getToken();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
@@ -75,6 +77,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _clearingHouseConfig = clearingHouseConfigArg;
         _accountBalance = accountBalanceArg;
         _exchange = exchangeArg;
+        _clearingHouse = clearingHouseArg;
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
@@ -136,7 +139,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address to = _msgSender();
 
         // settle all funding payments and pending fees to owedRealizedPnl
-        IExchange(_exchange).settleAllFundingAndPendingFee(to);
+        IClearingHouse(_clearingHouse).settleAllFundingAndPendingFee(to);
 
         // settle owedRealizedPnl in AccountBalance
         int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);

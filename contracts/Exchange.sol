@@ -23,7 +23,6 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
@@ -237,32 +236,12 @@ contract Exchange is
             });
     }
 
-    function settleAllFundingAndPendingFee(address trader) external override {
-        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
-        uint256 baseTokenLength = baseTokens.length;
-        for (uint256 i = 0; i < baseTokenLength; i++) {
-            // collect all pending fees from orders
-            bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseTokens[i]);
-            uint256 orderIdLength = orderIds.length;
-
-            for (uint256 j = 0; j < orderIdLength; j++) {
-                OpenOrder.Info memory orderInfo = IOrderBook(_orderBook).getOpenOrderById(orderIds[j]);
-                // will settle pending fee to owedRealizedPnl in ClearingHouse
-                IClearingHouse(_clearingHouse).collectPendingFee(
-                    IClearingHouse.CollectPendingFeeParams({
-                        trader: trader,
-                        baseToken: baseTokens[i],
-                        lowerTick: orderInfo.lowerTick,
-                        upperTick: orderInfo.upperTick
-                    })
-                );
-            }
-
-            settleFunding(trader, baseTokens[i]);
-        }
-    }
-
-    /// @inheritdoc IExchange
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    ///      while it doesn't matter who calls this function
+    ///      this function 1. settles personal funding payment 2. updates global funding growth
+    ///      personal funding payment is settled whenever there is pending funding payment
+    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override
