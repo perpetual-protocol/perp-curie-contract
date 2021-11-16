@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `OrderBook.getTotalQuoteBalance()`
 - add `OrderBook.getTotalOrderDebt()`
 - add `OrderBook.getMakerBalance()`
+- add `ClearingHouse.collectPendingFee()`
 ### Changed
 
 - move `PositionChanged` event from `Exchange` to `ClearingHouse`
 - move `Exchange.getTotalOpenNotional` to `AccountBalance.getTotalOpenNotional`
 - move `Exchange.getTakerOpenNotional` to `AccountBalance.getTakerOpenNotional`
+
+- rename `OrderBook.getTotalTokenAmountInPool` to `OrderBook.getTotalTokenAmountInPoolAndPendingFee`
+- rename `AccountBalance.getOwedAndUnrealizedPnl` to `AccountBalance.getPnlAndPendingFee`
+- rename `AccountBalance.getNetQuoteBalance` to `AccountBalance.getNetQuoteBalanceAndPendingFee`
+- rename `Exchange.settledFunding` to `Exchange.settledFundingAndPendingFee`
 - add new second return value `pendingFee` of `AccountBalance.getOwedAndUnrealizedPnl`
 - add new second return value `pendingFee` of `AccountBalance.getNetQuoteBalance`
 - add new second return value `totalPendingFee` of `OrderBook.getTotalQuoteBalance`
