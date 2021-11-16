@@ -177,7 +177,6 @@ library UniswapV3Broker {
         tickSpacing = IUniswapV3Pool(pool).tickSpacing();
     }
 
-
     function getSlot0(address pool)
         internal
         view
@@ -192,6 +191,7 @@ library UniswapV3Broker {
         )
     {
         return IUniswapV3Pool(pool).slot0();
+    }
 
     function getTick(address pool) internal view returns (int24 tick) {
         (, tick, , , , , ) = IUniswapV3Pool(pool).slot0();

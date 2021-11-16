@@ -216,20 +216,10 @@ contract Exchange is
             IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);
         }
 
-        int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
+        int256 takerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
-        emit PositionChanged(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee,
-            takerOpenNotional,
-            pnlToBeRealized,
-            sqrtPriceX96
-        );
-
         return
             SwapResponse({
                 deltaAvailableBase: response.deltaAvailableBase.abs(),
@@ -239,7 +229,7 @@ contract Exchange is
                 fee: response.fee,
                 openNotional: takerOpenNotional,
                 realizedPnl: pnlToBeRealized,
-                sqrtPriceAfter: sqrtPrice,
+                sqrtPriceAfter: sqrtPriceX96,
                 tick: response.tick,
                 isPartialClose: isPartialClose
             });
