@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     AccountBalance,
+    ClearingHouse,
     ClearingHouseConfig,
     Exchange,
     InsuranceFund,
@@ -70,6 +71,20 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedAccountBalance.address,
         mockedExchange.address,
     )
+
+    const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+    await clearingHouse.initialize(
+        clearingHouseConfig.address,
+        vault.address,
+        USDC.address,
+        uniV3Factory.address,
+        mockedExchange.address,
+        mockedAccountBalance.address,
+    )
+    const mockedClearingHouse = await smockit(clearingHouse)
+
+    await vault.setClearingHouse(mockedClearingHouse.address)
 
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }

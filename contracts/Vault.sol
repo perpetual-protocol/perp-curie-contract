@@ -52,8 +52,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address insuranceFundArg,
         address clearingHouseConfigArg,
         address accountBalanceArg,
-        address exchangeArg,
-        address clearingHouseArg
+        address exchangeArg
     ) external initializer {
         address settlementTokenArg = IInsuranceFund(insuranceFundArg).getToken();
         uint8 decimalsArg = IERC20Metadata(settlementTokenArg).decimals();
@@ -77,13 +76,18 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _clearingHouseConfig = clearingHouseConfigArg;
         _accountBalance = accountBalanceArg;
         _exchange = exchangeArg;
-        _clearingHouse = clearingHouseArg;
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
         // V_ANC: TrustedForwarder address is not contract
         require(trustedForwarderArg.isContract(), "V_ANC");
         _setTrustedForwarder(trustedForwarderArg);
+    }
+
+    function setClearingHouse(address clearingHouseArg) external onlyOwner {
+        // V_ANC: address is not contract
+        require(clearingHouseArg.isContract(), "V_ANC");
+        _clearingHouse = clearingHouseArg;
     }
 
     /// @param token the address of the token to deposit;
@@ -211,6 +215,11 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// @inheritdoc IVault
     function getExchange() external view override returns (address) {
         return _exchange;
+    }
+
+    /// @inheritdoc IVault
+    function getClearingHouse() external view override returns (address) {
+        return _clearingHouse;
     }
 
     /// @param trader The address of the trader to query

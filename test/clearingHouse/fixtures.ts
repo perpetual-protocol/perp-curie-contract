@@ -188,6 +188,7 @@ export function createClearingHouseFixture(
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)
         await accountBalance.setClearingHouse(clearingHouse.address)
+        await vault.setClearingHouse(clearingHouse.address)
 
         return {
             clearingHouse,
