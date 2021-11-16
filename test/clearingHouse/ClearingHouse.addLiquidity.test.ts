@@ -18,6 +18,7 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { retrieveEvent } from "../helper/events"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -775,12 +776,16 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"),
-                    bobTakerQuote.div(2).mul(-1), // move half of taker quote to maker
+                    parseEther("-0.5"), // exchangedPositionSize
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
@@ -793,12 +798,13 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("has the same taker position size after removing liquidity if no one else trade", async () => {
             const lowerTick = 50400
             const upperTick = 50600
+
             await clearingHouse.connect(bob).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("0.5"),
@@ -824,8 +830,17 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(bob.address, baseToken.address, parseEther("0.499999999999999999"), bobTakerQuote.div(2))
+                .to.emit(clearingHouse, "PositionChanged")
+                .withArgs(
+                    bob.address,
+                    baseToken.address,
+                    parseEther("0.499999999999999999"), // exchangedPositionSize
+                    bobTakerQuote.div(2), // exchangedPositionNotional
+                    0, // fee
+                    "-152925362473060470222", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
+                )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("1"),
@@ -840,7 +855,7 @@ describe("ClearingHouse addLiquidity", () => {
 
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(bobQuote)
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
         })
 
         it("adding liquidity using taker position and somebody trade", async () => {
@@ -866,12 +881,18 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"), // using 50% taker base to add liquidity
-                    bobTakerQuote.div(2).mul(-1), // move 50% taker quote debt to maker
+                    // using 50% taker base to add liquidity
+                    parseEther("-0.5"), // exchangedPositionSize
+                    // move 50% taker quote debt to maker
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             // alice long 0.1 base token
@@ -880,8 +901,10 @@ describe("ClearingHouse addLiquidity", () => {
             const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
                 .liquidity
 
-            await expect(
-                clearingHouse.connect(bob).removeLiquidity({
+            // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
+            // so we cannot use `to.emit.withArgs` here
+            const receipt = await (
+                await clearingHouse.connect(bob).removeLiquidity({
                     baseToken: baseToken.address,
                     lowerTick,
                     upperTick,
@@ -889,28 +912,46 @@ describe("ClearingHouse addLiquidity", () => {
                     minBase: 0,
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(accountBalance, "TakerBalancesChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    parseEther("0.399999999999999999"),
-                    parseEther("-60.988779581551447382"), // we don't care about this value. it's from console.log.
-                )
-                .to.emit(clearingHouse, "TakerBalancesChanged")
-                .to.emit(clearingHouse, "LiquidityChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    quoteToken.address,
-                    lowerTick,
-                    upperTick,
-                    parseEther("-0.399999999999999999"),
-                    parseEther("-15.473901654978787729"), // we don't care about this value. it's from console.log.
-                    bobLiquidity.mul(-1),
-                    parseEther("0.156302036918977653"), // we don't care about this value. it's from console.log.
-                )
+                })
+            ).wait()
+
+            const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
+            expect([
+                liquidityChanged.args.maker,
+                liquidityChanged.args.baseToken,
+                liquidityChanged.args.quoteToken,
+                liquidityChanged.args.lowerTick,
+                liquidityChanged.args.upperTick,
+                liquidityChanged.args.base,
+                liquidityChanged.args.quote,
+                liquidityChanged.args.liquidity,
+            ]).to.deep.equal([
+                bob.address,
+                baseToken.address,
+                quoteToken.address,
+                lowerTick,
+                upperTick,
+                parseEther("-0.399999999999999999"),
+                parseEther("-15.473901654978787729"),
+                bobLiquidity.mul(-1),
+            ])
+
+            const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
+            expect([
+                positionChangedFromLiquidityChanged.args.trader,
+                positionChangedFromLiquidityChanged.args.baseToken,
+                positionChangedFromLiquidityChanged.args.exchangedPositionSize,
+                positionChangedFromLiquidityChanged.args.exchangedPositionNotional,
+                positionChangedFromLiquidityChanged.args.openNotional,
+                positionChangedFromLiquidityChanged.args.realizedPnl,
+            ]).to.deep.equal([
+                bob.address,
+                baseToken.address,
+                parseEther("0.399999999999999999"), // exchangedPositionSize
+                parseEther("-60.988779581551447382"), // exchangedPositionNotional
+                BigNumber.from("-137451460818081682493"), // openNotional
+                BigNumber.from("0"), // realizedPnl
+            ])
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("0.9"),
@@ -937,7 +978,7 @@ describe("ClearingHouse addLiquidity", () => {
                 1,
             )
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-137.451460818081682493"))
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
                 parseEther("-137.451460818081682493"),
             )
         })
@@ -965,12 +1006,16 @@ describe("ClearingHouse addLiquidity", () => {
                     deadline: ethers.constants.MaxUint256,
                 }),
             )
-                .to.emit(accountBalance, "TakerBalancesChanged")
+                .to.emit(clearingHouse, "PositionChanged")
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    parseEther("-0.5"),
-                    bobTakerQuote.div(2).mul(-1), // we don't care about this value. it's from console.log.
+                    parseEther("-0.5"), // exchangedPositionSize
+                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    0, // fee
+                    "-76462681236530235111", // openNotional
+                    "0", // realizedPnl
+                    Object, // sqrtPriceAfter
                 )
 
             // alice long 0.1 base token
@@ -989,7 +1034,7 @@ describe("ClearingHouse addLiquidity", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.not.emit(accountBalance, "TakerBalancesChanged")
+            ).to.not.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
 
             // alice long 0.1 base token
             await q2bExactOutput(fixture, alice, 0.1)
@@ -1029,7 +1074,7 @@ describe("ClearingHouse addLiquidity", () => {
                 1,
             )
             expect(await accountBalance.getNetQuoteBalance(bob.address)).to.eq(parseEther("-121.932953549887475037"))
-            expect(await exchange.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
                 parseEther("-121.932953549887475037"),
             )
         })

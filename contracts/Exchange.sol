@@ -178,7 +178,8 @@ contract Exchange is
         }
 
         // get openNotional before swap
-        int256 oldTakerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
+        int256 oldTakerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose && isReducingPosition) {
@@ -215,26 +216,20 @@ contract Exchange is
             IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);
         }
 
-        int256 takerOpenNotional = getTakerOpenNotional(params.trader, params.baseToken);
+        int256 takerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
-        emit PositionChanged(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional,
-            response.fee,
-            takerOpenNotional,
-            pnlToBeRealized,
-            sqrtPriceX96
-        );
-
         return
             SwapResponse({
                 deltaAvailableBase: response.deltaAvailableBase.abs(),
                 deltaAvailableQuote: response.deltaAvailableQuote.abs(),
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
+                fee: response.fee,
+                openNotional: takerOpenNotional,
+                realizedPnl: pnlToBeRealized,
+                sqrtPriceAfter: sqrtPriceX96,
                 tick: response.tick,
                 isPartialClose: isPartialClose
             });
@@ -432,6 +427,8 @@ contract Exchange is
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
+        int256 takerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         return
             isReducingPosition
                 ? _getPnlToBeRealized(
@@ -439,29 +436,12 @@ contract Exchange is
                         trader: params.trader,
                         baseToken: params.baseToken,
                         takerPositionSize: takerPositionSize,
-                        takerOpenNotional: getTakerOpenNotional(params.trader, params.baseToken),
+                        takerOpenNotional: takerOpenNotional,
                         deltaAvailableBase: params.deltaAvailableBase,
                         deltaAvailableQuote: params.deltaAvailableQuote
                     })
                 )
                 : 0;
-    }
-
-    // TODO move to AccountBalance
-    /// @dev the amount of quote token paid for a position when opening
-    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // makerBalance = totalTokenAmountInPool - totalOrderDebt
-        uint256 totalQuoteBalanceFromOrders =
-            IOrderBook(_orderBook).getTotalTokenAmountInPool(trader, baseToken, false);
-        uint256 totalQuoteDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
-        int256 makerQuoteBalance = totalQuoteBalanceFromOrders.toInt256().sub(totalQuoteDebtFromOrder.toInt256());
-        int256 takerQuoteBalance = IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
-        return makerQuoteBalance.add(takerQuoteBalance);
-    }
-
-    // @audit why do we need this instead of calling accountBalance directly? - @wraecca
-    function getTakerOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        return IAccountBalance(_accountBalance).getTakerQuote(trader, baseToken);
     }
 
     //

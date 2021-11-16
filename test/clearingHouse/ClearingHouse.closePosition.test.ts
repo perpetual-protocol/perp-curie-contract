@@ -527,25 +527,16 @@ describe("ClearingHouse closePosition", () => {
                 // bob swap
                 // quote: 0.112414646 / 0.99 = 0.1135501475
                 // to base: 0.0007558893279
-                await expect(
-                    clearingHouse.connect(bob).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: false,
-                        isExactInput: true,
-                        oppositeAmountBound: 0,
-                        amount: parseEther("0.1135501475"),
-                        sqrtPriceLimitX96: "0",
-                        deadline: ethers.constants.MaxUint256,
-                        referralCode: ethers.constants.HashZero,
-                    }),
-                )
-                    .to.emit(accountBalance, "TakerBalancesChanged")
-                    .withArgs(
-                        bob.address,
-                        baseToken.address,
-                        parseEther("0.000755889328108358"),
-                        parseEther("-0.1135501475"),
-                    )
+                await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.1135501475"),
+                    sqrtPriceLimitX96: "0",
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
 
                 const carolLiquidity = (
                     await orderBook.getOpenOrder(carol.address, baseToken.address, lowerTick, upperTick)
@@ -576,12 +567,16 @@ describe("ClearingHouse closePosition", () => {
                         deadline: ethers.constants.MaxUint256,
                     }),
                 )
-                    .to.emit(accountBalance, "TakerBalancesChanged")
+                    .to.emit(clearingHouse, "PositionChanged")
                     .withArgs(
                         carol.address,
                         baseToken.address,
-                        parseEther("-0.000094486166013545"),
-                        parseEther("0.014051830753124999"),
+                        parseEther("-0.000094486166013545"), // exchangedPositionSize
+                        parseEther("0.014051830753124999"), // exchangedPositionNotional
+                        0, // fee
+                        parseEther("0.014051830753124999"), // openNotional
+                        "0", // realizedPnl
+                        Object, // sqrtPriceAfter
                     )
 
                 const carolTakerPos = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)

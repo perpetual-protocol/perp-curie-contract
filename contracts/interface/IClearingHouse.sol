@@ -98,6 +98,17 @@ interface IClearingHouse {
         uint256 quoteFee
     );
 
+    event PositionChanged(
+        address indexed trader,
+        address indexed baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl,
+        uint256 sqrtPriceAfter
+    );
+
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     event TrustedForwarderChanged(address indexed forwarder);

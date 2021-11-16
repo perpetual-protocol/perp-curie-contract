@@ -1,4 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
@@ -17,6 +18,7 @@ import {
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
+import { retrieveEvent } from "../helper/events"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -1102,8 +1104,11 @@ describe("ClearingHouse funding", () => {
                     // carol removes all her liquidity; all pending funding payment should be settled
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.654045517856872802 * (148.9111525791 - 150.953124) * 3601 / 86400 = 0.05566305164
-                    await expect(
-                        clearingHouse.connect(carol).removeLiquidity({
+
+                    // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
+                    // so we cannot use `to.emit.withArgs` here
+                    const receipt = await (
+                        await clearingHouse.connect(carol).removeLiquidity({
                             baseToken: baseToken.address,
                             lowerTick: 50000,
                             upperTick: 50200,
@@ -1111,29 +1116,46 @@ describe("ClearingHouse funding", () => {
                             minBase: 0,
                             minQuote: 0,
                             deadline: ethers.constants.MaxUint256,
-                        }),
-                    )
-                        .to.emit(clearingHouse, "LiquidityChanged")
-                        .withArgs(
-                            carol.address,
-                            baseToken.address,
-                            quoteToken.address,
-                            50000,
-                            50200,
-                            "-545954482143127198",
-                            "-18031070591189734109",
-                            "-816895716963038010374",
-                            parseEther("0.819689294088102658"),
-                        )
-                        .to.emit(exchange, "FundingPaymentSettled")
-                        .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
-                        .to.emit(accountBalance, "TakerBalancesChanged")
-                        .withArgs(
-                            carol.address,
-                            baseToken.address,
-                            "545954482143127198", // deltaTakerBase
-                            "-81968929408810265891", // deltaTakerQuote
-                        )
+                        })
+                    ).wait()
+
+                    const fundingPaymentSettled = retrieveEvent(receipt, exchange, "FundingPaymentSettled")
+                    expect([...fundingPaymentSettled.args]).to.deep.equal([
+                        carol.address,
+                        baseToken.address,
+                        parseEther("0.055663051642020131"),
+                    ])
+
+                    const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
+                    expect([...liquidityChanged.args]).to.deep.equal([
+                        carol.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        50000,
+                        50200,
+                        BigNumber.from("-545954482143127198"),
+                        BigNumber.from("-18031070591189734109"),
+                        BigNumber.from("-816895716963038010374"),
+                        parseEther("0.819689294088102658"),
+                    ])
+
+                    const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
+                    expect([
+                        positionChangedFromLiquidityChanged.args.trader,
+                        positionChangedFromLiquidityChanged.args.baseToken,
+                        positionChangedFromLiquidityChanged.args.exchangedPositionSize,
+                        positionChangedFromLiquidityChanged.args.exchangedPositionNotional,
+                        positionChangedFromLiquidityChanged.args.openNotional,
+                        positionChangedFromLiquidityChanged.args.realizedPnl,
+                    ]).to.deep.equal([
+                        carol.address,
+                        baseToken.address,
+                        BigNumber.from("545954482143127198"), // exchangedPositionSize
+                        BigNumber.from("-81968929408810265891"), // exchangedPositionNotional
+                        BigNumber.from("98188169201962983990"), // openNotional
+                        BigNumber.from("-7858496051086652"), // realizedPnl
+                    ])
+
                     // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998
                     // reducedOpenNotional = 0.4549620685 * 180.149240114722163229 = 81.961070912759179239
                     // deltaAvailableQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
@@ -1152,6 +1174,8 @@ describe("ClearingHouse funding", () => {
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
                         parseEther("-0.034627969348706857"),
                     )
+
+                    // TODO: missing the second time addLiquidity()?
                 })
             })
         })

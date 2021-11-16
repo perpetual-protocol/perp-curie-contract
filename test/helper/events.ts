@@ -1,15 +1,15 @@
-import { ContractTransaction, Event } from "ethers"
+import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
+import { BaseContract } from "ethers"
 
-export async function findEvent(eventLogs: Event[], name: string): Promise<Event> {
-    for (const eventLog of eventLogs) {
-        if (eventLog.event === name) {
-            return eventLog
-        }
-    }
-}
-
-export async function runTxAndReturnEvent(txFunction: Promise<ContractTransaction>, name: string): Promise<Event> {
-    const tx = await txFunction
-    const receipt = await tx.wait()
-    return await findEvent(receipt.events, name)
+export function retrieveEvent(
+    txReceipt: TransactionReceipt,
+    contract: BaseContract,
+    eventName: string,
+): LogDescription {
+    const eventTopic = contract.interface.getEventTopic(eventName)
+    const parsedLogs = txReceipt.logs
+        .filter(log => log.topics[0] === eventTopic)
+        .map(log => contract.interface.parseLog(log))
+    return parsedLogs[0]
 }

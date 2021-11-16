@@ -239,6 +239,19 @@ contract ClearingHouse is
 
             // update takerBalances as we're using takerBalances to provide liquidity
             IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);
+
+            int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
+            uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
+            emit PositionChanged(
+                trader,
+                params.baseToken,
+                deltaBaseDebt, // exchangedPositionSize
+                deltaQuoteDebt, // exchangedPositionNotional
+                0, // fee
+                takerOpenNotional, // openNotional
+                0, // realizedPnl
+                sqrtPrice
+            );
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
@@ -298,7 +311,7 @@ contract ClearingHouse is
                 })
             );
 
-        _settleBalanceAndRealizePnl(trader, params.baseToken, response);
+        int256 realizedPnl = _settleBalanceAndRealizePnl(trader, params.baseToken, response);
 
         // price slippage check
         require(response.base >= params.minBase && response.quote >= params.minQuote, "CH_PSC");
@@ -313,6 +326,19 @@ contract ClearingHouse is
             response.quote.neg256(),
             params.liquidity.neg128(),
             response.fee
+        );
+
+        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
+        uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
+        emit PositionChanged(
+            trader,
+            params.baseToken,
+            response.deltaTakerBase, // exchangedPositionSize
+            response.deltaTakerQuote, // exchangedPositionNotional
+            0,
+            takerOpenNotional, // openNotional
+            realizedPnl, // realizedPnl
+            sqrtPrice
         );
 
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
@@ -633,7 +659,7 @@ contract ClearingHouse is
         address maker,
         address baseToken,
         IOrderBook.RemoveLiquidityResponse memory response
-    ) internal {
+    ) internal returns (int256) {
         int256 pnlToBeRealized;
         if (response.deltaTakerBase != 0) {
             pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
@@ -654,6 +680,7 @@ contract ClearingHouse is
             pnlToBeRealized,
             response.fee.toInt256()
         );
+        return pnlToBeRealized; // pnlToBeRealized is realized now
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
@@ -676,6 +703,16 @@ contract ClearingHouse is
             // it's not closing the position, check margin ratio
             _requireEnoughFreeCollateral(params.trader);
         }
+        emit PositionChanged(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional,
+            response.fee,
+            response.openNotional,
+            response.realizedPnl,
+            response.sqrtPriceAfter
+        );
 
         IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 

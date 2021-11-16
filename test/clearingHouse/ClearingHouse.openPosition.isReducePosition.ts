@@ -112,7 +112,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice reduce position
             // alice maker positionSize : -6.5
             // alice taker positionSize : 0.5
-            await expect(b2qExactInput(fixture, alice, 0.5)).to.emit(exchange, "PositionChanged").withArgs(
+            await expect(b2qExactInput(fixture, alice, 0.5)).to.emit(clearingHouse, "PositionChanged").withArgs(
                 alice.address,
                 baseToken.address,
                 parseEther("-0.5"),
@@ -156,7 +156,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice reduce position
             // alice maker positionSize : -4.5
             // alice taker positionSize : -0.5
-            await expect(q2bExactOutput(fixture, alice, 0.5)).to.emit(exchange, "PositionChanged").withArgs(
+            await expect(q2bExactOutput(fixture, alice, 0.5)).to.emit(clearingHouse, "PositionChanged").withArgs(
                 alice.address,
                 baseToken.address,
                 parseEther("0.5"),

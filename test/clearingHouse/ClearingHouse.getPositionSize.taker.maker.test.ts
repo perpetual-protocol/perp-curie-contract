@@ -1,3 +1,7 @@
+import { BigNumber } from "@ethersproject/bignumber"
+import { expect } from "chai"
+import { BigNumberish, Wallet } from "ethers"
+import { parseEther } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook } from "../../typechain"
 import {
@@ -10,12 +14,8 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 import { mintAndDeposit } from "../helper/token"
-import { BigNumberish, Wallet } from "ethers"
-import { expect } from "chai"
-import { parseEther } from "ethers/lib/utils"
-import { BigNumber } from "@ethersproject/bignumber"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 //docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1507179977
 
@@ -43,7 +43,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     }
 
     async function getTakerOpenNotional(taker: Wallet, baseToken: BaseToken): Promise<BigNumberish> {
-        return await exchange.getTakerOpenNotional(taker.address, baseToken.address)
+        return await accountBalance.getTakerOpenNotional(taker.address, baseToken.address)
     }
 
     async function getOweRealizedPnl(taker: Wallet): Promise<BigNumberish> {
