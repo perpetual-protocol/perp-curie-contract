@@ -213,7 +213,14 @@ contract ClearingHouse is
                 deltaBaseDebt = response.base.neg256();
 
                 // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
-                // TODO: inspect overflow
+
+                // overflow inspection:
+                // Assume collateral is 2.406159692E28 and index price is 1e-18
+                // takerQuoteBalance ~= 10 * 2.406159692E28 = 2.406159692E29 --> x
+                // takerBaseBalance ~= takerQuoteBalance/index price = x * 1e18 = 2.4061597E38
+                // max of deltaBaseDebt = takerBaseBalance = 2.4061597E38
+                // (takerQuoteBalance * deltaBaseDebt) < 2^255
+                // 2.406159692E29 ^2 * 1e18 < 2^255
                 deltaQuoteDebt = accountMarketInfo.takerQuoteBalance.mul(deltaBaseDebt).div(
                     accountMarketInfo.takerBaseBalance
                 );
@@ -224,7 +231,7 @@ contract ClearingHouse is
                 deltaQuoteDebt = response.quote.neg256();
 
                 // move base debt from taker to maker: takerBaseDebt(-) * quoteRemovedFromTaker(-) / totalTakerQuote(+)
-                // TODO: inspect overflow
+                // overflow inspection: same as above
                 deltaBaseDebt = accountMarketInfo.takerBaseBalance.mul(deltaQuoteDebt).div(
                     accountMarketInfo.takerQuoteBalance
                 );

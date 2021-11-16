@@ -224,7 +224,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             // baseDebt = baseBalance when it's negative
             if (baseBalance < 0) {
                 // baseDebtValue = baseDebt * indexPrice
-                baseDebtValue = baseBalance.mul(_getIndexPrice(baseToken).toInt256()).divBy10_18();
+                baseDebtValue = baseBalance.mulDiv(_getIndexPrice(baseToken).toInt256(), 1e18);
             }
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
 
@@ -339,7 +339,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // both positionSize & indexTwap are in 10^18 already
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
-        return positionSize.mul(indexTwap.toInt256()).divBy10_18();
+        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
     }
 
     /// @inheritdoc IAccountBalance
