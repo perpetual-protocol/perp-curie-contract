@@ -25,6 +25,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -235,16 +236,12 @@ contract Exchange is
             });
     }
 
-    function settleAllFunding(address trader) external override {
-        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
-        uint256 baseTokenLength = baseTokens.length;
-
-        for (uint256 i = 0; i < baseTokenLength; i++) {
-            settleFunding(trader, baseTokens[i]);
-        }
-    }
-
-    /// @inheritdoc IExchange
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    ///      while it doesn't matter who calls this function
+    ///      this function 1. settles personal funding payment 2. updates global funding growth
+    ///      personal funding payment is settled whenever there is pending funding payment
+    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override

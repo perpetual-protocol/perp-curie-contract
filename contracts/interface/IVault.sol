@@ -27,4 +27,6 @@ interface IVault {
     function getInsuranceFund() external view returns (address);
 
     function getExchange() external view returns (address);
+
+    function getClearingHouse() external view returns (address);
 }

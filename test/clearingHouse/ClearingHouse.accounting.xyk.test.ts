@@ -345,7 +345,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         )
 
         // ifOwedRealizedPnl + taker's realizedPnl from event + maker's quoteFee from event ~= 0
-        const ifOwedRealizedPnl = (await accountBalance.getOwedAndUnrealizedPnl(insuranceFund.address))[0]
+        const ifOwedRealizedPnl = (await accountBalance.getPnlAndPendingFee(insuranceFund.address))[0]
         expect(
             ifOwedRealizedPnl.add(BigNumber.from("179909999999999999")).sub(BigNumber.from("199900000000000024")),
         ).be.closeTo(BigNumber.from("0"), 25)
@@ -393,11 +393,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker account value = freeCollateral + unsettled PnL
             const makerAccountValue = await clearingHouse.getAccountValue(maker.address)
             const makerCollateral = await vault.getBalance(maker.address)
-            const [makerOwedRealizedPnl, makerUnsettledPnL] = await accountBalance.getOwedAndUnrealizedPnl(
+            const [makerOwedRealizedPnl, makerUnsettledPnL, fee] = await accountBalance.getPnlAndPendingFee(
                 maker.address,
             )
             expect(makerAccountValue).to.be.deep.eq(
-                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL),
+                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL).add(fee),
             )
 
             // maker remove liquidity

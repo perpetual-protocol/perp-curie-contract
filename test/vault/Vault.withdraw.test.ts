@@ -10,6 +10,7 @@ import {
     Exchange,
     InsuranceFund,
     MarketRegistry,
+    TestAccountBalance,
     TestERC20,
     UniswapV3Pool,
     Vault,
@@ -26,7 +27,7 @@ describe("Vault withdraw test", () => {
     let usdc: TestERC20
     let clearingHouse: ClearingHouse
     let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance
+    let accountBalance: AccountBalance | TestAccountBalance
     let exchange: Exchange
     let pool: UniswapV3Pool
     let baseToken: BaseToken
@@ -51,7 +52,7 @@ describe("Vault withdraw test", () => {
         if (!hasAccountValue) {
             expect(accountValue).to.be.eq(0)
         }
-        expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        await expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
     }
 
     beforeEach(async () => {
@@ -83,9 +84,9 @@ describe("Vault withdraw test", () => {
         await deposit(alice, vault, 1000000, usdc)
 
         // bob mint and add liquidity
-        await usdc.mint(bob.address, parseUnits("10000000", usdcDecimals))
-        await deposit(bob, vault, 1000000, usdc)
-        await addOrder(fixture, bob, 200, 100000, 0, 150000)
+        await usdc.mint(bob.address, parseUnits("1000", usdcDecimals))
+        await deposit(bob, vault, 1000, usdc)
+        await addOrder(fixture, bob, 10, 1500, 0, 150000)
     })
 
     describe("withdraw check", async () => {
@@ -123,6 +124,22 @@ describe("Vault withdraw test", () => {
 
             await check(bob, true)
             await check(alice, true)
+        })
+
+        it("collect fee before withdraw when maker make profit", async () => {
+            // alice swap, bob has pending fee
+            await q2bExactInput(fixture, alice, 100)
+            await closePosition(fixture, alice)
+
+            let pendingFee = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
+            expect(pendingFee).to.be.gt(0)
+
+            // maker withdraw
+            const freeCollateral = await vault.getFreeCollateral(bob.address)
+            await vault.connect(bob).withdraw(usdc.address, freeCollateral)
+
+            pendingFee = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
+            expect(pendingFee).to.be.deep.eq("0")
         })
     })
 })

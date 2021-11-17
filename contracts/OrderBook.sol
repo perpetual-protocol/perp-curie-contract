@@ -453,36 +453,19 @@ contract OrderBook is
         return false;
     }
 
-    /// @dev note the return value includes maker fee.
-    ///      For more details please refer to _getTotalTokenAmountInPool() docstring
-    function getTotalQuoteAmountInPools(address trader, address[] calldata baseTokens)
+    function getTotalQuoteBalanceAndPendingFee(address trader, address[] calldata baseTokens)
         external
         view
         override
-        returns (uint256)
+        returns (int256 totalQuoteAmountInPools, uint256 totalPendingFee)
     {
-        uint256 totalQuoteAmountInPools;
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
-            uint256 quoteInPool = _getTotalTokenAmountInPool(trader, baseToken, false);
-            totalQuoteAmountInPools = totalQuoteAmountInPools.add(quoteInPool);
-        }
-        return totalQuoteAmountInPools;
-    }
-
-    function getTotalQuoteBalance(address trader, address[] calldata baseTokens)
-        external
-        view
-        override
-        returns (int256)
-    {
-        int256 totalQuoteAmountInPools;
-        for (uint256 i = 0; i < baseTokens.length; i++) {
-            address baseToken = baseTokens[i];
-            int256 makerQuoteBalance = _getMakerBalance(trader, baseToken, false);
+            (int256 makerQuoteBalance, uint256 pendingFee) = _getMakerBalance(trader, baseToken, false);
             totalQuoteAmountInPools = totalQuoteAmountInPools.add(makerQuoteBalance);
+            totalPendingFee = totalPendingFee.add(pendingFee);
         }
-        return totalQuoteAmountInPools;
+        return (totalQuoteAmountInPools, totalPendingFee);
     }
 
     function getTotalOrderDebt(
@@ -505,12 +488,12 @@ contract OrderBook is
     ///      the latter is counted directly toward realizedPnl.
     ///      the return value includes maker fee.
     ///      please refer to _getTotalTokenAmountInPool() docstring for specs
-    function getTotalTokenAmountInPool(
+    function getTotalTokenAmountInPoolAndPendingFee(
         address trader,
         address baseToken,
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) external view override returns (uint256 tokenAmount) {
-        return _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+    ) external view override returns (uint256 tokenAmount, uint256 pendingFee) {
+        (tokenAmount, pendingFee) = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
     }
 
     /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
@@ -722,11 +705,11 @@ contract OrderBook is
         address trader,
         address baseToken,
         bool fetchBase
-    ) internal view returns (int256) {
-        uint256 totalBalanceFromOrders = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
+    ) internal view returns (int256, uint256) {
+        (uint256 totalBalanceFromOrders, uint256 pendingFee) = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
         uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
         // makerBalance = totalTokenAmountInPool - totalOrderDebt
-        return totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256());
+        return (totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256()), pendingFee);
     }
 
     /// @dev Get total amount of the specified tokens in the specified pool.
@@ -736,11 +719,12 @@ contract OrderBook is
     ///           base amount = base liquidity
     ///        2. quote/base liquidity does NOT include Uniswap pool fees since
     ///           they do not have any impact to our margin system
+    ///        3. the returned fee amount is only meaningful when querying quote amount
     function _getTotalTokenAmountInPool(
         address trader,
         address baseToken, // this argument is only for specifying which pool to get base or quote amounts
         bool fetchBase // true: fetch base amount, false: fetch quote amount
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 tokenAmount, uint256 pendingFee) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
 
         //
@@ -757,7 +741,6 @@ contract OrderBook is
         //  --> maker only has quote token
         (uint160 sqrtMarkPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
-        uint256 tokenAmount;
         uint256 orderIdLength = orderIds.length;
 
         for (uint256 i = 0; i < orderIdLength; i++) {
@@ -785,11 +768,11 @@ contract OrderBook is
 
             // get uncollected fee (only quote)
             if (!fetchBase) {
-                (uint256 fee, ) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(baseToken, order);
-                tokenAmount = tokenAmount.add(fee);
+                (uint256 feeInOrder, ) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(baseToken, order);
+                pendingFee = pendingFee.add(feeInOrder);
             }
         }
-        return tokenAmount;
+        return (tokenAmount, pendingFee);
     }
 
     /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow

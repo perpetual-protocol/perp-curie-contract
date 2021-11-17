@@ -27,6 +27,7 @@ import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
 import { OrderKey } from "./lib/OrderKey.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -352,6 +353,47 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    function settleAllFundingAndPendingFee(address trader) external override {
+        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
+        uint256 baseTokenLength = baseTokens.length;
+        for (uint256 i = 0; i < baseTokenLength; i++) {
+            // collect all pending fees from orders
+            bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseTokens[i]);
+            uint256 orderIdLength = orderIds.length;
+
+            for (uint256 j = 0; j < orderIdLength; j++) {
+                OpenOrder.Info memory orderInfo = IOrderBook(_orderBook).getOpenOrderById(orderIds[j]);
+                // will settle pending fee to owedRealizedPnl in ClearingHouse
+                IOrderBook.RemoveLiquidityResponse memory response =
+                    IOrderBook(_orderBook).removeLiquidity(
+                        IOrderBook.RemoveLiquidityParams({
+                            maker: trader,
+                            baseToken: baseTokens[i],
+                            lowerTick: orderInfo.lowerTick,
+                            upperTick: orderInfo.upperTick,
+                            liquidity: 0
+                        })
+                    );
+
+                _settleBalanceAndRealizePnl(trader, baseTokens[i], response);
+
+                emit LiquidityChanged(
+                    trader,
+                    baseTokens[i],
+                    _quoteToken,
+                    orderInfo.lowerTick,
+                    orderInfo.upperTick,
+                    0,
+                    0,
+                    0,
+                    response.fee
+                );
+            }
+
+            IExchange(_exchange).settleFunding(trader, baseTokens[i]);
+        }
+    }
+
     /// @inheritdoc IClearingHouse
     function openPosition(OpenPositionParams memory params)
         external
@@ -634,14 +676,14 @@ contract ClearingHouse is
     /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnl, int256 unrealizedPnl) =
-            IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
+        (int256 owedRealizedPnl, int256 unrealizedPnl, uint256 pendingFee) =
+            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
         // solhint-disable-next-line var-name-mixedcase
         int256 balanceX10_18 =
             SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
 
-        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl
-        return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl);
+        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl + pendingMakerFee
+        return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl).add(pendingFee.toInt256());
     }
 
     //

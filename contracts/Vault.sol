@@ -17,6 +17,7 @@ import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { VaultStorageV1 } from "./storage/VaultStorage.sol";
@@ -83,6 +84,12 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _setTrustedForwarder(trustedForwarderArg);
     }
 
+    function setClearingHouse(address clearingHouseArg) external onlyOwner {
+        // V_ANC: address is not contract
+        require(clearingHouseArg.isContract(), "V_ANC");
+        _clearingHouse = clearingHouseArg;
+    }
+
     /// @param token the address of the token to deposit;
     ///        once multi-collateral is implemented, the token is not limited to settlementToken
     /// @param amountX10_D the amount of the token to deposit in decimals D (D = _decimals)
@@ -135,8 +142,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         address to = _msgSender();
 
-        // settle all funding payments to owedRealizedPnl
-        IExchange(_exchange).settleAllFunding(to);
+        // settle all funding payments and pending fees to owedRealizedPnl
+        IClearingHouse(_clearingHouse).settleAllFundingAndPendingFee(to);
 
         // settle owedRealizedPnl in AccountBalance
         int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
@@ -210,6 +217,11 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return _exchange;
     }
 
+    /// @inheritdoc IVault
+    function getClearingHouse() external view override returns (address) {
+        return _clearingHouse;
+    }
+
     /// @param trader The address of the trader to query
     /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
     function getFreeCollateral(address trader) external view returns (uint256) {
@@ -231,10 +243,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
         int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18) =
-            IAccountBalance(_accountBalance).getOwedAndUnrealizedPnl(trader);
+        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18, uint256 pendingFeeX10_18) =
+            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
         int256 totalCollateralValueX10_D =
-            getBalance(trader).add(owedRealizedPnlX10_18.sub(fundingPaymentX10_18).formatSettlementToken(_decimals));
+            getBalance(trader).add(
+                owedRealizedPnlX10_18.sub(fundingPaymentX10_18).add(pendingFeeX10_18.toInt256()).formatSettlementToken(
+                    _decimals
+                )
+            );
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));

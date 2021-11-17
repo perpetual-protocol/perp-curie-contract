@@ -12,15 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `OrderBook.getTotalQuoteBalance()`
 - add `OrderBook.getTotalOrderDebt()`
 - add `OrderBook.getMakerBalance()`
-
+- add `Clearinghouse.settleAllFundingAndPendingFee()`
 ### Changed
 
-- move `getTotalOpenNotional()` from `Exchange` to `AccountBalance` and rename to `getTakerOpenNotional`
 - move `PositionChanged` event from `Exchange` to `ClearingHouse`
+- move `Exchange.getTotalOpenNotional` to `AccountBalance.getTotalOpenNotional`
+- move `Exchange.getTakerOpenNotional` to `AccountBalance.getTakerOpenNotional`
+
+- rename `OrderBook.getTotalTokenAmountInPool` to `OrderBook.getTotalTokenAmountInPoolAndPendingFee`
+- rename `AccountBalance.getOwedAndUnrealizedPnl` to `AccountBalance.getPnlAndPendingFee`
+- rename `AccountBalance.getNetQuoteBalance` to `AccountBalance.getNetQuoteBalanceAndPendingFee`
+
+- add new second return value `pendingFee` of `AccountBalance.getOwedAndUnrealizedPnl`
+- add new second return value `pendingFee` of `AccountBalance.getNetQuoteBalance`
+- add new second return value `totalPendingFee` of `OrderBook.getTotalQuoteBalance`
+- add new second return value `totalPendingFee` of `OrderBook.getTotalTokenAmountInPool`
 
 ### Removed
 
-- remove `Exchange.getTakerOpenNotional()` 
+- remove `AccountBalance.getTakerQuote`
 
 ## [0.13.3-staging] - 2021-11-11
 
@@ -31,7 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.13.2-staging] - 2021-11-11
 
 ### Changed
-
 - update artifacts
 
 ## [0.13.1-staging] - 2021-11-11

@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import {
     AccountBalance,
+    ClearingHouse,
     ClearingHouseConfig,
     Exchange,
     InsuranceFund,
@@ -11,6 +12,7 @@ import {
     UniswapV3Factory,
     Vault,
 } from "../../typechain"
+import { createBaseTokenFixture } from "../shared/fixtures"
 
 interface MockedVaultFixture {
     vault: Vault
@@ -70,6 +72,22 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedAccountBalance.address,
         mockedExchange.address,
     )
+
+    const { baseToken: quoteToken } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
+    mockedExchange.smocked.getOrderBook.will.return.with(orderBook.address)
+    const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
+    const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
+    await clearingHouse.initialize(
+        clearingHouseConfig.address,
+        vault.address,
+        quoteToken.address,
+        uniV3Factory.address,
+        mockedExchange.address,
+        mockedAccountBalance.address,
+    )
+    const mockedClearingHouse = await smockit(clearingHouse)
+
+    await vault.setClearingHouse(mockedClearingHouse.address)
 
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }

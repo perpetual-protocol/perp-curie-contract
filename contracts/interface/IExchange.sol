@@ -59,14 +59,6 @@ interface IExchange {
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
-    function settleAllFunding(address trader) external;
-
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    ///      while it doesn't matter who calls this function
-    ///      this function 1. settles personal funding payment 2. updates global funding growth
-    ///      personal funding payment is settled whenever there is pending funding payment
-    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         external
         returns (Funding.Growth memory fundingGrowthGlobal);

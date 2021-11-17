@@ -6,14 +6,17 @@ import {
     AccountBalance,
     BaseToken,
     ClearingHouse,
+    ClearingHouseConfig,
     Exchange,
     InsuranceFund,
     MarketRegistry,
+    TestAccountBalance,
     TestERC20,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { q2bExactInput } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -24,20 +27,23 @@ describe("Vault test", () => {
     let vault: Vault
     let usdc: TestERC20
     let clearingHouse: ClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance
+    let accountBalance: AccountBalance | TestAccountBalance
     let exchange: Exchange
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
     let mockedBaseAggregator: MockContract
     let usdcDecimals: number
+    let fixture
 
     beforeEach(async () => {
         const _fixture = await loadFixture(createClearingHouseFixture(false))
         vault = _fixture.vault
         usdc = _fixture.USDC
         clearingHouse = _fixture.clearingHouse
+        clearingHouseConfig = _fixture.clearingHouseConfig
         insuranceFund = _fixture.insuranceFund
         accountBalance = _fixture.accountBalance
         exchange = _fixture.exchange
@@ -45,6 +51,7 @@ describe("Vault test", () => {
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
         mockedBaseAggregator = _fixture.mockedBaseAggregator
+        fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
 
@@ -59,7 +66,7 @@ describe("Vault test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        await usdc.mint(bob.address, parseUnits("10000000", usdcDecimals))
+        await usdc.mint(bob.address, parseUnits("1000000", usdcDecimals))
         await deposit(bob, vault, 1000000, usdc)
         await clearingHouse.connect(bob).addLiquidity({
             baseToken: baseToken.address,
@@ -185,6 +192,48 @@ describe("Vault test", () => {
 
             const freeCollateral = (await vault.getFreeCollateral(alice.address)).toString()
             expect(freeCollateral).to.be.eq(parseUnits("98.803011", usdcDecimals))
+        })
+    })
+
+    describe("freeCollateral should include pending maker fee", async () => {
+        beforeEach(async () => {
+            const amount = parseUnits("1000", usdcDecimals)
+            await vault.connect(alice).deposit(usdc.address, amount)
+        })
+
+        it("maker make profit", async () => {
+            // alice swap to pay fee
+            await marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
+            await q2bExactInput(fixture, alice, 100)
+
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("80", 6), 0, 0, 0]
+            })
+
+            // bob debt value: 44004.62178853
+            // free collateral: balance + owedRealizedPnl + pendingFee + pendingFunding - totalMarginRequirement
+            // 1000000 + 0 + 50(fee) + 0 - 44004.62178853 * 10% = 993249.537821148
+            const bobCollateral = await vault.getFreeCollateral(bob.address)
+            expect(bobCollateral).to.be.deep.eq(parseUnits("995649.537821", usdcDecimals))
+        })
+
+        it("maker lose money", async () => {
+            // alice swap to pay fee
+            await marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
+            await q2bExactInput(fixture, alice, 100)
+
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("200", 6), 0, 0, 0]
+            })
+
+            // bob debt value: 44004.62178853
+            // bob unrealizedPnl: -15.9536614113
+            // free collateral: balance + owedRealizedPnl + pendingFee + pendingFunding - totalMarginRequirement
+            // 1000000 + 0 + 50(fee) + 0 - 44004.62178853 * 10% = 993249.537821148
+            // accountValue: total collateral + unrealizedPnl
+            // 993249.537821148 + -15.9536614113 = 993233.584159737
+            const bobCollateral = await vault.getFreeCollateral(bob.address)
+            expect(bobCollateral).to.be.deep.eq(parseUnits("993233.584160", usdcDecimals))
         })
     })
 })

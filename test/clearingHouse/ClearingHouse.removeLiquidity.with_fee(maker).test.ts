@@ -161,7 +161,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     )
 
                 // alice received 0.0006151334175725025 quote tokens as fee
-                const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+                const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(aliceOwedPnl).to.eq("615133417572502")
 
                 // 10000 - 0.122414646 (added liquidity) = 9999.877585354
@@ -286,7 +286,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                     // 10000 +  = 10000.001135501474999999
                     // atm alice's quote tokens should've been burnt and only the fees are left
-                    const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+                    const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                     expect(aliceOwedPnl).to.eq(parseEther("0.001135501474999999"))
 
                     // 0.001135501474999999 * 2 ^ 128 = 3.863911296E35
@@ -417,7 +417,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     expect(aliceBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                     // alice received 0.002259647935 quote tokens as fee
-                    const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+                    const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                     expect(aliceOwedPnl).to.eq(parseEther("0.002259647935249999"))
 
                     // lastFeeGrowthInsideX128: 0.002259647934931506 * 2 ^ 128 = 7.689183477298074e+35
@@ -590,7 +590,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(aliceBaseBalance).to.deep.eq(parseEther("-0.002450462523"))
 
                 // alice has 0.00168896692 quote from fees
-                const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+                const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(aliceOwedPnl).to.eq(parseEther("0.001688966920907494"))
 
                 // carol still has -0.000816820841 balance
@@ -598,7 +598,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.0005629889737 quote from fees
-                const [carolOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
+                const [carolOwedPnl] = await accountBalance.getPnlAndPendingFee(carol.address)
                 expect(carolOwedPnl).to.eq(parseEther("0.000562988973635831"))
 
                 // lastFeeGrowthInsideX128: (0.001116454419 / 4) * 2 ^ 128 + (0.001135501474999999 / 4) * 2 ^ 128 = 1.9157522e35
@@ -810,7 +810,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(aliceBaseBalance).to.deep.eq(parseEther("-0.001625514583200000"))
 
                 // alice has 0.00444896749 quote from fees
-                const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+                const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(aliceOwedPnl).to.eq(parseEther("0.004448967489567409"))
 
                 // carol still has -0.000816820841 balance
@@ -818,7 +818,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 expect(carolBaseBalance).to.deep.eq(parseEther("-0.000816820841"))
 
                 // carol has 0.002460658036 quote from fees
-                const [carolOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
+                const [carolOwedPnl] = await accountBalance.getPnlAndPendingFee(carol.address)
                 expect(carolOwedPnl).to.eq(parseEther("0.002460658034826347"))
 
                 // when bob swap Q2B
@@ -1025,7 +1025,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 )
 
             // alice received 0.0006151334175725025 quote tokens as fee
-            const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
             expect(aliceOwedPnl).to.eq(fee)
         })
 
@@ -1176,7 +1176,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             expect(aliceBaseBalance).to.deep.eq(parseEther("-0.000003888052656269"))
 
             // alice has 0.00168896692 quote from fees
-            const [aliceOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(alice.address)
+            const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
             expect(aliceOwedPnl).to.eq(feeAlice)
 
             // carol has -(0.000816820841 - 0.0008155248235) = -0.0000012960175 of position
@@ -1184,7 +1184,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             expect(carolBaseBalance).to.deep.eq(parseEther("-0.000001296017552090"))
 
             // carol has 0.0005629889737 quote from fees
-            const [carolOwedPnl] = await accountBalance.getOwedAndUnrealizedPnl(carol.address)
+            const [carolOwedPnl] = await accountBalance.getPnlAndPendingFee(carol.address)
             expect(carolOwedPnl).to.eq(feeCarol)
         })
     })
