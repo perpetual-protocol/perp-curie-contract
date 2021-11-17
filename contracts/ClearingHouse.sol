@@ -246,7 +246,12 @@ contract ClearingHouse is
             );
 
             // update takerBalances as we're using takerBalances to provide liquidity
-            IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);
+            IAccountBalance(_accountBalance).modifyTakerBalance(
+                trader,
+                params.baseToken,
+                deltaBaseDebt,
+                deltaQuoteDebt
+            );
 
             int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
             uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);

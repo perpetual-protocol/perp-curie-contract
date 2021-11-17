@@ -100,7 +100,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _deregisterBaseToken(maker, baseToken);
     }
 
-    function addTakerBalances(
+    function modifyTakerBalance(
         address trader,
         address baseToken,
         int256 deltaTakerBase,

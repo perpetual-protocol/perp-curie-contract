@@ -191,7 +191,7 @@ contract Exchange is
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        IAccountBalance(_accountBalance).addTakerBalances(
+        IAccountBalance(_accountBalance).modifyTakerBalance(
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,

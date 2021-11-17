@@ -38,7 +38,7 @@ interface IAccountBalance {
         int256 fee
     ) external;
 
-    function addTakerBalances(
+    function modifyTakerBalance(
         address trader,
         address baseToken,
         int256 deltaTakerBase,
