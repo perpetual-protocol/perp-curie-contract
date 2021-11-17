@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
 
+### Removed
+
+- `AccountBalance.getNetQuoteBalanceAndPendingFee`
+
 ## [0.14.0-staging] - 2021-11-17
 
 ### Added

@@ -245,7 +245,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             address baseToken = _baseTokensMap[trader][i];
             totalPositionValue = totalPositionValue.add(getTotalPositionValue(trader, baseToken));
         }
-        (int256 netQuoteBalance, uint256 pendingFee) = getNetQuoteBalanceAndPendingFee(trader);
+        (int256 netQuoteBalance, uint256 pendingFee) = _getNetQuoteBalanceAndPendingFee(trader);
         int256 unrealizedPnl = totalPositionValue.add(netQuoteBalance);
 
         return (_owedRealizedPnlMap[trader], unrealizedPnl, pendingFee);
@@ -278,32 +278,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
         // quote = takerQuoteBalance - orderQuoteDebt
         return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
-    }
-
-    // @audit suggest to change to internal if no one use it - @wraecca
-    /// @inheritdoc IAccountBalance
-    function getNetQuoteBalanceAndPendingFee(address trader)
-        public
-        view
-        override
-        returns (int256 netQuoteBalance, uint256 pendingFee)
-    {
-        int256 totalTakerQuoteBalance;
-        uint256 tokenLen = _baseTokensMap[trader].length;
-        for (uint256 i = 0; i < tokenLen; i++) {
-            address baseToken = _baseTokensMap[trader][i];
-            totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerQuoteBalance);
-        }
-
-        // owedFee is included
-        int256 totalMakerQuoteBalance;
-        (totalMakerQuoteBalance, pendingFee) = IOrderBook(_orderBook).getTotalQuoteBalanceAndPendingFee(
-            trader,
-            _baseTokensMap[trader]
-        );
-        netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
-
-        return (netQuoteBalance, pendingFee);
     }
 
     /// @inheritdoc IAccountBalance
@@ -430,6 +404,30 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getIndexPrice(address baseToken) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+    }
+
+    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
+    function _getNetQuoteBalanceAndPendingFee(address trader)
+        internal
+        view
+        returns (int256 netQuoteBalance, uint256 pendingFee)
+    {
+        int256 totalTakerQuoteBalance;
+        uint256 tokenLen = _baseTokensMap[trader].length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _baseTokensMap[trader][i];
+            totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerQuoteBalance);
+        }
+
+        // owedFee is included
+        int256 totalMakerQuoteBalance;
+        (totalMakerQuoteBalance, pendingFee) = IOrderBook(_orderBook).getTotalQuoteBalanceAndPendingFee(
+            trader,
+            _baseTokensMap[trader]
+        );
+        netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
+
+        return (netQuoteBalance, pendingFee);
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {

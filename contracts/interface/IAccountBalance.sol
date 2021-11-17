@@ -100,12 +100,6 @@ interface IAccountBalance {
 
     function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
 
-    /// @return netQuoteBalance = quote.balance + totalQuoteInPools
-    function getNetQuoteBalanceAndPendingFee(address trader)
-        external
-        view
-        returns (int256 netQuoteBalance, uint256 pendingFee);
-
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 
     function getTotalPositionSize(address trader, address baseToken) external view returns (int256);
