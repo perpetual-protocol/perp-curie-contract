@@ -1106,7 +1106,7 @@ describe("ClearingHouse funding", () => {
                     // -0.654045517856872802 * (148.9111525791 - 150.953124) * 3601 / 86400 = 0.05566305164
 
                     // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
-                    // so we cannot use `to.emit.withArgs` here
+                    // so we cannot use multiple `to.emit.withArgs()` in the same chained operation.
                     const receipt = await (
                         await clearingHouse.connect(carol).removeLiquidity({
                             baseToken: baseToken.address,

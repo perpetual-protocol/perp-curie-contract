@@ -904,7 +904,7 @@ describe("ClearingHouse addLiquidity", () => {
                 .liquidity
 
             // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
-            // so we cannot use `to.emit.withArgs` here
+            // so we cannot use multiple `to.emit.withArgs()` in the same chained operation.
             const receipt = await (
                 await clearingHouse.connect(bob).removeLiquidity({
                     baseToken: baseToken.address,
@@ -1040,7 +1040,7 @@ describe("ClearingHouse addLiquidity", () => {
                 }),
             ).not.to.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
             // NOTE: Once we call ".not.", it will negate all assertions that follow in the chain.
-            // ALWAYS put ".not" in the end of the chained operations, for instance:
+            // ALWAYS put ".not" in the end of the chained operation, for instance:
             // to.emit(contract1, "LiquidityChanged").and.not.to.emit(contract2, "PositionChanged")
 
             // alice long 0.1 base token
