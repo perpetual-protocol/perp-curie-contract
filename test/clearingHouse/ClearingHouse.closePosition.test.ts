@@ -723,7 +723,7 @@ describe("ClearingHouse closePosition", () => {
             // alice close position
             await closePosition(fixture, alice)
             // taker position size is 0
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo("0", 1)
             // total position(only maker) unchanged
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
                 makerPositionSize,
@@ -738,7 +738,7 @@ describe("ClearingHouse closePosition", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice has maker position and 0 taker position
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.lt(0)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo("0", 1)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
 
             // alice close position

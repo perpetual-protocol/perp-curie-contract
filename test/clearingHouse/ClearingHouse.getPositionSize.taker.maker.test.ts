@@ -141,7 +141,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
                 expect(orderIds.length).gt(1)
             })
 
-            // will has the same result
+            // will has the same result because any trades after add liq.
             testRemoveAllOrders()
             testRemoveHalfOrder()
         })
