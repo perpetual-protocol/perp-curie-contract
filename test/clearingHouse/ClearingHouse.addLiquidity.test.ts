@@ -1038,7 +1038,10 @@ describe("ClearingHouse addLiquidity", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.not.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
+            ).not.to.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
+            // NOTE: Once we call ".not.", it will negate all assertions that follow in the chain.
+            // ALWAYS put ".not" in the end of the chained operations, for instance:
+            // to.emit(contract1, "LiquidityChanged").and.not.to.emit(contract2, "PositionChanged")
 
             // alice long 0.1 base token
             await q2bExactOutput(fixture, alice, 0.1)

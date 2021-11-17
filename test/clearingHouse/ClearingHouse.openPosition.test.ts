@@ -1449,7 +1449,7 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.not.emit(clearingHouse, "ReferredPositionChanged")
+            ).not.to.emit(clearingHouse, "ReferredPositionChanged")
         })
     })
 })
