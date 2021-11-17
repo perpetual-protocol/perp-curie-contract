@@ -12,6 +12,7 @@ import {
     UniswapV3Factory,
     Vault,
 } from "../../typechain"
+import { createBaseTokenFixture } from "../shared/fixtures"
 
 interface MockedVaultFixture {
     vault: Vault
@@ -72,12 +73,14 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedExchange.address,
     )
 
+    const { baseToken: quoteToken } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
+    mockedExchange.smocked.getOrderBook.will.return.with(orderBook.address)
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
     await clearingHouse.initialize(
         clearingHouseConfig.address,
         vault.address,
-        USDC.address,
+        quoteToken.address,
         uniV3Factory.address,
         mockedExchange.address,
         mockedAccountBalance.address,

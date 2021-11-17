@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add `OrderBook.getTotalQuoteBalance()`
 - add `OrderBook.getTotalOrderDebt()`
 - add `OrderBook.getMakerBalance()`
-- add `ClearingHouse.collectPendingFee()`
+- add `Clearinghouse.settleAllFundingAndPendingFee()`
 ### Changed
 
 - move `PositionChanged` event from `Exchange` to `ClearingHouse`
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `OrderBook.getTotalTokenAmountInPool` to `OrderBook.getTotalTokenAmountInPoolAndPendingFee`
 - rename `AccountBalance.getOwedAndUnrealizedPnl` to `AccountBalance.getPnlAndPendingFee`
 - rename `AccountBalance.getNetQuoteBalance` to `AccountBalance.getNetQuoteBalanceAndPendingFee`
-- rename `Exchange.settledFunding` to `Exchange.settledFundingAndPendingFee`
+
 - add new second return value `pendingFee` of `AccountBalance.getOwedAndUnrealizedPnl`
 - add new second return value `pendingFee` of `AccountBalance.getNetQuoteBalance`
 - add new second return value `totalPendingFee` of `OrderBook.getTotalQuoteBalance`
