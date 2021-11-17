@@ -903,8 +903,6 @@ describe("ClearingHouse addLiquidity", () => {
             const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
                 .liquidity
 
-            // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
-            // so we cannot use multiple `to.emit.withArgs()` in the same chained operation.
             const receipt = await (
                 await clearingHouse.connect(bob).removeLiquidity({
                     baseToken: baseToken.address,
@@ -918,6 +916,7 @@ describe("ClearingHouse addLiquidity", () => {
             ).wait()
 
             const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
+            const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
             expect([
                 liquidityChanged.args.maker,
                 liquidityChanged.args.baseToken,
@@ -937,8 +936,6 @@ describe("ClearingHouse addLiquidity", () => {
                 parseEther("-15.473901654978787729"),
                 bobLiquidity.mul(-1),
             ])
-
-            const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
             expect([
                 positionChangedFromLiquidityChanged.args.trader,
                 positionChangedFromLiquidityChanged.args.baseToken,

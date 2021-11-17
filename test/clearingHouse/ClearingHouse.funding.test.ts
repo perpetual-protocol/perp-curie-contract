@@ -353,8 +353,8 @@ describe("ClearingHouse funding", () => {
 
                 // bob swaps to trigger funding update & funding-related prices emission
                 // -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 451) / 86400 = 0.000388235204
-                await expect(
-                    clearingHouse.connect(bob).openPosition({
+                const receipt = await (
+                    await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
                         isExactInput: true,
@@ -363,12 +363,21 @@ describe("ClearingHouse funding", () => {
                         sqrtPriceLimitX96: 0,
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
-                    }),
-                )
-                    .to.emit(exchange, "FundingPaymentSettled")
-                    .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
-                    .to.emit(exchange, "FundingUpdated")
-                    .withArgs(baseToken.address, parseEther("154.199634648900471640"), parseEther("156.953124"))
+                    })
+                ).wait()
+
+                const fundingPaymentSettled = retrieveEvent(receipt, exchange, "FundingPaymentSettled")
+                const fundingUpdated = retrieveEvent(receipt, exchange, "FundingUpdated")
+                expect([...fundingPaymentSettled.args]).to.deep.equal([
+                    bob.address,
+                    baseToken.address,
+                    parseEther("0.000388235204004118"),
+                ])
+                expect([...fundingUpdated.args]).to.deep.equal([
+                    baseToken.address,
+                    parseEther("154.199634648900471640"),
+                    parseEther("156.953124"),
+                ])
 
                 // note that bob will settle his pending funding payment here
                 await forward(250)
@@ -439,8 +448,8 @@ describe("ClearingHouse funding", () => {
                     // swaps arbitrary amount to trigger funding settlement & funding-related prices emission
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * (153.9531248192 - 150.953124) * 7201 / 86400 = -0.02475344426
-                    await expect(
-                        clearingHouse.connect(bob).openPosition({
+                    const receipt = await (
+                        await clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
@@ -449,12 +458,21 @@ describe("ClearingHouse funding", () => {
                             sqrtPriceLimitX96: 0,
                             deadline: ethers.constants.MaxUint256,
                             referralCode: ethers.constants.HashZero,
-                        }),
-                    )
-                        .to.emit(exchange, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("-0.024753444259323776"))
-                        .to.emit(exchange, "FundingUpdated")
-                        .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("150.953124"))
+                        })
+                    ).wait()
+
+                    const fundingPaymentSettled = retrieveEvent(receipt, exchange, "FundingPaymentSettled")
+                    const fundingUpdated = retrieveEvent(receipt, exchange, "FundingUpdated")
+                    expect([...fundingPaymentSettled.args]).to.deep.equal([
+                        bob.address,
+                        baseToken.address,
+                        parseEther("-0.024753444259323776"),
+                    ])
+                    expect([...fundingUpdated.args]).to.deep.equal([
+                        baseToken.address,
+                        parseEther("153.953124819198195396"),
+                        parseEther("150.953124"),
+                    ])
 
                     // verify owedRealizedPnl
                     const [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
@@ -526,8 +544,8 @@ describe("ClearingHouse funding", () => {
                     // bob's position -0.099 -> -0.2
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3601) / 86400 = 0.01238186107
-                    await expect(
-                        clearingHouse.connect(bob).openPosition({
+                    const receipt = await (
+                        await clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
                             isBaseToQuote: true,
                             isExactInput: true,
@@ -536,12 +554,21 @@ describe("ClearingHouse funding", () => {
                             sqrtPriceLimitX96: 0,
                             deadline: ethers.constants.MaxUint256,
                             referralCode: ethers.constants.HashZero,
-                        }),
-                    )
-                        .to.emit(exchange, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
-                        .to.emit(exchange, "FundingUpdated")
-                        .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
+                        })
+                    ).wait()
+
+                    const fundingPaymentSettled = retrieveEvent(receipt, exchange, "FundingPaymentSettled")
+                    const fundingUpdated = retrieveEvent(receipt, exchange, "FundingUpdated")
+                    expect([...fundingPaymentSettled.args]).to.deep.equal([
+                        bob.address,
+                        baseToken.address,
+                        parseEther("0.012381861067831037"),
+                    ])
+                    expect([...fundingUpdated.args]).to.deep.equal([
+                        baseToken.address,
+                        parseEther("153.953124819198195396"),
+                        parseEther("156.953124"),
+                    ])
 
                     await forward(3600)
 
@@ -1105,8 +1132,6 @@ describe("ClearingHouse funding", () => {
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.654045517856872802 * (148.9111525791 - 150.953124) * 3601 / 86400 = 0.05566305164
 
-                    // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
-                    // so we cannot use multiple `to.emit.withArgs()` in the same chained operation.
                     const receipt = await (
                         await clearingHouse.connect(carol).removeLiquidity({
                             baseToken: baseToken.address,
@@ -1120,13 +1145,13 @@ describe("ClearingHouse funding", () => {
                     ).wait()
 
                     const fundingPaymentSettled = retrieveEvent(receipt, exchange, "FundingPaymentSettled")
+                    const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
+                    const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
                     expect([...fundingPaymentSettled.args]).to.deep.equal([
                         carol.address,
                         baseToken.address,
                         parseEther("0.055663051642020131"),
                     ])
-
-                    const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
                     expect([...liquidityChanged.args]).to.deep.equal([
                         carol.address,
                         baseToken.address,
@@ -1138,8 +1163,6 @@ describe("ClearingHouse funding", () => {
                         BigNumber.from("-816895716963038010374"),
                         parseEther("0.819689294088102658"),
                     ])
-
-                    const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
                     expect([
                         positionChangedFromLiquidityChanged.args.trader,
                         positionChangedFromLiquidityChanged.args.baseToken,
