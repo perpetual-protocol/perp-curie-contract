@@ -45,13 +45,11 @@ interface IExchange {
         int256 deltaAvailableQuote;
     }
 
-    //
-    // EVENT
-    //
-
     /// @param fundingPayment > 0: payment, < 0 : receipt
     event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
+
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+
     event MaxTickCrossedWithinBlockChanged(address indexed baseToken, uint24 maxTickCrossedWithinBlock);
 
     /// @param accountBalance The address of accountBalance contract

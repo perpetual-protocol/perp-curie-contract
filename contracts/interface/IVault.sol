@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 
 interface IVault {
     event Deposited(address indexed collateralToken, address indexed trader, uint256 amount);
+
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
     function deposit(address token, uint256 amountX10_D) external;

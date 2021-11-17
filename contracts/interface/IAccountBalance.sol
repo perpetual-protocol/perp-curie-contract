@@ -5,10 +5,6 @@ pragma abicoder v2;
 import { AccountMarket } from "../lib/AccountMarket.sol";
 
 interface IAccountBalance {
-    //
-    // EVENT
-    //
-
     /// @param vault The address of the vault contract
     event VaultChanged(address indexed vault);
 
