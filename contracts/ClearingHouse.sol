@@ -734,6 +734,7 @@ contract ClearingHouse is
             );
         }
 
+        // pnlToBeRealized is realized here
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
@@ -742,7 +743,8 @@ contract ClearingHouse is
             pnlToBeRealized,
             response.fee.toInt256()
         );
-        return pnlToBeRealized; // pnlToBeRealized is realized now
+
+        return pnlToBeRealized;
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:

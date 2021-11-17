@@ -29,11 +29,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     using AccountMarket for AccountMarket.Info;
 
     // CONSTANT
+
     uint256 internal constant _DUST = 10 wei;
 
     //
     // MODIFIER
     //
+
     modifier onlyExchange() {
         // only Exchange
         require(_msgSender() == _exchange, "AB_OEX");
@@ -113,8 +115,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 fee
     ) external override {
         _requireOnlyClearingHouse();
-        _modifyOwedRealizedPnl(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
+        _modifyOwedRealizedPnl(maker, fee);
+
         // to avoid dust, let realizedPnl = getQuote() when there's no order
         if (
             getTakerPositionSize(maker, baseToken) == 0 &&
@@ -126,6 +129,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             require(realizedPnl.abs() <= takerQuote.abs(), "AB_IQBAR");
             realizedPnl = takerQuote;
         }
+
         _settleQuoteToPnl(maker, baseToken, realizedPnl);
         _deregisterBaseToken(maker, baseToken);
     }
