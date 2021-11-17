@@ -1,6 +1,6 @@
 {
   "name": "@perp/curie-contract",
-  "version": "0.13.3-staging",
+  "version": "0.14.0-staging",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
@@ -24,13 +24,18 @@
     "dev": "hardhat deploy --network hardhat",
     "transferOwner:rinkeby": "hardhat run --network rinkeby scripts/transferOwner.ts",
     "transferOwner:arbitrumRinkeby": "hardhat run --network arbitrumRinkeby scripts/transferOwner.ts",
+    "transferOwner:optimismKovan": "hardhat run --network optimismKovan scripts/transferOwner.ts",
     "tenderly:rinkeby": "hardhat tenderly --network rinkeby --stage staging",
+    "tenderly:optimismKovan": "hardhat tenderly --network optimismKovan --stage staging",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
     "system-test:rinkeby": "npm run deploy:rinkeby -- --tags system-test",
     "deploy:arbitrumRinkeby": "hardhat deploy --network arbitrumRinkeby",
+    "deploy:optimismKovan": "hardhat deploy --network optimismKovan",
     "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && rm -f .openzeppelin/unknown-421611.json && hardhat deploy --network arbitrumRinkeby",
+    "clean-deploy:optimismKovan": "rm -rf deployments/optimismKovan/ && rm -f .openzeppelin/unknown-4.json && hardhat deploy --network optimismKovan",
     "system-test:arbitrumRinkeby": "npm run deploy:arbitrumRinkeby -- --tags system-test",
+    "system-test:optimismKovan": "npm run deploy:optimismKovan -- --tags system-test",
     "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"

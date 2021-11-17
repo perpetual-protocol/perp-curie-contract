@@ -13,6 +13,8 @@ import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
     ARBITRUM_RINKEBY_WEB3_ENDPOINT,
+    OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
+    OPTIMISM_KOVAN_WEB3_ENDPOINT,
     RINKEBY_DEPLOYER_MNEMONIC,
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
@@ -22,6 +24,8 @@ import { verifyAndPushContract } from "./scripts/tenderly"
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
     ARBITRUM_RINKEBY_CHAIN_ID = 421611,
+    OPTIMISM_CHAIN_ID = 10,
+    OPTIMISM_KOVAN_CHAIN_ID = 69,
     RINKEBY_CHAIN_ID = 4,
 }
 
@@ -62,6 +66,13 @@ const config: HardhatUserConfig = {
                 mnemonic: RINKEBY_DEPLOYER_MNEMONIC,
             },
         },
+        optimismKovan: {
+            url: OPTIMISM_KOVAN_WEB3_ENDPOINT,
+            accounts: {
+                mnemonic: OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
+            },
+            chainId: ChainId.OPTIMISM_KOVAN_CHAIN_ID,
+        },
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
@@ -72,27 +83,34 @@ const config: HardhatUserConfig = {
             // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
             [ChainId.RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
         },
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
+        // Optimism: https://docs.chain.link/docs/optimism-price-feeds/#Optimism%20Kovan
         ethUsdChainlinkAggregator: {
             [ChainId.RINKEBY_CHAIN_ID]: "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x5f0423B1a6935dc5596e7A24d98532b67A0AeFd8",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xCb7895bDC70A1a1Dce69b689FD7e43A627475A06",
         },
         btcUsdChainlinkAggregator: {
             [ChainId.RINKEBY_CHAIN_ID]: "0xECe365B379E1dD183B20fc5f022230C044d51404",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x0c9973e7a27d00e656B9f153348dA46CaD70d03d",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
         },
         // USDC addresses (only needed for production)
         // Arbitrum: https://arbiscan.io/token/0xff970a61a04b1ca14834a43f5de4533ebddb5cc8
+        // Optimism: https://optimistic.etherscan.io/token/0x7f5c764cbc14f9669b88837ca1490cca17c31607
         usdc: {
             [ChainId.ARBITRUM_ONE_CHAIN_ID]: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
         },
         // follow up this page : https://www.notion.so/perp/Arbitrum-Faucet-0ded856b8ff1499180559fba6e79ef62
         faucetIssuer: {
             [ChainId.RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
         },
     },
     dependencyCompiler: {
@@ -124,7 +142,7 @@ const config: HardhatUserConfig = {
         color: true,
     },
     tenderly: {
-        project: "lushan-staging-0-7-0",
+        project: "perp-staging-v0-14-0",
         username: "perpprotocol",
     },
 }
