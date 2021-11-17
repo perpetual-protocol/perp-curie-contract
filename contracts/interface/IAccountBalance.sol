@@ -9,6 +9,9 @@ interface IAccountBalance {
     // EVENT
     //
 
+    /// @param vault The address of the vault contract
+    event VaultChanged(address indexed vault);
+
     /// @dev Emit whenever a trader's `owedRealizedPnl` is updated
     /// @param trader The address of the trader
     /// @param amount The amount changed
@@ -20,23 +23,6 @@ interface IAccountBalance {
     /// @param deltaBase The base amount changed
     /// @param deltaQuote The quote amount changed
     event TakerBalancesChanged(address indexed trader, address indexed baseToken, int256 deltaBase, int256 deltaQuote);
-
-    /// @param vault The address of the vault contract
-    event VaultChanged(address indexed vault);
-
-    /// @dev Settle account balance and deregister base token
-    /// @param maker The address of the maker
-    /// @param baseToken The address of the market's base token
-    /// @param realizedPnl Amount of pnl realized
-    /// @param fee Amount of fee collected from pool
-    function settleBalanceAndDeregister(
-        address maker,
-        address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote,
-        int256 realizedPnl,
-        int256 fee
-    ) external;
 
     function modifyTakerBalance(
         address trader,
@@ -53,16 +39,22 @@ interface IAccountBalance {
         int256 amount
     ) external;
 
-    function updateTwPremiumGrowthGlobal(
-        address trader,
-        address baseToken,
-        int256 lastTwPremiumGrowthGlobalX96
-    ) external;
+    /// @dev this function is now only called by Vault.withdraw()
+    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
-    /// @dev this function is expensive
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the trader's base token
-    function deregisterBaseToken(address trader, address baseToken) external;
+    /// @dev Settle account balance and deregister base token
+    /// @param maker The address of the maker
+    /// @param baseToken The address of the market's base token
+    /// @param realizedPnl Amount of pnl realized
+    /// @param fee Amount of fee collected from pool
+    function settleBalanceAndDeregister(
+        address maker,
+        address baseToken,
+        int256 deltaTakerBase,
+        int256 deltaTakerQuote,
+        int256 realizedPnl,
+        int256 fee
+    ) external;
 
     /// @dev every time a trader's position value is checked, the base token list of this trader will be traversed;
     ///      thus, this list should be kept as short as possible
@@ -70,19 +62,43 @@ interface IAccountBalance {
     /// @param baseToken The address of the trader's base token
     function registerBaseToken(address trader, address baseToken) external;
 
-    /// @dev this function is now only called by Vault.withdraw()
-    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
+    /// @dev this function is expensive
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
+    function deregisterBaseToken(address trader, address baseToken) external;
+
+    function updateTwPremiumGrowthGlobal(
+        address trader,
+        address baseToken,
+        int256 lastTwPremiumGrowthGlobalX96
+    ) external;
+
+    function getClearingHouseConfig() external view returns (address);
+
+    function getExchange() external view returns (address);
+
+    function getOrderBook() external view returns (address);
+
+    function getVault() external view returns (address);
 
     function getBaseTokens(address trader) external view returns (address[] memory);
 
-    function hasOrder(address trader) external view returns (bool);
+    function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory);
 
-    /// @dev get margin requirement for determining liquidation.
-    /// Different purpose from `_getTotalMarginRequirement` which is for free collateral calculation.
-    function getMarginRequirementForLiquidation(address trader) external view returns (int256);
+    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
+
+    /// @return totalOpenNotional the amount of quote token paid for a position when opening
+    function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
 
     function getTotalDebtValue(address trader) external view returns (uint256);
 
+    /// @dev this is different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
+    /// @return int instead of uint, as it is compared with ClearingHouse.getAccountValue(), which is also an int
+    function getMarginRequirementForLiquidation(address trader) external view returns (int256);
+
+    /// @return owedRealizedPnl the pnl realized already but stored temporarily in AccountBalance
+    /// @return unrealizedPnl the pnl not yet realized
+    /// @return pendingFee the pending fee of maker earned
     function getPnlAndPendingFee(address trader)
         external
         view
@@ -92,19 +108,15 @@ interface IAccountBalance {
             uint256 pendingFee
         );
 
-    function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory);
+    function hasOrder(address trader) external view returns (bool);
 
     function getBase(address trader, address baseToken) external view returns (int256);
 
     function getQuote(address trader, address baseToken) external view returns (int256);
 
-    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
-
-    function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
+    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
 
     function getTotalPositionSize(address trader, address baseToken) external view returns (int256);
-
-    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
 
     /// @dev a negative returned value is only be used when calculating pnl
     /// @dev we use 15 mins twap to calc position value
@@ -112,12 +124,4 @@ interface IAccountBalance {
 
     /// @return sum up positions value of every market, it calls `getTotalPositionValue` internally
     function getTotalAbsPositionValue(address trader) external view returns (uint256);
-
-    function getClearingHouseConfig() external view returns (address);
-
-    function getExchange() external view returns (address);
-
-    function getOrderBook() external view returns (address);
-
-    function getVault() external view returns (address);
 }

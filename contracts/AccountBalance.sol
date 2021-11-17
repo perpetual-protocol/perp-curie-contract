@@ -74,6 +74,36 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         emit VaultChanged(vaultArg);
     }
 
+    function modifyTakerBalance(
+        address trader,
+        address baseToken,
+        int256 deltaTakerBase,
+        int256 deltaTakerQuote
+    ) external override onlyExchangeOrClearingHouse {
+        _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
+    }
+
+    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+        _addOwedRealizedPnl(trader, delta);
+    }
+
+    function settleQuoteToPnl(
+        address trader,
+        address baseToken,
+        int256 amount
+    ) external override onlyExchange {
+        _settleQuoteToPnl(trader, baseToken, amount);
+    }
+
+    function settleOwedRealizedPnl(address trader) external override returns (int256) {
+        // only vault
+        require(_msgSender() == _vault, "AB_OV");
+        int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
+        _owedRealizedPnlMap[trader] = 0;
+
+        return owedRealizedPnl;
+    }
+
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
@@ -100,40 +130,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _deregisterBaseToken(maker, baseToken);
     }
 
-    function modifyTakerBalance(
-        address trader,
-        address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote
-    ) external override onlyExchangeOrClearingHouse {
-        _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
-    }
-
-    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
-        _addOwedRealizedPnl(trader, delta);
-    }
-
-    function settleQuoteToPnl(
-        address trader,
-        address baseToken,
-        int256 amount
-    ) external override onlyExchange {
-        _settleQuoteToPnl(trader, baseToken, amount);
-    }
-
-    function updateTwPremiumGrowthGlobal(
-        address trader,
-        address baseToken,
-        int256 lastTwPremiumGrowthGlobalX96
-    ) external override onlyExchange {
-        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
-    }
-
-    function deregisterBaseToken(address trader, address baseToken) external override {
-        _requireOnlyClearingHouse();
-        _deregisterBaseToken(trader, baseToken);
-    }
-
     function registerBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
         address[] storage tokensStorage = _baseTokensMap[trader];
@@ -146,14 +142,17 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(tokensStorage.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
     }
 
-    /// @dev this function is only called by Vault.withdraw()
-    function settleOwedRealizedPnl(address trader) external override returns (int256) {
-        // only vault
-        require(_msgSender() == _vault, "AB_OV");
-        int256 owedRealizedPnl = _owedRealizedPnlMap[trader];
-        _owedRealizedPnlMap[trader] = 0;
+    function deregisterBaseToken(address trader, address baseToken) external override {
+        _requireOnlyClearingHouse();
+        _deregisterBaseToken(trader, baseToken);
+    }
 
-        return owedRealizedPnl;
+    function updateTwPremiumGrowthGlobal(
+        address trader,
+        address baseToken,
+        int256 lastTwPremiumGrowthGlobalX96
+    ) external override onlyExchange {
+        _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
     //
@@ -186,18 +185,27 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function hasOrder(address trader) external view override returns (bool) {
-        return IOrderBook(_orderBook).hasOrder(trader, _baseTokensMap[trader]);
+    function getAccountInfo(address trader, address baseToken)
+        external
+        view
+        override
+        returns (AccountMarket.Info memory)
+    {
+        return _accountMarketMap[trader][baseToken];
     }
 
-    /// @inheritdoc IAccountBalance
-    /// @dev this is different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
-    /// @return int instead of uint, as it is compared with ClearingHouse.getAccountValue(), which is also an int
-    function getMarginRequirementForLiquidation(address trader) external view override returns (int256) {
-        return
-            getTotalAbsPositionValue(trader)
-                .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
-                .toInt256();
+    // @inheritdoc IAccountBalance
+    function getTakerOpenNotional(address trader, address baseToken) external view override returns (int256) {
+        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
+    }
+
+    // @inheritdoc IAccountBalance
+    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
+        // quote.pool[baseToken] + quoteBalance[baseToken]
+        (uint256 quoteInPool, ) =
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
+        int256 quoteBalance = getQuote(trader, baseToken);
+        return quoteInPool.toInt256().add(quoteBalance);
     }
 
     /// @inheritdoc IAccountBalance
@@ -226,9 +234,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    /// @return owedRealizedPnl the pnl realized already but stored temporarily in AccountBalance
-    /// @return unrealizedPnl the pnl not yet realized
-    /// @return pendingFee the pending fee of maker earned
+    function getMarginRequirementForLiquidation(address trader) external view override returns (int256) {
+        return
+            getTotalAbsPositionValue(trader)
+                .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
+                .toInt256();
+    }
+
+    /// @inheritdoc IAccountBalance
     function getPnlAndPendingFee(address trader)
         external
         view
@@ -252,19 +265,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function getAccountInfo(address trader, address baseToken)
-        external
-        view
-        override
-        returns (AccountMarket.Info memory)
-    {
-        return _accountMarketMap[trader][baseToken];
+    function hasOrder(address trader) external view override returns (bool) {
+        return IOrderBook(_orderBook).hasOrder(trader, _baseTokensMap[trader]);
     }
 
-    // @inheritdoc IAccountBalance
-    function getTakerOpenNotional(address trader, address baseToken) external view override returns (int256) {
-        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
-    }
+    //
+    // PUBLIC VIEW
+    //
 
     /// @inheritdoc IAccountBalance
     function getBase(address trader, address baseToken) public view override returns (int256) {
@@ -278,6 +285,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
         // quote = takerQuoteBalance - orderQuoteDebt
         return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
+        int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
+        return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
     /// @inheritdoc IAccountBalance
@@ -295,21 +308,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 takerBaseBalance = _accountMarketMap[trader][baseToken].takerBaseBalance;
         int256 totalPositionSize = makerBaseBalance.add(takerBaseBalance);
         return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;
-    }
-
-    /// @dev the amount of quote token paid for a position when opening
-    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
-        // quote.pool[baseToken] + quoteBalance[baseToken]
-        (uint256 quoteInPool, ) =
-            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
-        int256 quoteBalance = getQuote(trader, baseToken);
-        return quoteInPool.toInt256().add(quoteBalance);
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
-        int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
-        return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
     /// @inheritdoc IAccountBalance
@@ -353,6 +351,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
     }
 
+    function _addOwedRealizedPnl(address trader, int256 delta) internal {
+        if (delta != 0) {
+            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
+            emit PnlRealized(trader, delta);
+        }
+    }
+
     function _settleQuoteToPnl(
         address trader,
         address baseToken,
@@ -361,13 +366,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
         _addOwedRealizedPnl(trader, amount);
-    }
-
-    function _addOwedRealizedPnl(address trader, int256 delta) internal {
-        if (delta != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
-            emit PnlRealized(trader, delta);
-        }
     }
 
     /// @dev this function is expensive
