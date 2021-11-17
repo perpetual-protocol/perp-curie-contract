@@ -25,7 +25,7 @@ interface IAccountBalance {
         address baseToken,
         int256 deltaTakerBase,
         int256 deltaTakerQuote
-    ) external;
+    ) external returns (int256, int256);
 
     function modifyOwedRealizedPnl(address trader, int256 delta) external;
 

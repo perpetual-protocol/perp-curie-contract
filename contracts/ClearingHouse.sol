@@ -200,15 +200,16 @@ contract ClearingHouse is
 
         // if !useTakerBalance, takerBalance won't change, only need to collects fee to oweRealizedPnl
         if (params.useTakerBalance) {
-            bool isBaseAdded = response.base > 0;
+            bool isBaseAdded = response.base != 0;
 
             // can't add liquidity within range from take position
-            require(isBaseAdded != response.quote > 0, "CH_CALWRFTP");
+            require(isBaseAdded != (response.quote != 0), "CH_CALWRFTP");
 
             AccountMarket.Info memory accountMarketInfo =
                 IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
 
             // the signs of deltaBaseDebt and deltaQuoteDebt are always the opposite.
+            // @audit rename to removedPositionSize and removedQuoteBalance ?
             int256 deltaBaseDebt;
             int256 deltaQuoteDebt;
             if (isBaseAdded) {
@@ -250,14 +251,14 @@ contract ClearingHouse is
             );
 
             // update takerBalances as we're using takerBalances to provide liquidity
-            IAccountBalance(_accountBalance).modifyTakerBalance(
-                trader,
-                params.baseToken,
-                deltaBaseDebt,
-                deltaQuoteDebt
-            );
+            (, int256 takerOpenNotional) =
+                IAccountBalance(_accountBalance).modifyTakerBalance(
+                    trader,
+                    params.baseToken,
+                    deltaBaseDebt,
+                    deltaQuoteDebt
+                );
 
-            int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
             uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
             emit PositionChanged(
                 trader,

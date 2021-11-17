@@ -61,9 +61,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 deltaTakerBase,
         int256 deltaTakerQuote
-    ) external override {
+    ) external override returns (int256, int256) {
         _requireOnlyClearingHouse();
-        _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
+        return _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
     function modifyOwedRealizedPnl(address trader, int256 delta) external override {
@@ -328,10 +328,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 deltaBase,
         int256 deltaQuote
-    ) internal {
+    ) internal returns (int256, int256) {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(deltaBase);
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
+        return (accountInfo.takerBaseBalance, accountInfo.takerQuoteBalance);
     }
 
     function _modifyOwedRealizedPnl(address trader, int256 delta) internal {
