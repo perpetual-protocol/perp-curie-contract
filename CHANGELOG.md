@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
+- rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 
 ### Removed
 

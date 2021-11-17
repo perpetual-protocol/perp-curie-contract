@@ -83,8 +83,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
-    function addOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
-        _addOwedRealizedPnl(trader, delta);
+    function modifyOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+        _modifyOwedRealizedPnl(trader, delta);
     }
 
     function settleQuoteToPnl(
@@ -113,7 +113,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 fee
     ) external override {
         _requireOnlyClearingHouse();
-        _addOwedRealizedPnl(maker, fee);
+        _modifyOwedRealizedPnl(maker, fee);
         _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
         // to avoid dust, let realizedPnl = getQuote() when there's no order
         if (
@@ -351,7 +351,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
     }
 
-    function _addOwedRealizedPnl(address trader, int256 delta) internal {
+    function _modifyOwedRealizedPnl(address trader, int256 delta) internal {
         if (delta != 0) {
             _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
             emit PnlRealized(trader, delta);
@@ -365,7 +365,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
         accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
-        _addOwedRealizedPnl(trader, amount);
+        _modifyOwedRealizedPnl(trader, amount);
     }
 
     /// @dev this function is expensive

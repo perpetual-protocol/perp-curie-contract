@@ -268,7 +268,7 @@ contract ClearingHouse is
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, response.fee.toInt256());
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
@@ -541,11 +541,11 @@ contract ClearingHouse is
                 IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
             );
 
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, liquidationFee.neg256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, liquidationFee.neg256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,

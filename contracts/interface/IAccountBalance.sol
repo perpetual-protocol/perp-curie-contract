@@ -31,7 +31,7 @@ interface IAccountBalance {
         int256 deltaTakerQuote
     ) external;
 
-    function addOwedRealizedPnl(address trader, int256 delta) external;
+    function modifyOwedRealizedPnl(address trader, int256 delta) external;
 
     function settleQuoteToPnl(
         address trader,
