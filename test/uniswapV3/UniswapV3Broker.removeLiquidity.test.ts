@@ -189,16 +189,16 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 data: hexlify([]),
             })
 
-            const removeLiquidityParams = {
+            const tx = await uniswapV3Broker.removeLiquidity({
                 pool: pool.address,
                 recipient: uniswapV3Broker.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 liquidity: "0",
-            }
-            await expect(uniswapV3Broker.removeLiquidity(removeLiquidityParams))
-                .to.emit(pool, "Burn")
-                .withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+            })
+
+            await expect(tx).to.emit(pool, "Burn").withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+            await expect(tx)
                 .to.emit(pool, "Collect")
                 .withArgs(uniswapV3Broker.address, uniswapV3Broker.address, 50000, 50200, "0", "0")
         })
@@ -230,17 +230,16 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 data: hexlify([]),
             })
 
-            const removeLiquidityParams = {
+            const tx = await uniswapV3Broker.removeLiquidity({
                 pool: pool.address,
                 recipient: uniswapV3Broker.address,
                 lowerTick: "50000",
                 upperTick: "50200",
                 liquidity: "0",
-            }
+            })
 
-            await expect(uniswapV3Broker.removeLiquidity(removeLiquidityParams))
-                .to.emit(pool, "Burn")
-                .withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+            await expect(tx).to.emit(pool, "Burn").withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+            await expect(tx)
                 .to.emit(pool, "Collect")
                 // expect 1% of base = 0.000004125357783
                 // there's one wei of imprecision, thus expecting 0.000004125357782999
