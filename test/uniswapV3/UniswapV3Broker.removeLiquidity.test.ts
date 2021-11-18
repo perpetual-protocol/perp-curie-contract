@@ -1,9 +1,7 @@
 import { expect } from "chai"
-import { BigNumber } from "ethers"
 import { hexlify, parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, QuoteToken, TestUniswapV3Broker, UniswapV3Pool } from "../../typechain"
-import { retrieveEvent } from "../helper/events"
 import { base0Quote1PoolFixture } from "../shared/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -191,34 +189,18 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 data: hexlify([]),
             })
 
-            const receipt = await (
-                await uniswapV3Broker.removeLiquidity({
-                    pool: pool.address,
-                    recipient: uniswapV3Broker.address,
-                    lowerTick: "50000",
-                    upperTick: "50200",
-                    liquidity: "0",
-                })
-            ).wait()
-
-            const burn = retrieveEvent(receipt, pool, "Burn")
-            const collect = retrieveEvent(receipt, pool, "Collect")
-            expect([...burn.args]).to.deep.equal([
-                uniswapV3Broker.address,
-                50000,
-                50200,
-                parseEther("0"),
-                parseEther("0"),
-                parseEther("0"),
-            ])
-            expect([...collect.args]).to.deep.equal([
-                uniswapV3Broker.address,
-                uniswapV3Broker.address,
-                50000,
-                50200,
-                parseEther("0"),
-                parseEther("0"),
-            ])
+            const removeLiquidityParams = {
+                pool: pool.address,
+                recipient: uniswapV3Broker.address,
+                lowerTick: "50000",
+                upperTick: "50200",
+                liquidity: "0",
+            }
+            await expect(uniswapV3Broker.removeLiquidity(removeLiquidityParams))
+                .to.emit(pool, "Burn")
+                .withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+                .to.emit(pool, "Collect")
+                .withArgs(uniswapV3Broker.address, uniswapV3Broker.address, 50000, 50200, "0", "0")
         })
 
         it("get base fee after a swap from base to quote happens", async () => {
@@ -248,36 +230,21 @@ describe("UniswapV3Broker removeLiquidity", () => {
                 data: hexlify([]),
             })
 
-            const receipt = await (
-                await uniswapV3Broker.removeLiquidity({
-                    pool: pool.address,
-                    recipient: uniswapV3Broker.address,
-                    lowerTick: "50000",
-                    upperTick: "50200",
-                    liquidity: "0",
-                })
-            ).wait()
+            const removeLiquidityParams = {
+                pool: pool.address,
+                recipient: uniswapV3Broker.address,
+                lowerTick: "50000",
+                upperTick: "50200",
+                liquidity: "0",
+            }
 
-            const burn = retrieveEvent(receipt, pool, "Burn")
-            const collect = retrieveEvent(receipt, pool, "Collect")
-            expect([...burn.args]).to.deep.equal([
-                uniswapV3Broker.address,
-                50000,
-                50200,
-                parseEther("0"),
-                parseEther("0"),
-                parseEther("0"),
-            ])
-            // expect 1% of base = 0.000004125357783
-            // there's one wei of imprecision, thus expecting 0.000004125357782999
-            expect([...collect.args]).to.deep.equal([
-                uniswapV3Broker.address,
-                uniswapV3Broker.address,
-                50000,
-                50200,
-                BigNumber.from("4125357782999"),
-                parseEther("0"),
-            ])
+            await expect(uniswapV3Broker.removeLiquidity(removeLiquidityParams))
+                .to.emit(pool, "Burn")
+                .withArgs(uniswapV3Broker.address, 50000, 50200, "0", "0", "0")
+                .to.emit(pool, "Collect")
+                // expect 1% of base = 0.000004125357783
+                // there's one wei of imprecision, thus expecting 0.000004125357782999
+                .withArgs(uniswapV3Broker.address, uniswapV3Broker.address, 50000, 50200, "4125357782999", "0")
         })
 
         it("force error, no liquidity", async () => {
