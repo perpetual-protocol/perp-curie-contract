@@ -175,7 +175,7 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
-        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFunding(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint in UniswapV3MintCallback
         IOrderBook.AddLiquidityResponse memory response =
@@ -312,7 +312,7 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidity(
@@ -395,7 +395,7 @@ contract ClearingHouse is
                 );
             }
 
-            IExchange(_exchange).settleFunding(trader, baseTokens[i]);
+            _settleFunding(trader, baseTokens[i]);
         }
     }
 
@@ -422,7 +422,7 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _openPosition(
@@ -473,7 +473,7 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _closePosition(
@@ -531,7 +531,7 @@ contract ClearingHouse is
         );
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, baseToken);
+        _settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
             _closePosition(InternalClosePositionParams({ trader: trader, baseToken: baseToken, sqrtPriceLimitX96: 0 }));
 
@@ -710,7 +710,7 @@ contract ClearingHouse is
         );
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(maker, baseToken);
+        _settleFunding(maker, baseToken);
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
@@ -827,6 +827,26 @@ contract ClearingHouse is
                     skipMarginRequirementCheck: true
                 })
             );
+    }
+
+    function _settleFunding(address trader, address baseToken)
+        internal
+        returns (Funding.Growth memory fundingGrowthGlobal)
+    {
+        int256 fundingPayment;
+        (fundingPayment, fundingGrowthGlobal) = IExchange(_exchange).settleFunding(trader, baseToken);
+
+        if (fundingPayment != 0) {
+            IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, fundingPayment.neg256());
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
+        }
+
+        IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
+            trader,
+            baseToken,
+            fundingGrowthGlobal.twPremiumX96
+        );
+        return fundingGrowthGlobal;
     }
 
     //

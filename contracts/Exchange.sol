@@ -225,11 +225,12 @@ contract Exchange is
     ///      this function 1. settles personal funding payment 2. updates global funding growth
     ///      personal funding payment is settled whenever there is pending funding payment
     ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override
-        returns (Funding.Growth memory fundingGrowthGlobal)
+        returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
@@ -238,19 +239,13 @@ contract Exchange is
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        int256 fundingPayment =
-            _updateFundingGrowth(
-                trader,
-                baseToken,
-                IAccountBalance(_accountBalance).getBase(trader, baseToken),
-                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
-                fundingGrowthGlobal
-            );
-
-        if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, fundingPayment.neg256());
-            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
-        }
+        fundingPayment = _updateFundingGrowth(
+            trader,
+            baseToken,
+            IAccountBalance(_accountBalance).getBase(trader, baseToken),
+            IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
+            fundingGrowthGlobal
+        );
 
         uint256 timestamp = _blockTimestamp();
         // update states before further actions in this block; once per block
@@ -269,13 +264,7 @@ contract Exchange is
             _lastUpdatedTickMap[baseToken] = getTick(baseToken);
         }
 
-        IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
-            trader,
-            baseToken,
-            fundingGrowthGlobal.twPremiumX96
-        );
-
-        return fundingGrowthGlobal;
+        return (fundingPayment, fundingGrowthGlobal);
     }
 
     //

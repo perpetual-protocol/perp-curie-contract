@@ -92,7 +92,7 @@ describe.skip("ClearingHouse accounting", () => {
         }
 
         getFundingPayment = (receipt: ContractReceipt): BigNumber => {
-            const logs = filterLogs(receipt, exchange.interface.getEventTopic("FundingPaymentSettled"), exchange)
+            const logs = filterLogs(receipt, exchange.interface.getEventTopic("FundingPaymentSettled"), clearingHouse)
             let fundingPayment = BigNumber.from(0)
             for (const log of logs) {
                 fundingPayment = fundingPayment.add(log.args.fundingPayment)

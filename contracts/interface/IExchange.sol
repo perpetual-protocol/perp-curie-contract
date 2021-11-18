@@ -44,9 +44,6 @@ interface IExchange {
         int256 deltaAvailableQuote;
     }
 
-    /// @param fundingPayment > 0: payment, < 0 : receipt
-    event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
-
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
 
     event MaxTickCrossedWithinBlockChanged(address indexed baseToken, uint24 maxTickCrossedWithinBlock);
@@ -58,7 +55,7 @@ interface IExchange {
 
     function settleFunding(address trader, address baseToken)
         external
-        returns (Funding.Growth memory fundingGrowthGlobal);
+        returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal);
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
 

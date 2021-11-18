@@ -237,9 +237,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).not.to.emit(exchange, "FundingPaymentSettled")
+        expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).not.to.emit(exchange, "FundingPaymentSettled")
+        expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
     })
 
     describe("zero sum game", () => {

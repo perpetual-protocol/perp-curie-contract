@@ -116,7 +116,8 @@ interface IClearingHouse {
         uint256 sqrtPriceAfterX96
     );
 
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+    /// @param fundingPayment > 0: payment, < 0 : receipt
+    event FundingPaymentSettled(address indexed trader, address indexed baseToken, int256 fundingPayment);
 
     event TrustedForwarderChanged(address indexed forwarder);
 

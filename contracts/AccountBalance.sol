@@ -36,12 +36,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // MODIFIER
     //
 
-    modifier onlyExchange() {
-        // only Exchange
-        require(_msgSender() == _exchange, "AB_OEX");
-        _;
-    }
-
     modifier onlyExchangeOrClearingHouse() {
         // only Exchange or ClearingHouse
         require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
@@ -157,7 +151,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 lastTwPremiumGrowthGlobalX96
-    ) external override onlyExchange {
+    ) external override {
+        _requireOnlyClearingHouse();
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
