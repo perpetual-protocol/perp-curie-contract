@@ -5,13 +5,13 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -29,7 +29,7 @@ describe("ClearingHouse addLiquidity", () => {
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -46,7 +46,7 @@ describe("ClearingHouse addLiquidity", () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         clearingHouseConfig = fixture.clearingHouseConfig
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken

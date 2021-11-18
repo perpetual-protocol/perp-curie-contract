@@ -4,13 +4,13 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
     ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -28,7 +28,7 @@ describe("ClearingHouse openPosition", () => {
     let clearingHouseConfig: ClearingHouseConfig
     let exchange: Exchange
     let orderBook: OrderBook
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -46,7 +46,7 @@ describe("ClearingHouse openPosition", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance
+        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
         clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
         vault = _clearingHouseFixture.vault
         exchange = _clearingHouseFixture.exchange

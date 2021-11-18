@@ -51,4 +51,12 @@ contract TestAccountBalance is AccountBalance {
     {
         return IExchange(_exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
+
+    function getNetQuoteBalanceAndPendingFee(address trader)
+        external
+        view
+        returns (int256 netQuoteBalance, uint256 pendingFee)
+    {
+        return _getNetQuoteBalanceAndPendingFee(trader);
+    }
 }

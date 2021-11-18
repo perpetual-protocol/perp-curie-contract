@@ -3,11 +3,11 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
     Exchange,
     MarketRegistry,
     OrderBook,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -22,7 +22,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
@@ -36,7 +36,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance
+        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
         exchange = _clearingHouseFixture.exchange
         marketRegistry = _clearingHouseFixture.marketRegistry
         collateral = _clearingHouseFixture.USDC

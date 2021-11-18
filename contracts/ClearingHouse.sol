@@ -246,7 +246,12 @@ contract ClearingHouse is
             );
 
             // update takerBalances as we're using takerBalances to provide liquidity
-            IAccountBalance(_accountBalance).addTakerBalances(trader, params.baseToken, deltaBaseDebt, deltaQuoteDebt);
+            IAccountBalance(_accountBalance).modifyTakerBalance(
+                trader,
+                params.baseToken,
+                deltaBaseDebt,
+                deltaQuoteDebt
+            );
 
             int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
             uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
@@ -263,7 +268,7 @@ contract ClearingHouse is
         }
 
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, response.fee.toInt256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, response.fee.toInt256());
 
         // after token balances are updated, we can check if there is enough free collateral
         _requireEnoughFreeCollateral(trader);
@@ -536,11 +541,11 @@ contract ClearingHouse is
                 IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
             );
 
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(trader, liquidationFee.neg256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, liquidationFee.neg256());
 
         // increase liquidator's pnl liquidation reward
         address liquidator = _msgSender();
-        IAccountBalance(_accountBalance).addOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(liquidator, liquidationFee.toInt256());
 
         emit PositionLiquidated(
             trader,
@@ -729,6 +734,7 @@ contract ClearingHouse is
             );
         }
 
+        // pnlToBeRealized is realized here
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
@@ -737,7 +743,8 @@ contract ClearingHouse is
             pnlToBeRealized,
             response.fee.toInt256()
         );
-        return pnlToBeRealized; // pnlToBeRealized is realized now
+
+        return pnlToBeRealized;
     }
 
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:

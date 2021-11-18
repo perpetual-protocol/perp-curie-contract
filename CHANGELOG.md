@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [unreleased]
 
+### Changed
+
+- rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
+- rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
+
+### Removed
+
+- `AccountBalance.getNetQuoteBalanceAndPendingFee`
+
 ## [0.14.0-staging] - 2021-11-17
 
 ### Added
