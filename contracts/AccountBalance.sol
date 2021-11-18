@@ -36,20 +36,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // EXTERNAL NON-VIEW
     //
 
-    function initialize(address clearingHouseConfigArg, address exchangeArg) external initializer {
+    function initialize(address clearingHouseConfigArg, address orderBookArg) external initializer {
         // IClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_CHCNC");
-        // Exchange is not contract
-        require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // IOrderBook is not contract
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
 
         _clearingHouseConfig = clearingHouseConfigArg;
-        _exchange = exchangeArg;
         _orderBook = orderBookArg;
     }
 
@@ -154,11 +150,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getExchange() external view override returns (address) {
-        return _exchange;
     }
 
     /// @inheritdoc IAccountBalance

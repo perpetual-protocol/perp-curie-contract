@@ -71,8 +71,6 @@ interface IAccountBalance {
 
     function getClearingHouseConfig() external view returns (address);
 
-    function getExchange() external view returns (address);
-
     function getOrderBook() external view returns (address);
 
     function getVault() external view returns (address);

@@ -11,20 +11,16 @@ contract TestAccountBalance is AccountBalance {
     uint256 private _testBlockTimestamp;
 
     // copy paste from AccountBalance.initialize to avoid it to be public
-    function __TestAccountBalance_init(address clearingHouseConfigArg, address exchangeArg) external initializer {
+    function __TestAccountBalance_init(address clearingHouseConfigArg, address orderBookArg) external initializer {
         // ClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_ENC");
-        // Exchange is not contract
-        require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // OrderBook is not contarct
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
 
         _clearingHouseConfig = clearingHouseConfigArg;
-        _exchange = exchangeArg;
         _orderBook = orderBookArg;
     }
 
@@ -38,18 +34,6 @@ contract TestAccountBalance is AccountBalance {
 
     function _blockTimestamp() internal view override returns (uint256) {
         return _testBlockTimestamp;
-    }
-
-    function getFundingGrowthGlobalAndTwaps(address baseToken)
-        external
-        view
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        )
-    {
-        return IExchange(_exchange).getFundingGrowthGlobalAndTwaps(baseToken);
     }
 
     function getNetQuoteBalanceAndPendingFee(address trader)
