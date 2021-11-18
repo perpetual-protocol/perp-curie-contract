@@ -71,13 +71,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _modifyOwedRealizedPnl(trader, delta);
     }
 
-    function settleQuoteToPnl(
+    function settleQuoteToOwedRealizedPnl(
         address trader,
         address baseToken,
         int256 amount
     ) external override {
         _requireOnlyClearingHouse();
-        _settleQuoteToPnl(trader, baseToken, amount);
+        _settleQuoteToOwedRealizedPnl(trader, baseToken, amount);
     }
 
     function settleOwedRealizedPnl(address trader) external override returns (int256) {
@@ -113,7 +113,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             realizedPnl = takerQuote;
         }
 
-        _settleQuoteToPnl(maker, baseToken, realizedPnl);
+        // @audit should merge _addOwedRealizedPnl and settleQuoteToOwedRealizedPnl in some way.
+        // PnlRealized will be emitted three times when removing trader's liquidity
+        _settleQuoteToOwedRealizedPnl(maker, baseToken, realizedPnl);
         _deregisterBaseToken(maker, baseToken);
     }
 
@@ -342,7 +344,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         }
     }
 
-    function _settleQuoteToPnl(
+    function _settleQuoteToOwedRealizedPnl(
         address trader,
         address baseToken,
         int256 amount

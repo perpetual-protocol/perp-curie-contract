@@ -785,7 +785,7 @@ contract ClearingHouse is
         );
 
         if (response.pnlToBeRealized != 0) {
-            IAccountBalance(_accountBalance).settleQuoteToPnl(
+            IAccountBalance(_accountBalance).settleQuoteToOwedRealizedPnl(
                 params.trader,
                 params.baseToken,
                 response.pnlToBeRealized
