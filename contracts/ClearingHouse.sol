@@ -306,7 +306,7 @@ contract ClearingHouse is
         // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
-        //   liquidity: in OrderBook._removeLiquidity()
+        //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
         address trader = _msgSender();
@@ -411,7 +411,7 @@ contract ClearingHouse is
         // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
         //   isBaseToQuote & isExactInput: X
-        //   amount: in UniswapV3Broker.swap()
+        //   amount: in UniswapV3Pool.swap()
         //   oppositeAmountBound: in _checkSlippage()
         //   deadline: here
         //   sqrtPriceLimitX96: X (this is not for slippage protection)
