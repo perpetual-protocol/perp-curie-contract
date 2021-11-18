@@ -358,7 +358,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0.01"), // fee = 1 * 0.01
                         parseEther("-1"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "974863323923301853330898562804", // sqrtPriceAfter
+                        "974863323923301853330898562804", // sqrtPriceAfterX96
                     )
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     taker.address,
@@ -400,7 +400,7 @@ describe("ClearingHouse openPosition", () => {
                         "1550587307011629547", // fee
                         "-155058730701162954606", // openNotional
                         parseEther("0"), // realizedPnl
-                        "988522032908775036581348357236", // sqrtPriceAfter
+                        "988522032908775036581348357236", // sqrtPriceAfterX96
                     )
 
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
@@ -441,7 +441,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("1.492970341857328778"), // fee: 149.297034185732877727 * 0.01 = 1.492970341857328777
                         parseEther("147.804063843875548949"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "961404421142614700863221952241", // sqrtPriceAfter
+                        "961404421142614700863221952241", // sqrtPriceAfterX96
                     )
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
                     taker.address,
@@ -482,7 +482,7 @@ describe("ClearingHouse openPosition", () => {
                         parseEther("0.010101010101010102"), // fee
                         parseEther("1"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "974684205576916525762591342066", // sqrtPriceAfter
+                        "974684205576916525762591342066", // sqrtPriceAfterX96
                     )
 
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(

@@ -130,7 +130,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0.02"), // fee = 1 * 0.02
                         parseEther("-1"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "974862428376799548021608444199", // sqrtPriceAfter
+                        "974862428376799548021608444199", // sqrtPriceAfterX96
                     )
 
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
@@ -177,7 +177,7 @@ describe("ClearingHouse customized fee", () => {
                         "3132819252941863777", // fee
                         "-156640962647093188836", // openNotional
                         parseEther("0"), // realizedPnl
-                        "988522032908775036581348357236", // sqrtPriceAfter
+                        "988522032908775036581348357236", // sqrtPriceAfterX96
                     )
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("1"),
@@ -224,7 +224,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("2.985940683714657555"), // fee: 149.297034185732877727 * 0.02 = 2.985940683714657555
                         parseEther("146.311093502018220172"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "961404421142614700863221952241", // sqrtPriceAfter
+                        "961404421142614700863221952241", // sqrtPriceAfterX96
                     )
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("-1"),
@@ -267,7 +267,7 @@ describe("ClearingHouse customized fee", () => {
                         parseEther("0.020408163265306123"), // fee: 1 / 0.98 * 0.02
                         parseEther("1"), // openNotional
                         parseEther("0"), // realizedPnl
-                        "974683282523420024722339861717", // sqrtPriceAfter
+                        "974683282523420024722339861717", // sqrtPriceAfterX96
                     )
                 expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                     parseEther("-0.006741636644634247"),
@@ -424,7 +424,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.005"), // fee = 1 * 0.005
                     parseEther("-1"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "974863771696553005985543622107", // sqrtPriceAfter
+                    "974863771696553005985543622107", // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
@@ -472,7 +472,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.771397705498247865"), // fee
                     "-154279541099649572924", // openNotional
                     parseEther("0"), // realizedPnl
-                    "988522032908775036581348357236", // sqrtPriceAfter
+                    "988522032908775036581348357236", // sqrtPriceAfterX96
                 )
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(parseEther("1"))
 
@@ -517,7 +517,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.746485170928664389"), // fee
                     parseEther("148.550549014804213338"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "961404421142614700863221952241", // sqrtPriceAfter
+                    "961404421142614700863221952241", // sqrtPriceAfterX96
                 )
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(parseEther("-1"))
 
@@ -558,7 +558,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.005025125628140704"), // fee: 1 / 0.995 * 0.005 = 0.00502513
                     parseEther("1"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "974684660145975104164388030226", // sqrtPriceAfter
+                    "974684660145975104164388030226", // sqrtPriceAfterX96
                 )
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
                 parseEther("-0.006639994546394814"),
@@ -622,7 +622,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.03"), // fee = 1 * 0.03
                     parseEther("-2"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "974949296387523163022749948882", // sqrtPriceAfter
+                    "974949296387523163022749948882", // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
@@ -668,7 +668,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.01"), // fee = 1 * 0.01
                     parseEther("-2"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "974951087480527773641330186092", // sqrtPriceAfter
+                    "974951087480527773641330186092", // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(
@@ -728,7 +728,7 @@ describe("ClearingHouse customized fee", () => {
                     parseEther("0.05"), // fee = 1 * 0.05
                     parseEther("-3"), // openNotional
                     parseEther("0"), // realizedPnl
-                    "975034373305242167405311216355", // sqrtPriceAfter
+                    "975034373305242167405311216355", // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq(

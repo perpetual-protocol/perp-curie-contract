@@ -1139,7 +1139,7 @@ describe("ClearingHouse funding", () => {
                         "0", // fee
                         "98188169201962983990", // openNotional
                         "-7858496051086652", // realizedPnl
-                        Object, // sqrtPriceAfter
+                        Object, // sqrtPriceAfterX96
                     )
 
                     // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998

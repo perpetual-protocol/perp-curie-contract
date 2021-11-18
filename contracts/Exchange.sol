@@ -230,7 +230,7 @@ contract Exchange is
                 fee: response.fee,
                 openNotional: takerOpenNotional,
                 realizedPnl: pnlToBeRealized,
-                sqrtPriceAfter: sqrtPriceX96,
+                sqrtPriceAfterX96: sqrtPriceX96,
                 tick: response.tick,
                 isPartialClose: isPartialClose
             });

@@ -775,7 +775,7 @@ contract ClearingHouse is
             response.fee,
             response.openNotional,
             response.realizedPnl,
-            response.sqrtPriceAfter
+            response.sqrtPriceAfterX96
         );
 
         IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
