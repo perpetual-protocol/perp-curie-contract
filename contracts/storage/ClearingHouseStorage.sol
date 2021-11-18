@@ -18,4 +18,5 @@ abstract contract ClearingHouseStorageV1 {
     address internal _exchange;
     address internal _orderBook;
     address internal _accountBalance;
+    address internal _insuranceFund;
 }

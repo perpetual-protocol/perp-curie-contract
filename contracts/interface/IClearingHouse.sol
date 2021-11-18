@@ -161,4 +161,6 @@ interface IClearingHouse {
     function getOrderBook() external view returns (address);
 
     function getAccountBalance() external view returns (address);
+
+    function getInsuranceFund() external view returns (address);
 }

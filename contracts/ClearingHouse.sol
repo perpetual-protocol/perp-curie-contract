@@ -112,7 +112,8 @@ contract ClearingHouse is
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
-        address accountBalanceArg
+        address accountBalanceArg,
+        address insuranceFundArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
@@ -128,6 +129,8 @@ contract ClearingHouse is
         require(accountBalanceArg.isContract(), "CH_ABNC");
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
+        // CH_IFANC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "CH_IFANC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
@@ -143,6 +146,7 @@ contract ClearingHouse is
         _exchange = exchangeArg;
         _orderBook = orderBookArg;
         _accountBalance = accountBalanceArg;
+        _insuranceFund = insuranceFundArg;
 
         _settlementTokenDecimals = IVault(_vault).decimals();
     }
@@ -679,6 +683,11 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
+    function getInsuranceFund() external view override returns (address) {
+        return _insuranceFund;
+    }
+
+    /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl, uint256 pendingFee) =
@@ -762,6 +771,8 @@ contract ClearingHouse is
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
+
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
         // examples:
         // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1

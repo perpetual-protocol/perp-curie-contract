@@ -23,6 +23,7 @@ interface IExchange {
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
+        uint256 insuranceFundFee;
         int256 pnlToBeRealized;
         uint256 sqrtPriceAfterX96;
         int24 tick;
@@ -87,6 +88,4 @@ interface IExchange {
     function getAccountBalance() external view returns (address);
 
     function getClearingHouseConfig() external view returns (address);
-
-    function getInsuranceFund() external view returns (address);
 }

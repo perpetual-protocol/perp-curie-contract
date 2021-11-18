@@ -51,12 +51,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     const exchangeFactory = await ethers.getContractFactory("Exchange")
     const exchange = (await exchangeFactory.deploy()) as Exchange
-    await exchange.initialize(
-        marketRegistry.address,
-        orderBook.address,
-        clearingHouseConfig.address,
-        insuranceFund.address,
-    )
+    await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
     const mockedExchange = await smockit(exchange)
     await orderBook.setExchange(exchange.address)
 
@@ -84,6 +79,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         uniV3Factory.address,
         mockedExchange.address,
         mockedAccountBalance.address,
+        insuranceFund.address,
     )
     const mockedClearingHouse = await smockit(clearingHouse)
 

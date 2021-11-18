@@ -88,8 +88,7 @@ contract Exchange is
     function initialize(
         address marketRegistryArg,
         address orderBookArg,
-        address clearingHouseConfigArg,
-        address insuranceFundArg
+        address clearingHouseConfigArg
     ) external initializer {
         __ClearingHouseCallee_init();
         __UniswapV3CallbackBridge_init(marketRegistryArg);
@@ -98,11 +97,8 @@ contract Exchange is
         require(orderBookArg.isContract(), "E_OBNC");
         // E_CHNC: CH is not contract
         require(clearingHouseConfigArg.isContract(), "E_CHNC");
-        // E_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "E_IFANC");
 
         // update states
-        _insuranceFund = insuranceFundArg;
         _orderBook = orderBookArg;
         _clearingHouseConfig = clearingHouseConfigArg;
     }
@@ -187,8 +183,6 @@ contract Exchange is
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
-        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
-
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
@@ -213,6 +207,7 @@ contract Exchange is
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
                 fee: response.fee,
+                insuranceFundFee: response.insuranceFundFee,
                 pnlToBeRealized: pnlToBeRealized,
                 sqrtPriceAfterX96: sqrtPriceX96,
                 tick: response.tick,
@@ -284,11 +279,6 @@ contract Exchange is
     /// @inheritdoc IExchange
     function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
-    }
-
-    /// @inheritdoc IExchange
-    function getInsuranceFund() external view override returns (address) {
-        return _insuranceFund;
     }
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {

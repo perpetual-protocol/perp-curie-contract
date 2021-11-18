@@ -33,16 +33,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     uint256 internal constant _DUST = 10 wei;
 
     //
-    // MODIFIER
-    //
-
-    modifier onlyExchangeOrClearingHouse() {
-        // only Exchange or ClearingHouse
-        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
-        _;
-    }
-
-    //
     // EXTERNAL NON-VIEW
     //
 
@@ -80,7 +70,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
-    function modifyOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+    function modifyOwedRealizedPnl(address trader, int256 delta) external override {
+        _requireOnlyClearingHouse();
         _modifyOwedRealizedPnl(trader, delta);
     }
 
