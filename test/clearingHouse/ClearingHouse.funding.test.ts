@@ -351,20 +351,21 @@ describe("ClearingHouse funding", () => {
 
                 // bob swaps to trigger funding update & funding-related prices emission
                 // -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 451) / 86400 = 0.000388235204
-                await expect(
-                    clearingHouse.connect(bob).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: true,
-                        isExactInput: true,
-                        oppositeAmountBound: 0,
-                        amount: parseEther("0.0000000001"),
-                        sqrtPriceLimitX96: 0,
-                        deadline: ethers.constants.MaxUint256,
-                        referralCode: ethers.constants.HashZero,
-                    }),
-                )
+                const tx = await clearingHouse.connect(bob).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("0.0000000001"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+
+                await expect(tx)
                     .to.emit(exchange, "FundingPaymentSettled")
                     .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
+                await expect(tx)
                     .to.emit(exchange, "FundingUpdated")
                     .withArgs(baseToken.address, parseEther("154.199634648900471640"), parseEther("156.953124"))
 
@@ -437,20 +438,20 @@ describe("ClearingHouse funding", () => {
                     // swaps arbitrary amount to trigger funding settlement & funding-related prices emission
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * (153.9531248192 - 150.953124) * 7201 / 86400 = -0.02475344426
-                    await expect(
-                        clearingHouse.connect(bob).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: true,
-                            oppositeAmountBound: 0,
-                            amount: parseEther("0.0000000001"),
-                            sqrtPriceLimitX96: 0,
-                            deadline: ethers.constants.MaxUint256,
-                            referralCode: ethers.constants.HashZero,
-                        }),
-                    )
+                    const tx = await clearingHouse.connect(bob).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        oppositeAmountBound: 0,
+                        amount: parseEther("0.0000000001"),
+                        sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
+                    })
+                    await expect(tx)
                         .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("-0.024753444259323776"))
+                    await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("150.953124"))
 
@@ -524,20 +525,21 @@ describe("ClearingHouse funding", () => {
                     // bob's position -0.099 -> -0.2
                     // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
                     // -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3601) / 86400 = 0.01238186107
-                    await expect(
-                        clearingHouse.connect(bob).openPosition({
-                            baseToken: baseToken.address,
-                            isBaseToQuote: true,
-                            isExactInput: true,
-                            oppositeAmountBound: 0,
-                            amount: parseEther("0.101"),
-                            sqrtPriceLimitX96: 0,
-                            deadline: ethers.constants.MaxUint256,
-                            referralCode: ethers.constants.HashZero,
-                        }),
-                    )
+                    const tx = await clearingHouse.connect(bob).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        oppositeAmountBound: 0,
+                        amount: parseEther("0.101"),
+                        sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
+                    })
+
+                    await expect(tx)
                         .to.emit(exchange, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
+                    await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
 
