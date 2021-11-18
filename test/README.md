@@ -29,20 +29,14 @@ Once we call `.not`, it will negate all assertions that follow in the chain.
 For instance, to make sure it **DOES NOT** emit `PositionChanged`, and **DOES** emit `LiquidityChanged`, we should:
 
 ```ts
-# DO
+// DO
 await expect(clearingHouse.addLiquidity())
     .to.emit(contract2, "LiquidityChanged")
     .not.to.emit(contract1, "PositionChanged")
 
-# DON'T
+// DON'T
 await expect(clearingHouse.addLiquidity())
     .not.to.emit(contract1, "PositionChanged")
-    .to.emit(contract2, "LiquidityChanged")
-
-# which equals to
-await expect(clearingHouse.addLiquidity())
-    .not
-    .to.emit(contract1, "PositionChanged")
     .to.emit(contract2, "LiquidityChanged")
 ```
 
