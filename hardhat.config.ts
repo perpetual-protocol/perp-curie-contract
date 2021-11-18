@@ -8,7 +8,7 @@ import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig, task } from "hardhat/config"
+import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
@@ -19,7 +19,6 @@ import {
     RINKEBY_WEB3_ENDPOINT,
 } from "./constants"
 import "./mocha-test"
-import { verifyAndPushContract } from "./scripts/tenderly"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -28,12 +27,6 @@ enum ChainId {
     OPTIMISM_KOVAN_CHAIN_ID = 69,
     RINKEBY_CHAIN_ID = 4,
 }
-
-task("tenderly", "Contract verification and push on Tenderly")
-    .addParam("stage", "stage")
-    .setAction(async ({ stage }, hre) => {
-        await verifyAndPushContract(hre, stage)
-    })
 
 const config: HardhatUserConfig = {
     solidity: {
