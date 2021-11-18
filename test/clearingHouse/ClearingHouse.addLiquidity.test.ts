@@ -18,7 +18,6 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
-import { retrieveEvent } from "../helper/events"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -903,57 +902,37 @@ describe("ClearingHouse addLiquidity", () => {
             const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
                 .liquidity
 
-            // NOTE: chai/waffle doesn't handle "one contract emits multiple events" correctly,
-            // so we cannot use multiple `to.emit.withArgs()` in the same chained operation.
-            const receipt = await (
-                await clearingHouse.connect(bob).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick,
-                    upperTick,
-                    liquidity: bobLiquidity,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                })
-            ).wait()
+            const tx = await clearingHouse.connect(bob).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick,
+                upperTick,
+                liquidity: bobLiquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
 
-            const liquidityChanged = retrieveEvent(receipt, clearingHouse, "LiquidityChanged")
-            expect([
-                liquidityChanged.args.maker,
-                liquidityChanged.args.baseToken,
-                liquidityChanged.args.quoteToken,
-                liquidityChanged.args.lowerTick,
-                liquidityChanged.args.upperTick,
-                liquidityChanged.args.base,
-                liquidityChanged.args.quote,
-                liquidityChanged.args.liquidity,
-            ]).to.deep.equal([
+            await expect(tx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
                 bob.address,
                 baseToken.address,
                 quoteToken.address,
                 lowerTick,
                 upperTick,
                 parseEther("-0.399999999999999999"),
-                parseEther("-15.473901654978787729"),
+                parseEther("-15.473901654978787729"), // we don't care about this value. it's from console.log.
                 bobLiquidity.mul(-1),
-            ])
-
-            const positionChangedFromLiquidityChanged = retrieveEvent(receipt, clearingHouse, "PositionChanged")
-            expect([
-                positionChangedFromLiquidityChanged.args.trader,
-                positionChangedFromLiquidityChanged.args.baseToken,
-                positionChangedFromLiquidityChanged.args.exchangedPositionSize,
-                positionChangedFromLiquidityChanged.args.exchangedPositionNotional,
-                positionChangedFromLiquidityChanged.args.openNotional,
-                positionChangedFromLiquidityChanged.args.realizedPnl,
-            ]).to.deep.equal([
+                parseEther("0.156302036918977653"), // we don't care about this value. it's from console.log.
+            )
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
                 bob.address,
                 baseToken.address,
                 parseEther("0.399999999999999999"), // exchangedPositionSize
                 parseEther("-60.988779581551447382"), // exchangedPositionNotional
-                BigNumber.from("-137451460818081682493"), // openNotional
-                BigNumber.from("0"), // realizedPnl
-            ])
+                "0", // fee
+                "-137451460818081682493", // openNotional
+                "0", // realizedPnl
+                Object, // sqrtPriceAfter
+            )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
                 parseEther("0.9"),
