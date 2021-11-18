@@ -189,15 +189,6 @@ contract Exchange is
 
         IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
-        // examples:
-        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        IAccountBalance(_accountBalance).modifyTakerBalance(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256())
-        );
-
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
@@ -213,12 +204,6 @@ contract Exchange is
             );
         }
 
-        if (pnlToBeRealized != 0) {
-            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);
-        }
-
-        int256 takerOpenNotional =
-            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         return
@@ -228,8 +213,7 @@ contract Exchange is
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
                 fee: response.fee,
-                openNotional: takerOpenNotional,
-                realizedPnl: pnlToBeRealized,
+                pnlToBeRealized: pnlToBeRealized,
                 sqrtPriceAfterX96: sqrtPriceX96,
                 tick: response.tick,
                 isPartialClose: isPartialClose

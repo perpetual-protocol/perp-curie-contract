@@ -42,6 +42,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _;
     }
 
+    modifier onlyClearingHouse() {
+        // only Exchange
+        require(_msgSender() == _clearingHouse, "AB_OCH");
+        _;
+    }
+
     modifier onlyExchangeOrClearingHouse() {
         // only Exchange or ClearingHouse
         require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
@@ -81,7 +87,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 deltaTakerBase,
         int256 deltaTakerQuote
-    ) external override onlyExchangeOrClearingHouse {
+    ) external override onlyClearingHouse {
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
@@ -93,7 +99,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 amount
-    ) external override onlyExchange {
+    ) external override onlyClearingHouse {
         _settleQuoteToPnl(trader, baseToken, amount);
     }
 

@@ -763,6 +763,25 @@ contract ClearingHouse is
                 })
             );
 
+        // examples:
+        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+        IAccountBalance(_accountBalance).modifyTakerBalance(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
+        );
+
+        if (response.pnlToBeRealized != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(
+                params.trader,
+                params.baseToken,
+                response.pnlToBeRealized
+            );
+        }
+
+        int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
+
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
             _requireEnoughFreeCollateral(params.trader);
@@ -773,8 +792,8 @@ contract ClearingHouse is
             response.exchangedPositionSize,
             response.exchangedPositionNotional,
             response.fee,
-            response.openNotional,
-            response.realizedPnl,
+            openNotional,
+            response.pnlToBeRealized,
             response.sqrtPriceAfterX96
         );
 

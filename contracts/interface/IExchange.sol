@@ -23,8 +23,7 @@ interface IExchange {
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
-        int256 openNotional;
-        int256 realizedPnl;
+        int256 pnlToBeRealized;
         uint256 sqrtPriceAfterX96;
         int24 tick;
         bool isPartialClose;
