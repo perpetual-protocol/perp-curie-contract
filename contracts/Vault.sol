@@ -91,9 +91,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _clearingHouse = clearingHouseArg;
     }
 
-    /// @param token the address of the token to deposit;
-    ///        once multi-collateral is implemented, the token is not limited to settlementToken
-    /// @param amountX10_D the amount of the token to deposit in decimals D (D = _decimals)
+    /// @inheritdoc IVault
     function deposit(address token, uint256 amountX10_D)
         external
         override
@@ -120,9 +118,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         emit Deposited(token, from, amountX10_D);
     }
 
-    /// @param token the address of the token sender is going to withdraw
-    ///        once multi-collateral is implemented, the token is not limited to settlementToken
-    /// @param amountX10_D the amount of the token to withdraw in decimals D (D = _decimals)
+    /// @inheritdoc IVault
     function withdraw(address token, uint256 amountX10_D)
         external
         override
@@ -188,7 +184,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     /// @inheritdoc IVault
-    /// @dev cache the settlement token's decimals for gas optimization
     function decimals() external view override returns (uint8) {
         return _decimals;
     }
@@ -223,9 +218,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return _clearingHouse;
     }
 
-    /// @param trader The address of the trader to query
-    /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
-    function getFreeCollateral(address trader) external view returns (uint256) {
+    /// @inheritdoc IVault
+    function getFreeCollateral(address trader) external view override returns (uint256) {
         return
             PerpMath
                 .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(_clearingHouseConfig).getImRatio()), 0)
@@ -240,11 +234,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return _balance[trader][_settlementToken];
     }
 
-    /// @dev there are three configurations for different insolvency risk tolerances: conservative, moderate, aggressive
-    ///      we will start with the conservative one and gradually move to aggressive to increase capital efficiency
-    /// @param trader the address of the trader
-    /// @param ratio the margin requirement ratio, imRatio or mmRatio
-    /// @return freeCollateralByRatio freeCollateral, by using the input margin requirement ratio; can be negative
+    /// @inheritdoc IVault
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
         // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
         int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
