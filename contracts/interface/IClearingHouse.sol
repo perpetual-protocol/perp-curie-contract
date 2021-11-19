@@ -113,7 +113,7 @@ interface IClearingHouse {
         uint256 fee,
         int256 openNotional,
         int256 realizedPnl,
-        uint256 sqrtPriceAfter
+        uint256 sqrtPriceAfterX96
     );
 
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);

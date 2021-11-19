@@ -784,7 +784,7 @@ describe("ClearingHouse addLiquidity", () => {
                     0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
-                    Object, // sqrtPriceAfter
+                    Object, // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
@@ -839,7 +839,7 @@ describe("ClearingHouse addLiquidity", () => {
                     0, // fee
                     "-152925362473060470222", // openNotional
                     "0", // realizedPnl
-                    Object, // sqrtPriceAfter
+                    Object, // sqrtPriceAfterX96
                 )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
@@ -893,7 +893,7 @@ describe("ClearingHouse addLiquidity", () => {
                     0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
-                    Object, // sqrtPriceAfter
+                    Object, // sqrtPriceAfterX96
                 )
 
             // alice long 0.1 base token
@@ -931,7 +931,7 @@ describe("ClearingHouse addLiquidity", () => {
                 "0", // fee
                 "-137451460818081682493", // openNotional
                 "0", // realizedPnl
-                Object, // sqrtPriceAfter
+                Object, // sqrtPriceAfterX96
             )
 
             expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
@@ -998,7 +998,7 @@ describe("ClearingHouse addLiquidity", () => {
                     0, // fee
                     "-76462681236530235111", // openNotional
                     "0", // realizedPnl
-                    Object, // sqrtPriceAfter
+                    Object, // sqrtPriceAfterX96
                 )
 
             // alice long 0.1 base token

@@ -305,7 +305,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             "100000000000000001", // fee
             "-100000000000000000001", // openNotional
             "0", // realizedPnl
-            "275570539067715219511427190085", // sqrtPriceAfter
+            "275570539067715219511427190085", // sqrtPriceAfterX96
         )
 
         const closePositionTx = await takerCloseEth()
@@ -317,7 +317,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             "99900000000000001", // fee
             "0", // openNotional
             "-199900000000000024", // realizedPnl
-            "250541448375047931191432615077", // sqrtPriceAfter
+            "250541448375047931191432615077", // sqrtPriceAfterX96
         )
 
         // maker remove liquidity

@@ -588,7 +588,7 @@ describe("ClearingHouse closePosition", () => {
                         0, // fee
                         parseEther("0.014051830753124999"), // openNotional
                         "0", // realizedPnl
-                        Object, // sqrtPriceAfter
+                        Object, // sqrtPriceAfterX96
                     )
 
                 const carolTakerPos = await accountBalance.getTakerPositionSize(carol.address, baseToken.address)
