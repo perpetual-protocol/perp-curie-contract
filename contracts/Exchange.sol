@@ -143,7 +143,6 @@ contract Exchange is
         bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
 
         bool isPartialClose;
-        uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
         // if over price limit when
         // 1. closing a position, then partially close the position
         // 2. reducing a position, then revert
@@ -164,6 +163,8 @@ contract Exchange is
                 require(timestamp != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "EX_AOPLO");
 
                 _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = timestamp;
+
+                uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
                 params.amount = params.amount.mulRatio(partialCloseRatio);
                 isPartialClose = true;
             }
