@@ -20,6 +20,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     //
     // MODIFIER
     //
+
     modifier checkRatio(uint24 ratio) {
         // CHC_RO: ratio overflow
         require(ratio <= 1e6, "CHC_RO");
@@ -27,8 +28,9 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     }
 
     //
-    // CONSTRUCTOR
+    // EXTERNAL NON-VIEW
     //
+
     function initialize() external initializer {
         __SafeOwnable_init();
 
@@ -42,9 +44,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         _settlementTokenBalanceCap = type(uint256).max;
     }
 
-    //
-    // EXTERNAL
-    //
     function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)
         external
         checkRatio(liquidationPenaltyRatioArg)

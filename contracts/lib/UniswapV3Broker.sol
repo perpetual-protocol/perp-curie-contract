@@ -26,6 +26,10 @@ library UniswapV3Broker {
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
+    //
+    // STRUCT
+    //
+
     struct AddLiquidityParams {
         address pool;
         int24 lowerTick;
@@ -79,7 +83,15 @@ library UniswapV3Broker {
         uint256 quote;
     }
 
+    //
+    // CONSTANT
+    //
+
     uint256 internal constant _DUST = 10;
+
+    //
+    // INTERNAL NON-VIEW
+    //
 
     function addLiquidity(AddLiquidityParams memory params) internal returns (AddLiquidityResponse memory) {
         (uint160 sqrtMarkPrice, , , , , , ) = getSlot0(params.pool);
@@ -160,7 +172,7 @@ library UniswapV3Broker {
     }
 
     //
-    // VIEW
+    // INTERNAL VIEW
     //
 
     function getPool(
@@ -285,7 +297,7 @@ library UniswapV3Broker {
     }
 
     //
-    // PRIVATE
+    // PRIVATE VIEW
     //
 
     function _getTickBitmap(address pool, int16 wordPos) private view returns (uint256 tickBitmap) {

@@ -8,7 +8,6 @@ import { Funding } from "../lib/Funding.sol";
 /// ExchangeStorageVX.
 abstract contract ExchangeStorageV1 {
     address internal _orderBook;
-
     address internal _accountBalance;
     address internal _clearingHouseConfig;
 

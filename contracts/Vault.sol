@@ -38,6 +38,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
     // MODIFIER
     //
+
     modifier onlySettlementToken(address token) {
         // only settlement token
         require(_settlementToken == token, "V_OST");
@@ -178,7 +179,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     //
-    // PUBLIC VIEW
+    // EXTERNAL VIEW
     //
 
     /// @inheritdoc IVault
@@ -230,6 +231,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
                 .max(getFreeCollateralByRatio(trader, IClearingHouseConfig(_clearingHouseConfig).getImRatio()), 0)
                 .toUint256();
     }
+
+    //
+    // PUBLIC VIEW
+    //
 
     function getBalance(address trader) public view override returns (int256) {
         return _balance[trader][_settlementToken];
