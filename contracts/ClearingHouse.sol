@@ -208,46 +208,47 @@ contract ClearingHouse is
             AccountMarket.Info memory accountMarketInfo =
                 IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
 
-            // the signs of deltaBaseDebt and deltaQuoteDebt are always the opposite.
-            // @audit rename to removedPositionSize and removedQuoteBalance ?
-            int256 deltaBaseDebt;
-            int256 deltaQuoteDebt;
+            // the signs of removedPositionSize and removedOpenNotional are always the opposite.
+            int256 removedPositionSize;
+            int256 removedOpenNotional;
             if (isBaseAdded) {
                 // taker base not enough
-                require(accountMarketInfo.takerBaseBalance >= response.base.toInt256(), "CH_TBNE");
+                require(accountMarketInfo.takerPositionSize >= response.base.toInt256(), "CH_TBNE");
 
-                deltaBaseDebt = response.base.neg256();
+                removedPositionSize = response.base.neg256();
 
-                // move quote debt from taker to maker: takerQuoteDebt(-) * baseRemovedFromTaker(-) / totalTakerBase(+)
+                // move quote debt from taker to maker:
+                // takerOpenNotional(-) * removedPositionSize(-) / takerPositionSize(+)
 
                 // overflow inspection:
                 // Assume collateral is 2.406159692E28 and index price is 1e-18
-                // takerQuoteBalance ~= 10 * 2.406159692E28 = 2.406159692E29 --> x
-                // takerBaseBalance ~= takerQuoteBalance/index price = x * 1e18 = 2.4061597E38
-                // max of deltaBaseDebt = takerBaseBalance = 2.4061597E38
-                // (takerQuoteBalance * deltaBaseDebt) < 2^255
+                // takerOpenNotional ~= 10 * 2.406159692E28 = 2.406159692E29 --> x
+                // takerPositionSize ~= takerOpenNotional/index price = x * 1e18 = 2.4061597E38
+                // max of removedPositionSize = takerPositionSize = 2.4061597E38
+                // (takerOpenNotional * removedPositionSize) < 2^255
                 // 2.406159692E29 ^2 * 1e18 < 2^255
-                deltaQuoteDebt = accountMarketInfo.takerQuoteBalance.mul(deltaBaseDebt).div(
-                    accountMarketInfo.takerBaseBalance
+                removedOpenNotional = accountMarketInfo.takerOpenNotional.mul(removedPositionSize).div(
+                    accountMarketInfo.takerPositionSize
                 );
             } else {
                 // taker quote not enough
-                require(accountMarketInfo.takerQuoteBalance >= response.quote.toInt256(), "CH_TQNE");
+                require(accountMarketInfo.takerOpenNotional >= response.quote.toInt256(), "CH_TQNE");
 
-                deltaQuoteDebt = response.quote.neg256();
+                removedOpenNotional = response.quote.neg256();
 
-                // move base debt from taker to maker: takerBaseDebt(-) * quoteRemovedFromTaker(-) / totalTakerQuote(+)
+                // move base debt from taker to maker:
+                // takerPositionSize(-) * removedOpenNotional(-) / takerOpenNotional(+)
                 // overflow inspection: same as above
-                deltaBaseDebt = accountMarketInfo.takerBaseBalance.mul(deltaQuoteDebt).div(
-                    accountMarketInfo.takerQuoteBalance
+                removedPositionSize = accountMarketInfo.takerPositionSize.mul(removedOpenNotional).div(
+                    accountMarketInfo.takerOpenNotional
                 );
             }
 
             // update orderDebt to record the cost of this order
             IOrderBook(_orderBook).updateOrderDebt(
                 OrderKey.compute(trader, params.baseToken, params.lowerTick, params.upperTick),
-                deltaBaseDebt,
-                deltaQuoteDebt
+                removedPositionSize,
+                removedOpenNotional
             );
 
             // update takerBalances as we're using takerBalances to provide liquidity
@@ -255,16 +256,16 @@ contract ClearingHouse is
                 IAccountBalance(_accountBalance).modifyTakerBalance(
                     trader,
                     params.baseToken,
-                    deltaBaseDebt,
-                    deltaQuoteDebt
+                    removedPositionSize,
+                    removedOpenNotional
                 );
 
             uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
             emit PositionChanged(
                 trader,
                 params.baseToken,
-                deltaBaseDebt, // exchangedPositionSize
-                deltaQuoteDebt, // exchangedPositionNotional
+                removedPositionSize, // exchangedPositionSize
+                removedOpenNotional, // exchangedPositionNotional
                 0, // fee
                 takerOpenNotional, // openNotional
                 0, // realizedPnl

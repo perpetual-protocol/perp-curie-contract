@@ -107,10 +107,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
         ) {
             // only need to take care of taker's accounting when there's no order
-            int256 takerQuote = _accountMarketMap[maker][baseToken].takerQuoteBalance;
+            int256 takerOpenNotional = _accountMarketMap[maker][baseToken].takerOpenNotional;
             // AB_IQBAR: inconsistent quote balance and realizedPnl
-            require(realizedPnl.abs() <= takerQuote.abs(), "AB_IQBAR");
-            realizedPnl = takerQuote;
+            require(realizedPnl.abs() <= takerOpenNotional.abs(), "AB_IQBAR");
+            realizedPnl = takerOpenNotional;
         }
 
         // @audit should merge _addOwedRealizedPnl and settleQuoteToOwedRealizedPnl in some way.
@@ -181,7 +181,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     // @inheritdoc IAccountBalance
     function getTakerOpenNotional(address trader, address baseToken) external view override returns (int256) {
-        return _accountMarketMap[trader][baseToken].takerQuoteBalance;
+        return _accountMarketMap[trader][baseToken].takerOpenNotional;
     }
 
     // @inheritdoc IAccountBalance
@@ -261,20 +261,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getBase(address trader, address baseToken) public view override returns (int256) {
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
-        // base = takerBaseBalance - orderBaseDebt
-        return _accountMarketMap[trader][baseToken].takerBaseBalance.sub(orderDebt.toInt256());
+        // base = takerPositionSize - orderBaseDebt
+        return _accountMarketMap[trader][baseToken].takerPositionSize.sub(orderDebt.toInt256());
     }
 
     /// @inheritdoc IAccountBalance
     function getQuote(address trader, address baseToken) public view override returns (int256) {
         uint256 orderDebt = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, false);
-        // quote = takerQuoteBalance - orderQuoteDebt
-        return _accountMarketMap[trader][baseToken].takerQuoteBalance.sub(orderDebt.toInt256());
+        // quote = takerOpenNotional - orderQuoteDebt
+        return _accountMarketMap[trader][baseToken].takerOpenNotional.sub(orderDebt.toInt256());
     }
 
     /// @inheritdoc IAccountBalance
     function getTakerPositionSize(address trader, address baseToken) public view override returns (int256) {
-        int256 positionSize = _accountMarketMap[trader][baseToken].takerBaseBalance;
+        int256 positionSize = _accountMarketMap[trader][baseToken].takerPositionSize;
         return positionSize.abs() < _DUST ? 0 : positionSize;
     }
 
@@ -290,8 +290,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 totalBaseDebtFromOrder = IOrderBook(_orderBook).getTotalOrderDebt(trader, baseToken, true);
         int256 makerBaseBalance = totalBaseBalanceFromOrders.toInt256().sub(totalBaseDebtFromOrder.toInt256());
 
-        int256 takerBaseBalance = _accountMarketMap[trader][baseToken].takerBaseBalance;
-        int256 totalPositionSize = makerBaseBalance.add(takerBaseBalance);
+        int256 takerPositionSize = _accountMarketMap[trader][baseToken].takerPositionSize;
+        int256 totalPositionSize = makerBaseBalance.add(takerPositionSize);
         return totalPositionSize.abs() < _DUST ? 0 : totalPositionSize;
     }
 
@@ -332,9 +332,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 deltaQuote
     ) internal returns (int256, int256) {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerBaseBalance = accountInfo.takerBaseBalance.add(deltaBase);
-        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.add(deltaQuote);
-        return (accountInfo.takerBaseBalance, accountInfo.takerQuoteBalance);
+        accountInfo.takerPositionSize = accountInfo.takerPositionSize.add(deltaBase);
+        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.add(deltaQuote);
+        return (accountInfo.takerPositionSize, accountInfo.takerOpenNotional);
     }
 
     function _modifyOwedRealizedPnl(address trader, int256 delta) internal {
@@ -350,14 +350,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 amount
     ) internal {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerQuoteBalance = accountInfo.takerQuoteBalance.sub(amount);
+        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.sub(amount);
         _modifyOwedRealizedPnl(trader, amount);
     }
 
     /// @dev this function is expensive
     function _deregisterBaseToken(address trader, address baseToken) internal {
         AccountMarket.Info memory info = _accountMarketMap[trader][baseToken];
-        if (info.takerBaseBalance.abs() >= _DUST || info.takerQuoteBalance.abs() >= _DUST) {
+        if (info.takerPositionSize.abs() >= _DUST || info.takerOpenNotional.abs() >= _DUST) {
             return;
         }
 
@@ -400,7 +400,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerQuoteBalance);
+            totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerOpenNotional);
         }
 
         // owedFee is included

@@ -10,8 +10,8 @@ library AccountMarket {
 
     /// @param lastTwPremiumGrowthGlobalX96 the last time weighted premiumGrowthGlobalX96
     struct Info {
-        int256 takerBaseBalance;
-        int256 takerQuoteBalance;
+        int256 takerPositionSize;
+        int256 takerOpenNotional;
         int256 lastTwPremiumGrowthGlobalX96;
     }
 
