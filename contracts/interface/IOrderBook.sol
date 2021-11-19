@@ -75,6 +75,8 @@ interface IOrderBook {
         bytes32[] calldata orderIds
     ) external returns (RemoveLiquidityResponse memory);
 
+    /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
+    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
@@ -107,6 +109,10 @@ interface IOrderBook {
         view
         returns (int256 totalQuoteAmountInPools, uint256 totalPendingFee);
 
+    /// @dev the returned quote amount does not include funding payment because
+    ///      the latter is counted directly toward realizedPnl.
+    ///      the return value includes maker fee.
+    ///      please refer to _getTotalTokenAmountInPool() docstring for specs
     function getTotalTokenAmountInPoolAndPendingFee(
         address trader,
         address baseToken,
@@ -119,13 +125,13 @@ interface IOrderBook {
         bool fetchBase
     ) external view returns (uint256);
 
+    /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
+    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
     ) external view returns (int256 liquidityCoefficientInFundingPayment);
-
-    function getFeeGrowthGlobal(address baseToken) external view returns (uint256);
 
     function getOwedFee(
         address trader,
