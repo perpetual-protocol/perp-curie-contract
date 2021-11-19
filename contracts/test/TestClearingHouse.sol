@@ -85,7 +85,11 @@ contract TestClearingHouse is ClearingHouse {
         );
 
         if (response.pnlToBeRealized != 0) {
-            IAccountBalance(_accountBalance).settleQuoteToPnl(_msgSender(), params.baseToken, response.pnlToBeRealized);
+            IAccountBalance(_accountBalance).settleQuoteToOwedRealizedPnl(
+                _msgSender(),
+                params.baseToken,
+                response.pnlToBeRealized
+            );
         }
         return response;
     }
