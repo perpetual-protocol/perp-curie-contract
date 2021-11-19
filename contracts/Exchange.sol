@@ -77,7 +77,10 @@ contract Exchange is
         int256 deltaAvailableQuote;
     }
 
+    //
     // CONSTANT
+    //
+
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
@@ -110,7 +113,6 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
-    // solhint-disable-next-line
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
@@ -122,7 +124,6 @@ contract Exchange is
         require(maxTickCrossedWithinBlock <= (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
     }
 
@@ -223,7 +224,7 @@ contract Exchange is
     /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
-        public
+        external
         override
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
@@ -598,6 +599,19 @@ contract Exchange is
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
+    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
+        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 twapDiffX96;
+        if (markTwapX96 > indexTwapX96) {
+            twapDiffX96 = markTwapX96.sub(indexTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
+        } else {
+            twapDiffX96 = indexTwapX96.sub(markTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
+        }
+    }
+
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
         // closedRatio is based on the position size
         uint256 closedRatio =
@@ -701,18 +715,5 @@ contract Exchange is
 
         return
             liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
-    }
-
-    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
-        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
-        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 twapDiffX96;
-        if (markTwapX96 > indexTwapX96) {
-            twapDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
-        } else {
-            twapDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
-        }
     }
 }
