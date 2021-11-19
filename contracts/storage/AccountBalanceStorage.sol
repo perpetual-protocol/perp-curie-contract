@@ -8,7 +8,6 @@ import { AccountMarket } from "../lib/AccountMarket.sol";
 /// AccountBalanceStorageVX.
 abstract contract AccountBalanceStorageV1 {
     address internal _clearingHouseConfig;
-    address internal _exchange;
     address internal _orderBook;
     address internal _vault;
 

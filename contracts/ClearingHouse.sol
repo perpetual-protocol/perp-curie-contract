@@ -112,7 +112,8 @@ contract ClearingHouse is
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
-        address accountBalanceArg
+        address accountBalanceArg,
+        address insuranceFundArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
         require(vaultArg.isContract(), "CH_VANC");
@@ -128,6 +129,8 @@ contract ClearingHouse is
         require(accountBalanceArg.isContract(), "CH_ABNC");
         // CH_ANC: address is not contract
         require(exchangeArg.isContract(), "CH_ANC");
+        // CH_IFANC: InsuranceFund address is not contract
+        require(insuranceFundArg.isContract(), "CH_IFANC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
@@ -143,6 +146,7 @@ contract ClearingHouse is
         _exchange = exchangeArg;
         _orderBook = orderBookArg;
         _accountBalance = accountBalanceArg;
+        _insuranceFund = insuranceFundArg;
 
         _settlementTokenDecimals = IVault(_vault).decimals();
     }
@@ -175,7 +179,7 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
-        Funding.Growth memory fundingGrowthGlobal = IExchange(_exchange).settleFunding(trader, params.baseToken);
+        Funding.Growth memory fundingGrowthGlobal = _settleFunding(trader, params.baseToken);
 
         // note that we no longer check available tokens here because CH will always auto-mint in UniswapV3MintCallback
         IOrderBook.AddLiquidityResponse memory response =
@@ -312,7 +316,7 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidity(
@@ -395,7 +399,7 @@ contract ClearingHouse is
                 );
             }
 
-            IExchange(_exchange).settleFunding(trader, baseTokens[i]);
+            _settleFunding(trader, baseTokens[i]);
         }
     }
 
@@ -422,7 +426,7 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _openPosition(
@@ -473,7 +477,7 @@ contract ClearingHouse is
         address trader = _msgSender();
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, params.baseToken);
+        _settleFunding(trader, params.baseToken);
 
         IExchange.SwapResponse memory response =
             _closePosition(
@@ -531,7 +535,7 @@ contract ClearingHouse is
         );
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(trader, baseToken);
+        _settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
             _closePosition(InternalClosePositionParams({ trader: trader, baseToken: baseToken, sqrtPriceLimitX96: 0 }));
 
@@ -679,6 +683,11 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
+    function getInsuranceFund() external view override returns (address) {
+        return _insuranceFund;
+    }
+
+    /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
         int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnl, int256 unrealizedPnl, uint256 pendingFee) =
@@ -710,7 +719,7 @@ contract ClearingHouse is
         );
 
         // must settle funding first
-        IExchange(_exchange).settleFunding(maker, baseToken);
+        _settleFunding(maker, baseToken);
         IOrderBook.RemoveLiquidityResponse memory response =
             IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
@@ -763,6 +772,27 @@ contract ClearingHouse is
                 })
             );
 
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
+
+        // examples:
+        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
+        IAccountBalance(_accountBalance).modifyTakerBalance(
+            params.trader,
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
+        );
+
+        if (response.pnlToBeRealized != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(
+                params.trader,
+                params.baseToken,
+                response.pnlToBeRealized
+            );
+        }
+
+        int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
+
         if (!params.skipMarginRequirementCheck) {
             // it's not closing the position, check margin ratio
             _requireEnoughFreeCollateral(params.trader);
@@ -773,8 +803,8 @@ contract ClearingHouse is
             response.exchangedPositionSize,
             response.exchangedPositionNotional,
             response.fee,
-            response.openNotional,
-            response.realizedPnl,
+            openNotional,
+            response.pnlToBeRealized,
             response.sqrtPriceAfterX96
         );
 
@@ -808,6 +838,26 @@ contract ClearingHouse is
                     skipMarginRequirementCheck: true
                 })
             );
+    }
+
+    function _settleFunding(address trader, address baseToken)
+        internal
+        returns (Funding.Growth memory fundingGrowthGlobal)
+    {
+        int256 fundingPayment;
+        (fundingPayment, fundingGrowthGlobal) = IExchange(_exchange).settleFunding(trader, baseToken);
+
+        if (fundingPayment != 0) {
+            IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, fundingPayment.neg256());
+            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
+        }
+
+        IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
+            trader,
+            baseToken,
+            fundingGrowthGlobal.twPremiumX96
+        );
+        return fundingGrowthGlobal;
     }
 
     //

@@ -2,11 +2,16 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import { PerpSafeCast } from "../lib/PerpSafeCast.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import "../ClearingHouse.sol";
 import "./TestAccountBalance.sol";
 import "./TestExchange.sol";
 
 contract TestClearingHouse is ClearingHouse {
+    using PerpSafeCast for uint256;
+    using SignedSafeMathUpgradeable for int256;
+
     uint256 private _testBlockTimestamp;
 
     function __TestClearingHouse_init(
@@ -15,9 +20,18 @@ contract TestClearingHouse is ClearingHouse {
         address quoteTokenArg,
         address uniV3FactoryArg,
         address exchangeArg,
-        address accountBalanceArg
+        address accountBalanceArg,
+        address insuranceFundArg
     ) external initializer {
-        ClearingHouse.initialize(configArg, vaultArg, quoteTokenArg, uniV3FactoryArg, exchangeArg, accountBalanceArg);
+        ClearingHouse.initialize(
+            configArg,
+            vaultArg,
+            quoteTokenArg,
+            uniV3FactoryArg,
+            exchangeArg,
+            accountBalanceArg,
+            insuranceFundArg
+        );
         _testBlockTimestamp = block.timestamp;
     }
 
@@ -50,7 +64,7 @@ contract TestClearingHouse is ClearingHouse {
     function swap(SwapParams memory params) external nonReentrant() returns (IExchange.SwapResponse memory) {
         IAccountBalance(_accountBalance).registerBaseToken(_msgSender(), params.baseToken);
 
-        return
+        IExchange.SwapResponse memory response =
             IExchange(_exchange).swap(
                 IExchange.SwapParams({
                     trader: _msgSender(),
@@ -62,6 +76,18 @@ contract TestClearingHouse is ClearingHouse {
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
+
+        IAccountBalance(_accountBalance).modifyTakerBalance(
+            _msgSender(),
+            params.baseToken,
+            response.exchangedPositionSize,
+            response.exchangedPositionNotional.sub(response.fee.toInt256())
+        );
+
+        if (response.pnlToBeRealized != 0) {
+            IAccountBalance(_accountBalance).settleQuoteToPnl(_msgSender(), params.baseToken, response.pnlToBeRealized);
+        }
+        return response;
     }
 
     function getTokenBalance(address trader, address baseToken) external view returns (int256, int256) {

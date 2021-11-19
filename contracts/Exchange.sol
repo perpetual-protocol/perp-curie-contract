@@ -88,8 +88,7 @@ contract Exchange is
     function initialize(
         address marketRegistryArg,
         address orderBookArg,
-        address clearingHouseConfigArg,
-        address insuranceFundArg
+        address clearingHouseConfigArg
     ) external initializer {
         __ClearingHouseCallee_init();
         __UniswapV3CallbackBridge_init(marketRegistryArg);
@@ -98,11 +97,8 @@ contract Exchange is
         require(orderBookArg.isContract(), "E_OBNC");
         // E_CHNC: CH is not contract
         require(clearingHouseConfigArg.isContract(), "E_CHNC");
-        // E_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "E_IFANC");
 
         // update states
-        _insuranceFund = insuranceFundArg;
         _orderBook = orderBookArg;
         _clearingHouseConfig = clearingHouseConfigArg;
     }
@@ -187,17 +183,6 @@ contract Exchange is
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
-        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
-
-        // examples:
-        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
-        IAccountBalance(_accountBalance).modifyTakerBalance(
-            params.trader,
-            params.baseToken,
-            response.exchangedPositionSize,
-            response.exchangedPositionNotional.sub(response.fee.toInt256())
-        );
-
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
@@ -213,12 +198,6 @@ contract Exchange is
             );
         }
 
-        if (pnlToBeRealized != 0) {
-            IAccountBalance(_accountBalance).settleQuoteToPnl(params.trader, params.baseToken, pnlToBeRealized);
-        }
-
-        int256 takerOpenNotional =
-            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         (uint256 sqrtPriceX96, , , , , , ) =
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         return
@@ -228,8 +207,8 @@ contract Exchange is
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
                 fee: response.fee,
-                openNotional: takerOpenNotional,
-                realizedPnl: pnlToBeRealized,
+                insuranceFundFee: response.insuranceFundFee,
+                pnlToBeRealized: pnlToBeRealized,
                 sqrtPriceAfterX96: sqrtPriceX96,
                 tick: response.tick,
                 isPartialClose: isPartialClose
@@ -241,11 +220,12 @@ contract Exchange is
     ///      this function 1. settles personal funding payment 2. updates global funding growth
     ///      personal funding payment is settled whenever there is pending funding payment
     ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         public
         override
-        returns (Funding.Growth memory fundingGrowthGlobal)
+        returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
@@ -254,19 +234,13 @@ contract Exchange is
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
 
-        int256 fundingPayment =
-            _updateFundingGrowth(
-                trader,
-                baseToken,
-                IAccountBalance(_accountBalance).getBase(trader, baseToken),
-                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
-                fundingGrowthGlobal
-            );
-
-        if (fundingPayment != 0) {
-            IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, fundingPayment.neg256());
-            emit FundingPaymentSettled(trader, baseToken, fundingPayment);
-        }
+        fundingPayment = _updateFundingGrowth(
+            trader,
+            baseToken,
+            IAccountBalance(_accountBalance).getBase(trader, baseToken),
+            IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
+            fundingGrowthGlobal
+        );
 
         uint256 timestamp = _blockTimestamp();
         // update states before further actions in this block; once per block
@@ -285,13 +259,7 @@ contract Exchange is
             _lastUpdatedTickMap[baseToken] = getTick(baseToken);
         }
 
-        IAccountBalance(_accountBalance).updateTwPremiumGrowthGlobal(
-            trader,
-            baseToken,
-            fundingGrowthGlobal.twPremiumX96
-        );
-
-        return fundingGrowthGlobal;
+        return (fundingPayment, fundingGrowthGlobal);
     }
 
     //
@@ -311,11 +279,6 @@ contract Exchange is
     /// @inheritdoc IExchange
     function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
-    }
-
-    /// @inheritdoc IExchange
-    function getInsuranceFund() external view override returns (address) {
-        return _insuranceFund;
     }
 
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {

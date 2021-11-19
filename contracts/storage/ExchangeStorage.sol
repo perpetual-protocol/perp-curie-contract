@@ -11,7 +11,6 @@ abstract contract ExchangeStorageV1 {
 
     address internal _accountBalance;
     address internal _clearingHouseConfig;
-    address internal _insuranceFund;
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;

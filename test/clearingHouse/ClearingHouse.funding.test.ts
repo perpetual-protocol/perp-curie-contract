@@ -363,7 +363,7 @@ describe("ClearingHouse funding", () => {
                 })
 
                 await expect(tx)
-                    .to.emit(exchange, "FundingPaymentSettled")
+                    .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
                 await expect(tx)
                     .to.emit(exchange, "FundingUpdated")
@@ -449,7 +449,7 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     })
                     await expect(tx)
-                        .to.emit(exchange, "FundingPaymentSettled")
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("-0.024753444259323776"))
                     await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
@@ -537,7 +537,7 @@ describe("ClearingHouse funding", () => {
                     })
 
                     await expect(tx)
-                        .to.emit(exchange, "FundingPaymentSettled")
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
                     await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
@@ -633,7 +633,7 @@ describe("ClearingHouse funding", () => {
                             referralCode: ethers.constants.HashZero,
                         }),
                     )
-                        .to.emit(exchange, "FundingPaymentSettled")
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(bob.address, baseToken.address, parseEther("-0.001781062548099241"))
 
                     // verify owedRealizedPnl
@@ -780,7 +780,7 @@ describe("ClearingHouse funding", () => {
                         "-203202869155103601574",
                         parseEther("0.829279386920164902"),
                     )
-                    .to.emit(exchange, "FundingPaymentSettled")
+                    .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -825,7 +825,7 @@ describe("ClearingHouse funding", () => {
                         "-203202869155103601574",
                         "0",
                     )
-                    .to.emit(exchange, "FundingPaymentSettled")
+                    .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -868,7 +868,7 @@ describe("ClearingHouse funding", () => {
                         "-808767873126541797029",
                         parseEther("1"),
                     )
-                    .to.emit(exchange, "FundingPaymentSettled")
+                    .to.emit(clearingHouse, "FundingPaymentSettled")
                     .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
 
                 // verify owedRealizedPnl
@@ -967,7 +967,7 @@ describe("ClearingHouse funding", () => {
                             "0",
                             parseEther("0.829279386920164902"),
                         )
-                        .to.emit(exchange, "FundingPaymentSettled")
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("-0.035604217676821184"))
 
                     // verify owedRealizedPnl
@@ -1116,7 +1116,7 @@ describe("ClearingHouse funding", () => {
                     })
 
                     await expect(tx)
-                        .to.emit(exchange, "FundingPaymentSettled")
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
                         .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
                     await expect(tx)
                         .to.emit(clearingHouse, "LiquidityChanged")

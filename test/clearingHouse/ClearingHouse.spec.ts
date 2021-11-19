@@ -57,6 +57,7 @@ describe("ClearingHouse Spec", () => {
                     uniV3Factory.address,
                     exchange.address,
                     accountBalance.address,
+                    insuranceFund.address,
                 ),
             ).to.be.revertedWith("CH_VANC")
         })
@@ -72,6 +73,7 @@ describe("ClearingHouse Spec", () => {
                     uniV3Factory.address,
                     exchange.address,
                     accountBalance.address,
+                    insuranceFund.address,
                 ),
             ).to.be.revertedWith("CH_QANC")
         })
@@ -87,6 +89,7 @@ describe("ClearingHouse Spec", () => {
                     wallet.address,
                     exchange.address,
                     accountBalance.address,
+                    insuranceFund.address,
                 ),
             ).to.be.revertedWith("CH_UANC")
         })

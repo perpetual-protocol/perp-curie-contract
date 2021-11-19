@@ -33,39 +33,19 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     uint256 internal constant _DUST = 10 wei;
 
     //
-    // MODIFIER
-    //
-
-    modifier onlyExchange() {
-        // only Exchange
-        require(_msgSender() == _exchange, "AB_OEX");
-        _;
-    }
-
-    modifier onlyExchangeOrClearingHouse() {
-        // only Exchange or ClearingHouse
-        require(_msgSender() == _exchange || _msgSender() == _clearingHouse, "AB_O_EX|CH");
-        _;
-    }
-
-    //
     // EXTERNAL NON-VIEW
     //
 
-    function initialize(address clearingHouseConfigArg, address exchangeArg) external initializer {
+    function initialize(address clearingHouseConfigArg, address orderBookArg) external initializer {
         // IClearingHouseConfig address is not contract
         require(clearingHouseConfigArg.isContract(), "AB_CHCNC");
-        // Exchange is not contract
-        require(exchangeArg.isContract(), "AB_EXNC");
 
-        address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // IOrderBook is not contract
         require(orderBookArg.isContract(), "AB_OBNC");
 
         __ClearingHouseCallee_init();
 
         _clearingHouseConfig = clearingHouseConfigArg;
-        _exchange = exchangeArg;
         _orderBook = orderBookArg;
     }
 
@@ -81,11 +61,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 deltaTakerBase,
         int256 deltaTakerQuote
-    ) external override onlyExchangeOrClearingHouse {
+    ) external override {
+        _requireOnlyClearingHouse();
         _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
     }
 
-    function modifyOwedRealizedPnl(address trader, int256 delta) external override onlyExchangeOrClearingHouse {
+    function modifyOwedRealizedPnl(address trader, int256 delta) external override {
+        _requireOnlyClearingHouse();
         _modifyOwedRealizedPnl(trader, delta);
     }
 
@@ -93,7 +75,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 amount
-    ) external override onlyExchange {
+    ) external override {
+        _requireOnlyClearingHouse();
         _settleQuoteToPnl(trader, baseToken, amount);
     }
 
@@ -155,7 +138,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address trader,
         address baseToken,
         int256 lastTwPremiumGrowthGlobalX96
-    ) external override onlyExchange {
+    ) external override {
+        _requireOnlyClearingHouse();
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
@@ -166,11 +150,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getClearingHouseConfig() external view override returns (address) {
         return _clearingHouseConfig;
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getExchange() external view override returns (address) {
-        return _exchange;
     }
 
     /// @inheritdoc IAccountBalance
