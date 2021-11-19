@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `OrderBook.getTotalTokenAmountInPool` to `OrderBook.getTotalTokenAmountInPoolAndPendingFee`
 - rename `AccountBalance.getOwedAndUnrealizedPnl` to `AccountBalance.getPnlAndPendingFee`
 - rename `AccountBalance.getNetQuoteBalance` to `AccountBalance.getNetQuoteBalanceAndPendingFee`
+- rename `AccountBalance.settleQuoteToPnl` to `AccountBalance.settleQuoteToOwedRealizedPnl`
 
 - add new second return value `pendingFee` of `AccountBalance.getOwedAndUnrealizedPnl`
 - add new second return value `pendingFee` of `AccountBalance.getNetQuoteBalance`

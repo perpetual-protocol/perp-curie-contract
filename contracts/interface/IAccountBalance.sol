@@ -32,6 +32,12 @@ interface IAccountBalance {
     /// @dev this function is now only called by Vault.withdraw()
     function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
+    function settleQuoteToOwedRealizedPnl(
+        address trader,
+        address baseToken,
+        int256 amount
+    ) external;
+
     /// @dev Settle account balance and deregister base token
     /// @param maker The address of the maker
     /// @param baseToken The address of the market's base token
@@ -56,12 +62,6 @@ interface IAccountBalance {
     /// @param trader The address of the trader
     /// @param baseToken The address of the trader's base token
     function deregisterBaseToken(address trader, address baseToken) external;
-
-    function settleQuoteToOwedRealizedPnl(
-        address trader,
-        address baseToken,
-        int256 amount
-    ) external;
 
     function updateTwPremiumGrowthGlobal(
         address trader,
