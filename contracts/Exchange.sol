@@ -216,13 +216,7 @@ contract Exchange is
             });
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    ///      while it doesn't matter who calls this function
-    ///      this function 1. settles personal funding payment 2. updates global funding growth
-    ///      personal funding payment is settled whenever there is pending funding payment
-    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    /// @inheritdoc IExchange
     function settleFunding(address trader, address baseToken)
         external
         override
@@ -286,6 +280,30 @@ contract Exchange is
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
+    function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
+        int256 takerPositionSize =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
+        bool isReducingPosition =
+            takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
+
+        int256 takerOpenNotional =
+            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
+        return
+            isReducingPosition
+                ? _getPnlToBeRealized(
+                    InternalRealizePnlParams({
+                        trader: params.trader,
+                        baseToken: params.baseToken,
+                        takerPositionSize: takerPositionSize,
+                        takerOpenNotional: takerOpenNotional,
+                        deltaAvailableBase: params.deltaAvailableBase,
+                        deltaAvailableQuote: params.deltaAvailableQuote
+                    })
+                )
+                : 0;
+    }
+
     function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
@@ -296,8 +314,11 @@ contract Exchange is
         return pendingFundingPayment;
     }
 
-    /// @dev this is the view version of _updateFundingGrowth()
-    /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @inheritdoc IExchange
     function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
         (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
 
@@ -366,30 +387,6 @@ contract Exchange is
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
-    }
-
-    function getPnlToBeRealized(RealizePnlParams memory params) public view override returns (int256) {
-        int256 takerPositionSize =
-            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
-        // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
-        bool isReducingPosition =
-            takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
-
-        int256 takerOpenNotional =
-            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
-        return
-            isReducingPosition
-                ? _getPnlToBeRealized(
-                    InternalRealizePnlParams({
-                        trader: params.trader,
-                        baseToken: params.baseToken,
-                        takerPositionSize: takerPositionSize,
-                        takerOpenNotional: takerOpenNotional,
-                        deltaAvailableBase: params.deltaAvailableBase,
-                        deltaAvailableQuote: params.deltaAvailableQuote
-                    })
-                )
-                : 0;
     }
 
     //
