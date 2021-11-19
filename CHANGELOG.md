@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AccountBalance.getNetQuoteBalanceAndPendingFee`
 - remove parameter `insuranceFundArg` from `initialize` of Exchange
 - remove parameter `exchangeArg` from `initialize` of AccountBalance
+- `Exchange.getTick`
 
 ## [0.14.0-staging] - 2021-11-17
 

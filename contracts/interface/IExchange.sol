@@ -77,8 +77,6 @@ interface IExchange {
             uint256 indexTwap
         );
 
-    function getTick(address baseToken) external view returns (int24);
-
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
     function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);

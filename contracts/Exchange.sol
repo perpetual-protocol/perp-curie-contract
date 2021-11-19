@@ -256,7 +256,7 @@ contract Exchange is
             emit FundingUpdated(baseToken, markTwap, indexTwap);
 
             // update tick for price limit checks
-            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
+            _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
 
         return (fundingPayment, fundingGrowthGlobal);
@@ -361,11 +361,6 @@ contract Exchange is
         }
 
         return (fundingGrowthGlobal, markTwap, indexTwap);
-    }
-
-    function getTick(address baseToken) public view override returns (int24) {
-        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
-        return tick;
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
@@ -572,7 +567,7 @@ contract Exchange is
     //
 
     function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = getTick(baseToken);
+        int24 tick = _getTick(baseToken);
         return _isOverPriceLimitWithTick(baseToken, tick);
     }
 
@@ -586,6 +581,11 @@ contract Exchange is
         int24 upperTickBound = lastUpdatedTick.add(maxTickDelta).toInt24();
         int24 lowerTickBound = lastUpdatedTick.sub(maxTickDelta).toInt24();
         return (tick < lowerTickBound || tick > upperTickBound);
+    }
+
+    function _getTick(address baseToken) internal view returns (int24) {
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        return tick;
     }
 
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
