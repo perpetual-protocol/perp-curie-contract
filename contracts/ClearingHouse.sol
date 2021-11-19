@@ -362,43 +362,10 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
-    function settleAllFundingAndPendingFee(address trader) external override {
+    function settleAllFunding(address trader) external override {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
         for (uint256 i = 0; i < baseTokenLength; i++) {
-            // collect all pending fees from orders
-            bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseTokens[i]);
-            uint256 orderIdLength = orderIds.length;
-
-            for (uint256 j = 0; j < orderIdLength; j++) {
-                OpenOrder.Info memory orderInfo = IOrderBook(_orderBook).getOpenOrderById(orderIds[j]);
-                // will settle pending fee to owedRealizedPnl in ClearingHouse
-                IOrderBook.RemoveLiquidityResponse memory response =
-                    IOrderBook(_orderBook).removeLiquidity(
-                        IOrderBook.RemoveLiquidityParams({
-                            maker: trader,
-                            baseToken: baseTokens[i],
-                            lowerTick: orderInfo.lowerTick,
-                            upperTick: orderInfo.upperTick,
-                            liquidity: 0
-                        })
-                    );
-
-                _settleBalanceAndRealizePnl(trader, baseTokens[i], response);
-
-                emit LiquidityChanged(
-                    trader,
-                    baseTokens[i],
-                    _quoteToken,
-                    orderInfo.lowerTick,
-                    orderInfo.upperTick,
-                    0,
-                    0,
-                    0,
-                    response.fee
-                );
-            }
-
             _settleFunding(trader, baseTokens[i]);
         }
     }
