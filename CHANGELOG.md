@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 - rename the param `sqrtPriceAfter` in the `PositionChanged` event to `sqrtPriceAfterX96`
+- rename `takerBaseBalance` & `takerQuoteBalance` to `takerPositionSize` & `takerOpenNotional` in struct `AccountMarket.Info`
 
 - move event `FundingPaymentSettled` to ClearingHouse
 

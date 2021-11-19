@@ -13,13 +13,6 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
-    /// @dev Emit whenever a trader's `takerBalances` is updated
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the base token
-    /// @param deltaBase The base amount changed
-    /// @param deltaQuote The quote amount changed
-    event TakerBalancesChanged(address indexed trader, address indexed baseToken, int256 deltaBase, int256 deltaQuote);
-
     function modifyTakerBalance(
         address trader,
         address baseToken,
