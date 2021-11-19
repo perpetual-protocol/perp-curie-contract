@@ -65,7 +65,6 @@ contract ClearingHouse is
         bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
-        bool skipMarginRequirementCheck;
     }
 
     struct InternalClosePositionParams {
@@ -437,8 +436,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     isClose: false,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: false
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 
@@ -791,12 +789,14 @@ contract ClearingHouse is
             );
         }
 
-        int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
-
-        if (!params.skipMarginRequirementCheck) {
-            // it's not closing the position, check margin ratio
+        // if not closing a position, check margin ratio after swap
+        if (!params.isClose) {
             _requireEnoughFreeCollateral(params.trader);
         }
+
+        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
+
+        int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         emit PositionChanged(
             params.trader,
             params.baseToken,
@@ -807,8 +807,6 @@ contract ClearingHouse is
             response.pnlToBeRealized,
             response.sqrtPriceAfterX96
         );
-
-        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
     }
@@ -834,8 +832,7 @@ contract ClearingHouse is
                     isExactInput: isLong,
                     isClose: true,
                     amount: positionSize.abs(),
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    skipMarginRequirementCheck: true
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
     }
