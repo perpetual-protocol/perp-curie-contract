@@ -126,7 +126,7 @@ describe("Vault withdraw test", () => {
             await check(alice, true)
         })
 
-        it("collect fee before withdraw when maker make profit", async () => {
+        it("won't collect fee before withdraw when maker make profit", async () => {
             // alice swap, bob has pending fee
             await q2bExactInput(fixture, alice, 100)
             await closePosition(fixture, alice)
@@ -138,8 +138,9 @@ describe("Vault withdraw test", () => {
             const freeCollateral = await vault.getFreeCollateral(bob.address)
             await vault.connect(bob).withdraw(usdc.address, freeCollateral)
 
-            pendingFee = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
-            expect(pendingFee).to.be.deep.eq("0")
+            // pending fee remains the same
+            const pendingFeeAfter = (await accountBalance.getPnlAndPendingFee(bob.address))[2]
+            expect(pendingFee).to.be.deep.eq(pendingFeeAfter)
         })
     })
 })
