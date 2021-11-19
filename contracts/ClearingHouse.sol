@@ -795,8 +795,6 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
-
         int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         emit PositionChanged(
             params.trader,
@@ -808,6 +806,8 @@ contract ClearingHouse is
             response.pnlToBeRealized,
             response.sqrtPriceAfterX96
         );
+
+        IAccountBalance(_accountBalance).deregisterBaseToken(params.trader, params.baseToken);
 
         return response;
     }

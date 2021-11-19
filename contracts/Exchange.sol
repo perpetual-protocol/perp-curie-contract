@@ -281,14 +281,15 @@ contract Exchange is
     }
 
     function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
-        int256 takerPositionSize =
-            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        AccountMarket.Info memory info =
+            IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
+
+        int256 takerOpenNotional = info.takerQuoteBalance;
+        int256 takerPositionSize = info.takerBaseBalance;
         // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
-        int256 takerOpenNotional =
-            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         return
             isReducingPosition
                 ? _getPnlToBeRealized(
