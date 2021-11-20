@@ -73,19 +73,6 @@ interface IExchange {
     /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
 
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for settleFunding()
-    /// @return indexTwap only for settleFunding()
-    function getFundingGrowthGlobalAndTwaps(address baseToken)
-        external
-        view
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        );
-
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
     function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256);

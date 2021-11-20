@@ -227,7 +227,7 @@ contract Exchange is
 
         uint256 markTwap;
         uint256 indexTwap;
-        (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
+        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         fundingPayment = _updateFundingGrowth(
             trader,
@@ -321,7 +321,7 @@ contract Exchange is
 
     /// @inheritdoc IExchange
     function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
-        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         int256 liquidityCoefficientInFundingPayment =
             IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
@@ -333,57 +333,6 @@ contract Exchange is
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
-    }
-
-    /// @inheritdoc IExchange
-    function getFundingGrowthGlobalAndTwaps(address baseToken)
-        public
-        view
-        override
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        )
-    {
-        uint32 twapInterval;
-        uint256 timestamp = _blockTimestamp();
-        // shorten twapInterval if prior observations are not enough
-        if (_firstTradedTimestampMap[baseToken] != 0) {
-            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
-            // overflow inspection:
-            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
-            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
-        }
-
-        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
-        markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
-
-        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
-            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
-        } else {
-            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
-            int256 twPremiumDeltaX96 =
-                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
-                    timestamp.sub(lastSettledTimestamp).toInt256()
-                );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
-
-            // overflow inspection:
-            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
-            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
-            );
-        }
-
-        return (fundingGrowthGlobal, markTwap, indexTwap);
     }
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
@@ -461,7 +410,7 @@ contract Exchange is
                 marketInfo.uniswapFeeRatio
             );
 
-        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(params.baseToken);
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(params.baseToken);
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
             IOrderBook(_orderBook).replaySwap(
@@ -585,6 +534,59 @@ contract Exchange is
     function _getTick(address baseToken) internal view returns (int24) {
         (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         return tick;
+    }
+
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
+    /// @return markTwap only for settleFunding()
+    /// @return indexTwap only for settleFunding()
+    function _getFundingGrowthGlobalAndTwaps(address baseToken)
+        internal
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
+    {
+        uint32 twapInterval;
+        uint256 timestamp = _blockTimestamp();
+        // shorten twapInterval if prior observations are not enough
+        if (_firstTradedTimestampMap[baseToken] != 0) {
+            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
+        }
+
+        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+        markTwap = markTwapX96.formatX96ToX10_18();
+        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+
+        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
+            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        } else {
+            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
+            int256 twPremiumDeltaX96 =
+                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+                    timestamp.sub(lastSettledTimestamp).toInt256()
+                );
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+
+            // overflow inspection:
+            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
+            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
+            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
+                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+            );
+        }
+
+        return (fundingGrowthGlobal, markTwap, indexTwap);
     }
 
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
