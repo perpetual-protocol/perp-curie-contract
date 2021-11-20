@@ -521,14 +521,14 @@ contract Exchange is
     }
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
+        uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxDeltaTick == 0) {
             return false;
         }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick.add(maxTickDelta).toInt24();
-        int24 lowerTickBound = lastUpdatedTick.sub(maxTickDelta).toInt24();
+        // no overflow/underflow issue because there are range limits for tick and maxDeltaTick
+        int24 upperTickBound = lastUpdatedTick.add(maxDeltaTick).toInt24();
+        int24 lowerTickBound = lastUpdatedTick.sub(maxDeltaTick).toInt24();
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
@@ -571,19 +571,19 @@ contract Exchange is
             // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
-            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
-            int256 twPremiumDeltaX96 =
-                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+            // deltaTwPremium = (markTwap - indexTwap) * (now - lastSettledTimestamp)
+            int256 deltaTwPremiumX96 =
+                _getTwapsDiffX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(deltaTwPremiumX96);
 
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
+            // twPremiumDivBySqrtPrice += deltaTwPremium / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
         }
 
@@ -593,23 +593,23 @@ contract Exchange is
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
         // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
-            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+            isLong ? lastUpdatedTick + int24(maxDeltaTick) + 1 : lastUpdatedTick - int24(maxDeltaTick) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+    function _getTwapsDiffX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDiffX96) {
         uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
         uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 twapDiffX96;
+        uint256 absTwapDiffX96;
         if (markTwapX96 > indexTwapX96) {
-            twapDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
+            absTwapDiffX96 = markTwapX96.sub(indexTwapX96);
+            twapDiffX96 = absTwapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : absTwapDiffX96.toInt256();
         } else {
-            twapDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
+            absTwapDiffX96 = indexTwapX96.sub(markTwapX96);
+            twapDiffX96 = absTwapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : absTwapDiffX96.neg256();
         }
     }
 
