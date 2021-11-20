@@ -233,8 +233,7 @@ contract OrderBook is
         return removeLiquidityResponse;
     }
 
-    /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
-    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
+    /// @inheritdoc IOrderBook
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
@@ -461,33 +460,15 @@ contract OrderBook is
     {
         for (uint256 i = 0; i < baseTokens.length; i++) {
             address baseToken = baseTokens[i];
-            (int256 makerQuoteBalance, uint256 pendingFee) = _getMakerBalance(trader, baseToken, false);
+            (int256 makerQuoteBalance, uint256 pendingFee) =
+                _getMakerQuoteBalanceAndPendingFee(trader, baseToken, false);
             totalQuoteAmountInPools = totalQuoteAmountInPools.add(makerQuoteBalance);
             totalPendingFee = totalPendingFee.add(pendingFee);
         }
         return (totalQuoteAmountInPools, totalPendingFee);
     }
 
-    function getTotalOrderDebt(
-        address trader,
-        address baseToken,
-        bool fetchBase
-    ) public view override returns (uint256) {
-        uint256 totalOrderDebt;
-        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
-        uint256 orderIdLength = orderIds.length;
-        for (uint256 i = 0; i < orderIdLength; i++) {
-            OpenOrder.Info memory orderInfo = _openOrderMap[orderIds[i]];
-            uint256 orderDebt = fetchBase ? orderInfo.baseDebt : orderInfo.quoteDebt;
-            totalOrderDebt = totalOrderDebt.add(orderDebt);
-        }
-        return totalOrderDebt;
-    }
-
-    /// @dev the returned quote amount does not include funding payment because
-    ///      the latter is counted directly toward realizedPnl.
-    ///      the return value includes maker fee.
-    ///      please refer to _getTotalTokenAmountInPool() docstring for specs
+    /// @inheritdoc IOrderBook
     function getTotalTokenAmountInPoolAndPendingFee(
         address trader,
         address baseToken,
@@ -496,8 +477,7 @@ contract OrderBook is
         (tokenAmount, pendingFee) = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
     }
 
-    /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment()
-    /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
+    /// @inheritdoc IOrderBook
     function getLiquidityCoefficientInFundingPayment(
         address trader,
         address baseToken,
@@ -543,8 +523,24 @@ contract OrderBook is
         return owedFee;
     }
 
-    function getFeeGrowthGlobal(address baseToken) external view override returns (uint256) {
-        return _feeGrowthGlobalX128Map[baseToken];
+    //
+    // PUBLIC VIEW
+    //
+
+    function getTotalOrderDebt(
+        address trader,
+        address baseToken,
+        bool fetchBase
+    ) public view override returns (uint256) {
+        uint256 totalOrderDebt;
+        bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
+        uint256 orderIdLength = orderIds.length;
+        for (uint256 i = 0; i < orderIdLength; i++) {
+            OpenOrder.Info memory orderInfo = _openOrderMap[orderIds[i]];
+            uint256 orderDebt = fetchBase ? orderInfo.baseDebt : orderInfo.quoteDebt;
+            totalOrderDebt = totalOrderDebt.add(orderDebt);
+        }
+        return totalOrderDebt;
     }
 
     //
@@ -700,14 +696,15 @@ contract OrderBook is
     // INTERNAL VIEW
     //
 
-    /// @dev note the return value includes maker fee.
-    function _getMakerBalance(
+    /// @return makerQuoteBalance includes maker fee
+    function _getMakerQuoteBalanceAndPendingFee(
         address trader,
         address baseToken,
         bool fetchBase
     ) internal view returns (int256, uint256) {
         (uint256 totalBalanceFromOrders, uint256 pendingFee) = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
         uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
+
         // makerBalance = totalTokenAmountInPool - totalOrderDebt
         return (totalBalanceFromOrders.toInt256().sub(totalOrderDebt.toInt256()), pendingFee);
     }

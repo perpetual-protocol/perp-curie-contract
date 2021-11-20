@@ -77,7 +77,10 @@ contract Exchange is
         int256 deltaAvailableQuote;
     }
 
+    //
     // CONSTANT
+    //
+
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
@@ -110,7 +113,6 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
-    // solhint-disable-next-line
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_ANC: address is not contract
         require(baseToken.isContract(), "EX_ANC");
@@ -122,7 +124,6 @@ contract Exchange is
         require(maxTickCrossedWithinBlock <= (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
     }
 
@@ -216,15 +217,9 @@ contract Exchange is
             });
     }
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
-    ///      while it doesn't matter who calls this function
-    ///      this function 1. settles personal funding payment 2. updates global funding growth
-    ///      personal funding payment is settled whenever there is pending funding payment
-    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
-    /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
+    /// @inheritdoc IExchange
     function settleFunding(address trader, address baseToken)
-        public
+        external
         override
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
@@ -233,7 +228,7 @@ contract Exchange is
 
         uint256 markTwap;
         uint256 indexTwap;
-        (fundingGrowthGlobal, markTwap, indexTwap) = getFundingGrowthGlobalAndTwaps(baseToken);
+        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         fundingPayment = _updateFundingGrowth(
             trader,
@@ -257,7 +252,7 @@ contract Exchange is
             emit FundingUpdated(baseToken, markTwap, indexTwap);
 
             // update tick for price limit checks
-            _lastUpdatedTickMap[baseToken] = getTick(baseToken);
+            _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
 
         return (fundingPayment, fundingGrowthGlobal);
@@ -286,102 +281,16 @@ contract Exchange is
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
-    function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
-        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
-        uint256 baseTokenLength = baseTokens.length;
+    function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
+        AccountMarket.Info memory info =
+            IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
 
-        for (uint256 i = 0; i < baseTokenLength; i++) {
-            pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
-        }
-        return pendingFundingPayment;
-    }
-
-    /// @dev this is the view version of _updateFundingGrowth()
-    /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
-    function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
-        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(baseToken);
-
-        int256 liquidityCoefficientInFundingPayment =
-            IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
-
-        return
-            _getPendingFundingPaymentWithLiquidityCoefficient(
-                IAccountBalance(_accountBalance).getBase(trader, baseToken),
-                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
-                fundingGrowthGlobal,
-                liquidityCoefficientInFundingPayment
-            );
-    }
-
-    /// @inheritdoc IExchange
-    function getFundingGrowthGlobalAndTwaps(address baseToken)
-        public
-        view
-        override
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        )
-    {
-        uint32 twapInterval;
-        uint256 timestamp = _blockTimestamp();
-        // shorten twapInterval if prior observations are not enough
-        if (_firstTradedTimestampMap[baseToken] != 0) {
-            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
-            // overflow inspection:
-            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
-            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
-            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
-        }
-
-        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
-        markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
-
-        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
-        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
-        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
-            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
-            fundingGrowthGlobal = lastFundingGrowthGlobal;
-        } else {
-            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
-            int256 twPremiumDeltaX96 =
-                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
-                    timestamp.sub(lastSettledTimestamp).toInt256()
-                );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
-
-            // overflow inspection:
-            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
-            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
-            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
-            );
-        }
-
-        return (fundingGrowthGlobal, markTwap, indexTwap);
-    }
-
-    function getTick(address baseToken) public view override returns (int24) {
-        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
-        return tick;
-    }
-
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
-    }
-
-    function getPnlToBeRealized(RealizePnlParams memory params) public view override returns (int256) {
-        int256 takerPositionSize =
-            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        int256 takerOpenNotional = info.takerQuoteBalance;
+        int256 takerPositionSize = info.takerBaseBalance;
         // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
 
-        int256 takerOpenNotional =
-            IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         return
             isReducingPosition
                 ? _getPnlToBeRealized(
@@ -395,6 +304,40 @@ contract Exchange is
                     })
                 )
                 : 0;
+    }
+
+    function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
+        address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
+        uint256 baseTokenLength = baseTokens.length;
+
+        for (uint256 i = 0; i < baseTokenLength; i++) {
+            pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
+        }
+        return pendingFundingPayment;
+    }
+
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @inheritdoc IExchange
+    function getPendingFundingPayment(address trader, address baseToken) public view override returns (int256) {
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(baseToken);
+
+        int256 liquidityCoefficientInFundingPayment =
+            IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
+
+        return
+            _getPendingFundingPaymentWithLiquidityCoefficient(
+                IAccountBalance(_accountBalance).getBase(trader, baseToken),
+                IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
+                fundingGrowthGlobal,
+                liquidityCoefficientInFundingPayment
+            );
+    }
+
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
     //
@@ -468,7 +411,7 @@ contract Exchange is
                 marketInfo.uniswapFeeRatio
             );
 
-        (Funding.Growth memory fundingGrowthGlobal, , ) = getFundingGrowthGlobalAndTwaps(params.baseToken);
+        (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(params.baseToken);
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
             IOrderBook(_orderBook).replaySwap(
@@ -573,7 +516,7 @@ contract Exchange is
     //
 
     function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = getTick(baseToken);
+        int24 tick = _getTick(baseToken);
         return _isOverPriceLimitWithTick(baseToken, tick);
     }
 
@@ -589,6 +532,64 @@ contract Exchange is
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
+    function _getTick(address baseToken) internal view returns (int24) {
+        (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
+        return tick;
+    }
+
+    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
+    /// @return markTwap only for settleFunding()
+    /// @return indexTwap only for settleFunding()
+    function _getFundingGrowthGlobalAndTwaps(address baseToken)
+        internal
+        view
+        returns (
+            Funding.Growth memory fundingGrowthGlobal,
+            uint256 markTwap,
+            uint256 indexTwap
+        )
+    {
+        uint32 twapInterval;
+        uint256 timestamp = _blockTimestamp();
+        // shorten twapInterval if prior observations are not enough
+        if (_firstTradedTimestampMap[baseToken] != 0) {
+            twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+            // overflow inspection:
+            // 2 ^ 32 = 4,294,967,296 > 100 years = 60 * 60 * 24 * 365 * 100 = 3,153,600,000
+            uint32 deltaTimestamp = timestamp.sub(_firstTradedTimestampMap[baseToken]).toUint32();
+            twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
+        }
+
+        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+        markTwap = markTwapX96.formatX96ToX10_18();
+        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+
+        uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
+        Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
+        if (timestamp == lastSettledTimestamp || lastSettledTimestamp == 0) {
+            // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
+            fundingGrowthGlobal = lastFundingGrowthGlobal;
+        } else {
+            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
+            int256 twPremiumDeltaX96 =
+                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+                    timestamp.sub(lastSettledTimestamp).toInt256()
+                );
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+
+            // overflow inspection:
+            // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
+            // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
+            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
+            fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
+                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+            );
+        }
+
+        return (fundingGrowthGlobal, markTwap, indexTwap);
+    }
+
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
@@ -597,6 +598,19 @@ contract Exchange is
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
+    }
+
+    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
+        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 twapDiffX96;
+        if (markTwapX96 > indexTwapX96) {
+            twapDiffX96 = markTwapX96.sub(indexTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
+        } else {
+            twapDiffX96 = indexTwapX96.sub(markTwapX96);
+            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
+        }
     }
 
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
@@ -702,18 +716,5 @@ contract Exchange is
 
         return
             liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
-    }
-
-    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
-        uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
-        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 twapDiffX96;
-        if (markTwapX96 > indexTwapX96) {
-            twapDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
-        } else {
-            twapDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
-        }
     }
 }

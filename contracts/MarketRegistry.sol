@@ -15,24 +15,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     using AddressUpgradeable for address;
 
     //
-    // CONSTRUCTOR
-    //
-    function initialize(address uniswapV3FactoryArg, address quoteTokenArg) external initializer {
-        __ClearingHouseCallee_init();
-
-        // UnsiwapV3Factory is not contract
-        require(uniswapV3FactoryArg.isContract(), "MR_UFNC");
-        // QuoteToken is not contract
-        require(quoteTokenArg.isContract(), "MR_QTNC");
-
-        // update states
-        _uniswapV3Factory = uniswapV3FactoryArg;
-        _quoteToken = quoteTokenArg;
-        _maxOrdersPerMarket = type(uint8).max;
-    }
-
-    //
-    // MODIFIERS
+    // MODIFIER
     //
 
     modifier checkRatio(uint24 ratio) {
@@ -48,8 +31,22 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     }
 
     //
-    // EXTERNAL ADMIN FUNCTIONS
+    // EXTERNAL NON-VIEW
     //
+
+    function initialize(address uniswapV3FactoryArg, address quoteTokenArg) external initializer {
+        __ClearingHouseCallee_init();
+
+        // UnsiwapV3Factory is not contract
+        require(uniswapV3FactoryArg.isContract(), "MR_UFNC");
+        // QuoteToken is not contract
+        require(quoteTokenArg.isContract(), "MR_QTNC");
+
+        // update states
+        _uniswapV3Factory = uniswapV3FactoryArg;
+        _quoteToken = quoteTokenArg;
+        _maxOrdersPerMarket = type(uint8).max;
+    }
 
     function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
         // existent pool

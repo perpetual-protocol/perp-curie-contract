@@ -54,6 +54,13 @@ interface IExchange {
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
+    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    ///      while it doesn't matter who calls this function
+    ///      this function 1. settles personal funding payment 2. updates global funding growth
+    ///      personal funding payment is settled whenever there is pending funding payment
+    ///      the global funding growth update only happens once per unique timestamp (not blockNumber, due to Arbitrum)
+    /// @return fundingPayment the funding payment of a trader in one market should be settled into owned realized Pnl
+    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth, usually used for later calculations
     function settleFunding(address trader, address baseToken)
         external
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal);
@@ -62,22 +69,9 @@ interface IExchange {
 
     function getAllPendingFundingPayment(address trader) external view returns (int256);
 
+    /// @dev this is the view version of _updateFundingGrowth()
+    /// @return the pending funding payment of a trader in one market, including liquidity & balance coefficients
     function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
-
-    /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
-    /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for settleFunding()
-    /// @return indexTwap only for settleFunding()
-    function getFundingGrowthGlobalAndTwaps(address baseToken)
-        external
-        view
-        returns (
-            Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
-            uint256 indexTwap
-        );
-
-    function getTick(address baseToken) external view returns (int24);
 
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
 
