@@ -285,8 +285,8 @@ contract Exchange is
         AccountMarket.Info memory info =
             IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
 
-        int256 takerOpenNotional = info.takerQuoteBalance;
-        int256 takerPositionSize = info.takerBaseBalance;
+        int256 takerOpenNotional = info.takerOpenNotional;
+        int256 takerPositionSize = info.takerPositionSize;
         // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
         bool isReducingPosition =
             takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
