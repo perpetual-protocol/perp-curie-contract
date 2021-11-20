@@ -11,9 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
+- rename params of `AccountBalance.modifyTakerBalance`
+    1. `deltaTakerBase` to `deltaBase`
+    2. `deltaTakerQuote` to `deltaQuote`
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
-- rename the param `sqrtPriceAfter` in the `PositionChanged` event to `sqrtPriceAfterX96`
-- rename `takerBaseBalance` & `takerQuoteBalance` to `takerPositionSize` & `takerOpenNotional` in struct `AccountMarket.Info`
+- rename param `delta` of `AccountBalance.modifyOwedRealizedPnl` as `amount`
+- rename the param `sqrtPriceAfter` in the `ClearingHouse.PositionChanged` event to `sqrtPriceAfterX96`
+- rename params in struct `AccountMarket.Info`
+    1. `takerBaseBalance` to `takerPositionSize` 
+    2. `takerQuoteBalance` to `takerOpenNotional` 
 
 - move event `FundingPaymentSettled` to ClearingHouse
 
@@ -23,12 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `AccountBalance.getNetQuoteBalanceAndPendingFee`
-- remove parameter `insuranceFundArg` from `initialize` of Exchange
+- remove `AccountBalance.getNetQuoteBalanceAndPendingFee`
 - remove parameter `exchangeArg` from `initialize` of AccountBalance
-- `Exchange.getTick`
-- `Exchange.getFundingGrowthGlobalAndTwaps`
-- `OrderBook.getFeeGrowthGlobal`
+- remove parameter `insuranceFundArg` from `initialize` of Exchange
+- remove `Exchange.getTick`
+- remove `Exchange.getFundingGrowthGlobalAndTwaps`
+- remove `OrderBook.getFeeGrowthGlobal`
 
 ## [0.14.0-staging] - 2021-11-17
 

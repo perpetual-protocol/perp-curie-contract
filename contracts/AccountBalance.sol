@@ -61,16 +61,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote
+        int256 deltaBase,
+        int256 deltaQuote
     ) external override returns (int256, int256) {
         _requireOnlyClearingHouse();
-        return _modifyTakerBalance(trader, baseToken, deltaTakerBase, deltaTakerQuote);
+        return _modifyTakerBalance(trader, baseToken, deltaBase, deltaQuote);
     }
 
-    function modifyOwedRealizedPnl(address trader, int256 delta) external override {
+    function modifyOwedRealizedPnl(address trader, int256 amount) external override {
         _requireOnlyClearingHouse();
-        _modifyOwedRealizedPnl(trader, delta);
+        _modifyOwedRealizedPnl(trader, amount);
     }
 
     function settleQuoteToOwedRealizedPnl(
@@ -339,10 +339,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return (accountInfo.takerPositionSize, accountInfo.takerOpenNotional);
     }
 
-    function _modifyOwedRealizedPnl(address trader, int256 delta) internal {
-        if (delta != 0) {
-            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(delta);
-            emit PnlRealized(trader, delta);
+    function _modifyOwedRealizedPnl(address trader, int256 amount) internal {
+        if (amount != 0) {
+            _owedRealizedPnlMap[trader] = _owedRealizedPnlMap[trader].add(amount);
+            emit PnlRealized(trader, amount);
         }
     }
 

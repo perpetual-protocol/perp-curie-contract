@@ -16,11 +16,11 @@ interface IAccountBalance {
     function modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote
+        int256 deltaBase,
+        int256 deltaQuote
     ) external returns (int256, int256);
 
-    function modifyOwedRealizedPnl(address trader, int256 delta) external;
+    function modifyOwedRealizedPnl(address trader, int256 amount) external;
 
     /// @dev this function is now only called by Vault.withdraw()
     function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
