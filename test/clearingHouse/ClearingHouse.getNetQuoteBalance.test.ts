@@ -265,7 +265,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-            ).deltaQuote
+            ).quote
 
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,

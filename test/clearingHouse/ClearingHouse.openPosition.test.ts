@@ -331,8 +331,8 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                expect(response.deltaBase).to.be.eq("6539527905092835")
-                expect(response.deltaQuote).to.be.eq("1000000000000000000")
+                expect(response.base).to.be.eq("6539527905092835")
+                expect(response.quote).to.be.eq("1000000000000000000")
             })
 
             it("increase ? position when exact input", async () => {
