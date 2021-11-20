@@ -553,6 +553,7 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IUniswapV3MintCallback
+    /// @dev namings here follow Uniswap's convention
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
@@ -583,6 +584,7 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
+    /// @dev namings here follow Uniswap's convention
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
