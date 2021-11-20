@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 - rename param `delta` of `AccountBalance.modifyOwedRealizedPnl` as `amount`
 - rename the param `sqrtPriceAfter` in the `ClearingHouse.PositionChanged` event to `sqrtPriceAfterX96`
+- rename params in struct `Exchange.SwapResponse`
+    1. `deltaAvailableBase` to `deltaBase` 
+    2. `deltaAvailableQuote` to `deltaQuote` 
+- rename params in struct `Exchange.RealizePnlParams`
+    1. `deltaAvailableBase` to `deltaBase` 
+    2. `deltaAvailableQuote` to `deltaQuote` 
 - rename params in struct `AccountMarket.Info`
     1. `takerBaseBalance` to `takerPositionSize` 
     2. `takerQuoteBalance` to `takerOpenNotional` 

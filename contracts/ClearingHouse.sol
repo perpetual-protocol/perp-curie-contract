@@ -77,8 +77,8 @@ contract ClearingHouse is
     struct InternalCheckSlippageParams {
         bool isBaseToQuote;
         bool isExactInput;
-        uint256 deltaAvailableQuote;
-        uint256 deltaAvailableBase;
+        uint256 deltaQuote;
+        uint256 deltaBase;
         uint256 oppositeAmountBound;
     }
 
@@ -414,8 +414,8 @@ contract ClearingHouse is
             InternalCheckSlippageParams({
                 isBaseToQuote: params.isBaseToQuote,
                 isExactInput: params.isExactInput,
-                deltaAvailableQuote: response.deltaAvailableQuote,
-                deltaAvailableBase: response.deltaAvailableBase,
+                deltaQuote: response.deltaQuote,
+                deltaBase: response.deltaBase,
                 oppositeAmountBound: params.oppositeAmountBound
             })
         );
@@ -423,7 +423,7 @@ contract ClearingHouse is
         if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
-        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+        return (response.deltaBase, response.deltaQuote);
     }
 
     /// @inheritdoc IClearingHouse
@@ -467,8 +467,8 @@ contract ClearingHouse is
             InternalCheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
                 isExactInput: isBaseToQuote,
-                deltaAvailableQuote: response.deltaAvailableQuote,
-                deltaAvailableBase: response.deltaAvailableBase,
+                deltaQuote: response.deltaQuote,
+                deltaBase: response.deltaBase,
                 oppositeAmountBound: oppositeAmountBound
             })
         );
@@ -476,7 +476,7 @@ contract ClearingHouse is
         if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
-        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+        return (response.deltaBase, response.deltaQuote);
     }
 
     /// @inheritdoc IClearingHouse
@@ -523,7 +523,7 @@ contract ClearingHouse is
             trader,
             baseToken,
             response.exchangedPositionNotional.abs(),
-            response.deltaAvailableBase,
+            response.deltaBase,
             liquidationFee,
             liquidator
         );
@@ -707,8 +707,8 @@ contract ClearingHouse is
                 IExchange.RealizePnlParams({
                     trader: maker,
                     baseToken: baseToken,
-                    deltaAvailableBase: response.deltaTakerBase,
-                    deltaAvailableQuote: response.deltaTakerQuote
+                    deltaBase: response.deltaTakerBase,
+                    deltaQuote: response.deltaTakerQuote
                 })
             );
         }
@@ -869,18 +869,18 @@ contract ClearingHouse is
         if (params.isBaseToQuote) {
             if (params.isExactInput) {
                 // too little received when short
-                require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLRS");
+                require(params.deltaQuote >= params.oppositeAmountBound, "CH_TLRS");
             } else {
                 // too much requested when short
-                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
+                require(params.deltaBase <= params.oppositeAmountBound, "CH_TMRS");
             }
         } else {
             if (params.isExactInput) {
                 // too little received when long
-                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
+                require(params.deltaBase >= params.oppositeAmountBound, "CH_TLRL");
             } else {
                 // too much requested when long
-                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
+                require(params.deltaQuote <= params.oppositeAmountBound, "CH_TMRL");
             }
         }
     }

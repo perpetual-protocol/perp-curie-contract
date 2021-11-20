@@ -18,8 +18,8 @@ interface IExchange {
     }
 
     struct SwapResponse {
-        uint256 deltaAvailableBase;
-        uint256 deltaAvailableQuote;
+        uint256 deltaBase;
+        uint256 deltaQuote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
@@ -41,8 +41,8 @@ interface IExchange {
     struct RealizePnlParams {
         address trader;
         address baseToken;
-        int256 deltaAvailableBase;
-        int256 deltaAvailableQuote;
+        int256 deltaBase;
+        int256 deltaQuote;
     }
 
     event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
