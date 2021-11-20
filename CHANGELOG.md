@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 - rename the param `sqrtPriceAfter` in the `PositionChanged` event to `sqrtPriceAfterX96`
+- rename `takerBaseBalance` & `takerQuoteBalance` to `takerPositionSize` & `takerOpenNotional` in struct `AccountMarket.Info`
 
 - move event `FundingPaymentSettled` to ClearingHouse
 
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `OrderBook.getTotalTokenAmountInPool` to `OrderBook.getTotalTokenAmountInPoolAndPendingFee`
 - rename `AccountBalance.getOwedAndUnrealizedPnl` to `AccountBalance.getPnlAndPendingFee`
 - rename `AccountBalance.getNetQuoteBalance` to `AccountBalance.getNetQuoteBalanceAndPendingFee`
+- rename `AccountBalance.settleQuoteToPnl` to `AccountBalance.settleQuoteToOwedRealizedPnl`
 
 - add new second return value `pendingFee` of `AccountBalance.getOwedAndUnrealizedPnl`
 - add new second return value `pendingFee` of `AccountBalance.getNetQuoteBalance`

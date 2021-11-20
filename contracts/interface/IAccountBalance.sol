@@ -13,30 +13,23 @@ interface IAccountBalance {
     /// @param amount The amount changed
     event PnlRealized(address indexed trader, int256 amount);
 
-    /// @dev Emit whenever a trader's `takerBalances` is updated
-    /// @param trader The address of the trader
-    /// @param baseToken The address of the base token
-    /// @param deltaBase The base amount changed
-    /// @param deltaQuote The quote amount changed
-    event TakerBalancesChanged(address indexed trader, address indexed baseToken, int256 deltaBase, int256 deltaQuote);
-
     function modifyTakerBalance(
         address trader,
         address baseToken,
         int256 deltaTakerBase,
         int256 deltaTakerQuote
-    ) external;
+    ) external returns (int256, int256);
 
     function modifyOwedRealizedPnl(address trader, int256 delta) external;
 
-    function settleQuoteToPnl(
+    /// @dev this function is now only called by Vault.withdraw()
+    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
+
+    function settleQuoteToOwedRealizedPnl(
         address trader,
         address baseToken,
         int256 amount
     ) external;
-
-    /// @dev this function is now only called by Vault.withdraw()
-    function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
     /// @dev Settle account balance and deregister base token
     /// @param maker The address of the maker
