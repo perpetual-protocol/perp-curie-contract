@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
 - rename params of `AccountBalance.modifyTakerBalance`
-    1. `deltaTakerBase` to `deltaBase`
-    2. `deltaTakerQuote` to `deltaQuote`
+    1. `deltaTakerBase` to `base`
+    2. `deltaTakerQuote` to `quote`
+- rename params of `AccountBalance.settleBalanceAndDeregister`
+    1. `deltaTakerBase` to `takerBase`
+    2. `deltaTakerQuote` to `takerQuote`
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 - rename param `delta` of `AccountBalance.modifyOwedRealizedPnl` as `amount`
 - rename the param `sqrtPriceAfter` in the `ClearingHouse.PositionChanged` event to `sqrtPriceAfterX96`

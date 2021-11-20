@@ -61,11 +61,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 deltaBase,
-        int256 deltaQuote
+        int256 base,
+        int256 quote
     ) external override returns (int256, int256) {
         _requireOnlyClearingHouse();
-        return _modifyTakerBalance(trader, baseToken, deltaBase, deltaQuote);
+        return _modifyTakerBalance(trader, baseToken, base, quote);
     }
 
     function modifyOwedRealizedPnl(address trader, int256 amount) external override {
@@ -94,13 +94,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote,
+        int256 takerBase,
+        int256 takerQuote,
         int256 realizedPnl,
         int256 fee
     ) external override {
         _requireOnlyClearingHouse();
-        _modifyTakerBalance(maker, baseToken, deltaTakerBase, deltaTakerQuote);
+        _modifyTakerBalance(maker, baseToken, takerBase, takerQuote);
         _modifyOwedRealizedPnl(maker, fee);
 
         // to avoid dust, let realizedPnl = getQuote() when there's no order
@@ -330,12 +330,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 deltaBase,
-        int256 deltaQuote
+        int256 base,
+        int256 quote
     ) internal returns (int256, int256) {
         AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerPositionSize = accountInfo.takerPositionSize.add(deltaBase);
-        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.add(deltaQuote);
+        accountInfo.takerPositionSize = accountInfo.takerPositionSize.add(base);
+        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.add(quote);
         return (accountInfo.takerPositionSize, accountInfo.takerOpenNotional);
     }
 

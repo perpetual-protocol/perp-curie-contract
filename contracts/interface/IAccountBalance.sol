@@ -16,8 +16,8 @@ interface IAccountBalance {
     function modifyTakerBalance(
         address trader,
         address baseToken,
-        int256 deltaBase,
-        int256 deltaQuote
+        int256 base,
+        int256 quote
     ) external returns (int256, int256);
 
     function modifyOwedRealizedPnl(address trader, int256 amount) external;
@@ -39,8 +39,8 @@ interface IAccountBalance {
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
-        int256 deltaTakerBase,
-        int256 deltaTakerQuote,
+        int256 takerBase,
+        int256 takerQuote,
         int256 realizedPnl,
         int256 fee
     ) external;
