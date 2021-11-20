@@ -21,11 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename param `delta` of `AccountBalance.modifyOwedRealizedPnl` as `amount`
 - rename the param `sqrtPriceAfter` in the `ClearingHouse.PositionChanged` event to `sqrtPriceAfterX96`
 - rename params in struct `Exchange.SwapResponse`
-    1. `deltaAvailableBase` to `deltaBase` 
-    2. `deltaAvailableQuote` to `deltaQuote` 
+    1. `deltaAvailableBase` to `base` 
+    2. `deltaAvailableQuote` to `quote` 
 - rename params in struct `Exchange.RealizePnlParams`
-    1. `deltaAvailableBase` to `deltaBase` 
-    2. `deltaAvailableQuote` to `deltaQuote` 
+    1. `deltaAvailableBase` to `base` 
+    2. `deltaAvailableQuote` to `quote` 
 - rename params in struct `OrderBook.RemoveLiquidityResponse`
     1. `deltaTakerBase` to `takerBase` 
     2. `deltaTakerQuote` to `takerQuote` 
