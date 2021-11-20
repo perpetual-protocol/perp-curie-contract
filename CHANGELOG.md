@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename params in struct `Exchange.RealizePnlParams`
     1. `deltaAvailableBase` to `deltaBase` 
     2. `deltaAvailableQuote` to `deltaQuote` 
+- rename params in struct `OrderBook.RemoveLiquidityResponse`
+    1. `deltaTakerBase` to `takerBase` 
+    2. `deltaTakerQuote` to `takerQuote` 
+- rename params of `OrderBook.updateOrderDebt`
+    1. `deltaBaseDebt` to `base`
+    2. `deltaQuoteDebt` to `quote`
 - rename params in struct `AccountMarket.Info`
     1. `takerBaseBalance` to `takerPositionSize` 
     2. `takerQuoteBalance` to `takerOpenNotional` 
