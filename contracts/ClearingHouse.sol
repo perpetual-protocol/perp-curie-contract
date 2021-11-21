@@ -11,7 +11,6 @@ import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { FeeMath } from "./lib/FeeMath.sol";
 import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";

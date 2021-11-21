@@ -11,7 +11,7 @@ import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { BlockContext } from "./base/BlockContext.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { FeeMath } from "./lib/FeeMath.sol";
+import { SwapMath } from "./lib/SwapMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -372,7 +372,7 @@ contract Exchange is
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
+            SwapMath.calcScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
@@ -402,7 +402,7 @@ contract Exchange is
         IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
-            _getScaledAmountForSwaps(
+            SwapMath.calcScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
@@ -453,7 +453,7 @@ contract Exchange is
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = FeeMath
+            exchangedPositionSize = SwapMath
                 .calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false)
                 .neg256();
             // due to base to quote fee, exchangedPositionNotional contains the fee
@@ -462,7 +462,7 @@ contract Exchange is
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = FeeMath
+            exchangedPositionNotional = SwapMath
                 .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
                 .neg256();
         }
@@ -663,40 +663,5 @@ contract Exchange is
         }
 
         return pnlToBeRealized;
-    }
-
-    /// @return scaledAmountForUniswapV3PoolSwap the unsigned scaled amount for UniswapV3Pool.swap()
-    /// @return signedScaledAmountForReplaySwap the signed scaled amount for _replaySwap()
-    /// @dev for UniswapV3Pool.swap(), scaling the amount is necessary to achieve the custom fee effect
-    /// @dev for _replaySwap(), however, as we can input ExchangeFeeRatioRatio directly in SwapMath.computeSwapStep(),
-    ///      there is no need to stick to the scaled amount
-    /// @dev refer to CH._openPosition() docstring for explainer diagram
-    function _getScaledAmountForSwaps(
-        bool isBaseToQuote,
-        bool isExactInput,
-        uint256 amount,
-        uint24 exchangeFeeRatio,
-        uint24 uniswapFeeRatio
-    ) internal pure returns (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) {
-        scaledAmountForUniswapV3PoolSwap = FeeMath.calcScaledAmountForUniswapV3PoolSwap(
-            isBaseToQuote,
-            isExactInput,
-            amount,
-            exchangeFeeRatio,
-            uniswapFeeRatio
-        );
-
-        // x : uniswapFeeRatio, y : exchangeFeeRatioRatio
-        // since we can input ExchangeFeeRatioRatio directly in SwapMath.computeSwapStep() in _replaySwap(),
-        // when !isBaseToQuote, we can use the original amount directly
-        // ex: when x(uniswapFeeRatio) = 1%, y(exchangeFeeRatioRatio) = 3%, input == 1 quote
-        // our target is to get fee == 0.03 quote
-        // if scaling the input as 1 * 0.97 / 0.99, the fee calculated in `_replaySwap()` won't be 0.03
-        signedScaledAmountForReplaySwap = isBaseToQuote
-            ? scaledAmountForUniswapV3PoolSwap.toInt256()
-            : amount.toInt256();
-        signedScaledAmountForReplaySwap = isExactInput
-            ? signedScaledAmountForReplaySwap
-            : signedScaledAmountForReplaySwap.neg256();
     }
 }
