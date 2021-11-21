@@ -82,7 +82,6 @@ contract Exchange is
     //
 
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
-    int256 internal constant _VIRTUAL_FUNDING_PERIOD = 1 days;
 
     //
     // EXTERNAL NON-VIEW
@@ -328,7 +327,7 @@ contract Exchange is
             IOrderBook(_orderBook).getLiquidityCoefficientInFundingPayment(trader, baseToken, fundingGrowthGlobal);
 
         return
-            _getPendingFundingPaymentWithLiquidityCoefficient(
+            Funding.calcPendingFundingPaymentWithLiquidityCoefficient(
                 IAccountBalance(_accountBalance).getBase(trader, baseToken),
                 IAccountBalance(_accountBalance).getAccountInfo(trader, baseToken).lastTwPremiumGrowthGlobalX96,
                 fundingGrowthGlobal,
@@ -503,7 +502,7 @@ contract Exchange is
             );
 
         return
-            _getPendingFundingPaymentWithLiquidityCoefficient(
+            Funding.calcPendingFundingPaymentWithLiquidityCoefficient(
                 baseBalance,
                 twPremiumGrowthGlobalX96,
                 fundingGrowthGlobal,
@@ -699,22 +698,5 @@ contract Exchange is
         signedScaledAmountForReplaySwap = isExactInput
             ? signedScaledAmountForReplaySwap
             : signedScaledAmountForReplaySwap.neg256();
-    }
-
-    function _getPendingFundingPaymentWithLiquidityCoefficient(
-        int256 baseBalance,
-        int256 twPremiumGrowthGlobalX96,
-        Funding.Growth memory fundingGrowthGlobal,
-        int256 liquidityCoefficientInFundingPayment
-    ) internal pure returns (int256) {
-        int256 balanceCoefficientInFundingPayment =
-            AccountMarket.getBalanceCoefficientInFundingPayment(
-                baseBalance,
-                fundingGrowthGlobal.twPremiumX96,
-                twPremiumGrowthGlobalX96
-            );
-
-        return
-            liquidityCoefficientInFundingPayment.add(balanceCoefficientInFundingPayment).div(_VIRTUAL_FUNDING_PERIOD);
     }
 }

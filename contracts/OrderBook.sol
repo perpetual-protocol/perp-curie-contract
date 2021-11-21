@@ -259,7 +259,7 @@ contract OrderBook is
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
+                Funding.calcLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
 
             // thus, state updates have to come after
@@ -502,7 +502,7 @@ contract OrderBook is
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
+                Funding.calcLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
         }
 
@@ -794,49 +794,5 @@ contract OrderBook is
         );
 
         return (owedFee, feeGrowthInsideX128);
-    }
-
-    /// @dev the funding payment of an order/liquidity is composed of
-    ///      1. funding accrued inside the range 2. funding accrued below the range
-    ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
-    /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
-    function _getLiquidityCoefficientInFundingPaymentByOrder(
-        OpenOrder.Info memory order,
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) internal pure returns (int256) {
-        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-
-        // base amount below the range
-        uint256 baseAmountBelow =
-            LiquidityAmounts.getAmount0ForLiquidity(
-                TickMath.getSqrtRatioAtTick(order.lowerTick),
-                sqrtPriceX96AtUpperTick,
-                order.liquidity
-            );
-        // funding below the range
-        int256 fundingBelowX96 =
-            baseAmountBelow.toInt256().mul(
-                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
-            );
-
-        // funding inside the range =
-        // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
-        int256 fundingInsideX96 =
-            order.liquidity.toInt256().mul(
-                // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
-                fundingGrowthRangeInfo
-                    .twPremiumDivBySqrtPriceGrowthInsideX96
-                    .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
-                    .sub(
-                    // ΔtwPremiumGrowthInsideX96
-                    PerpMath.mulDiv(
-                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96),
-                        PerpFixedPoint96._IQ96,
-                        sqrtPriceX96AtUpperTick
-                    )
-                )
-            );
-
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96._IQ96);
     }
 }
