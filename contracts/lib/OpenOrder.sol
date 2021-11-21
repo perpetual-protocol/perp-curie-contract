@@ -15,4 +15,13 @@ library OpenOrder {
         uint256 baseDebt;
         uint256 quoteDebt;
     }
+
+    function calcOrderKey(
+        address trader,
+        address baseToken,
+        int24 lowerTick,
+        int24 upperTick
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(trader, baseToken, lowerTick, upperTick));
+    }
 }

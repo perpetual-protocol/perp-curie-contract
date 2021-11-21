@@ -16,7 +16,6 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
@@ -178,7 +177,7 @@ contract OrderBook is
     {
         _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OpenOrder.calcOrderKey(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         return
             _removeLiquidity(
                 InternalRemoveLiquidityParams({
@@ -204,7 +203,7 @@ contract OrderBook is
         RemoveLiquidityResponse memory removeLiquidityResponse;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-            bytes32 orderId = OrderKey.compute(maker, baseToken, order.lowerTick, order.upperTick);
+            bytes32 orderId = OpenOrder.calcOrderKey(maker, baseToken, order.lowerTick, order.upperTick);
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -440,7 +439,7 @@ contract OrderBook is
         int24 lowerTick,
         int24 upperTick
     ) external view override returns (OpenOrder.Info memory) {
-        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
+        return _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)];
     }
 
     function hasOrder(address trader, address[] calldata tokens) external view override returns (bool) {
@@ -518,7 +517,7 @@ contract OrderBook is
         (uint256 owedFee, ) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(
                 baseToken,
-                _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)]
+                _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)]
             );
         return owedFee;
     }
@@ -646,7 +645,7 @@ contract OrderBook is
 
     /// @dev this function is extracted from and only used by addLiquidity() to avoid stack too deep error
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OpenOrder.calcOrderKey(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
