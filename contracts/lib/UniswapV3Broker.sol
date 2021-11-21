@@ -304,6 +304,7 @@ library UniswapV3Broker {
         return IUniswapV3Pool(pool).tickBitmap(wordPos);
     }
 
+    /// @dev this function is Uniswap's TickBitmap.position()
     function _getPositionOfInitializedTickWithinOneWord(int24 tick) private pure returns (int16 wordPos, uint8 bitPos) {
         wordPos = int16(tick >> 8);
         bitPos = uint8(tick % 256);
