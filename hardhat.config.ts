@@ -13,6 +13,8 @@ import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
     ARBITRUM_RINKEBY_WEB3_ENDPOINT,
+    HARDHAT_FORK_DEPLOYER_MNEMONIC,
+    HARDHAT_FORK_WEB3_ENDPOINT,
     OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
     OPTIMISM_KOVAN_WEB3_ENDPOINT,
     RINKEBY_DEPLOYER_MNEMONIC,
@@ -26,6 +28,7 @@ enum ChainId {
     OPTIMISM_CHAIN_ID = 10,
     OPTIMISM_KOVAN_CHAIN_ID = 69,
     RINKEBY_CHAIN_ID = 4,
+    HARDHAT_CHAIN_ID = 31337,
 }
 
 const config: HardhatUserConfig = {
@@ -45,6 +48,16 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             allowUnlimitedContractSize: true,
+            forking: {
+                url: HARDHAT_FORK_WEB3_ENDPOINT,
+            },
+            accounts: {
+                mnemonic: HARDHAT_FORK_DEPLOYER_MNEMONIC,
+            },
+            companionNetworks: {
+                staging: "optimismKovan",
+            },
+            saveDeployments: true,
         },
         arbitrumRinkeby: {
             url: ARBITRUM_RINKEBY_WEB3_ENDPOINT,
@@ -98,12 +111,6 @@ const config: HardhatUserConfig = {
         usdc: {
             [ChainId.ARBITRUM_ONE_CHAIN_ID]: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
             [ChainId.OPTIMISM_CHAIN_ID]: "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
-        },
-        // follow up this page : https://www.notion.so/perp/Arbitrum-Faucet-0ded856b8ff1499180559fba6e79ef62
-        faucetIssuer: {
-            [ChainId.RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
-            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
-            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
         },
     },
     dependencyCompiler: {
