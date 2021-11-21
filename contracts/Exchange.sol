@@ -572,7 +572,7 @@ contract Exchange is
         } else {
             // deltaTwPremium = (markTwap - indexTwap) * (now - lastSettledTimestamp)
             int256 deltaTwPremiumX96 =
-                _getTwapsDiffX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+                _getDeltaTwapX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(deltaTwPremiumX96);
@@ -599,16 +599,16 @@ contract Exchange is
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    function _getTwapsDiffX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDiffX96) {
+    function _getDeltaTwapX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 deltaTwapX96) {
         uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
-        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 absTwapDiffX96;
+        uint256 maxDeltaTwapX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 absDeltaTwapX96;
         if (markTwapX96 > indexTwapX96) {
-            absTwapDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDiffX96 = absTwapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : absTwapDiffX96.toInt256();
+            absDeltaTwapX96 = markTwapX96.sub(indexTwapX96);
+            deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.toInt256() : absDeltaTwapX96.toInt256();
         } else {
-            absTwapDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDiffX96 = absTwapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : absTwapDiffX96.neg256();
+            absDeltaTwapX96 = indexTwapX96.sub(markTwapX96);
+            deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.neg256() : absDeltaTwapX96.neg256();
         }
     }
 
