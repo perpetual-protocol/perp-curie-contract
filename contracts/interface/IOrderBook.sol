@@ -35,8 +35,8 @@ interface IOrderBook {
         uint256 base;
         uint256 quote;
         uint256 fee;
-        int256 deltaTakerBase;
-        int256 deltaTakerQuote;
+        int256 takerBase;
+        int256 takerQuote;
     }
 
     struct ReplaySwapParams {
@@ -87,8 +87,8 @@ interface IOrderBook {
 
     function updateOrderDebt(
         bytes32 orderId,
-        int256 deltaBaseDebt,
-        int256 deltaQuoteDebt
+        int256 base,
+        int256 quote
     ) external;
 
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);

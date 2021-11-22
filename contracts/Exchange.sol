@@ -59,8 +59,8 @@ contract Exchange is
     }
 
     struct InternalSwapResponse {
-        int256 deltaAvailableBase;
-        int256 deltaAvailableQuote;
+        int256 base;
+        int256 quote;
         int256 exchangedPositionSize;
         int256 exchangedPositionNotional;
         uint256 fee;
@@ -73,8 +73,8 @@ contract Exchange is
         address baseToken;
         int256 takerPositionSize;
         int256 takerOpenNotional;
-        int256 deltaAvailableBase;
-        int256 deltaAvailableQuote;
+        int256 base;
+        int256 quote;
     }
 
     //
@@ -193,8 +193,8 @@ contract Exchange is
                     baseToken: params.baseToken,
                     takerPositionSize: takerPositionSize,
                     takerOpenNotional: oldTakerOpenNotional,
-                    deltaAvailableBase: response.deltaAvailableBase,
-                    deltaAvailableQuote: response.deltaAvailableQuote
+                    base: response.base,
+                    quote: response.quote
                 })
             );
         }
@@ -203,8 +203,8 @@ contract Exchange is
             UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(params.baseToken));
         return
             SwapResponse({
-                deltaAvailableBase: response.deltaAvailableBase.abs(),
-                deltaAvailableQuote: response.deltaAvailableQuote.abs(),
+                base: response.base.abs(),
+                quote: response.quote.abs(),
                 exchangedPositionSize: response.exchangedPositionSize,
                 exchangedPositionNotional: response.exchangedPositionNotional,
                 fee: response.fee,
@@ -286,9 +286,8 @@ contract Exchange is
 
         int256 takerOpenNotional = info.takerOpenNotional;
         int256 takerPositionSize = info.takerPositionSize;
-        // when takerPositionSize < 0, it's a short position; when deltaAvailableBase < 0, isBaseToQuote(shorting)
-        bool isReducingPosition =
-            takerPositionSize == 0 ? false : takerPositionSize < 0 != params.deltaAvailableBase < 0;
+        // when takerPositionSize < 0, it's a short position; when base < 0, isBaseToQuote(shorting)
+        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.base < 0;
 
         return
             isReducingPosition
@@ -298,8 +297,8 @@ contract Exchange is
                         baseToken: params.baseToken,
                         takerPositionSize: takerPositionSize,
                         takerOpenNotional: takerOpenNotional,
-                        deltaAvailableBase: params.deltaAvailableBase,
-                        deltaAvailableQuote: params.deltaAvailableQuote
+                        base: params.base,
+                        quote: params.quote
                     })
                 )
                 : 0;
@@ -474,8 +473,8 @@ contract Exchange is
 
         return
             InternalSwapResponse({
-                deltaAvailableBase: exchangedPositionSize,
-                deltaAvailableQuote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()),
+                base: exchangedPositionSize,
+                quote: exchangedPositionNotional.sub(replayResponse.fee.toInt256()),
                 exchangedPositionSize: exchangedPositionSize,
                 exchangedPositionNotional: exchangedPositionNotional,
                 fee: replayResponse.fee,
@@ -520,14 +519,14 @@ contract Exchange is
     }
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxTickDelta == 0) {
+        uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxDeltaTick == 0) {
             return false;
         }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        // no overflow/underflow issue because there are range limits for tick and maxTickDelta
-        int24 upperTickBound = lastUpdatedTick.add(maxTickDelta).toInt24();
-        int24 lowerTickBound = lastUpdatedTick.sub(maxTickDelta).toInt24();
+        // no overflow/underflow issue because there are range limits for tick and maxDeltaTick
+        int24 upperTickBound = lastUpdatedTick.add(maxDeltaTick).toInt24();
+        int24 lowerTickBound = lastUpdatedTick.sub(maxDeltaTick).toInt24();
         return (tick < lowerTickBound || tick > upperTickBound);
     }
 
@@ -570,19 +569,19 @@ contract Exchange is
             // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
-            // twPremiumDelta = (markTwp - indexTwap) * (now - lastSettledTimestamp)
-            int256 twPremiumDeltaX96 =
-                _getTwapDeltaX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+            // deltaTwPremium = (markTwap - indexTwap) * (now - lastSettledTimestamp)
+            int256 deltaTwPremiumX96 =
+                _getDeltaTwapX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
-            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(twPremiumDeltaX96);
+            fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(deltaTwPremiumX96);
 
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            // twPremiumDivBySqrtPrice += twPremiumDelta / getSqrtMarkTwap(baseToken)
+            // twPremiumDivBySqrtPrice += deltaTwPremium / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(twPremiumDeltaX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
             );
         }
 
@@ -592,30 +591,29 @@ contract Exchange is
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
-        uint24 maxTickDelta = _maxTickCrossedWithinBlockMap[baseToken];
+        uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
         // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
-            isLong ? lastUpdatedTick + int24(maxTickDelta) + 1 : lastUpdatedTick - int24(maxTickDelta) - 1;
+            isLong ? lastUpdatedTick + int24(maxDeltaTick) + 1 : lastUpdatedTick - int24(maxDeltaTick) - 1;
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    function _getTwapDeltaX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 twapDeltaX96) {
+    function _getDeltaTwapX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 deltaTwapX96) {
         uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
-        uint256 maxTwapDiffX96 = indexTwapX96.mulRatio(maxFundingRate);
-        uint256 twapDiffX96;
+        uint256 maxDeltaTwapX96 = indexTwapX96.mulRatio(maxFundingRate);
+        uint256 absDeltaTwapX96;
         if (markTwapX96 > indexTwapX96) {
-            twapDiffX96 = markTwapX96.sub(indexTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.toInt256() : twapDiffX96.toInt256();
+            absDeltaTwapX96 = markTwapX96.sub(indexTwapX96);
+            deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.toInt256() : absDeltaTwapX96.toInt256();
         } else {
-            twapDiffX96 = indexTwapX96.sub(markTwapX96);
-            twapDeltaX96 = twapDiffX96 > maxTwapDiffX96 ? maxTwapDiffX96.neg256() : twapDiffX96.neg256();
+            absDeltaTwapX96 = indexTwapX96.sub(markTwapX96);
+            deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.neg256() : absDeltaTwapX96.neg256();
         }
     }
 
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
         // closedRatio is based on the position size
-        uint256 closedRatio =
-            FullMath.mulDiv(params.deltaAvailableBase.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
+        uint256 closedRatio = FullMath.mulDiv(params.base.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
 
         int256 pnlToBeRealized;
         // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
@@ -626,11 +624,11 @@ contract Exchange is
             // openNotionalFraction = 252.53
             // openNotional = -252.53
             // step 2: short 10 base (reduce half of the position)
-            // deltaAvailableQuote = 137.5
+            // quote = 137.5
             // closeRatio = 10/20 = 0.5
             // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
-            // realizedPnl = deltaAvailableQuote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-            // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
+            // realizedPnl = quote + reducedOpenNotional = 137.5 + -126.265 = 11.235
+            // openNotionalFraction = openNotionalFraction - quote + realizedPnl
             //                      = 252.53 - 137.5 + 11.235 = 126.265
             // openNotional = -openNotionalFraction = 126.265
 
@@ -638,7 +636,7 @@ contract Exchange is
             // max closedRatio = 1e18; range of oldOpenNotional = (-2 ^ 255, 2 ^ 255)
             // only overflow when oldOpenNotional < -2 ^ 255 / 1e18 or oldOpenNotional > 2 ^ 255 / 1e18
             int256 reducedOpenNotional = params.takerOpenNotional.mulDiv(closedRatio.toInt256(), _FULLY_CLOSED_RATIO);
-            pnlToBeRealized = params.deltaAvailableQuote.add(reducedOpenNotional);
+            pnlToBeRealized = params.quote.add(reducedOpenNotional);
         } else {
             // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=668982944
             // taker:
@@ -646,19 +644,19 @@ contract Exchange is
             // openNotionalFraction = 252.53
             // openNotional = -252.53
             // step 2: short 30 base (open a larger reverse position)
-            // deltaAvailableQuote = 337.5
+            // quote = 337.5
             // closeRatio = 30/20 = 1.5
-            // closedPositionNotional = deltaAvailableQuote / closeRatio = 337.5 / 1.5 = 225
-            // remainsPositionNotional = deltaAvailableQuote - closedPositionNotional = 337.5 - 225 = 112.5
+            // closedPositionNotional = quote / closeRatio = 337.5 / 1.5 = 225
+            // remainsPositionNotional = quote - closedPositionNotional = 337.5 - 225 = 112.5
             // realizedPnl = closedPositionNotional + openNotional = -252.53 + 225 = -27.53
-            // openNotionalFraction = openNotionalFraction - deltaAvailableQuote + realizedPnl
+            // openNotionalFraction = openNotionalFraction - quote + realizedPnl
             //                      = 252.53 - 337.5 + -27.53 = -112.5
             // openNotional = -openNotionalFraction = remainsPositionNotional = 112.5
 
             // overflow inspection:
             // max & min tick = 887272, -887272; max liquidity = 2 ^ 128
-            // max delta quote = 2^128 * (sqrt(1.0001^887272) - sqrt(1.0001^-887272)) = 6.276865796e57 < 2^255 / 1e18
-            int256 closedPositionNotional = params.deltaAvailableQuote.mulDiv(int256(_FULLY_CLOSED_RATIO), closedRatio);
+            // max quote = 2^128 * (sqrt(1.0001^887272) - sqrt(1.0001^-887272)) = 6.276865796e57 < 2^255 / 1e18
+            int256 closedPositionNotional = params.quote.mulDiv(int256(_FULLY_CLOSED_RATIO), closedRatio);
             pnlToBeRealized = params.takerOpenNotional.add(closedPositionNotional);
         }
 

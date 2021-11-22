@@ -136,7 +136,7 @@ library UniswapV3Broker {
         // UniswapV3Pool uses the sign to determine isExactInput or not
         int256 specifiedAmount = params.isExactInput ? params.amount.toInt256() : params.amount.neg256();
 
-        // signedAmount0 & signedAmount1 are deltaAmount, in the perspective of the pool
+        // signedAmount0 & signedAmount1 are delta amounts, in the perspective of the pool
         // > 0: pool gets; user pays
         // < 0: pool provides; user gets
         (int256 signedAmount0, int256 signedAmount1) =

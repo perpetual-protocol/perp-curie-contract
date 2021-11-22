@@ -226,8 +226,8 @@ describe("ClearingHouse liquidate", () => {
             // price after liq. 142.8549872
             setPool1IndexPrice(142.854987)
 
-            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
-            // deltaAvailableQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaQuote
+            // deltaQuote = 84.085192745971593683 * 0.99 (1% fee) = 83.2443408185118
             // pnl = 83.2443408185118 - 90 - 2.1021298186 = -8.8577890001
             // account value = collateral + pnl = 10 - 8.8577890001 = 1.1422109998625
             // openOrderMarginRequirement = 0
@@ -383,8 +383,8 @@ describe("ClearingHouse liquidate", () => {
                     davis.address,
                 )
 
-            // liquidate alice's short position = long, thus dividing exchangedPositionNotional by 0.99 to get deltaAvailableQuote
-            // deltaAvailableQuote = 95.337716510326544666 / 0.99 (1% fee) = 96.3007237478
+            // liquidate alice's short position = long, thus dividing exchangedPositionNotional by 0.99 to get deltaQuote
+            // deltaQuote = 95.337716510326544666 / 0.99 (1% fee) = 96.3007237478
             // pnl = -96.3007237478 - 2.3834429128 + 90 = -8.6841666606
             // account value = collateral + pnl = 10 - 8.6841666606 = 1.3158333394
             // openOrderMarginRequirement = 0
@@ -487,10 +487,10 @@ describe("ClearingHouse liquidate", () => {
             // so add more collateral.
             await deposit(alice, vault, 10, collateral)
 
-            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
-            // deltaAvailableQuote of ETH = 40.63876 * 0.99 (1% fee) = 40.2323724
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaQuote
+            // deltaQuote of ETH = 40.63876 * 0.99 (1% fee) = 40.2323724
             // realizedPnl = 40.2323724 - 45 = -4.7676276
-            // remain quoteDebt = 90 - 45 (deltaAvailableQuote - realizedPnl) = 45
+            // remain quoteDebt = 90 - 45 (deltaQuote - realizedPnl) = 45
             // collateral = deposit + realizedPnl + penaltyFee = 20 + -4.7676276 - 1.015969 = 14.2164034
             // account value = collateral + pnl = 14.2164034 + (44.59195 (BTC) - 45)= 13.8083534
             // openOrderMarginRequirement = 45 (quote debt only)
@@ -526,8 +526,8 @@ describe("ClearingHouse liquidate", () => {
             // freeCollateral = min(collateral, accountValue) - (totalBaseDebtValue + totalQuoteDebtValue) * imRatio
             // ETH position value = ETH size * indexPrice = 0.294254629696195230 * 138.130291 = 40.645477628
 
-            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaAvailableQuote
-            // deltaAvailableQuote of BTC = 44.58424198139300 * 0.99 (1% fee) = 44.1383995616
+            // liquidate alice's long position = short, thus multiplying exchangedPositionNotional by 0.99 to get deltaQuote
+            // deltaQuote of BTC = 44.58424198139300 * 0.99 (1% fee) = 44.1383995616
             // realizedPnl = 44.1383995616 - 45 - 1.1146 = -1.9762004384
             // collateral = 20 -1.9762004384 = 18.0237995616
             // account value = collateral + pnl = 18.0237995616 + (40.645477628(ETH) - 45) = 13.6692771896

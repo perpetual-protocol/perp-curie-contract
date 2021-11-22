@@ -217,7 +217,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("carol's position is partially closed with given oppositeAmountBound", async () => {
-            // We get deltaAvailableQuote as expected received quote through setting partialCloseRatio as 100% and callStatic closePosition.
+            // We get deltaQuote as expected received quote through setting partialCloseRatio as 100% and callStatic closePosition.
             // Assume slippage is 1%, the oppositeAmountBound is calculated as below:
             // expected received quote * (1-slippage)
             // = 329.999999999999999997 * (1 - 0.01)

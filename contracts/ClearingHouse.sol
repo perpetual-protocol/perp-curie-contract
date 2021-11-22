@@ -75,8 +75,8 @@ contract ClearingHouse is
     struct InternalCheckSlippageParams {
         bool isBaseToQuote;
         bool isExactInput;
-        uint256 deltaAvailableQuote;
-        uint256 deltaAvailableBase;
+        uint256 base;
+        uint256 quote;
         uint256 oppositeAmountBound;
     }
 
@@ -351,8 +351,8 @@ contract ClearingHouse is
         emit PositionChanged(
             trader,
             params.baseToken,
-            response.deltaTakerBase, // exchangedPositionSize
-            response.deltaTakerQuote, // exchangedPositionNotional
+            response.takerBase, // exchangedPositionSize
+            response.takerQuote, // exchangedPositionNotional
             0,
             takerOpenNotional, // openNotional
             realizedPnl, // realizedPnl
@@ -377,7 +377,7 @@ contract ClearingHouse is
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (uint256 deltaBase, uint256 deltaQuote)
+        returns (uint256 base, uint256 quote)
     {
         // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
@@ -412,8 +412,8 @@ contract ClearingHouse is
             InternalCheckSlippageParams({
                 isBaseToQuote: params.isBaseToQuote,
                 isExactInput: params.isExactInput,
-                deltaAvailableQuote: response.deltaAvailableQuote,
-                deltaAvailableBase: response.deltaAvailableBase,
+                base: response.base,
+                quote: response.quote,
                 oppositeAmountBound: params.oppositeAmountBound
             })
         );
@@ -421,7 +421,7 @@ contract ClearingHouse is
         if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
-        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+        return (response.base, response.quote);
     }
 
     /// @inheritdoc IClearingHouse
@@ -431,7 +431,7 @@ contract ClearingHouse is
         whenNotPaused
         nonReentrant
         checkDeadline(params.deadline)
-        returns (uint256 deltaBase, uint256 deltaQuote)
+        returns (uint256 base, uint256 quote)
     {
         // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
@@ -465,8 +465,8 @@ contract ClearingHouse is
             InternalCheckSlippageParams({
                 isBaseToQuote: isBaseToQuote,
                 isExactInput: isBaseToQuote,
-                deltaAvailableQuote: response.deltaAvailableQuote,
-                deltaAvailableBase: response.deltaAvailableBase,
+                base: response.base,
+                quote: response.quote,
                 oppositeAmountBound: oppositeAmountBound
             })
         );
@@ -474,7 +474,7 @@ contract ClearingHouse is
         if (params.referralCode != 0) {
             emit ReferredPositionChanged(params.referralCode);
         }
-        return (response.deltaAvailableBase, response.deltaAvailableQuote);
+        return (response.base, response.quote);
     }
 
     /// @inheritdoc IClearingHouse
@@ -521,7 +521,7 @@ contract ClearingHouse is
             trader,
             baseToken,
             response.exchangedPositionNotional.abs(),
-            response.deltaAvailableBase,
+            response.base,
             liquidationFee,
             liquidator
         );
@@ -551,6 +551,7 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IUniswapV3MintCallback
+    /// @dev namings here follow Uniswap's convention
     function uniswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
@@ -581,6 +582,7 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
+    /// @dev namings here follow Uniswap's convention
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -698,13 +700,13 @@ contract ClearingHouse is
         IOrderBook.RemoveLiquidityResponse memory response
     ) internal returns (int256) {
         int256 pnlToBeRealized;
-        if (response.deltaTakerBase != 0) {
+        if (response.takerBase != 0) {
             pnlToBeRealized = IExchange(_exchange).getPnlToBeRealized(
                 IExchange.RealizePnlParams({
                     trader: maker,
                     baseToken: baseToken,
-                    deltaAvailableBase: response.deltaTakerBase,
-                    deltaAvailableQuote: response.deltaTakerQuote
+                    base: response.takerBase,
+                    quote: response.takerQuote
                 })
             );
         }
@@ -713,8 +715,8 @@ contract ClearingHouse is
         IAccountBalance(_accountBalance).settleBalanceAndDeregister(
             maker,
             baseToken,
-            response.deltaTakerBase,
-            response.deltaTakerQuote,
+            response.takerBase,
+            response.takerQuote,
             pnlToBeRealized,
             response.fee.toInt256()
         );
@@ -865,18 +867,18 @@ contract ClearingHouse is
         if (params.isBaseToQuote) {
             if (params.isExactInput) {
                 // too little received when short
-                require(params.deltaAvailableQuote >= params.oppositeAmountBound, "CH_TLRS");
+                require(params.quote >= params.oppositeAmountBound, "CH_TLRS");
             } else {
                 // too much requested when short
-                require(params.deltaAvailableBase <= params.oppositeAmountBound, "CH_TMRS");
+                require(params.base <= params.oppositeAmountBound, "CH_TMRS");
             }
         } else {
             if (params.isExactInput) {
                 // too little received when long
-                require(params.deltaAvailableBase >= params.oppositeAmountBound, "CH_TLRL");
+                require(params.base >= params.oppositeAmountBound, "CH_TLRL");
             } else {
                 // too much requested when long
-                require(params.deltaAvailableQuote <= params.oppositeAmountBound, "CH_TMRL");
+                require(params.quote <= params.oppositeAmountBound, "CH_TMRL");
             }
         }
     }

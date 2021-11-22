@@ -1144,7 +1144,7 @@ describe("ClearingHouse funding", () => {
 
                     // closedRatio = 0.545954482143127198 / 1.2 = 0.454962068452605998
                     // reducedOpenNotional = 0.4549620685 * 180.149240114722163229 = 81.961070912759179239
-                    // deltaAvailableQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
+                    // deltaQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
                     // realized pnl: 81.961070912759179239 + -81.968929408810265891 = -0.007858496051
 
                     let collectedFee = parseEther("0.819689294088102658")
