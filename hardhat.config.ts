@@ -48,9 +48,11 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             allowUnlimitedContractSize: true,
-            forking: {
-                url: HARDHAT_FORK_WEB3_ENDPOINT,
-            },
+            forking: HARDHAT_FORK_WEB3_ENDPOINT
+                ? {
+                      url: HARDHAT_FORK_WEB3_ENDPOINT,
+                  }
+                : undefined,
             accounts: {
                 mnemonic: HARDHAT_FORK_DEPLOYER_MNEMONIC,
             },
@@ -82,6 +84,7 @@ const config: HardhatUserConfig = {
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
+        cleanAccount: 1,
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
