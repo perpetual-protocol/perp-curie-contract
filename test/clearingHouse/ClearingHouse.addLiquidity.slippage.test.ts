@@ -75,7 +75,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
         })
 
         it("force error, over deadline", async () => {
@@ -120,7 +120,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
         })
 
         it("force error, over slippage protection when adding liquidity within price with both quote and base", async () => {
@@ -136,7 +136,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -149,7 +149,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -162,7 +162,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
         })
     })
 })

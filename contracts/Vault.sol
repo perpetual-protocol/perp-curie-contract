@@ -86,8 +86,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     function setClearingHouse(address clearingHouseArg) external onlyOwner {
-        // V_ANC: address is not contract
-        require(clearingHouseArg.isContract(), "V_ANC");
+        // V_CHNC: ClearingHouse is not contract
+        require(clearingHouseArg.isContract(), "V_CHNC");
         _clearingHouse = clearingHouseArg;
     }
 

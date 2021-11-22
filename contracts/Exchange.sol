@@ -113,8 +113,8 @@ contract Exchange is
     }
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
-        // EX_ANC: address is not contract
-        require(baseToken.isContract(), "EX_ANC");
+        // EX_BNC: baseToken is not contract
+        require(baseToken.isContract(), "EX_BNC");
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 

@@ -20,8 +20,8 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
     ) external initializer {
         __VirtualToken_init(nameArg, symbolArg);
 
-        // invalid price feed decimals
         uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        // invalid price feed decimals
         require(__priceFeedDecimals <= decimals(), "BT_IPFD");
 
         _priceFeed = priceFeedArg;

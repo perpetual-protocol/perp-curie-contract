@@ -20,12 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename `AccountBalance.addOwedRealizedPnl` to `AccountBalance.modifyOwedRealizedPnl`
 - rename param `delta` of `AccountBalance.modifyOwedRealizedPnl` as `amount`
 - rename the param `sqrtPriceAfter` in the `ClearingHouse.PositionChanged` event to `sqrtPriceAfterX96`
+- rename error code in `ClearingHouse`
+    1. `CH_NEO` to `CH_CLWTISO`
+    2. `CH_PSC` to `CH_PSCF`
 - rename params of `ClearingHouse.openPosition`
     1. `deltaBase` to `base` 
     2. `deltaQuote` to `quote` 
 - rename params of `ClearingHouse.closePosition`
     1. `deltaBase` to `base` 
     2. `deltaQuote` to `quote` 
+- rename error code in `Exchange`: `EX_ANC` to `EX_BNC`
 - rename params in struct `Exchange.SwapResponse`
     1. `deltaAvailableBase` to `base` 
     2. `deltaAvailableQuote` to `quote` 
@@ -42,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rename params in struct `AccountMarket.Info`
     1. `takerBaseBalance` to `takerPositionSize` 
     2. `takerQuoteBalance` to `takerOpenNotional` 
+- rename error code in `Vault`: `V_ANC` to `V_CHNC`
 
 - move event `FundingPaymentSettled` to ClearingHouse
 
