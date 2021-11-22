@@ -2,7 +2,7 @@ import fs from "fs"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { resolve } from "path"
 
-const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory"]
+const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory", "BTCUSDChainlinkPriceFeed", "ETHUSDChainlinkPriceFeed"]
 
 interface ContractInfo {
     name: string
