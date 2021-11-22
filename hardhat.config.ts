@@ -29,7 +29,6 @@ enum ChainId {
     OPTIMISM_CHAIN_ID = 10,
     OPTIMISM_KOVAN_CHAIN_ID = 69,
     RINKEBY_CHAIN_ID = 4,
-    HARDHAT_CHAIN_ID = 31337,
 }
 
 const config: HardhatUserConfig = {
@@ -85,6 +84,7 @@ const config: HardhatUserConfig = {
             accounts: {
                 mnemonic: RINKEBY_DEPLOYER_MNEMONIC,
             },
+            chainId: ChainId.RINKEBY_CHAIN_ID,
         },
         optimismKovan: {
             url: OPTIMISM_KOVAN_WEB3_ENDPOINT,
