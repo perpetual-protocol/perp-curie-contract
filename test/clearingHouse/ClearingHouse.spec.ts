@@ -124,7 +124,7 @@ describe("ClearingHouse Spec", () => {
         })
 
         it("force error, invalid trustedForwarder address when setTrustedForwarder", async () => {
-            await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_ANC")
+            await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_TFNC")
         })
     })
 

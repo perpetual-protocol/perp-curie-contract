@@ -80,8 +80,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     }
 
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        // V_ANC: TrustedForwarder address is not contract
-        require(trustedForwarderArg.isContract(), "V_ANC");
+        // V_TFNC: TrustedForwarder address is not contract
+        require(trustedForwarderArg.isContract(), "V_TFNC");
         _setTrustedForwarder(trustedForwarderArg);
     }
 

@@ -125,8 +125,8 @@ contract ClearingHouse is
         require(clearingHouseConfigArg.isContract(), "CH_CCNC");
         // AccountBalance is not contract
         require(accountBalanceArg.isContract(), "CH_ABNC");
-        // CH_ANC: address is not contract
-        require(exchangeArg.isContract(), "CH_ANC");
+        // CH_ENC: Exchange is not contract
+        require(exchangeArg.isContract(), "CH_ENC");
         // CH_IFANC: InsuranceFund address is not contract
         require(insuranceFundArg.isContract(), "CH_IFANC");
 
@@ -151,8 +151,8 @@ contract ClearingHouse is
 
     // solhint-disable-next-line func-order
     function setTrustedForwarder(address trustedForwarderArg) external onlyOwner {
-        // CH_ANC: address is not contract
-        require(trustedForwarderArg.isContract(), "CH_ANC");
+        // CH_TFNC: TrustedForwarder is not contract
+        require(trustedForwarderArg.isContract(), "CH_TFNC");
         _setTrustedForwarder(trustedForwarderArg);
         emit TrustedForwarderChanged(trustedForwarderArg);
     }
@@ -491,7 +491,7 @@ contract ClearingHouse is
         //   trader: here
         //   baseToken: in Exchange.settleFunding()
 
-        // CH_NEO: cannot liquidate when there is still order
+        // CH_CLWTISO: cannot liquidate when there is still order
         require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value

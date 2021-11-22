@@ -52,7 +52,7 @@ describe("Vault spec", () => {
         it("force error by non-admin")
 
         it("force error, invalid TrustedForwarder address", async () => {
-            await expect(vault.setTrustedForwarder(alice.address)).to.be.revertedWith("V_CHNC")
+            await expect(vault.setTrustedForwarder(alice.address)).to.be.revertedWith("V_TFNC")
         })
     })
 
