@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 interface IClearingHouse {
+    /// @param useTakerBalance only accept false now
     struct AddLiquidityParams {
         address baseToken;
         uint256 base;

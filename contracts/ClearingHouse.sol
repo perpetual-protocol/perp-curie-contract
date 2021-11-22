@@ -172,6 +172,9 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
 
+        // CH_DUTB: Disable useTakerBalance
+        require(!params.useTakerBalance, "CH_DUTB");
+
         address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
