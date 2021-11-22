@@ -721,6 +721,7 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
+    // TODO add this back once we enable the addLiquidity(useTakerBalance)
     describe.skip("# addLiquidity using taker's position", () => {
         let bobTakerQuote
         let bobBase
