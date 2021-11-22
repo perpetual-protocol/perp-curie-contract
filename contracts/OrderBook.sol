@@ -504,18 +504,18 @@ contract OrderBook is
         return liquidityCoefficientInFundingPayment;
     }
 
-    function getOwedFee(
+    function getPendingFee(
         address trader,
         address baseToken,
         int24 lowerTick,
         int24 upperTick
     ) external view override returns (uint256) {
-        (uint256 owedFee, ) =
-            _getOwedFeeAndFeeGrowthInsideX128ByOrder(
+        (uint256 pendingFee, ) =
+            _getPendingFeeAndFeeGrowthInsideX128ByOrder(
                 baseToken,
                 _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)]
             );
-        return owedFee;
+        return pendingFee;
     }
 
     //
@@ -594,7 +594,7 @@ contract OrderBook is
 
         // as in _addLiquidityToOrder(), fee should be calculated before the states are updated
         uint256 feeGrowthInsideX128;
-        (fee, feeGrowthInsideX128) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
+        (fee, feeGrowthInsideX128) = _getPendingFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         if (params.liquidity != 0) {
             if (openOrder.baseDebt != 0) {
@@ -676,7 +676,7 @@ contract OrderBook is
         // - a new order, there is no fee accrued yet
         // - an existing order, fees accrued have to be settled before more liquidity is added
         (uint256 fee, uint256 feeGrowthInsideX128) =
-            _getOwedFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
+            _getPendingFeeAndFeeGrowthInsideX128ByOrder(params.baseToken, openOrder);
 
         // after the fee is calculated, liquidity & lastFeeGrowthInsideX128 can be updated
         openOrder.liquidity = openOrder.liquidity.add(params.liquidity).toUint128();
@@ -760,8 +760,8 @@ contract OrderBook is
 
             // get uncollected fee (only quote)
             if (!fetchBase) {
-                (uint256 feeInOrder, ) = _getOwedFeeAndFeeGrowthInsideX128ByOrder(baseToken, order);
-                pendingFee = pendingFee.add(feeInOrder);
+                (uint256 pendingFeeInOrder, ) = _getPendingFeeAndFeeGrowthInsideX128ByOrder(baseToken, order);
+                pendingFee = pendingFee.add(pendingFeeInOrder);
             }
         }
         return (tokenAmount, pendingFee);
@@ -769,10 +769,10 @@ contract OrderBook is
 
     /// @dev CANNOT use safeMath for feeGrowthInside calculation, as it can be extremely large and overflow
     ///      the difference between two feeGrowthInside, however, is correct and won't be affected by overflow or not
-    function _getOwedFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder.Info memory order)
+    function _getPendingFeeAndFeeGrowthInsideX128ByOrder(address baseToken, OpenOrder.Info memory order)
         internal
         view
-        returns (uint256 owedFee, uint256 feeGrowthInsideX128)
+        returns (uint256 pendingFee, uint256 feeGrowthInsideX128)
     {
         (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
@@ -782,12 +782,12 @@ contract OrderBook is
             tick,
             _feeGrowthGlobalX128Map[baseToken]
         );
-        owedFee = FullMath.mulDiv(
+        pendingFee = FullMath.mulDiv(
             feeGrowthInsideX128 - order.lastFeeGrowthInsideX128,
             order.liquidity,
             FixedPoint128.Q128
         );
 
-        return (owedFee, feeGrowthInsideX128);
+        return (pendingFee, feeGrowthInsideX128);
     }
 }

@@ -405,7 +405,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             totalTakerQuoteBalance = totalTakerQuoteBalance.add(_accountMarketMap[trader][baseToken].takerOpenNotional);
         }
 
-        // owedFee is included
+        // pendingFee is included
         int256 totalMakerQuoteBalance;
         (totalMakerQuoteBalance, pendingFee) = IOrderBook(_orderBook).getTotalQuoteBalanceAndPendingFee(
             trader,

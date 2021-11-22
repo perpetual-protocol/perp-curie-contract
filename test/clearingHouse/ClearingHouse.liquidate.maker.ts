@@ -122,7 +122,7 @@ describe("ClearingHouse liquidate maker", () => {
         setPool1IndexPrice(100000)
 
         await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
-            "CH_NEO",
+            "CH_CLWTISO",
         )
     })
 

@@ -88,7 +88,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
         })
 
         it("force error, over deadline", async () => {
@@ -144,7 +144,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
                     minQuote: parseUnits("10001"),
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.revertedWith("CH_PSC")
+            ).to.revertedWith("CH_PSCF")
         })
     })
 })

@@ -120,11 +120,11 @@ describe("ClearingHouse Spec", () => {
         })
 
         it("force error, invalid base token address when setMaxTickCrossedWithinBlock", async () => {
-            await expect(exchange.setMaxTickCrossedWithinBlock(wallet.address, 1)).to.be.revertedWith("EX_ANC")
+            await expect(exchange.setMaxTickCrossedWithinBlock(wallet.address, 1)).to.be.revertedWith("EX_BNC")
         })
 
         it("force error, invalid trustedForwarder address when setTrustedForwarder", async () => {
-            await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_ANC")
+            await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_TFNC")
         })
     })
 

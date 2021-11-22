@@ -133,7 +133,7 @@ interface IOrderBook {
         Funding.Growth memory fundingGrowthGlobal
     ) external view returns (int256 liquidityCoefficientInFundingPayment);
 
-    function getOwedFee(
+    function getPendingFee(
         address trader,
         address baseToken,
         int24 lowerTick,
