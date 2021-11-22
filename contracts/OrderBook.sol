@@ -16,7 +16,6 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { OrderKey } from "./lib/OrderKey.sol";
 import { Tick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
@@ -178,7 +177,7 @@ contract OrderBook is
     {
         _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OpenOrder.calcOrderKey(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         return
             _removeLiquidity(
                 InternalRemoveLiquidityParams({
@@ -204,7 +203,7 @@ contract OrderBook is
         RemoveLiquidityResponse memory removeLiquidityResponse;
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-            bytes32 orderId = OrderKey.compute(maker, baseToken, order.lowerTick, order.upperTick);
+            bytes32 orderId = OpenOrder.calcOrderKey(maker, baseToken, order.lowerTick, order.upperTick);
 
             RemoveLiquidityResponse memory response =
                 _removeLiquidity(
@@ -259,7 +258,7 @@ contract OrderBook is
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
+                Funding.calcLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
 
             // thus, state updates have to come after
@@ -440,7 +439,7 @@ contract OrderBook is
         int24 lowerTick,
         int24 upperTick
     ) external view override returns (OpenOrder.Info memory) {
-        return _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)];
+        return _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)];
     }
 
     function hasOrder(address trader, address[] calldata tokens) external view override returns (bool) {
@@ -502,7 +501,7 @@ contract OrderBook is
 
             // the calculation here is based on cached values
             liquidityCoefficientInFundingPayment = liquidityCoefficientInFundingPayment.add(
-                _getLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
+                Funding.calcLiquidityCoefficientInFundingPaymentByOrder(order, fundingGrowthRangeInfo)
             );
         }
 
@@ -518,7 +517,7 @@ contract OrderBook is
         (uint256 owedFee, ) =
             _getOwedFeeAndFeeGrowthInsideX128ByOrder(
                 baseToken,
-                _openOrderMap[OrderKey.compute(trader, baseToken, lowerTick, upperTick)]
+                _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)]
             );
         return owedFee;
     }
@@ -646,7 +645,7 @@ contract OrderBook is
 
     /// @dev this function is extracted from and only used by addLiquidity() to avoid stack too deep error
     function _addLiquidityToOrder(InternalAddLiquidityToOrderParams memory params) internal returns (uint256) {
-        bytes32 orderId = OrderKey.compute(params.maker, params.baseToken, params.lowerTick, params.upperTick);
+        bytes32 orderId = OpenOrder.calcOrderKey(params.maker, params.baseToken, params.lowerTick, params.upperTick);
         // get the struct by key, no matter it's a new or existing order
         OpenOrder.Info storage openOrder = _openOrderMap[orderId];
 
@@ -794,49 +793,5 @@ contract OrderBook is
         );
 
         return (owedFee, feeGrowthInsideX128);
-    }
-
-    /// @dev the funding payment of an order/liquidity is composed of
-    ///      1. funding accrued inside the range 2. funding accrued below the range
-    ///      there is no funding when the price goes above the range, as liquidity is all swapped into quoteToken
-    /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
-    function _getLiquidityCoefficientInFundingPaymentByOrder(
-        OpenOrder.Info memory order,
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
-    ) internal pure returns (int256) {
-        uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
-
-        // base amount below the range
-        uint256 baseAmountBelow =
-            LiquidityAmounts.getAmount0ForLiquidity(
-                TickMath.getSqrtRatioAtTick(order.lowerTick),
-                sqrtPriceX96AtUpperTick,
-                order.liquidity
-            );
-        // funding below the range
-        int256 fundingBelowX96 =
-            baseAmountBelow.toInt256().mul(
-                fundingGrowthRangeInfo.twPremiumGrowthBelowX96.sub(order.lastTwPremiumGrowthBelowX96)
-            );
-
-        // funding inside the range =
-        // liquidity * (ΔtwPremiumDivBySqrtPriceGrowthInsideX96 - ΔtwPremiumGrowthInsideX96 / sqrtPriceAtUpperTick)
-        int256 fundingInsideX96 =
-            order.liquidity.toInt256().mul(
-                // ΔtwPremiumDivBySqrtPriceGrowthInsideX96
-                fundingGrowthRangeInfo
-                    .twPremiumDivBySqrtPriceGrowthInsideX96
-                    .sub(order.lastTwPremiumDivBySqrtPriceGrowthInsideX96)
-                    .sub(
-                    // ΔtwPremiumGrowthInsideX96
-                    PerpMath.mulDiv(
-                        fundingGrowthRangeInfo.twPremiumGrowthInsideX96.sub(order.lastTwPremiumGrowthInsideX96),
-                        PerpFixedPoint96._IQ96,
-                        sqrtPriceX96AtUpperTick
-                    )
-                )
-            );
-
-        return fundingBelowX96.add(fundingInsideX96).div(PerpFixedPoint96._IQ96);
     }
 }

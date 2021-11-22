@@ -11,7 +11,6 @@ import { IUniswapV3MintCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { FeeMath } from "./lib/FeeMath.sol";
 import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
@@ -26,7 +25,6 @@ import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
-import { OrderKey } from "./lib/OrderKey.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
@@ -246,7 +244,7 @@ contract ClearingHouse is
 
             // update orderDebt to record the cost of this order
             IOrderBook(_orderBook).updateOrderDebt(
-                OrderKey.compute(trader, params.baseToken, params.lowerTick, params.upperTick),
+                OpenOrder.calcOrderKey(trader, params.baseToken, params.lowerTick, params.upperTick),
                 removedPositionSize,
                 removedOpenNotional
             );
