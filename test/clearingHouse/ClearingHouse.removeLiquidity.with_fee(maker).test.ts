@@ -905,9 +905,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 })
 
                 // fee = 1 * 1% = 0.01
-                expect(await orderBook.getOwedFee(alice.address, baseToken.address, lowerTick, upperTick)).to.deep.eq(
-                    parseEther("0.009999999999999999"),
-                )
+                expect(
+                    await orderBook.getPendingFee(alice.address, baseToken.address, lowerTick, upperTick),
+                ).to.deep.eq(parseEther("0.009999999999999999"))
 
                 // carol provide second liquidity on overlapped range
                 const receipt = await (
@@ -933,7 +933,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
                 // carol should not receive any fee yet
                 expect(
-                    await orderBook.getOwedFee(carol.address, baseToken.address, lowerTick, upperTick + 200),
+                    await orderBook.getPendingFee(carol.address, baseToken.address, lowerTick, upperTick + 200),
                 ).to.deep.eq(parseEther("0"))
             })
         })
