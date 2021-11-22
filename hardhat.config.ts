@@ -13,12 +13,13 @@ import "solidity-coverage"
 import {
     ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
     ARBITRUM_RINKEBY_WEB3_ENDPOINT,
-    HARDHAT_FORK_DEPLOYER_MNEMONIC,
-    HARDHAT_FORK_WEB3_ENDPOINT,
+    OPTIMISM_DEPLOYER_MNEMONIC,
     OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
     OPTIMISM_KOVAN_WEB3_ENDPOINT,
+    OPTIMISM_WEB3_ENDPOINT,
     RINKEBY_DEPLOYER_MNEMONIC,
     RINKEBY_WEB3_ENDPOINT,
+    STAGE,
 } from "./constants"
 import "./mocha-test"
 
@@ -48,16 +49,27 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             allowUnlimitedContractSize: true,
-            forking: HARDHAT_FORK_WEB3_ENDPOINT
-                ? {
-                      url: HARDHAT_FORK_WEB3_ENDPOINT,
-                  }
-                : undefined,
-            accounts: {
-                mnemonic: HARDHAT_FORK_DEPLOYER_MNEMONIC,
-            },
+            forking:
+                STAGE === "staging"
+                    ? {
+                          enabled: true,
+                          url: OPTIMISM_KOVAN_WEB3_ENDPOINT,
+                      }
+                    : {
+                          enabled: false,
+                          url: OPTIMISM_WEB3_ENDPOINT,
+                      },
+            accounts:
+                STAGE === "staging"
+                    ? {
+                          mnemonic: OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
+                      }
+                    : {
+                          mnemonic: OPTIMISM_DEPLOYER_MNEMONIC,
+                      },
             companionNetworks: {
                 staging: "optimismKovan",
+                production: "optimism",
             },
             saveDeployments: true,
         },
@@ -80,6 +92,13 @@ const config: HardhatUserConfig = {
                 mnemonic: OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
             },
             chainId: ChainId.OPTIMISM_KOVAN_CHAIN_ID,
+        },
+        optimism: {
+            url: OPTIMISM_WEB3_ENDPOINT,
+            accounts: {
+                mnemonic: OPTIMISM_DEPLOYER_MNEMONIC,
+            },
+            chainId: ChainId.OPTIMISM_CHAIN_ID,
         },
     },
     namedAccounts: {
