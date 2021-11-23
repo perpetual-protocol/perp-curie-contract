@@ -122,6 +122,7 @@ interface IClearingHouse {
 
     event TrustedForwarderChanged(address indexed forwarder);
 
+    /// @dev tx will fail if adding base == 0 && quote == 0 / liquidity == 0
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory);
 
     function removeLiquidity(RemoveLiquidityParams calldata params)

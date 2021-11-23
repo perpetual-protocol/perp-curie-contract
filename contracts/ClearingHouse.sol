@@ -168,7 +168,7 @@ contract ClearingHouse is
     {
         // input requirement checks:
         //   baseToken: in Exchange.settleFunding()
-        //   base & quote: in UniswapV3Broker.addLiquidity()
+        //   base & quote: in LiquidityAmounts.getLiquidityForAmounts() -> FullMath.mulDiv()
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
 
