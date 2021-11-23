@@ -52,7 +52,7 @@ library SwapMath {
                 : calcAmountScaledByFeeRatio(amount, exchangeFeeRatio, true);
         } else {
             scaledAmountForUniswapV3PoolSwap = isExactInput
-                ? _calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, exchangeFeeRatio, true)
+                ? calcAmountWithFeeRatioReplaced(amount, uniswapFeeRatio, exchangeFeeRatio, true)
                 : amount;
         }
 
@@ -70,22 +70,18 @@ library SwapMath {
             : signedScaledAmountForReplaySwap.neg256();
     }
 
-    //
-    // PRIVATE PURE
-    //
-
     /// @param isReplacingUniswapFeeRatio is to replace uniswapFeeRatio or clearingHouseFeeRatio
     ///        let x : uniswapFeeRatio, y : clearingHouseFeeRatio
     ///        true: replacing uniswapFeeRatio with clearingHouseFeeRatio: amount * (1 - y) / (1 - x)
     ///        false: replacing clearingHouseFeeRatio with uniswapFeeRatio: amount * (1 - x) / (1 - y)
     ///        multiplying a fee is applying it as the new standard and dividing a fee is removing its effect
     /// @dev calculate the amount when feeRatio is switched between uniswapFeeRatio and clearingHouseFeeRatio
-    function _calcAmountWithFeeRatioReplaced(
+    function calcAmountWithFeeRatioReplaced(
         uint256 amount,
         uint24 uniswapFeeRatio,
         uint24 clearingHouseFeeRatio,
         bool isReplacingUniswapFeeRatio
-    ) private pure returns (uint256) {
+    ) internal pure returns (uint256) {
         (uint24 newFeeRatio, uint24 replacedFeeRatio) =
             isReplacingUniswapFeeRatio
                 ? (clearingHouseFeeRatio, uniswapFeeRatio)
