@@ -27,7 +27,7 @@
     "transferOwner:optimismKovan": "hardhat run --network optimismKovan scripts/transferOwner.ts",
     "tenderly:rinkeby": "hardhat --network rinkeby run scripts/tenderly.ts",
     "tenderly:optimismKovan": "hardhat --network optimismKovan run scripts/tenderly.ts",
-    "deploy:hardhat": "hardhat deploy --network hardhat",
+    "deploy:hardhat": "hardhat deploy --network hardhat && rm .openzeppelin/unknown-31337.json && rm -rf deployments/hardhat ",
     "deploy:rinkeby": "hardhat deploy --network rinkeby",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
     "system-test:rinkeby": "npm run deploy:rinkeby -- --tags system-test",
