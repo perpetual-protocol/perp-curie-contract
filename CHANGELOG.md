@@ -6,10 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [unreleased]
 
-- rename `ClearingHouse.settleAllFundingAndPendingFee` to `ClearingHouse.settleAllFunding`
+## [0.15.0-staging] - 2021-11-22
 
 ### Changed
-
+- rename `ClearingHouse.settleAllFundingAndPendingFee` to `ClearingHouse.settleAllFunding`
 - rename `AccountBalance.addTakerBalances` to `AccountBalance.modifyTakerBalance`
 - rename params of `AccountBalance.modifyTakerBalance`
     1. `deltaTakerBase` to `base`
