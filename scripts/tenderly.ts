@@ -1,5 +1,5 @@
 import fs from "fs"
-import { HardhatRuntimeEnvironment } from "hardhat/types"
+import hre from "hardhat"
 import { resolve } from "path"
 
 const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory", "BTCUSDChainlinkPriceFeed", "ETHUSDChainlinkPriceFeed"]
@@ -33,7 +33,7 @@ function getContractsInfo(network: String): Array<ContractInfo> {
     return contractsInfo
 }
 
-export async function verifyAndPushContract(hre: HardhatRuntimeEnvironment, stage: String): Promise<void> {
+export async function verifyAndPushContract(): Promise<void> {
     const network = hre.network.name
     const contractsInfo = getContractsInfo(network)
 
@@ -57,4 +57,13 @@ export async function verifyAndPushContract(hre: HardhatRuntimeEnvironment, stag
                 console.log(e)
             })
     }
+}
+
+if (require.main === module) {
+    verifyAndPushContract()
+        .then(() => process.exit(0))
+        .catch(error => {
+            console.error(error)
+            process.exit(1)
+        })
 }

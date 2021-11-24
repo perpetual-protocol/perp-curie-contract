@@ -8,18 +8,10 @@ import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig, task } from "hardhat/config"
+import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
-import {
-    ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
-    ARBITRUM_RINKEBY_WEB3_ENDPOINT,
-    OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
-    OPTIMISM_KOVAN_WEB3_ENDPOINT,
-    RINKEBY_DEPLOYER_MNEMONIC,
-    RINKEBY_WEB3_ENDPOINT,
-} from "./constants"
 import "./mocha-test"
-import { verifyAndPushContract } from "./scripts/tenderly"
+import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -29,11 +21,12 @@ enum ChainId {
     RINKEBY_CHAIN_ID = 4,
 }
 
-task("tenderly", "Contract verification and push on Tenderly")
-    .addParam("stage", "stage")
-    .setAction(async ({ stage }, hre) => {
-        await verifyAndPushContract(hre, stage)
-    })
+enum CompanionNetwork {
+    optimism = "optimism",
+    optimismKovan = "optimismKovan",
+    rinkeby = "rinkeby",
+    arbitrumRinkeby = "arbitrumRinkeby",
+}
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -52,30 +45,41 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             allowUnlimitedContractSize: true,
+            saveDeployments: true,
+            ...hardhatForkConfig(),
         },
         arbitrumRinkeby: {
-            url: ARBITRUM_RINKEBY_WEB3_ENDPOINT,
+            url: getUrl(CompanionNetwork.arbitrumRinkeby),
             accounts: {
-                mnemonic: ARBITRUM_RINKEBY_DEPLOYER_MNEMONIC,
+                mnemonic: getMnemonic(CompanionNetwork.arbitrumRinkeby),
             },
             chainId: ChainId.ARBITRUM_RINKEBY_CHAIN_ID,
         },
         rinkeby: {
-            url: RINKEBY_WEB3_ENDPOINT,
+            url: getUrl(CompanionNetwork.rinkeby),
             accounts: {
-                mnemonic: RINKEBY_DEPLOYER_MNEMONIC,
+                mnemonic: getMnemonic(CompanionNetwork.rinkeby),
             },
+            chainId: ChainId.RINKEBY_CHAIN_ID,
         },
         optimismKovan: {
-            url: OPTIMISM_KOVAN_WEB3_ENDPOINT,
+            url: getUrl(CompanionNetwork.optimismKovan),
             accounts: {
-                mnemonic: OPTIMISM_KOVAN_DEPLOYER_MNEMONIC,
+                mnemonic: getMnemonic(CompanionNetwork.optimismKovan),
             },
             chainId: ChainId.OPTIMISM_KOVAN_CHAIN_ID,
+        },
+        optimism: {
+            url: getUrl(CompanionNetwork.optimism),
+            accounts: {
+                mnemonic: getMnemonic(CompanionNetwork.optimism),
+            },
+            chainId: ChainId.OPTIMISM_CHAIN_ID,
         },
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
+        cleanAccount: 1,
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
@@ -105,12 +109,6 @@ const config: HardhatUserConfig = {
         usdc: {
             [ChainId.ARBITRUM_ONE_CHAIN_ID]: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
             [ChainId.OPTIMISM_CHAIN_ID]: "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
-        },
-        // follow up this page : https://www.notion.so/perp/Arbitrum-Faucet-0ded856b8ff1499180559fba6e79ef62
-        faucetIssuer: {
-            [ChainId.RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
-            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
-            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xA9818F7A9CBF0483366fBe43B90b62E52655F404",
         },
     },
     dependencyCompiler: {
