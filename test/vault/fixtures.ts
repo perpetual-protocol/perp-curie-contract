@@ -1,7 +1,5 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
-import { parseUnits } from "ethers/lib/utils"
 import { ethers } from "hardhat"
-import { DeployConfig } from "../../scripts/deploy/constants"
 import {
     AccountBalance,
     ClearingHouse,
@@ -87,9 +85,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     await vault.setClearingHouse(mockedClearingHouse.address)
 
-    const vaultDecimals = await vault.decimals()
-    const settlementTokenBalanceCap = parseUnits(DeployConfig.SETTLEMENT_TOKEN_BALANCE_CAP.toString(), vaultDecimals)
-    await clearingHouseConfig.setSettlementTokenBalanceCap(settlementTokenBalanceCap)
+    await clearingHouseConfig.setSettlementTokenBalanceCap(ethers.constants.MaxUint256)
 
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }
