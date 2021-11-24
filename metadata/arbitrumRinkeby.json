@@ -2,90 +2,90 @@
     "chainId": 421611,
     "contracts": {
         "AccountBalance": {
-            "address": "0xfEbc96c40146FAe067D09211dF2bb0A1942dD231",
-            "createdBlockNumber": 6516360,
+            "address": "0x08424a226d64A2fB7088e497aFAD833018aA50fC",
+            "createdBlockNumber": 6980516,
             "name": "contracts/AccountBalance.sol:AccountBalance"
         },
         "BTCUSDChainlinkPriceFeed": {
-            "address": "0x57a8788f8A0276617336f56C134B27F9B7062Fdc",
-            "createdBlockNumber": 6516602,
+            "address": "0x7C6EAEAD663D258BC1cA4c8dF744d77A25bD01fA",
+            "createdBlockNumber": 6980626,
             "name": "contracts/ChainlinkPriceFeed.sol:ChainlinkPriceFeed"
         },
         "ClearingHouse": {
-            "address": "0xe46d6adCa2263Ee9f6be407623F8662505421054",
-            "createdBlockNumber": 6516408,
+            "address": "0xA9e42a93FFc37856427139D67fB635dE7D9a4013",
+            "createdBlockNumber": 6980541,
             "name": "contracts/ClearingHouse.sol:ClearingHouse"
         },
         "ClearingHouseConfig": {
-            "address": "0x38f76D04fdC1537974599880a3F4C54db66eAFB4",
-            "createdBlockNumber": 6516126,
+            "address": "0x49A9f26C723CDd4AE6dDD9AAA69118EDA2241584",
+            "createdBlockNumber": 6980426,
             "name": "contracts/ClearingHouseConfig.sol:ClearingHouseConfig"
         },
         "ETHUSDChainlinkPriceFeed": {
-            "address": "0x7b93962C7CDB249Ea6C3f404781124CC25015598",
-            "createdBlockNumber": 6516487,
+            "address": "0xF595d5cb561845e620Bcfa09d10B3c2B6617fe88",
+            "createdBlockNumber": 6980584,
             "name": "contracts/ChainlinkPriceFeed.sol:ChainlinkPriceFeed"
         },
         "Exchange": {
-            "address": "0xA9c43dBD5cf2e69908E8CBf801610f4426d04553",
-            "createdBlockNumber": 6516343,
+            "address": "0xeE10ed194b98138B7f68b7AB71146596cfcA74E6",
+            "createdBlockNumber": 6980500,
             "name": "contracts/Exchange.sol:Exchange"
         },
         "InsuranceFund": {
-            "address": "0x8339f64d5CFeD55279BA437349F1cB10bBa833cB",
-            "createdBlockNumber": 6516167,
+            "address": "0x1d98cA6F2B78edF07D6C716A8A5a8730B9141803",
+            "createdBlockNumber": 6980462,
             "name": "contracts/InsuranceFund.sol:InsuranceFund"
         },
         "MarketRegistry": {
-            "address": "0xfBEC937F1dF4cEc3eC03b3cB9B00D889712EEcA7",
-            "createdBlockNumber": 6516146,
+            "address": "0xAB1755Ff8db86C1d4B1fF7E6028dB3BE360FEfA9",
+            "createdBlockNumber": 6980444,
             "name": "contracts/MarketRegistry.sol:MarketRegistry"
         },
         "OrderBook": {
-            "address": "0x355314631b680Dff2E6B0491DF86BF25bbFD3849",
-            "createdBlockNumber": 6516322,
+            "address": "0x3dcCA35212a37d7eD9A6B6a3d2F07e4E79D2713f",
+            "createdBlockNumber": 6980480,
             "name": "contracts/OrderBook.sol:OrderBook"
         },
         "QuoteToken": {
-            "address": "0xFe892ed67Fd48Aea0a5c3234B993B52212e6CBd6",
-            "createdBlockNumber": 6516107,
+            "address": "0xB4f1f7253609878767136e5Db3E6F874C6BA44dD",
+            "createdBlockNumber": 6980411,
             "name": "contracts/QuoteToken.sol:QuoteToken"
         },
         "Vault": {
-            "address": "0x83Ef097003e1B6FC7aFd1F55aCB20316c334b246",
-            "createdBlockNumber": 6516382,
+            "address": "0x4056EF902bD1a523cFfB2C3C72812FBa176B572e",
+            "createdBlockNumber": 6980528,
             "name": "contracts/Vault.sol:Vault"
         },
         "vBTC": {
-            "address": "0x6c46fD8fF905f22ECc9D1B2708760849F962Fb55",
-            "createdBlockNumber": 6516623,
+            "address": "0x727B79ecfAE8cF0cf7E77C469A04ea837D39C70d",
+            "createdBlockNumber": 6980638,
             "name": "contracts/BaseToken.sol:BaseToken"
         },
         "vETH": {
-            "address": "0x3507cC6bD436e95D3378a8F10F450fbBAA6E5Ee6",
-            "createdBlockNumber": 6516509,
+            "address": "0x5080c5023d7b9c387572B5f63be7e96F792a2896",
+            "createdBlockNumber": 6980595,
             "name": "contracts/BaseToken.sol:BaseToken"
         }
     },
     "externalContracts": {
-        "DefaultProxyAdmin": "0x3EdFEc910F5Aad21888467dFF454a6bC3370FBd6",
-        "USDC": "0xf363916F4f1B75AD34de123837addFcCE1651eeA",
+        "DefaultProxyAdmin": "0x8fbC658e03abC089365d5b8f96B518345F4a76D7",
+        "USDC": "0x71d8408da358965Ad31f2273ABae38dFb97Efc70",
         "UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     },
     "network": "arbitrumRinkeby",
     "pools": [
         {
-            "address": "0x9989453DAfAE939F30adeC29b3E870F7343909e6",
-            "baseAddress": "0x3507cC6bD436e95D3378a8F10F450fbBAA6E5Ee6",
+            "address": "0x44Db4c039AAECA0b7b6688A0D447eeb7Cb257Ba7",
+            "baseAddress": "0x5080c5023d7b9c387572B5f63be7e96F792a2896",
             "baseSymbol": "vETH",
-            "quoteAddress": "0xFe892ed67Fd48Aea0a5c3234B993B52212e6CBd6",
+            "quoteAddress": "0xB4f1f7253609878767136e5Db3E6F874C6BA44dD",
             "quoteSymbol": "vUSD"
         },
         {
-            "address": "0x435680BFE6f0Bb5184F068cE9288b52B837670c0",
-            "baseAddress": "0x6c46fD8fF905f22ECc9D1B2708760849F962Fb55",
+            "address": "0x8D45071AdedAbFb48fFb659202F20bf86bC46CCc",
+            "baseAddress": "0x727B79ecfAE8cF0cf7E77C469A04ea837D39C70d",
             "baseSymbol": "vBTC",
-            "quoteAddress": "0xFe892ed67Fd48Aea0a5c3234B993B52212e6CBd6",
+            "quoteAddress": "0xB4f1f7253609878767136e5Db3E6F874C6BA44dD",
             "quoteSymbol": "vUSD"
         }
     ]
