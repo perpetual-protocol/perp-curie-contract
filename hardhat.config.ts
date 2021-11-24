@@ -11,6 +11,7 @@ import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
 import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
+import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
 import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
 
@@ -146,6 +147,9 @@ const config: HardhatUserConfig = {
     tenderly: {
         project: "curie-op-kovan-0-15",
         username: "perpprotocol",
+    },
+    etherscan: {
+        apiKey: ETHERSCAN_API_KEY,
     },
 }
 
