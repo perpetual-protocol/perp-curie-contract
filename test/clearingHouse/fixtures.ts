@@ -1,5 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
+import { parseUnits } from "ethers/lib/utils"
 import { ethers } from "hardhat"
+import { DeployConfig } from "../../scripts/deploy/constants"
 import {
     AccountBalance,
     BaseToken,
@@ -174,6 +176,13 @@ export function createClearingHouseFixture(
                 insuranceFund.address,
             )
         }
+
+        const vaultDecimals = await vault.decimals()
+        const settlementTokenBalanceCap = parseUnits(
+            DeployConfig.SETTLEMENT_TOKEN_BALANCE_CAP.toString(),
+            vaultDecimals,
+        )
+        await clearingHouseConfig.setSettlementTokenBalanceCap(settlementTokenBalanceCap)
 
         await quoteToken.mintMaximumTo(clearingHouse.address)
         await baseToken.mintMaximumTo(clearingHouse.address)
