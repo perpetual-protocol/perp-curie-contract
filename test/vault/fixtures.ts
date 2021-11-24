@@ -85,7 +85,5 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
 
     await vault.setClearingHouse(mockedClearingHouse.address)
 
-    await clearingHouseConfig.setSettlementTokenBalanceCap(ethers.constants.MaxUint256)
-
     return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
 }
