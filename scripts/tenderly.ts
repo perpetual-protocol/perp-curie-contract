@@ -7,9 +7,10 @@ const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory", "BTCUSDChainlink
 interface ContractInfo {
     name: string
     address: string
+    args: any[]
 }
 
-function getContractsInfo(network: String): Array<ContractInfo> {
+export function getContractsInfo(network: String): Array<ContractInfo> {
     const contractsInfo = []
     const metadata = `./metadata/${network}.json`
     const jsonStr = fs.readFileSync(resolve(metadata), "utf8")

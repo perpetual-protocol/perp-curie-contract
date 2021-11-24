@@ -71,16 +71,20 @@ args:
         ```yaml
         access_key: super_secret_access_key
         ```
-   - run `export RINKEBY_WEB3_ENDPOINT=YOUR_RPC_ENDPOINT`
-   - run `npm run verify-tenderly:rinkeby`
+   - run `export OPTIMISM_KOVAN_WEB3_ENDPOINT=YOUR_OPTIMISM_KOVAN_WEB3_ENDPOINT`
+   - run `npm run tenderly:optimismKovan`
 
-7. Verify what's included in the packed npm package
+7. Verify contracts on Etherscan
+   - run `export ETHERSCAN_API_KEY=YOUR_ETHERSCAN_API_KEY`
+   - run `npm run etherscan:optimismKovan`
+
+8. Verify what's included in the packed npm package
 
 ```bash
 npm pack
 ```
 
-8. Publish npm package
+9. Publish npm package
 
 ```bash
 # push tag to trigger "Publish NPM package" workflow
