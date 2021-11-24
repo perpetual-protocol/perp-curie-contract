@@ -38,7 +38,7 @@
     "deploy:optimism": "hardhat deploy --network optimism",
     "clean-deploy:rinkeby": "rm -rf deployments/rinkeby/ && rm -f .openzeppelin/rinkeby.json && hardhat deploy --network rinkeby",
     "clean-deploy:arbitrumRinkeby": "rm -rf deployments/arbitrumRinkeby/ && rm -f .openzeppelin/unknown-421611.json && hardhat deploy --network arbitrumRinkeby",
-    "clean-deploy:optimismKovan": "rm -rf deployments/optimismKovan/ && rm -f .openzeppelin/unknown-4.json && hardhat deploy --network optimismKovan",
+    "clean-deploy:optimismKovan": "rm -rf deployments/optimismKovan/ && rm -f .openzeppelin/unknown-69.json && hardhat deploy --network optimismKovan",
     "clean-deploy:optimism": "rm -rf deployments/optimism/ && rm -f .openzeppelin/unknown-10.json && hardhat deploy --network optimism",
     "system-test:rinkeby": "npm run deploy:rinkeby -- --tags system-test",
     "system-test:arbitrumRinkeby": "npm run deploy:arbitrumRinkeby -- --tags system-test",
