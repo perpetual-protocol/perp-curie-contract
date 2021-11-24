@@ -99,11 +99,13 @@ const config: HardhatUserConfig = {
             [ChainId.RINKEBY_CHAIN_ID]: "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x5f0423B1a6935dc5596e7A24d98532b67A0AeFd8",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xCb7895bDC70A1a1Dce69b689FD7e43A627475A06",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0xA969bEB73d918f6100163Cd0fba3C586C269bee1",
         },
         btcUsdChainlinkAggregator: {
             [ChainId.RINKEBY_CHAIN_ID]: "0xECe365B379E1dD183B20fc5f022230C044d51404",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x0c9973e7a27d00e656B9f153348dA46CaD70d03d",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0xc326371d4D866C6Ff522E69298e36Fe75797D358",
         },
         // USDC addresses (only needed for production)
         // Arbitrum: https://arbiscan.io/token/0xff970a61a04b1ca14834a43f5de4533ebddb5cc8
