@@ -1,10 +1,11 @@
 {
   "name": "@perp/curie-contract",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "hardhat.config.js",
   "files": [
     "artifacts/contracts/",
+    "contracts/",
     "metadata/"
   ],
   "scripts": {

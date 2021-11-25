@@ -7,17 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.1] - 2021-11-25
+
+- Code is the same as `1.0.0`, but it's a clean deploy to Optimism Mainnet.
+- Contract source code is also included.
+
 ## [1.0.0] - 2021-11-24
 
-Code is the same as `1.0.0-staging`, but it's a clean deploy to Optimism Mainnet.
+- Code is the same as `1.0.0-staging`, but it's a clean deploy to Optimism Mainnet.
 
 ## [1.0.0-staging] - 2021-11-24
 
-Code is the same as `0.15.1-staging`, but it's a clean deploy to Optimism Kovan and Arbitrum Rinkeby.
+- Code is the same as `0.15.1-staging`, but it's a clean deploy to Optimism Kovan and Arbitrum Rinkeby.
 
 ## [0.15.1-staging] - 2021-11-23
 
-No public change in this version.
+- No public change in this version.
 
 ## [0.15.0-staging] - 2021-11-22
 

@@ -4,6 +4,7 @@ async function main(): Promise<void> {
     await asyncExec("rm -rf artifacts/contracts/test/")
     await asyncExec("rm -rf artifacts/contracts/uniswap/")
     await asyncExec("find artifacts/contracts/ -name '*.dbg.json' -delete")
+    await asyncExec("rm -rf contracts/test")
 }
 
 if (require.main === module) {
