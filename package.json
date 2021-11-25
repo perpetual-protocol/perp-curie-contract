@@ -1,10 +1,21 @@
 {
   "name": "@perp/curie-contract",
-  "version": "1.0.0",
-  "description": "",
-  "main": "hardhat.config.js",
+  "version": "1.0.1",
+  "description": "Perpetual Protocol Curie (V2) core contracts",
+  "license": "GPL-2.0-or-later",
+  "author": {
+    "name": "Perpetual Protocol",
+    "email": "hi@perp.fi",
+    "url": "https://perp.fi/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/perpetual-protocol/perp-lushan.git"
+  },
+  "main": "index.js",
   "files": [
     "artifacts/contracts/",
+    "contracts/",
     "metadata/"
   ],
   "scripts": {
@@ -48,8 +59,6 @@
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
   },
-  "author": "",
-  "license": "GPL-2.0-or-later",
   "devDependencies": {
     "@chainlink/contracts": "0.1.7",
     "@eth-optimism/smock": "1.1.4",
