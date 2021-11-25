@@ -4,9 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [unreleased]
 
+## [1.0.0] - 2021-11-24
+
+Code is the same as `1.0.0-staging`, but it's a clean deploy to Optimism Mainnet.
+
+## [1.0.0-staging] - 2021-11-24
+
+Code is the same as `0.15.1-staging`, but it's a clean deploy to Optimism Kovan and Arbitrum Rinkeby.
+
 ## [0.15.1-staging] - 2021-11-23
+
 No public change in this version.
 
 ## [0.15.0-staging] - 2021-11-22
@@ -29,29 +39,29 @@ No public change in this version.
     3. `CH_ANC` to `CH_ENC`
     4. `CH_ANC` to `CH_TFNC`
 - rename params of `ClearingHouse.openPosition`
-    1. `deltaBase` to `base` 
-    2. `deltaQuote` to `quote` 
+    1. `deltaBase` to `base`
+    2. `deltaQuote` to `quote`
 - rename params of `ClearingHouse.closePosition`
-    1. `deltaBase` to `base` 
-    2. `deltaQuote` to `quote` 
+    1. `deltaBase` to `base`
+    2. `deltaQuote` to `quote`
 - rename error code in `Exchange`: `EX_ANC` to `EX_BNC`
 - rename params in struct `Exchange.SwapResponse`
-    1. `deltaAvailableBase` to `base` 
-    2. `deltaAvailableQuote` to `quote` 
+    1. `deltaAvailableBase` to `base`
+    2. `deltaAvailableQuote` to `quote`
 - rename params in struct `Exchange.RealizePnlParams`
-    1. `deltaAvailableBase` to `base` 
-    2. `deltaAvailableQuote` to `quote` 
+    1. `deltaAvailableBase` to `base`
+    2. `deltaAvailableQuote` to `quote`
 - rename `OrderBook.getOwedFee` as `OrderBook.getPendingFee`
 - rename params in struct `OrderBook.RemoveLiquidityResponse`
-    1. `deltaTakerBase` to `takerBase` 
-    2. `deltaTakerQuote` to `takerQuote` 
+    1. `deltaTakerBase` to `takerBase`
+    2. `deltaTakerQuote` to `takerQuote`
 - rename params of `OrderBook.updateOrderDebt`
     1. `deltaBaseDebt` to `base`
     2. `deltaQuoteDebt` to `quote`
 - rename params in struct `AccountMarket.Info`
-    1. `takerBaseBalance` to `takerPositionSize` 
-    2. `takerQuoteBalance` to `takerOpenNotional` 
-- rename error codes in `Vault` 
+    1. `takerBaseBalance` to `takerPositionSize`
+    2. `takerQuoteBalance` to `takerOpenNotional`
+- rename error codes in `Vault`
     1. `V_ANC` to `V_CHNC`
     2. `V_ANC` to `V_TFNC`
 
