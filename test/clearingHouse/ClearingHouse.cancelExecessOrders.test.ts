@@ -105,7 +105,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
-            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "LiquidityChanged",
+            )
         })
 
         it("has 0 open orders left", async () => {
@@ -147,7 +150,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
 
-            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "LiquidityChanged",
+            )
         })
 
         it("has 0 open orders left", async () => {
@@ -199,7 +205,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
             // requiredCollateral = min(collateral, accountValue) - mmReq
             //                = min(10, 14.95) - 10.125  < 0
-            await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
+                clearingHouse,
+                "LiquidityChanged",
+            )
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
@@ -353,7 +362,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
             })
 
             // cancel order successfully
-            await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
+            await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)).to.not.emit(
+                clearingHouse,
+                "LiquidityChanged",
+            )
         })
     })
 })

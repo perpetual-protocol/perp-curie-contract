@@ -192,42 +192,6 @@ contract OrderBook is
             );
     }
 
-    function removeLiquidityByIds(
-        address maker,
-        address baseToken,
-        bytes32[] calldata orderIds
-    ) external override returns (RemoveLiquidityResponse memory) {
-        _requireOnlyClearingHouse();
-        address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
-
-        RemoveLiquidityResponse memory removeLiquidityResponse;
-        for (uint256 i = 0; i < orderIds.length; i++) {
-            OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-            bytes32 orderId = OpenOrder.calcOrderKey(maker, baseToken, order.lowerTick, order.upperTick);
-
-            RemoveLiquidityResponse memory response =
-                _removeLiquidity(
-                    InternalRemoveLiquidityParams({
-                        maker: maker,
-                        baseToken: baseToken,
-                        pool: pool,
-                        orderId: orderId,
-                        lowerTick: order.lowerTick,
-                        upperTick: order.upperTick,
-                        liquidity: order.liquidity
-                    })
-                );
-
-            removeLiquidityResponse.base = removeLiquidityResponse.base.add(response.base);
-            removeLiquidityResponse.quote = removeLiquidityResponse.quote.add(response.quote);
-            removeLiquidityResponse.fee = removeLiquidityResponse.fee.add(response.fee);
-            removeLiquidityResponse.takerBase = removeLiquidityResponse.takerBase.add(response.takerBase);
-            removeLiquidityResponse.takerQuote = removeLiquidityResponse.takerQuote.add(response.takerQuote);
-        }
-
-        return removeLiquidityResponse;
-    }
-
     /// @inheritdoc IOrderBook
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,

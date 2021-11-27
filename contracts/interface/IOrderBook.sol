@@ -69,12 +69,6 @@ interface IOrderBook {
 
     function removeLiquidity(RemoveLiquidityParams calldata params) external returns (RemoveLiquidityResponse memory);
 
-    function removeLiquidityByIds(
-        address maker,
-        address baseToken,
-        bytes32[] calldata orderIds
-    ) external returns (RemoveLiquidityResponse memory);
-
     /// @dev this is the non-view version of getLiquidityCoefficientInFundingPayment()
     /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
