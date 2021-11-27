@@ -694,6 +694,10 @@ contract ClearingHouse is
 
         IOrderBook.RemoveLiquidityResponse memory removeLiquidityResponse;
         uint256 length = orderIds.length;
+        if (length == 0) {
+            return;
+        }
+
         for (uint256 i = 0; i < length; i++) {
             OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
 
@@ -708,11 +712,11 @@ contract ClearingHouse is
                     })
                 );
 
-            removeLiquidityResponse.base = response.base.add(response.base);
-            removeLiquidityResponse.quote = response.quote.add(response.quote);
-            removeLiquidityResponse.fee = response.fee.add(response.fee);
-            removeLiquidityResponse.takerBase = response.takerBase.add(response.takerBase);
-            removeLiquidityResponse.takerQuote = response.takerQuote.add(response.takerQuote);
+            removeLiquidityResponse.base = removeLiquidityResponse.base.add(response.base);
+            removeLiquidityResponse.quote = removeLiquidityResponse.quote.add(response.quote);
+            removeLiquidityResponse.fee = removeLiquidityResponse.fee.add(response.fee);
+            removeLiquidityResponse.takerBase = removeLiquidityResponse.takerBase.add(response.takerBase);
+            removeLiquidityResponse.takerQuote = removeLiquidityResponse.takerQuote.add(response.takerQuote);
 
             emit LiquidityChanged(
                 maker,
