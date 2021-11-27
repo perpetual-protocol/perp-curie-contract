@@ -145,7 +145,7 @@ const config: HardhatUserConfig = {
         color: true,
     },
     tenderly: {
-        project: "curie-optimism-v1-0-x",
+        project: "curie-v1-0-2-staging",
         username: "perpprotocol",
     },
     etherscan: {
