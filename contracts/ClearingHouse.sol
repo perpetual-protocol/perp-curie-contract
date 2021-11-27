@@ -691,10 +691,43 @@ contract ClearingHouse is
 
         // must settle funding first
         _settleFunding(maker, baseToken);
-        IOrderBook.RemoveLiquidityResponse memory response =
-            IOrderBook(_orderBook).removeLiquidityByIds(maker, baseToken, orderIds);
 
-        _settleBalanceAndRealizePnl(maker, baseToken, response);
+        IOrderBook.RemoveLiquidityResponse memory removeLiquidityResponse;
+        uint256 length = orderIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
+
+            IOrderBook.RemoveLiquidityResponse memory response =
+                IOrderBook(_orderBook).removeLiquidity(
+                    IOrderBook.RemoveLiquidityParams({
+                        maker: maker,
+                        baseToken: baseToken,
+                        lowerTick: order.lowerTick,
+                        upperTick: order.upperTick,
+                        liquidity: order.liquidity
+                    })
+                );
+
+            removeLiquidityResponse.base = response.base.add(response.base);
+            removeLiquidityResponse.quote = response.quote.add(response.quote);
+            removeLiquidityResponse.fee = response.fee.add(response.fee);
+            removeLiquidityResponse.takerBase = response.takerBase.add(response.takerBase);
+            removeLiquidityResponse.takerQuote = response.takerQuote.add(response.takerQuote);
+
+            emit LiquidityChanged(
+                maker,
+                baseToken,
+                _quoteToken,
+                order.lowerTick,
+                order.upperTick,
+                response.base.neg256(),
+                response.quote.neg256(),
+                order.liquidity.neg128(),
+                response.fee
+            );
+        }
+
+        _settleBalanceAndRealizePnl(maker, baseToken, removeLiquidityResponse);
     }
 
     function _settleBalanceAndRealizePnl(
