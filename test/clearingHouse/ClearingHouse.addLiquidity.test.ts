@@ -1193,41 +1193,62 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
-    it("force error, disable adding liquidity using taker balance", async () => {
-        const aliceLowerTick = 50000
-        const aliceUpperTick = 50400
-
-        await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
-
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseEther("100"),
-            quote: parseEther("10000"),
-            lowerTick: aliceLowerTick,
-            upperTick: aliceUpperTick,
-            minBase: 0,
-            minQuote: 0,
-            useTakerBalance: false,
-            deadline: ethers.constants.MaxUint256,
+    describe("force error", () => {
+        beforeEach(async () => {
+            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            // add pool after it's initialized
+            await marketRegistry.addPool(baseToken.address, 10000)
         })
 
-        // bob long 1 base token
-        await q2bExactOutput(fixture, bob, 1)
+        it("add 0 liquidity will fail", async () => {
+            // the error is emitted from FullMath.mulDiv(), for the numerator == 0
+            await expect(
+                clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: 0,
+                    quote: 0,
+                    lowerTick: 50000,
+                    upperTick: 50200,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerBalance: false,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.be.reverted
+        })
 
-        await expect(
-            clearingHouse.connect(bob).addLiquidity({
+        it("disable adding liquidity using taker balance", async () => {
+            const aliceLowerTick = 50000
+            const aliceUpperTick = 50400
+
+            await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
-                base: parseEther("0.5"),
-                quote: 0,
-                lowerTick: 50400,
-                upperTick: 50600,
+                base: parseEther("100"),
+                quote: parseEther("10000"),
+                lowerTick: aliceLowerTick,
+                upperTick: aliceUpperTick,
                 minBase: 0,
                 minQuote: 0,
-                useTakerBalance: true,
+                useTakerBalance: false,
                 deadline: ethers.constants.MaxUint256,
-            }),
-        ).to.be.revertedWith("CH_DUTB")
+            })
+
+            // bob long 1 base token
+            await q2bExactOutput(fixture, bob, 1)
+
+            await expect(
+                clearingHouse.connect(bob).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseEther("0.5"),
+                    quote: 0,
+                    lowerTick: 50400,
+                    upperTick: 50600,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerBalance: true,
+                    deadline: ethers.constants.MaxUint256,
+                }),
+            ).to.be.revertedWith("CH_DUTB")
+        })
     })
 })
