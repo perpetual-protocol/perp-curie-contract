@@ -141,15 +141,130 @@ describe("ClearingHouse liquidate maker", () => {
             deadline: ethers.constants.MaxUint256,
             referralCode: ethers.constants.HashZero,
         })
+        // price after swap: 39.601
 
         setPool1IndexPrice(100000)
 
-        await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+        // alice's liquidity = 31.622776601683793320
+        // removed/remaining base = 31.622776601683793320 * (1/sqrt(39.601) - 1/sqrt(1.0001^887200)) = 5.0251256281
+        // removed/remaining quote = 31.622776601683793320 * (sqrt(39.601) - sqrt(1.0001^(-887200))) = 199
+        // expected fee = 1000 * 0.01 * 0.1 (10% of liquidity) = 1
 
-        await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
-            clearingHouse,
-            "PositionLiquidated",
-        )
+        const order = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+        await expect(await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address))
+            .to.emit(clearingHouse, "LiquidityChanged")
+            .withArgs(
+                alice.address,
+                baseToken.address,
+                quoteToken.address,
+                lowerTick,
+                upperTick,
+                parseEther("-5.025125628140703515"),
+                parseEther("-198.999999999999999997"),
+                order.liquidity.mul(-1),
+                parseEther("0.999999999999999999"),
+            )
+
+        // price after liq. = 49.9949501326
+        // alice's expected impermanent position = 10 - 5.025125628140703515 = 4.9748743719
+        // 31.622776601683793320 * 9 (only carol's liquidity is left) * (1 / sqrt(39.601) - 1 / sqrt(49.9949501326)) = 4.9748743719
+        // 31.622776601683793320 * 9 * (sqrt(49.9949501326) - sqrt(39.601)) = 221.3595505626 (imprecision)
+        // liquidation fee = 221.3595505626 * 0.025 = 5.5339887641
+        await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            .to.emit(clearingHouse, "PositionLiquidated")
+            .withArgs(
+                alice.address,
+                baseToken.address,
+                parseEther("221.359550561797752885"),
+                parseEther("4.974874371859296484"),
+                parseEther("5.533988764044943822"),
+                davis.address,
+            )
+    })
+
+    // hardhat seems to be unable to catch the same events in one tx :(
+    // error message: AssertionError: Specified args not emitted in any of 2 emitted "LiquidityChanged" events
+    it.skip("bob long, maker (alice) should be liquidated", async () => {
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseEther("1"),
+            quote: parseEther("0"),
+            lowerTick: "50000",
+            upperTick,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        // bob long
+        await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
+        await deposit(bob, vault, 10000000, collateral)
+        await clearingHouse.connect(bob).openPosition({
+            baseToken: baseToken.address,
+            isBaseToQuote: false, // quote to base
+            isExactInput: true,
+            oppositeAmountBound: 0, // exact input (quote)
+            amount: parseEther("1000"),
+            sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
+        })
+        // price after swap: 39.601
+
+        setPool1IndexPrice(100000)
+
+        // alice's liquidity = 31.622776601683793320
+        // removed/remaining base = 31.622776601683793320 * (1/sqrt(39.601) - 1/sqrt(1.0001^887200)) = 5.0251256281
+        // removed/remaining quote = 31.622776601683793320 * (sqrt(39.601) - sqrt(1.0001^(-887200))) = 199
+        // expected fee = 1000 * 0.01 * 0.1 (10% of liquidity) = 1
+
+        const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+        const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, "50000", upperTick)
+
+        const tx = await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+        await expect(tx)
+            .to.emit(clearingHouse, "LiquidityChanged")
+            .withArgs(
+                alice.address,
+                baseToken.address,
+                quoteToken.address,
+                lowerTick,
+                upperTick,
+                parseEther("-5.025125628140703515"),
+                parseEther("-198.999999999999999997"),
+                order1.liquidity.mul(-1),
+                parseEther("0.999999999999999999"),
+            )
+        await expect(tx)
+            .to.emit(clearingHouse, "LiquidityChanged")
+            .withArgs(
+                alice.address,
+                baseToken.address,
+                quoteToken.address,
+                "50000",
+                upperTick,
+                parseEther("1"),
+                "0",
+                order2.liquidity.mul(-1),
+                "0",
+            )
+
+        // price after liq. = 49.9949501326
+        // alice's expected impermanent position = 10 - 5.025125628140703515 = 4.9748743719
+        // 31.622776601683793320 * 9 (only carol's liquidity is left) * (1 / sqrt(39.601) - 1 / sqrt(49.9949501326)) = 4.9748743719
+        // 31.622776601683793320 * 9 * (sqrt(49.9949501326) - sqrt(39.601)) = 221.3595505626 (imprecision)
+        // liquidation fee = 221.3595505626 * 0.025 = 5.5339887641
+        await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            .to.emit(clearingHouse, "PositionLiquidated")
+            .withArgs(
+                alice.address,
+                baseToken.address,
+                parseEther("221.359550561797752885"),
+                parseEther("4.974874371859296484"),
+                parseEther("5.533988764044943822"),
+                davis.address,
+            )
     })
 
     describe("maker has multiple orders", async () => {
