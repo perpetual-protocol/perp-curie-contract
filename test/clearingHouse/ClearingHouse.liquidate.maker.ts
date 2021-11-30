@@ -397,9 +397,109 @@ describe("ClearingHouse liquidate maker", () => {
 
             describe("maker loses in pool1", () => {
                 beforeEach(async () => {
+                    await collateral.mint(bob.address, parseUnits("100000", collateralDecimals))
+                    await deposit(bob, vault, 100000, collateral)
+                })
+
+                it("two orders in pool1 and one order in pool2; after liquidation in pool1, margin ratio is already enough", async () => {
+                    await clearingHouse.connect(alice).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: parseEther("1"),
+                        quote: parseEther("0"),
+                        lowerTick: 25000, // 12.1809713456
+                        upperTick: 35000, // 33.1096576479
+                        minBase: 0,
+                        minQuote: 0,
+                        useTakerBalance: false,
+                        deadline: ethers.constants.MaxUint256,
+                    })
+
                     // bob long in pool1
-                    await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
-                    await deposit(bob, vault, 10000000, collateral)
+                    await clearingHouse.connect(bob).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: false, // quote to base
+                        isExactInput: true,
+                        oppositeAmountBound: 0, // exact input (quote)
+                        amount: parseEther("1000"),
+                        sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
+                    })
+                    // price after swap: 38.805748602
+
+                    setPoolIndexPrice(100000, Pool.Pool1)
+
+                    const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
+                    const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, 25000, 35000)
+
+                    await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
+                    const tx = await (
+                        await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
+                    ).wait()
+                    const logs = filterLogs(
+                        tx,
+                        clearingHouse.interface.getEventTopic("LiquidityChanged"),
+                        clearingHouse,
+                    )
+
+                    // alice's liquidity2 = 8.870473434863612760
+                    // removed/remaining base = 0, cuz the price is above the upper bound
+                    // removed/remaining quote = 8.870473434863612760 * (sqrt(1.0001^35000) - sqrt(1.0001^25000)) = 20.0825245194
+                    // expected fee = 20.0825245194 / 0.99 * 0.01 = 0.202853783
+                    expect(logs[1].args).to.deep.eq([
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        25000,
+                        35000,
+                        parseEther("0"),
+                        parseEther("-20.082524519410365786"),
+                        order2.liquidity.mul(-1),
+                        parseEther("0.202853783024347129"),
+                    ])
+
+                    // alice's liquidity1 = 31.622776601683793320
+                    // removed/remaining base = 31.622776601683793320 * (1/sqrt(38.805748602) - 1/sqrt(1.0001^887200)) = 5.0763547836
+                    // removed/remaining quote = 31.622776601683793320 * (sqrt(38.805748602) - sqrt(1.0001^(-887200))) = 196.991747548
+                    // expected fee = (1000 * 0.01 - 0.202853783 (fee of liquidity2)) * 0.1 (10% of liquidity) = 0.9797146217
+                    expect(logs[0].args).to.deep.eq([
+                        alice.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        lowerTick,
+                        upperTick,
+                        parseEther("-5.076354783623794447"),
+                        parseEther("-196.991747548058963418"),
+                        order1.liquidity.mul(-1),
+                        parseEther("0.979714621697565287"),
+                    ])
+
+                    // price after liq. = 51.2288687261
+                    // alice's expected impermanent position from liquidity1 = -(10 - 5.0763547836) = -4.9236452164
+                    // alice's expected impermanent position from liquidity2 = -1
+                    // alice's total expected impermanent position = -4.9236452164 + -1 = -5.9236452164
+                    // 31.622776601683793320 * 9 (only carol's liquidity is left) * (1 / sqrt(38.805748602) - 1 / sqrt(51.2288687261)) = 5.9236452164
+                    // 31.622776601683793320 * 9 * (sqrt(51.2288687261) - sqrt(38.805748602)) = 264.1158442544 (imprecision)
+                    // liquidation fee = 264.1158442544 * 0.025 = 6.6028961064
+                    await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+                        .to.emit(clearingHouse, "PositionLiquidated")
+                        .withArgs(
+                            alice.address,
+                            baseToken.address,
+                            parseEther("264.115844252881833583"),
+                            parseEther("5.923645216376205552"),
+                            parseEther("6.602896106322045839"),
+                            davis.address,
+                        )
+
+                    // the reason is that index price is way off, thus the actual loss is smaller than it seems and there's no need to liquidate the position in pool2
+                    await expect(
+                        clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address),
+                    ).to.be.revertedWith("CH_EAV")
+                })
+
+                it("one order in each market; liquidation in pool2 doesn't help margin ratio, thus also liquidating the position in pool1", async () => {
+                    // bob long in pool1
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false, // quote to base
@@ -425,32 +525,18 @@ describe("ClearingHouse liquidate maker", () => {
 
                     // only pool1 index price goes up
                     setPoolIndexPrice(100000, Pool.Pool1)
-                })
 
-                it("after liquidation in pool1, margin ratio is already enough", async () => {
                     // cancel maker's order on all markets
                     await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
                     await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
-                    await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
-                        clearingHouse,
-                        "PositionLiquidated",
-                    )
-                    // the reason is that index price is way off, thus the actual loss is smaller than it seems
-                    await expect(
-                        clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address),
-                    ).to.be.revertedWith("CH_EAV")
-                })
-
-                it("liquidation in pool2 doesn't help margin ratio, thus also liquidating the position in pool1", async () => {
-                    // cancel maker's order on all markets
-                    await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
-                    await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
-
+                    // notice that in this case, liquidation happens in pool2 first, which is different from the above case
+                    // since the loss is incurred in pool1, liquidating position in pool2 doesn't help margin ratio much
                     await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.emit(
                         clearingHouse,
                         "PositionLiquidated",
                     )
+                    // thus, have to then liquidate position in pool1
                     await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
                         clearingHouse,
                         "PositionLiquidated",
