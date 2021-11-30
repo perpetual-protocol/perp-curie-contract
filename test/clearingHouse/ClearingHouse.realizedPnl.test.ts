@@ -18,7 +18,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { q2bExactOutput, removeOrder, findPnlRealizedEvents } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -109,13 +109,6 @@ describe("ClearingHouse realizedPnl", () => {
         await deposit(alice, vault, 1000, collateral)
     })
 
-    function findPnlRealizedEvents(receipt: TransactionReceipt): LogDescription[] {
-        const pnlRealizedTopic = accountBalance.interface.getEventTopic("PnlRealized")
-        return receipt.logs
-            .filter(log => log.topics[0] === pnlRealizedTopic)
-            .map(log => accountBalance.interface.parseLog(log))
-    }
-
     it("has balanced realized PnL", async () => {
         let takerRealizedPnl = BigNumber.from(0)
         let makerRealizedPnl = BigNumber.from(0)
@@ -150,7 +143,9 @@ describe("ClearingHouse realizedPnl", () => {
                 deadline: ethers.constants.MaxUint256,
             })
         ).wait()
-        makerRealizedPnl = makerRealizedPnl.add(findPnlRealizedEvents(makerMoveLiquidityRemoveReceipt)[0].args.amount)
+        makerRealizedPnl = makerRealizedPnl.add(
+            findPnlRealizedEvents(fixture, makerMoveLiquidityRemoveReceipt)[0].args.amount,
+        )
         // maker.realizedPnlDelta = 0.999999999999999999
 
         // maker move liquidity range down 10% (second step: add liquidity)
@@ -180,7 +175,7 @@ describe("ClearingHouse realizedPnl", () => {
                 referralCode: ethers.constants.HashZero,
             })
         ).wait()
-        takerRealizedPnl = takerRealizedPnl.add(findPnlRealizedEvents(takerCloseReceipt)[0].args.amount)
+        takerRealizedPnl = takerRealizedPnl.add(findPnlRealizedEvents(fixture, takerCloseReceipt)[0].args.amount)
         // taker.realizedPnlDelta: -9.542011399247233633
         // taker.positionSize: 0.0
         // taker.openNotional: 0.0
@@ -202,7 +197,7 @@ describe("ClearingHouse realizedPnl", () => {
             })
         ).wait()
 
-        const events = findPnlRealizedEvents(makerRemoveLiquidityReceipt)
+        const events = findPnlRealizedEvents(fixture, makerRemoveLiquidityReceipt)
         makerRealizedPnl = makerRealizedPnl.add(events[0].args.amount)
         // maker.realizedPnlDelta: 0.913717056573260266
         // maker.positionSize: 0.0
