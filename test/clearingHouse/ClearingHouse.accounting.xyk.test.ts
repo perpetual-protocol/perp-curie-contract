@@ -661,7 +661,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // funding are all correct
             await forwardTimestamp(clearingHouse, 200)
-            await exchange.settleFunding(taker.address, baseToken.address)
+            await expect(exchange.settleFunding(taker.address, baseToken.address)).to.emit(exchange, "FundingUpdated")
             await forwardTimestamp(clearingHouse, 200)
 
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
