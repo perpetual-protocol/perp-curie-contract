@@ -14,12 +14,14 @@ describe("BaseToken", async () => {
     let currentTime: number
     let roundData: any[]
 
+    beforeEach(async () => {
+        const _fixture = await loadFixture(baseTokenFixture)
+        baseToken = _fixture.baseToken
+        mockedAggregator = _fixture.mockedAggregator
+    })
+
     describe("twap", () => {
         beforeEach(async () => {
-            const _fixture = await loadFixture(baseTokenFixture)
-            baseToken = _fixture.baseToken
-            mockedAggregator = _fixture.mockedAggregator
-
             // `base` = now - _interval
             // aggregator's answer
             // timestamp(base + 0)  : 400
@@ -113,5 +115,18 @@ describe("BaseToken", async () => {
             const price = await baseToken.getIndexPrice(0)
             expect(price).to.eq(parseEther("410"))
         })
+    })
+
+    describe("BaseToken status", async () => {
+        it("forced error when close by owner without paused")
+        it("forced error when close by user before waiting period expired")
+        it("forced error when pause without opened")
+        it("initial status should be opened", async () => {
+            const status = await baseToken.getStatus()
+            expect(status).to.be.eq(0)
+        })
+        it("pause market, should return endingIndexPrice as index price")
+        it("close by owner, should return endPrice as index price")
+        it("close by user")
     })
 })
