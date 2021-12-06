@@ -62,6 +62,18 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _status;
     }
 
+    function isOpened() external view override returns (bool) {
+        return _status == IBaseToken.Status.Opened;
+    }
+
+    function isPaused() external view override returns (bool) {
+        return _status == IBaseToken.Status.Paused;
+    }
+
+    function isClosed() external view override returns (bool) {
+        return _status == IBaseToken.Status.Closed;
+    }
+
     function getEndingTimestamp() external view override returns (uint256) {
         return _endingTimestamp;
     }

@@ -15,4 +15,10 @@ interface IBaseToken {
     function getEndingTimestamp() external view returns (uint256);
 
     function getEndingIndexPrice() external view returns (uint256);
+
+    function isOpened() external view returns (bool);
+
+    function isPaused() external view returns (bool);
+
+    function isClosed() external view returns (bool);
 }
