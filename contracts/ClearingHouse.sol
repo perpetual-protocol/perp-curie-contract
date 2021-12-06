@@ -320,7 +320,8 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
-        _checkMarketIsOpened(params.baseToken);
+        // CH_NONC: Not opened market and not closed market
+        require(IBaseToken(params.baseToken).isOpened() || IBaseToken(params.baseToken).isClosed(), "CH_NONC");
 
         address trader = _msgSender();
 
@@ -379,50 +380,24 @@ contract ClearingHouse is
         }
     }
 
-    function settlePnlInClosedMarket(address trader, address baseToken) external override returns (int256, uint256) {
-        // CH_BO: BaseToken not close
-        require(IBaseToken(baseToken).isClosed(), "CH_BNC");
+    function closePositionInClosedMarket(address trader, address baseToken) external override returns (int256) {
         _settleFunding(trader, baseToken);
 
-        (int256 realizedPnl, uint256 fee) = IAccountBalance(_accountBalance).settleStoppedMarketPnl(trader, baseToken);
+        (int256 takerPositionSize, int256 takerOpenNotional, int256 realizedPnl, uint256 indexPrice) =
+            IExchange(_exchange).closePositionInClosedMarket(trader, baseToken);
 
-        // close taker position
-        int256 takerPositionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
-        if (takerPositionSize != 0) {
-            int256 takerOpenNotional =
-                realizedPnl.sub(IAccountBalance(_accountBalance).getTakerOpenNotional(trader, baseToken));
-            emit PositionChanged(
-                trader,
-                baseToken,
-                takerPositionSize,
-                takerOpenNotional,
-                0,
-                takerOpenNotional,
-                realizedPnl,
-                IIndexPrice(baseToken).getIndexPrice(0)
-            );
-        }
+        emit PositionChanged(
+            trader,
+            baseToken,
+            takerPositionSize,
+            takerOpenNotional,
+            0,
+            takerOpenNotional,
+            realizedPnl,
+            indexPrice
+        );
 
-        // remove orders
-        bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken);
-        uint256 orderIdsLength = orderIds.length;
-        for (uint256 i = 0; i < orderIdsLength; i++) {
-            OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
-            emit LiquidityChanged(
-                trader,
-                baseToken,
-                _quoteToken,
-                order.lowerTick,
-                order.upperTick,
-                order.baseDebt.neg256(),
-                order.quoteDebt.neg256(),
-                order.liquidity.neg128(),
-                fee
-            );
-        }
-        IOrderBook(_orderBook).removeOrdersInClosedMarket(trader, baseToken);
-
-        return (realizedPnl, fee);
+        return realizedPnl;
     }
 
     /// @inheritdoc IClearingHouse

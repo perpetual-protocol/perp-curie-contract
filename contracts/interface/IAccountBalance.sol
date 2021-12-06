@@ -62,7 +62,7 @@ interface IAccountBalance {
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
 
-    function settleStoppedMarketPnl(address trader, address baseToken) external returns (int256, uint256);
+    function settleStoppedMarketPnl(address trader, address baseToken) external returns (int256);
 
     function getClearingHouseConfig() external view returns (address);
 

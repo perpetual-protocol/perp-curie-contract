@@ -265,6 +265,35 @@ contract Exchange is
         return (fundingPayment, fundingGrowthGlobal);
     }
 
+    function closePositionInClosedMarket(address trader, address baseToken)
+        external
+        override
+        returns (
+            int256,
+            int256,
+            int256,
+            uint256
+        )
+    {
+        _requireOnlyClearingHouse();
+        // EX_MNC: Market not closed
+        require(IBaseToken(baseToken).isClosed(), "EX_MNC");
+        // EX_HOICM: Has order in closed market
+        require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "EX_HOICM");
+
+        int256 realizedPnl = IAccountBalance(_accountBalance).settleStoppedMarketPnl(trader, baseToken);
+
+        // close taker position
+        int256 takerPositionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        int256 takerOpenNotional;
+        if (takerPositionSize != 0) {
+            takerOpenNotional = realizedPnl.sub(
+                IAccountBalance(_accountBalance).getTakerOpenNotional(trader, baseToken)
+            );
+        }
+        return (takerPositionSize, takerOpenNotional, realizedPnl, IIndexPrice(baseToken).getIndexPrice(0));
+    }
+
     //
     // EXTERNAL VIEW
     //

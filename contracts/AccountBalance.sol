@@ -188,9 +188,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     // @inheritdoc IAccountBalance
-    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
-        (int256 totalOpenNotional, ) = _getTotalOpenNotionalAndPendingFee(trader, baseToken);
-        return totalOpenNotional;
+    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
+        // quote.pool[baseToken] + quoteBalance[baseToken]
+        (uint256 quoteInPool, ) =
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
+        int256 quoteBalance = getQuote(trader, baseToken);
+        return quoteInPool.toInt256().add(quoteBalance);
     }
 
     /// @inheritdoc IAccountBalance
@@ -200,10 +203,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         uint256 tokenLen = _baseTokensMap[trader].length;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            // skip baseToken that is paused or closed
-            if (!IBaseToken(baseToken).isOpened()) {
-                continue;
-            }
             int256 baseBalance = getBase(trader, baseToken);
             int256 baseDebtValue;
             // baseDebt = baseBalance when it's negative
@@ -325,40 +324,22 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return totalPositionValue;
     }
 
-    function settleStoppedMarketPnl(address trader, address baseToken)
-        external
-        override
-        returns (int256 realizedPnl, uint256 fee)
-    {
+    function settleStoppedMarketPnl(address trader, address baseToken) external override returns (int256 realizedPnl) {
         _requireOnlyClearingHouse();
 
         int256 totalPositionValue = getTotalPositionValue(trader, baseToken);
-        (int256 totalOpenNotional, uint256 pendingFee) = _getTotalOpenNotionalAndPendingFee(trader, baseToken);
+        int256 totalOpenNotional = getTotalOpenNotional(trader, baseToken);
         realizedPnl = totalPositionValue.add(totalOpenNotional);
 
         _deleteBaseToken(trader, baseToken);
-        _modifyOwedRealizedPnl(trader, realizedPnl.add(pendingFee.toInt256()));
+        _modifyOwedRealizedPnl(trader, realizedPnl);
 
-        return (realizedPnl, pendingFee);
+        return realizedPnl;
     }
 
     //
     // INTERNAL NON-VIEW
     //
-
-    // @inheritdoc IAccountBalance
-    function _getTotalOpenNotionalAndPendingFee(address trader, address baseToken)
-        internal
-        view
-        returns (int256, uint256)
-    {
-        // quote.pool[baseToken] + quoteBalance[baseToken]
-        (uint256 quoteInPool, uint256 pendingFee) =
-            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
-        int256 quoteBalance = getQuote(trader, baseToken);
-        return (quoteInPool.toInt256().add(quoteBalance), pendingFee);
-    }
-
     function _modifyTakerBalance(
         address trader,
         address baseToken,

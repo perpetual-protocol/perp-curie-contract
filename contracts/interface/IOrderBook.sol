@@ -85,8 +85,6 @@ interface IOrderBook {
         int256 quote
     ) external;
 
-    function removeOrdersInClosedMarket(address trader, address baseToken) external;
-
     function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);
 
     function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder.Info memory);

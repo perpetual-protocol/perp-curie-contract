@@ -378,11 +378,6 @@ contract OrderBook is
         return ReplaySwapResponse({ tick: swapState.tick, fee: fee, insuranceFundFee: insuranceFundFee });
     }
 
-    function removeOrdersInClosedMarket(address trader, address baseToken) external override {
-        _requireOnlyClearingHouse();
-        delete _openOrderIdsMap[trader][baseToken];
-    }
-
     //
     // EXTERNAL VIEW
     //

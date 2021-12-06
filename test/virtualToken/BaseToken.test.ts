@@ -6,7 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { baseTokenFixture } from "./fixtures"
 
-describe.only("BaseToken", async () => {
+describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
@@ -116,7 +116,7 @@ describe.only("BaseToken", async () => {
         })
     })
 
-    describe.only("BaseToken status", async () => {
+    describe("BaseToken status", async () => {
         it("forced error when close by owner without paused", async () => {
             await expect(baseToken["close(uint256)"](endingPrice)).to.be.revertedWith("BT_NP")
             await expect(baseToken.connect(user)["close()"]()).to.be.revertedWith("BT_NP")
