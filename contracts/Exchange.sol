@@ -239,12 +239,10 @@ contract Exchange is
             fundingGrowthGlobal
         );
 
-        uint256 timestamp;
-
-        if (IBaseToken(baseToken).getStatus() != IBaseToken.Status.Opened) {
-            timestamp = IBaseToken(baseToken).getEndingTimestamp();
-        }
-        timestamp = _blockTimestamp();
+        uint256 timestamp =
+            IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
+                ? _blockTimestamp()
+                : IBaseToken(baseToken).getEndingTimestamp();
 
         // update states before further actions in this block; once per block
         if (timestamp != _lastSettledTimestampMap[baseToken]) {
@@ -586,12 +584,10 @@ contract Exchange is
         )
     {
         uint32 twapInterval;
-        uint256 timestamp;
-
-        if (IBaseToken(baseToken).getStatus() != IBaseToken.Status.Opened) {
-            timestamp = IBaseToken(baseToken).getEndingTimestamp();
-        }
-        timestamp = _blockTimestamp();
+        uint256 timestamp =
+            IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
+                ? _blockTimestamp()
+                : IBaseToken(baseToken).getEndingTimestamp();
 
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
@@ -605,10 +601,9 @@ contract Exchange is
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
 
-        if (IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened) {
-            indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
-        }
-        indexTwap = IBaseToken(baseToken).getEndingIndexPrice();
+        indexTwap = IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
+            ? IIndexPrice(baseToken).getIndexPrice(twapInterval)
+            : IBaseToken(baseToken).getEndingIndexPrice();
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
