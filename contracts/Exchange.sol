@@ -23,6 +23,7 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
@@ -238,7 +239,13 @@ contract Exchange is
             fundingGrowthGlobal
         );
 
-        uint256 timestamp = _blockTimestamp();
+        uint256 timestamp;
+
+        if (IBaseToken(baseToken).getStatus() != IBaseToken.Status.Opened) {
+            timestamp = IBaseToken(baseToken).getEndingTimestamp();
+        }
+        timestamp = _blockTimestamp();
+
         // update states before further actions in this block; once per block
         if (timestamp != _lastSettledTimestampMap[baseToken]) {
             // update fundingGrowthGlobal and _lastSettledTimestamp
@@ -550,7 +557,13 @@ contract Exchange is
         )
     {
         uint32 twapInterval;
-        uint256 timestamp = _blockTimestamp();
+        uint256 timestamp;
+
+        if (IBaseToken(baseToken).getStatus() != IBaseToken.Status.Opened) {
+            timestamp = IBaseToken(baseToken).getEndingTimestamp();
+        }
+        timestamp = _blockTimestamp();
+
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
             twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
@@ -562,7 +575,11 @@ contract Exchange is
 
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+
+        if (IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened) {
+            indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        }
+        indexTwap = IBaseToken(baseToken).getEndingIndexPrice();
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
