@@ -34,8 +34,8 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     function pause(uint256 twInterval) external onlyOwner {
         // BT_IS: Not opened
         require(_status == IBaseToken.Status.Opened, "BT_NO");
-        _status = IBaseToken.Status.Paused;
         _endingIndexPrice = getIndexPrice(twInterval);
+        _status = IBaseToken.Status.Paused;
         _endingTimestamp = _blockTimestamp();
         emit StatusUpdated(IBaseToken.Status.Paused);
     }
