@@ -13,4 +13,6 @@ interface IBaseToken {
     function getStatus() external view returns (IBaseToken.Status);
 
     function getEndingTimestamp() external view returns (uint256);
+
+    function getEndingIndexPrice() external view returns (uint256);
 }

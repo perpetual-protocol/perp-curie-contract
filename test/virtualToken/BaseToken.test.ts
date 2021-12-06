@@ -116,7 +116,7 @@ describe.only("BaseToken", async () => {
         })
     })
 
-    describe("BaseToken status", async () => {
+    describe.only("BaseToken status", async () => {
         it("forced error when close by owner without paused", async () => {
             await expect(baseToken["close(uint256)"](endingPrice)).to.be.revertedWith("BT_NP")
             await expect(baseToken.connect(user)["close()"]()).to.be.revertedWith("BT_NP")
@@ -153,6 +153,8 @@ describe.only("BaseToken", async () => {
 
                 indexPrice = await baseToken.getIndexPrice(100)
                 expect(indexPrice).to.be.eq(parseEther("407.580645"))
+
+                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
             })
 
             it("should return the ending timestamp", async () => {
@@ -172,6 +174,7 @@ describe.only("BaseToken", async () => {
                 const indexPrice = await baseToken.getIndexPrice(0)
                 expect(indexPrice).to.be.eq(parseEther("407.580645"))
 
+                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
                 expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
             })
 
@@ -185,6 +188,8 @@ describe.only("BaseToken", async () => {
                 expect(indexPrice).to.be.eq(endingPrice)
 
                 expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
+
+                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
             })
 
             it("close by user", async () => {
@@ -200,6 +205,8 @@ describe.only("BaseToken", async () => {
                 expect(indexPrice).to.be.eq(parseEther("407.580645"))
 
                 expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
+
+                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
             })
         })
     })

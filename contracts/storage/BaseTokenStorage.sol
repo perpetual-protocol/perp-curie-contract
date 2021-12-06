@@ -24,4 +24,6 @@ abstract contract BaseTokenStorageV2 is BaseTokenStorageV1 {
     uint256 internal _endingIndexPrice;
 
     uint256 internal _endingTimestamp;
+
+    uint256 internal _closedPrice;
 }

@@ -40,11 +40,11 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         emit StatusUpdated(IBaseToken.Status.Paused);
     }
 
-    function close(uint256 endingPrice) external onlyOwner {
+    function close(uint256 closedPrice) external onlyOwner {
         // BT_PS: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
         _status = IBaseToken.Status.Closed;
-        _endingIndexPrice = endingPrice;
+        _closedPrice = closedPrice;
         emit StatusUpdated(IBaseToken.Status.Closed);
     }
 
@@ -54,6 +54,7 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         // BT_WPNE: Waiting period not expired
         require(_blockTimestamp() > _endingTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
         _status = IBaseToken.Status.Closed;
+        _closedPrice = _endingIndexPrice;
         emit StatusUpdated(IBaseToken.Status.Closed);
     }
 
@@ -65,12 +66,18 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _endingTimestamp;
     }
 
+    function getEndingIndexPrice() external view override returns (uint256) {
+        return _endingIndexPrice;
+    }
+
     /// @inheritdoc IIndexPrice
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
-        if (_status == IBaseToken.Status.Opened) {
-            return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
-        } else {
+        if (_status == IBaseToken.Status.Closed) {
+            return _closedPrice;
+        } else if (_status == IBaseToken.Status.Paused) {
             return _endingIndexPrice;
+        } else {
+            return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
         }
     }
 
