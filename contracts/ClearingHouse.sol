@@ -21,6 +21,7 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
@@ -173,6 +174,8 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
 
+        _checkMarketIsOpened(params.baseToken);
+
         // CH_DUTB: Disable useTakerBalance
         require(!params.useTakerBalance, "CH_DUTB");
 
@@ -317,6 +320,8 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
+        _checkMarketIsOpened(params.baseToken);
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -374,6 +379,52 @@ contract ClearingHouse is
         }
     }
 
+    function settlePnlInClosedMarket(address trader, address baseToken) external override returns (int256, uint256) {
+        // CH_BO: BaseToken not close
+        require(IBaseToken(baseToken).isClosed(), "CH_BNC");
+        _settleFunding(trader, baseToken);
+
+        (int256 realizedPnl, uint256 fee) = IAccountBalance(_accountBalance).settleStoppedMarketPnl(trader, baseToken);
+
+        // close taker position
+        int256 takerPositionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        if (takerPositionSize != 0) {
+            int256 takerOpenNotional =
+                realizedPnl.sub(IAccountBalance(_accountBalance).getTakerOpenNotional(trader, baseToken));
+            emit PositionChanged(
+                trader,
+                baseToken,
+                takerPositionSize,
+                takerOpenNotional,
+                0,
+                takerOpenNotional,
+                realizedPnl,
+                IIndexPrice(baseToken).getIndexPrice(0)
+            );
+        }
+
+        // remove orders
+        bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken);
+        uint256 orderIdsLength = orderIds.length;
+        for (uint256 i = 0; i < orderIdsLength; i++) {
+            OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
+            emit LiquidityChanged(
+                trader,
+                baseToken,
+                _quoteToken,
+                order.lowerTick,
+                order.upperTick,
+                order.baseDebt.neg256(),
+                order.quoteDebt.neg256(),
+                order.liquidity.neg128(),
+                fee
+            );
+        }
+        IOrderBook(_orderBook).removeOrdersInClosedMarket(trader, baseToken);
+
+        return (realizedPnl, fee);
+    }
+
     /// @inheritdoc IClearingHouse
     function openPosition(OpenPositionParams memory params)
         external
@@ -391,6 +442,8 @@ contract ClearingHouse is
         //   deadline: here
         //   sqrtPriceLimitX96: X (this is not for slippage protection)
         //   referralCode: X
+
+        _checkMarketIsOpened(params.baseToken);
 
         address trader = _msgSender();
         // register token if it's the first time
@@ -444,6 +497,8 @@ contract ClearingHouse is
         //   deadline: here
         //   referralCode: X
 
+        _checkMarketIsOpened(params.baseToken);
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -495,6 +550,8 @@ contract ClearingHouse is
         //   trader: here
         //   baseToken: in Exchange.settleFunding()
 
+        _checkMarketIsOpened(baseToken);
+
         // CH_CLWTISO: cannot liquidate when there is still order
         require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
 
@@ -542,8 +599,8 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        uint256 length = orderIds.length;
-        if (length == 0) {
+        _checkMarketIsOpened(baseToken);
+        if (orderIds.length == 0) {
             return;
         }
         _cancelExcessOrders(maker, baseToken, orderIds);
@@ -556,9 +613,9 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
+        _checkMarketIsOpened(baseToken);
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
-        uint256 length = orderIds.length;
-        if (length == 0) {
+        if (orderIds.length == 0) {
             return;
         }
         _cancelExcessOrders(maker, baseToken, orderIds);
@@ -928,5 +985,10 @@ contract ClearingHouse is
                 require(params.quote <= params.oppositeAmountBound, "CH_TMRL");
             }
         }
+    }
+
+    function _checkMarketIsOpened(address baseToken) internal view {
+        // CH_BC: BaseToken not opened
+        require(IBaseToken(baseToken).isOpened(), "CH_BNO");
     }
 }

@@ -131,6 +131,8 @@ interface IClearingHouse {
 
     function settleAllFunding(address trader) external;
 
+    function settlePnlInClosedMarket(address trader, address baseToken) external returns (int256, uint256);
+
     function openPosition(OpenPositionParams memory params) external returns (uint256 base, uint256 quote);
 
     function closePosition(ClosePositionParams calldata params) external returns (uint256 base, uint256 quote);
