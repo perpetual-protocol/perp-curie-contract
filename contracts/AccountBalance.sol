@@ -324,17 +324,32 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return totalPositionValue;
     }
 
-    function settleStoppedMarketPnl(address trader, address baseToken) external override returns (int256 realizedPnl) {
+    function settlePnlInClosedMarket(address trader, address baseToken)
+        external
+        override
+        returns (
+            int256 takerPositionSize,
+            int256 takerOpenNotional,
+            int256 realizedPnl,
+            uint256 indexPrice
+        )
+    {
         _requireOnlyClearingHouse();
 
         int256 totalPositionValue = getTotalPositionValue(trader, baseToken);
         int256 totalOpenNotional = getTotalOpenNotional(trader, baseToken);
+        takerPositionSize = getTakerPositionSize(trader, baseToken);
+        indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
         realizedPnl = totalPositionValue.add(totalOpenNotional);
+
+        if (takerPositionSize > 0) {
+            takerOpenNotional = realizedPnl.sub(totalOpenNotional);
+        }
 
         _deleteBaseToken(trader, baseToken);
         _modifyOwedRealizedPnl(trader, realizedPnl);
 
-        return realizedPnl;
+        return (takerPositionSize, takerOpenNotional, realizedPnl, indexPrice);
     }
 
     //

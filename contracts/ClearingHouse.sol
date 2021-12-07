@@ -320,8 +320,8 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
-        // CH_NONC: Not opened market and not closed market
-        require(IBaseToken(params.baseToken).isOpened() || IBaseToken(params.baseToken).isClosed(), "CH_NONC");
+        // CH_NONC: Market not opened and not closed
+        require(IBaseToken(params.baseToken).isOpened() || IBaseToken(params.baseToken).isClosed(), "CH_MNONC");
 
         address trader = _msgSender();
 
@@ -381,21 +381,27 @@ contract ClearingHouse is
     }
 
     function closePositionInClosedMarket(address trader, address baseToken) external override returns (int256) {
+        // CH_MNC: Market not closed                                                │    │
+        require(IBaseToken(baseToken).isClosed(), "CH_MNC");
+        // CH_HOICM: Has order in closed market
+        require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
         _settleFunding(trader, baseToken);
 
         (int256 takerPositionSize, int256 takerOpenNotional, int256 realizedPnl, uint256 indexPrice) =
-            IExchange(_exchange).closePositionInClosedMarket(trader, baseToken);
+            IAccountBalance(_accountBalance).settlePnlInClosedMarket(trader, baseToken);
 
-        emit PositionChanged(
-            trader,
-            baseToken,
-            takerPositionSize,
-            takerOpenNotional,
-            0,
-            takerOpenNotional,
-            realizedPnl,
-            indexPrice
-        );
+        if (takerPositionSize != 0) {
+            emit PositionChanged(
+                trader,
+                baseToken,
+                takerPositionSize,
+                takerOpenNotional,
+                0,
+                takerOpenNotional,
+                realizedPnl,
+                indexPrice
+            );
+        }
 
         return realizedPnl;
     }
@@ -963,7 +969,7 @@ contract ClearingHouse is
     }
 
     function _checkMarketIsOpened(address baseToken) internal view {
-        // CH_BC: BaseToken not opened
-        require(IBaseToken(baseToken).isOpened(), "CH_BNO");
+        // CH_BC: Market not opened
+        require(IBaseToken(baseToken).isOpened(), "CH_MNO");
     }
 }

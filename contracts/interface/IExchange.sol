@@ -65,15 +65,6 @@ interface IExchange {
         external
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal);
 
-    function closePositionInClosedMarket(address trader, address baseToken)
-        external
-        returns (
-            int256,
-            int256,
-            int256,
-            uint256
-        );
-
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
 
     function getAllPendingFundingPayment(address trader) external view returns (int256);
