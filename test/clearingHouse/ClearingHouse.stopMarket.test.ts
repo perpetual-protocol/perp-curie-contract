@@ -392,90 +392,73 @@ describe("Clearinghouse StopMarket", async () => {
                 await vault.connect(bob).withdraw(collateral.address, freeCollateralAfter)
             })
         })
+
+        describe("accounting in closed market", async () => {
+            beforeEach(async () => {
+                // open position on two market
+                await q2bExactInput(fixture, bob, 10, baseToken.address)
+
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("100", 6), 0, 0, 0]
+                })
+
+                // close baseToken pool
+                await baseToken.pause(600)
+                await baseToken["close(uint256)"](parseEther("50"))
+            })
+
+            it("unrealized pnl accounting", async () => {
+                const bobStoppedMarketPositionSize = await accountBalance.getTakerPositionSize(
+                    bob.address,
+                    baseToken.address,
+                )
+                const bobStoppedMarketQuoteBalance = await accountBalance.getTotalOpenNotional(
+                    bob.address,
+                    baseToken.address,
+                )
+                const [, bobUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
+
+                expect(bobUnrealizedPnl).to.be.eq(
+                    bobStoppedMarketPositionSize.mul("50").add(bobStoppedMarketQuoteBalance),
+                )
+
+                const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
+                    bob.address,
+                    baseToken.address,
+                )
+                const aliceStoppedMarketQuoteBalance = await accountBalance.getTotalOpenNotional(
+                    bob.address,
+                    baseToken.address,
+                )
+                const [, aliceUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
+
+                expect(aliceUnrealizedPnl).to.be.eq(
+                    aliceStoppedMarketPositionSize.mul("50").add(aliceStoppedMarketQuoteBalance),
+                )
+            })
+
+            it("total position value accounting", async () => {
+                const bobStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
+                    bob.address,
+                    baseToken.address,
+                )
+                const bobStoppedMarketPositionValue = await accountBalance.getTotalPositionValue(
+                    bob.address,
+                    baseToken.address,
+                )
+
+                const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
+                    alice.address,
+                    baseToken.address,
+                )
+                const aliceStoppedMarketPositionValue = await accountBalance.getTotalPositionValue(
+                    alice.address,
+                    baseToken.address,
+                )
+
+                expect(bobStoppedMarketPositionValue).to.be.eq(bobStoppedMarketPositionSize.mul("50"))
+                expect(aliceStoppedMarketPositionValue).to.be.eq(aliceStoppedMarketPositionSize.mul("50"))
+            })
+        })
     })
-
-    // describe("check accounting after stopping market", async () => {
-    //     beforeEach(async () => {
-    //         // open position on two market
-    //         await q2bExactInput(fixture, bob, 10, baseToken.address)
-
-    //         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-    //             return [0, parseUnits("100", 6), 0, 0, 0]
-    //         })
-    //         // stop baseToken pool
-    //         await marketRegistry.stopMarket(baseToken.address, parseEther("50"))
-    //     })
-
-    //     it("unrealized pnl", async () => {
-    //         const bobStoppedMarketPositionSize = await accountBalance.getTakerPositionSize(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-    //         const bobStoppedMarketQuoteBalance = await accountBalance.getTotalOpenNotional(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-    //         const [, bobUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
-
-    //         expect(bobUnrealizedPnl).to.be.eq(bobStoppedMarketPositionSize.mul("50").add(bobStoppedMarketQuoteBalance))
-
-    //         const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-    //         const aliceStoppedMarketQuoteBalance = await accountBalance.getTotalOpenNotional(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-    //         const [, aliceUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
-
-    //         expect(aliceUnrealizedPnl).to.be.eq(
-    //             aliceStoppedMarketPositionSize.mul("50").add(aliceStoppedMarketQuoteBalance),
-    //         )
-    //     })
-
-    //     it("total position value", async () => {
-    //         const bobStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-    //         const bobStoppedMarketPositionValue = await accountBalance.getTotalPositionValue(
-    //             bob.address,
-    //             baseToken.address,
-    //         )
-
-    //         const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
-    //             alice.address,
-    //             baseToken.address,
-    //         )
-    //         const aliceStoppedMarketPositionValue = await accountBalance.getTotalPositionValue(
-    //             alice.address,
-    //             baseToken.address,
-    //         )
-
-    //         expect(bobStoppedMarketPositionValue).to.be.eq(bobStoppedMarketPositionSize.mul("50"))
-    //         expect(aliceStoppedMarketPositionValue).to.be.eq(aliceStoppedMarketPositionSize.mul("50"))
-    //     })
-    // })
-
-    // describe("maker has order on different markets", async () => {
-    //     beforeEach(async () => {
-    //         await q2bExactInput(fixture, bob, 100, baseToken.address)
-    //         await q2bExactInput(fixture, bob, 100, baseToken2.address)
-    //     })
-    //     it("can withdraw after closePositionInClosedMarket", async () => {
-    //         await clearingHouse.closePositionInClosedMarket(alice.address, baseToken2.address)
-
-    //         const aliceFreeCollateralBefore = await vault.getFreeCollateral(alice.address)
-    //         console.log(`aliceFreeCollateralBefore ${aliceFreeCollateralBefore.toString()}`)
-
-    //         expect(await vault.connect(alice).withdraw(collateral.address, aliceFreeCollateralBefore))
-    //             .to.emit(vault, "Withdrawn")
-    //             .withArgs(collateral.address, alice.address, aliceFreeCollateralBefore)
-
-    //         const aliceFreeCollateralAfter = await vault.getFreeCollateral(alice.address)
-
-    //         expect(aliceFreeCollateralAfter).to.be.eq("0")
-    //     })
-    // })
 })
