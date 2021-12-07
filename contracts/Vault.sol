@@ -241,12 +241,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
         (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18, uint256 pendingFeeX10_18) =
             IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
+
+        // owedRealizedPnl needs to separately `formatSettlementToken` before adding to totalCollateralValue
+        // to avoid rounding error with result calculated in `withdraw` function
+        int256 owedRealizedPnlX10_D = owedRealizedPnlX10_18.formatSettlementToken(_decimals);
         int256 totalCollateralValueX10_D =
-            getBalance(trader).add(
-                owedRealizedPnlX10_18.sub(fundingPaymentX10_18).add(pendingFeeX10_18.toInt256()).formatSettlementToken(
-                    _decimals
-                )
-            );
+            getBalance(trader)
+                .add(pendingFeeX10_18.toInt256().sub(fundingPaymentX10_18).formatSettlementToken(_decimals))
+                .add(owedRealizedPnlX10_D);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
         int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));
