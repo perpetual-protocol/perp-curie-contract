@@ -120,7 +120,7 @@ describe("Clearinghouse StopMarket", async () => {
 
             // can't remove liquidity
             await expect(removeOrder(fixture, alice, 0, lowerTick, upperTick, baseToken.address)).to.be.revertedWith(
-                "CH_MNONC",
+                "CH_MP",
             )
         })
 

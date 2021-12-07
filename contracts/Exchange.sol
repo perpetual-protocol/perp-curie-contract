@@ -554,11 +554,9 @@ contract Exchange is
             uint256 indexTwap
         )
     {
+        bool isOpenedMarket = IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened;
         uint32 twapInterval;
-        uint256 timestamp =
-            IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
-                ? _blockTimestamp()
-                : IBaseToken(baseToken).getEndingTimestamp();
+        uint256 timestamp = isOpenedMarket ? _blockTimestamp() : IBaseToken(baseToken).getEndingTimestamp();
 
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
@@ -572,7 +570,7 @@ contract Exchange is
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
 
-        indexTwap = IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
+        indexTwap = isOpenedMarket
             ? IIndexPrice(baseToken).getIndexPrice(twapInterval)
             : IBaseToken(baseToken).getEndingIndexPrice();
 

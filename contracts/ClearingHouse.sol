@@ -320,8 +320,8 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
-        // CH_NONC: Market not opened and not closed
-        require(IBaseToken(params.baseToken).isOpened() || IBaseToken(params.baseToken).isClosed(), "CH_MNONC");
+        // CH_NONC: Market paused
+        require(!IBaseToken(params.baseToken).isPaused(), "CH_MP");
 
         address trader = _msgSender();
 
