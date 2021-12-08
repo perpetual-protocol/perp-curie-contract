@@ -344,7 +344,7 @@ describe("Clearinghouse StopMarket", async () => {
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralBefore).to.be.closeTo(
                     parseUnits("9998", collateralDecimals).sub(pendingFundingPayment.div(1e12)),
-                    1,
+                    5,
                 )
 
                 // taker settle on closed market
