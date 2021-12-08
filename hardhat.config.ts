@@ -94,6 +94,13 @@ const config: HardhatUserConfig = {
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
+        deployerAddress: {
+            // Only used in system tests
+            [ChainId.RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x849a19c0746fB0d335E02deC0d0B3E057e585176",
+        },
         cleanAccount: 1,
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
