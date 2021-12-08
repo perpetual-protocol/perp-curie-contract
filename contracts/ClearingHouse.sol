@@ -381,7 +381,7 @@ contract ClearingHouse is
     }
 
     function closePositionInClosedMarket(address trader, address baseToken) external override returns (int256) {
-        // CH_MNC: Market not closed                                                │    │
+        // CH_MNC: Market not closed
         require(IBaseToken(baseToken).isClosed(), "CH_MNC");
         // CH_HOICM: Has order in closed market
         require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
