@@ -99,15 +99,24 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         nonReentrant
         onlySettlementToken(token)
     {
+        // input requirement checks:
+        //   token: here
+        //   amountX10_D: here
+
         address from = _msgSender();
         _deposit(from, from, token, amountX10_D);
     }
 
+    /// @inheritdoc IVault
     function depositFor(
         address to,
         address token,
         uint256 amountX10_D
     ) external override whenNotPaused nonReentrant onlySettlementToken(token) {
+        // input requirement checks:
+        //   token: here
+        //   amountX10_D: _deposit
+
         // V_DFZA: Deposit for zero address
         require(to != address(0), "V_DFZA");
 
@@ -125,7 +134,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     {
         // input requirement checks:
         //   token: here
-        //   amountX10_D: here
+        //   amountX10_D: _deposit
 
         // the full process of withdrawal:
         // 1. settle funding payment to owedRealizedPnl
@@ -280,10 +289,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address token,
         uint256 amountX10_D
     ) internal {
-        // input requirement checks:
-        //   token: here
-        //   amountX10_D: here
-
         _modifyBalance(to, token, amountX10_D.toInt256());
 
         // check for deflationary tokens by assuring balances before and after transferring to be the same
