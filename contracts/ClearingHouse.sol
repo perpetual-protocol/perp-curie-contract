@@ -372,6 +372,7 @@ contract ClearingHouse is
         return RemoveLiquidityResponse({ quote: response.quote, base: response.base, fee: response.fee });
     }
 
+    /// @inheritdoc IClearingHouse
     function settleAllFunding(address trader) external override {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
@@ -728,13 +729,13 @@ contract ClearingHouse is
     // INTERNAL NON-VIEW
     //
 
+    /// @dev only cancel open orders if there are not enough free collateral with mmRatio
+    /// or account is able to being liquidated.
     function _cancelExcessOrders(
         address maker,
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
-        // only cancel open orders if there are not enough free collateral with mmRatio
-        // or account is able to being liquidated.
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
@@ -784,6 +785,9 @@ contract ClearingHouse is
         _settleBalanceAndRealizePnl(maker, baseToken, removeLiquidityResponse);
     }
 
+    /// @dev Calculate how much profit/loss we should settled,
+    /// only used when removing liquidity. The profit/loss is calculated by using
+    /// the removed base/quote amount and existing taker's base/quote amount.
     function _settleBalanceAndRealizePnl(
         address maker,
         address baseToken,
@@ -832,8 +836,6 @@ contract ClearingHouse is
 
         IAccountBalance(_accountBalance).modifyOwedRealizedPnl(_insuranceFund, response.insuranceFundFee.toInt256());
 
-        // examples:
-        // https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events?node-id=0%3A1
         IAccountBalance(_accountBalance).modifyTakerBalance(
             params.trader,
             params.baseToken,
@@ -871,6 +873,7 @@ contract ClearingHouse is
         return response;
     }
 
+    /// @dev The actual close position logic.
     function _closePosition(InternalClosePositionParams memory params)
         internal
         returns (IExchange.SwapResponse memory)
@@ -897,6 +900,7 @@ contract ClearingHouse is
             );
     }
 
+    /// @dev Settle trader's funding payment to his/her realized pnl.
     function _settleFunding(address trader, address baseToken)
         internal
         returns (Funding.Growth memory fundingGrowthGlobal)
