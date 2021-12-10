@@ -136,6 +136,26 @@ describe("Vault spec", () => {
 
             // increase bob's vault balance
             expect(bobBalance).to.be.eq(amount)
+
+            // increase vault balance
+            expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
+        })
+
+        it("should be able to deposit for alice herself", async () => {
+            const amount = parseUnits("100", await usdc.decimals())
+            await vault.connect(alice).depositFor(alice.address, usdc.address, amount)
+
+            const aliceBalance = await vault.getBalance(alice.address)
+            const aliceUsdcBalanceAfter = await usdc.balanceOf(alice.address)
+
+            // reduce alice's usdc balance
+            expect(aliceUsdcBalanceAfter).to.be.eq(parseUnits("900", await usdc.decimals()))
+
+            // increase alice's vault balance
+            expect(aliceBalance).to.be.eq(amount)
+
+            // increase vault balance
+            expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
         })
 
         it("force error when depositor do not have enough money", async () => {
