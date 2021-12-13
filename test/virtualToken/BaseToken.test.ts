@@ -138,7 +138,7 @@ describe("BaseToken", async () => {
             it("initial status should be opened", async () => {
                 const status = await baseToken.getStatus()
                 expect(status).to.be.eq(0)
-                expect(await baseToken.isOpened()).to.be.eq(true)
+                expect(await baseToken.isOpen()).to.be.eq(true)
             })
         })
 

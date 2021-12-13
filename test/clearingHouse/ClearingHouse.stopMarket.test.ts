@@ -21,7 +21,7 @@ import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe("Clearinghouse StopMarket", async () => {
+describe.only("Clearinghouse StopMarket", async () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -256,14 +256,9 @@ describe("Clearinghouse StopMarket", async () => {
                     bob.address,
                     baseToken.address,
                 )
-                const realizedPnl = await clearingHouse.callStatic.closePositionInClosedMarket(
-                    bob.address,
-                    baseToken.address,
-                )
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
 
                 const expectedPnl = closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance)
-                expect(realizedPnl).to.be.eq(expectedPnl)
 
                 await expect(clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address))
                     .to.emit(accountBalance, "PnlRealized")
@@ -297,14 +292,9 @@ describe("Clearinghouse StopMarket", async () => {
                     bob.address,
                     baseToken.address,
                 )
-                const realizedPnl = await clearingHouse.callStatic.closePositionInClosedMarket(
-                    bob.address,
-                    baseToken.address,
-                )
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
 
                 const expectedPnl = closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance)
-                expect(realizedPnl).to.be.eq(expectedPnl)
 
                 await expect(clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address))
                     .to.emit(accountBalance, "PnlRealized")
