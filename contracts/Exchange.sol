@@ -240,9 +240,7 @@ contract Exchange is
         );
 
         uint256 timestamp =
-            IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened
-                ? _blockTimestamp()
-                : IBaseToken(baseToken).getEndingTimestamp();
+            IBaseToken(baseToken).isOpen() ? _blockTimestamp() : IBaseToken(baseToken).getEndingTimestamp();
 
         // update states before further actions in this block; once per block
         if (timestamp != _lastSettledTimestampMap[baseToken]) {
@@ -554,9 +552,9 @@ contract Exchange is
             uint256 indexTwap
         )
     {
-        bool isOpenedMarket = IBaseToken(baseToken).getStatus() == IBaseToken.Status.Opened;
+        bool marketOpen = IBaseToken(baseToken).isOpen();
         uint32 twapInterval;
-        uint256 timestamp = isOpenedMarket ? _blockTimestamp() : IBaseToken(baseToken).getEndingTimestamp();
+        uint256 timestamp = marketOpen ? _blockTimestamp() : IBaseToken(baseToken).getEndingTimestamp();
 
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
@@ -570,7 +568,7 @@ contract Exchange is
         uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
         markTwap = markTwapX96.formatX96ToX10_18();
 
-        indexTwap = isOpenedMarket
+        indexTwap = marketOpen
             ? IIndexPrice(baseToken).getIndexPrice(twapInterval)
             : IBaseToken(baseToken).getEndingIndexPrice();
 
