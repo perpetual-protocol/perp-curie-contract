@@ -6,7 +6,7 @@ import { Funding } from "../lib/Funding.sol";
 
 interface IExchange {
     /// @param amount when closing position, amount(uint256) == takerPositionSize(int256),
-    ///        as amount is assigned as takerPositionSize in ClearingHouse.closePosition()
+    /// as amount is assigned as takerPositionSize in ClearingHouse.closePosition()
     struct SwapParams {
         address trader;
         address baseToken;
@@ -61,11 +61,11 @@ interface IExchange {
     event AccountBalanceChanged(address accountBalance);
 
     /// @notice The actual swap function
-    /// @dev Only used by ClearingHouse
+    /// @dev Only used by `ClearingHouse` contract
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
     /// @notice Settle the funding payment for the time interval since the last settlement
-    /// @dev This function should be called at the beginning of every high-level function, such as openPosition()
+    /// @dev This function should be called at the beginning of every high-level function, such as `openPosition()`
     ///      while it doesn't matter who calls this function
     ///      this function 1. settles personal funding payment 2. updates global funding growth
     ///      personal funding payment is settled whenever there is pending funding payment

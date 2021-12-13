@@ -66,16 +66,24 @@ interface IOrderBook {
     /// @param exchange The address of exchange contract
     event ExchangeChanged(address indexed exchange);
 
-    /// @notice Add liquidity logic, only used by `ClearingHouse` contract
+    /// @notice Add liquidity logic
+    /// @dev Only used by `ClearingHouse` contract
+    /// @param params Add liquidity params, detail on `IOrderBook.AddLiquidityParams`
+    /// @return response Add liquidity response, detail on `IOrderBook.AddLiquidityResponse`
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory response);
 
     /// @notice Remove liquidity logic, only used by `ClearingHouse` contract
+    /// @param params Remove liquidity params, detail on `IOrderBook.RemoveLiquidityParams`
+    /// @return response Remove liquidity response, detail on `IOrderBook.RemoveLiquidityResponse`
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         returns (RemoveLiquidityResponse memory response);
 
-    /// @dev This is the non-view version of getLiquidityCoefficientInFundingPayment(),
+    /// @dev This is the non-view version of `getLiquidityCoefficientInFundingPayment()`,
     /// only can be called by `ClearingHouse` contract
+    /// @param trader The trader address
+    /// @param baseToken The base token address
+    /// @param fundingGrowthGlobal The funding growth info, detail on `Funding.Growth`
     /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function updateFundingGrowthAndLiquidityCoefficientInFundingPayment(
         address trader,
@@ -83,8 +91,10 @@ interface IOrderBook {
         Funding.Growth memory fundingGrowthGlobal
     ) external returns (int256 liquidityCoefficientInFundingPayment);
 
-    /// @dev Replay the swap and get the swap result(price impact and swap fee),
-    /// only can be called by `ClearingHouse` contract
+    /// @notice Replay the swap and get the swap result (price impact and swap fee),
+    /// only can be called by `ClearingHouse` contract;
+    /// @dev `ReplaySwapResponse.insuranceFundFee = fee * insuranceFundFeeRatio`
+    /// @param params ReplaySwap params, detail on `IOrderBook.ReplaySwapParams`
     /// @return response The swap result encoded in `ReplaySwapResponse`
     function replaySwap(ReplaySwapParams memory params) external returns (ReplaySwapResponse memory response);
 
@@ -134,7 +144,7 @@ interface IOrderBook {
         view
         returns (int256 totalQuoteAmountInPools, uint256 totalPendingFee);
 
-    /// @notice Get the total token amount(quote or base) and pending fees of all orders in the given market
+    /// @notice Get the total token amount (quote or base) and pending fees of all orders in the given market
     /// @param trader The trader address
     /// @param baseToken The base token addresses
     /// @param fetchBase True if fetch base token amount, false if fetch quote token amount
@@ -146,7 +156,7 @@ interface IOrderBook {
         bool fetchBase
     ) external view returns (uint256 tokenAmount, uint256 totalPendingFee);
 
-    /// @notice Get the total debt token amount(base or quote) of all orders in the given market
+    /// @notice Get the total debt token amount (base or quote) of all orders in the given market
     /// @param trader The trader address
     /// @param baseToken The base token address
     /// @param fetchBase True if fetch base token amount, false if fetch quote token amount
@@ -158,9 +168,9 @@ interface IOrderBook {
     ) external view returns (uint256 debtAmount);
 
     /// @notice Get the pending funding payment of all orders in the given market
-    /// @dev this is the view version of updateFundingGrowthAndLiquidityCoefficientInFundingPayment(), so only
+    /// @dev This is the view version of `updateFundingGrowthAndLiquidityCoefficientInFundingPayment()`, so only
     /// part of the funding payment will be returned. Use it with caution because it does not return all the pending
-    /// funding payment of orders.(Normally you won't need to use this function)
+    /// funding payment of orders. **Normally you won't need to use this function**
     /// @return liquidityCoefficientInFundingPayment the funding payment of all orders/liquidity of a maker
     function getLiquidityCoefficientInFundingPayment(
         address trader,

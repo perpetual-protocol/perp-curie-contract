@@ -5,9 +5,9 @@ interface IInsuranceFund {
     /// @param borrower The address of the borrower
     event BorrowerChanged(address borrower);
 
-    /// @notice If bad debt happened, vault will borrow from insuranceFund
-    /// @dev borrower must be set by owner
-    /// @param amount Borrow amount, must be less than insuranceFund balance
+    /// @notice If bad debt happened, `Vault` contract will borrow from `InsuranceFund` contract
+    /// @dev Borrower must be set by owner
+    /// @param amount Borrow amount, must be less than `InsuranceFund` balance
     function borrow(uint256 amount) external;
 
     /// @notice Get settlement token address

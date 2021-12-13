@@ -153,7 +153,8 @@ interface IClearingHouse {
     event TrustedForwarderChanged(address indexed forwarder);
 
     /// @notice Maker can call `addLiquidity` to provide liquidity on Uniswap V3 pool
-    /// @dev Tx will fail if adding base == 0 && quote == 0 / liquidity == 0
+    /// @dev Tx will fail if adding `base == 0 && quote == 0` / `liquidity == 0`
+    /// @dev - `AddLiquidityParams.useTakerBalance` is only accept `false` now
     /// @param params AddLiquidityParams struct
     /// @return response AddLiquidityResponse struct
     function addLiquidity(AddLiquidityParams calldata params) external returns (AddLiquidityResponse memory response);
@@ -173,6 +174,19 @@ interface IClearingHouse {
     function settleAllFunding(address trader) external;
 
     /// @notice Trader can call `openPosition` to long/short on baseToken market
+    /// @dev - `OpenPositionParams.oppositeAmountBound`
+    ///     - B2Q + exact input, want more output quote as possible, so we set a lower bound of output quote
+    ///     - B2Q + exact output, want less input base as possible, so we set a upper bound of input base
+    ///     - Q2B + exact input, want more output base as possible, so we set a lower bound of output base
+    ///     - Q2B + exact output, want less input quote as possible, so we set a upper bound of input quote
+    ///     > when it's set to 0, it will disable slippage protection entirely regardless of exact input or output
+    ///     > when it's over or under the bound, it will be reverted
+    /// @dev - `OpenPositionParams.sqrtPriceLimitX96`
+    ///     - B2Q: the price cannot be less than this value after the swap
+    ///     - Q2B: the price cannot be greater than this value after the swap
+    ///     > it will fill the trade until it reaches the price limit but WON'T REVERT
+    ///     > when it's set to 0, it will disable price limit;
+    ///     > when it's 0 and exact output, the output amount is required to be identical to the param amount
     /// @param params OpenPositionParams struct
     /// @return base The amount of baseToken the taker got or spent
     /// @return quote The amount of quoteToken the taker got or spent

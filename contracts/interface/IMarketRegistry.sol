@@ -49,21 +49,21 @@ interface IMarketRegistry {
     /// @param maxOrdersPerMarketArg The max allowed orders per market
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external;
 
-    /// @notice Get the pool address(UNIv3 pool) by given base token address
+    /// @notice Get the pool address (UNIv3 pool) by given base token address
     /// @param baseToken The address of the base token
     /// @return pool The address of the pool
     function getPool(address baseToken) external view returns (address pool);
 
     /// @notice Get the fee ratio of a given market
-    /// @dev The ratio is in 1e6 format, that means 1% = 1e4
+    /// @dev The ratio is in `1e6` format, that means `1% = 1e4`
     /// @param baseToken The address of the base token
-    /// @return feeRatio The fee ratio of the market, it is a decimal in 1e6
+    /// @return feeRatio The fee ratio of the market, it is a decimal in `1e6`
     function getFeeRatio(address baseToken) external view returns (uint24 feeRatio);
 
     /// @notice Get the insurance fund fee ratio of a given market
-    /// @dev The ratio is in 1e6 format, that means 1% = 1e4
+    /// @dev The ratio is in `1e6` format, that means `1% = 1e4`
     /// @param baseToken The address of the base token
-    /// @return feeRatio The fee ratio of the market, it is a decimal in 1e6
+    /// @return feeRatio The fee ratio of the market, it is a decimal in `1e6`
     function getInsuranceFundFeeRatio(address baseToken) external view returns (uint24 feeRatio);
 
     /// @notice Get the market info by given base token address

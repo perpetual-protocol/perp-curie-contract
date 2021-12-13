@@ -14,7 +14,7 @@ interface IAccountBalance {
     event PnlRealized(address indexed trader, int256 amount);
 
     /// @notice Modify trader account balance
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param trader The address of the trader
     /// @param baseToken The address of the baseToken
     /// @param base Modified amount of base
@@ -29,7 +29,7 @@ interface IAccountBalance {
     ) external returns (int256 takerPositionSize, int256 takerOpenNotional);
 
     /// @notice Modify trader owedRealizedPnl
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param trader The address of the trader
     /// @param amount Modified amount of owedRealizedPnl
     function modifyOwedRealizedPnl(address trader, int256 amount) external;
@@ -41,7 +41,7 @@ interface IAccountBalance {
     function settleOwedRealizedPnl(address trader) external returns (int256 pnl);
 
     /// @notice Modify trader owedRealizedPnl
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param trader The address of the trader
     /// @param baseToken The address of the baseToken
     /// @param amount Settled quote amount
@@ -52,7 +52,7 @@ interface IAccountBalance {
     ) external;
 
     /// @notice Settle account balance and deregister base token
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param maker The address of the maker
     /// @param baseToken The address of the baseToken
     /// @param realizedPnl Amount of pnl realized
@@ -68,19 +68,19 @@ interface IAccountBalance {
 
     /// @notice Every time a trader's position value is checked, the base token list of this trader will be traversed;
     /// thus, this list should be kept as short as possible
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param trader The address of the trader
     /// @param baseToken The address of the trader's base token
     function registerBaseToken(address trader, address baseToken) external;
 
     /// @notice Deregister baseToken from trader accountInfo
-    /// @dev Only used by `ClearingHouse`, this function is expensive, due to for loop
+    /// @dev Only used by `ClearingHouse` contract, this function is expensive, due to for loop
     /// @param trader The address of the trader
     /// @param baseToken The address of the trader's base token
     function deregisterBaseToken(address trader, address baseToken) external;
 
     /// @notice Update trader Twap premium info
-    /// @dev Only used by `ClearingHouse`
+    /// @dev Only used by `ClearingHouse` contract
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @param lastTwPremiumGrowthGlobalX96 The last Twap Premium
@@ -107,23 +107,26 @@ interface IAccountBalance {
             uint256 indexPrice
         );
 
-    /// @notice Get ClearingHouseConfig address
+    /// @notice Get `ClearingHouseConfig` address
     /// @return clearingHouseConfig The address of ClearingHouseConfig
     function getClearingHouseConfig() external view returns (address clearingHouseConfig);
 
-    /// @notice Get OrderBook address
+    /// @notice Get `OrderBook` address
     /// @return orderBook The address of OrderBook
     function getOrderBook() external view returns (address orderBook);
 
-    /// @notice Get Vault address
+    /// @notice Get `Vault` address
     /// @return vault The address of Vault
     function getVault() external view returns (address vault);
 
     /// @notice Get trader registered baseTokens
+    /// @param trader The address of trader
     /// @return baseTokens The array of baseToken address
     function getBaseTokens(address trader) external view returns (address[] memory baseTokens);
 
     /// @notice Get trader account info
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
     /// @return traderAccountInfo The baseToken account info of trader
     function getAccountInfo(address trader, address baseToken)
         external
@@ -131,22 +134,27 @@ interface IAccountBalance {
         returns (AccountMarket.Info memory traderAccountInfo);
 
     /// @notice Get taker cost of trader's baseToken
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
     /// @return openNotional The taker cost of trader's baseToken
     function getTakerOpenNotional(address trader, address baseToken) external view returns (int256 openNotional);
 
     /// @notice Get total cost of trader's baseToken
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
     /// @return totalOpenNotional the amount of quote token paid for a position when opening
     function getTotalOpenNotional(address trader, address baseToken) external view returns (int256 totalOpenNotional);
 
     /// @notice Get total debt value of trader
-    /// @dev This debt value will relate to `Vault.getFreeCollateral._getTotalMarginRequirement()`
+    /// @param trader The address of trader
+    /// @dev Total debt value will relate to `Vault.getFreeCollateral()`
     /// @return totalDebtValue The debt value of trader
     function getTotalDebtValue(address trader) external view returns (uint256 totalDebtValue);
 
     /// @notice Get margin requirement to check whether trader will be able to liquidate
-    /// @dev This is different from Vault._getTotalMarginRequirement(), which is for freeCollateral calculation
-    /// @return marginRequirementForLiquidation Int instead of Uint, as it is compared with
-    /// `ClearingHouse.getAccountValue()` which is also an int
+    /// @dev This is different from `Vault._getTotalMarginRequirement()`, which is for freeCollateral calculation
+    /// @param trader The address of trader
+    /// @return marginRequirementForLiquidation It is compared with `ClearingHouse.getAccountValue` which is also an int
     function getMarginRequirementForLiquidation(address trader)
         external
         view
@@ -172,14 +180,14 @@ interface IAccountBalance {
     function hasOrder(address trader) external view returns (bool hasOrderOrNot);
 
     /// @notice Get trader base amount
-    /// @dev base amount = takerPositionSize - orderBaseDebt
+    /// @dev `base amount = takerPositionSize - orderBaseDebt`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return baseAmount The base amount of trader's baseToken market
     function getBase(address trader, address baseToken) external view returns (int256 baseAmount);
 
     /// @notice Get trader quote amount
-    /// @dev quote amount= takerOpenNotional - orderQuoteDebt
+    /// @dev `quote amount = takerOpenNotional - orderQuoteDebt`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return quoteAmount The quote amount of trader's baseToken market
@@ -187,17 +195,21 @@ interface IAccountBalance {
 
     /// @notice Get taker position size of trader's baseToken market
     /// @dev This will only has taker position, can get maker impermanent position through `getTotalPositionSize`
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
     /// @return takerPositionSize The taker position size of trader's baseToken market
     function getTakerPositionSize(address trader, address baseToken) external view returns (int256 takerPositionSize);
 
     /// @notice Get total position size of trader's baseToken market
-    /// @dev Total position size = taker position size + maker impermanent position size
+    /// @dev `total position size = taker position size + maker impermanent position size`
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
     /// @return totalPositionSize The total position size of trader's baseToken market
     function getTotalPositionSize(address trader, address baseToken) external view returns (int256 totalPositionSize);
 
     /// @notice Get total position value of trader's baseToken market
-    /// @dev a negative returned value is only be used when calculating pnl
-    /// @dev we use 15 mins twap to calc position value
+    /// @dev A negative returned value is only be used when calculating pnl,
+    /// @dev we use `15 mins` twap to calc position value
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return totalPositionValue Total position value of trader's baseToken market

@@ -15,15 +15,15 @@ interface IVault {
     event Withdrawn(address indexed collateralToken, address indexed trader, uint256 amount);
 
     /// @notice Deposit collateral into vault
-    /// @param token the address of the token to deposit;
-    ///        once multi-collateral is implemented, the token is not limited to settlementToken
-    /// @param amountX10_D the amount of the token to deposit in decimals D (D = _decimals)
+    /// @dev once multi-collateral is implemented, the token is not limited to settlementToken
+    /// @param token The address of the token to deposit
+    /// @param amountX10_D The amount of the token to deposit in decimals D (D = _decimals)
     function deposit(address token, uint256 amountX10_D) external;
 
     /// @notice Withdraw collateral from vault
-    /// @param token the address of the token sender is going to withdraw
-    ///        once multi-collateral is implemented, the token is not limited to settlementToken
-    /// @param amountX10_D the amount of the token to withdraw in decimals D (D = _decimals)
+    /// @dev once multi-collateral is implemented, the token is not limited to settlementToken
+    /// @param token The address of the token sender is going to withdraw
+    /// @param amountX10_D The amount of the token to withdraw in decimals D (D = _decimals)
     function withdraw(address token, uint256 amountX10_D) external;
 
     /// @notice Get the balance in vault of specified account
@@ -36,10 +36,11 @@ interface IVault {
     function getFreeCollateral(address trader) external view returns (uint256 freeCollateral);
 
     /// @notice Get free collateral amount of specified trader and collateral ratio
-    /// @dev there are three configurations for different insolvency risk tolerances: conservative, moderate, aggressive
-    ///      we will start with the conservative one and gradually move to aggressive to increase capital efficiency
-    /// @param trader the address of the trader
-    /// @param ratio the margin requirement ratio, imRatio or mmRatio
+    /// @dev There are three configurations for different insolvency risk tolerances: **conservative, moderate,
+    /// aggressive**, we will start with the **conservative** one and gradually move to aggressive to
+    /// increase capital efficiency
+    /// @param trader The address of the trader
+    /// @param ratio The margin requirement ratio, imRatio or mmRatio
     /// @return freeCollateralByRatio freeCollateral, by using the input margin requirement ratio; can be negative
     function getFreeCollateralByRatio(address trader, uint24 ratio)
         external
