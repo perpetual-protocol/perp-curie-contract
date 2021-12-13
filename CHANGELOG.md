@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.3] - 2021-12-10
+
+- Fix permission check in `setttleFunding` and `updateFundingGrowthAndLiquidityCoefficientInFundingPayment`
+
+## [1.0.3-staging] - 2021-12-10
+
+- Fix permission check in `setttleFunding` and `updateFundingGrowthAndLiquidityCoefficientInFundingPayment`
+
 ## [1.0.1] - 2021-11-25
 
 - Code is the same as `1.0.0`, but it's a clean deploy to Optimism Mainnet.

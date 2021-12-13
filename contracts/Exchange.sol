@@ -222,6 +222,7 @@ contract Exchange is
         override
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
+        _requireOnlyClearingHouse();
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
