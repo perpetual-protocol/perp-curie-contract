@@ -364,7 +364,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("105", 6), 0, 0, 0]
             })
 
-            // cancel order successfully
+            // cancel order successfully without orders in this market
             await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)).to.not.emit(
                 clearingHouse,
                 "LiquidityChanged",

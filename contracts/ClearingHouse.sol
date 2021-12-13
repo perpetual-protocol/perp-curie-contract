@@ -540,6 +540,11 @@ contract ClearingHouse is
         //   maker: in _cancelExcessOrders()
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
+
+        uint256 length = orderIds.length;
+        if (length == 0) {
+            return;
+        }
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -549,7 +554,12 @@ contract ClearingHouse is
         //   maker: in _cancelExcessOrders()
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
+
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
+        uint256 length = orderIds.length;
+        if (length == 0) {
+            return;
+        }
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -693,11 +703,8 @@ contract ClearingHouse is
         _settleFunding(maker, baseToken);
 
         IOrderBook.RemoveLiquidityResponse memory removeLiquidityResponse;
-        uint256 length = orderIds.length;
-        if (length == 0) {
-            return;
-        }
 
+        uint256 length = orderIds.length;
         for (uint256 i = 0; i < length; i++) {
             OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
 
