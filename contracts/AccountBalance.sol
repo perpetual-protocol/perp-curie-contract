@@ -324,6 +324,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return totalPositionValue;
     }
 
+    /// @inheritdoc IAccountBalance
     function settlePnlInClosedMarket(address trader, address baseToken)
         external
         override
