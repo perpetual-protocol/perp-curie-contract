@@ -130,6 +130,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             it("force error due to invalid baseToken", async () => {
+                // will reverted due to function selector was not recognized (IBaseToken(baseToken).getStatus)
                 await expect(
                     clearingHouse.connect(taker).openPosition({
                         baseToken: pool.address,
@@ -141,7 +142,7 @@ describe("ClearingHouse openPosition", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     }),
-                ).to.be.revertedWith("EX_BTNE")
+                ).to.be.reverted
             })
 
             it("force error due to invalid amount (0)", async () => {

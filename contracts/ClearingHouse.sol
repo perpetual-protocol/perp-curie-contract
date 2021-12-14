@@ -20,6 +20,8 @@ import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV1 } from "./storage/ClearingHouseStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
@@ -172,6 +174,8 @@ contract ClearingHouse is
         //   lowerTick & upperTick: in UniswapV3Pool._modifyPosition()
         //   minBase, minQuote & deadline: here
 
+        _checkMarketOpen(params.baseToken);
+
         // CH_DUTB: Disable useTakerBalance
         require(!params.useTakerBalance, "CH_DUTB");
 
@@ -316,6 +320,9 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
+        // CH_NONC: Market paused
+        require(!IBaseToken(params.baseToken).isPaused(), "CH_MP");
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -391,6 +398,8 @@ contract ClearingHouse is
         //   sqrtPriceLimitX96: X (this is not for slippage protection)
         //   referralCode: X
 
+        _checkMarketOpen(params.baseToken);
+
         address trader = _msgSender();
         // register token if it's the first time
         IAccountBalance(_accountBalance).registerBaseToken(trader, params.baseToken);
@@ -443,6 +452,8 @@ contract ClearingHouse is
         //   deadline: here
         //   referralCode: X
 
+        _checkMarketOpen(params.baseToken);
+
         address trader = _msgSender();
 
         // must settle funding first
@@ -494,6 +505,8 @@ contract ClearingHouse is
         //   trader: here
         //   baseToken: in Exchange.settleFunding()
 
+        _checkMarketOpen(baseToken);
+
         // CH_CLWTISO: cannot liquidate when there is still order
         require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
 
@@ -541,8 +554,8 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        uint256 length = orderIds.length;
-        if (length == 0) {
+        _checkMarketOpen(baseToken);
+        if (orderIds.length == 0) {
             return;
         }
         _cancelExcessOrders(maker, baseToken, orderIds);
@@ -554,13 +567,43 @@ contract ClearingHouse is
         //   maker: in _cancelExcessOrders()
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
-
+        _checkMarketOpen(baseToken);
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
-        uint256 length = orderIds.length;
-        if (length == 0) {
+        if (orderIds.length == 0) {
             return;
         }
         _cancelExcessOrders(maker, baseToken, orderIds);
+    }
+
+    /// @inheritdoc IClearingHouse
+    function closePositionInClosedMarket(address trader, address baseToken)
+        external
+        override
+        returns (uint256 base, uint256 quote)
+    {
+        // CH_MNC: Market not closed
+        require(IBaseToken(baseToken).isClosed(), "CH_MNC");
+        // CH_HOICM: Has order in closed market
+        require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
+        _settleFunding(trader, baseToken);
+
+        (int256 takerPositionSize, int256 takerOpenNotional, int256 realizedPnl, uint256 indexPrice) =
+            IAccountBalance(_accountBalance).settlePnlInClosedMarket(trader, baseToken);
+
+        if (takerPositionSize != 0) {
+            emit PositionChanged(
+                trader,
+                baseToken,
+                takerPositionSize,
+                takerOpenNotional,
+                0,
+                takerOpenNotional,
+                realizedPnl,
+                indexPrice
+            );
+        }
+
+        return (takerPositionSize.abs(), takerOpenNotional.abs());
     }
 
     /// @inheritdoc IUniswapV3MintCallback
@@ -927,5 +970,10 @@ contract ClearingHouse is
                 require(params.quote <= params.oppositeAmountBound, "CH_TMRL");
             }
         }
+    }
+
+    function _checkMarketOpen(address baseToken) internal view {
+        // CH_BC: Market not opened
+        require(IBaseToken(baseToken).isOpen(), "CH_MNO");
     }
 }
