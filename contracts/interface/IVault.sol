@@ -20,8 +20,12 @@ interface IVault {
     /// @param amountX10_D The amount of the token to deposit in decimals D (D = _decimals)
     function deposit(address token, uint256 amountX10_D) external;
 
+    /// @notice Deposit the collateral token for other account
+    /// @param to The address of the account to deposit to
+    /// @param token The address of collateral token
+    /// @param amountX10_D The amount of the token to deposit in decimals D (D = _decimals)
     function depositFor(
-        address recipient,
+        address to,
         address token,
         uint256 amountX10_D
     ) external;
