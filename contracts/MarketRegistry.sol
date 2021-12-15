@@ -111,7 +111,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         onlyOwner
     {
         _insuranceFundFeeRatioMap[baseToken] = insuranceFundFeeRatioArg;
-        emit InsuranceFundFeeRatioChanged(insuranceFundFeeRatioArg);
+        emit InsuranceFundFeeRatioChanged(baseToken, insuranceFundFeeRatioArg);
     }
 
     /// @inheritdoc IMarketRegistry
