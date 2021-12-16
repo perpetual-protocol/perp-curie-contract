@@ -102,20 +102,26 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // input requirement checks:
         //   token: here
         //   amountX10_D: here
+
         address from = _msgSender();
-        _modifyBalance(from, token, amountX10_D.toInt256());
+        _deposit(from, from, token, amountX10_D);
+    }
 
-        // check for deflationary tokens by assuring balances before and after transferring to be the same
-        uint256 balanceBefore = IERC20Metadata(token).balanceOf(address(this));
-        SafeERC20Upgradeable.safeTransferFrom(IERC20Upgradeable(token), from, address(this), amountX10_D);
-        // V_BAI: inconsistent balance amount, to prevent from deflationary tokens
-        require((IERC20Metadata(token).balanceOf(address(this)).sub(balanceBefore)) == amountX10_D, "V_IBA");
+    /// @inheritdoc IVault
+    function depositFor(
+        address to,
+        address token,
+        uint256 amountX10_D
+    ) external override whenNotPaused nonReentrant onlySettlementToken(token) {
+        // input requirement checks:
+        //   token: here
+        //   amountX10_D: _deposit
 
-        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
-        // V_GTSTBC: greater than settlement token balance cap
-        require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
+        // V_DFZA: Deposit for zero address
+        require(to != address(0), "V_DFZA");
 
-        emit Deposited(token, from, amountX10_D);
+        address from = _msgSender();
+        _deposit(from, to, token, amountX10_D);
     }
 
     /// @inheritdoc IVault
@@ -128,7 +134,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     {
         // input requirement checks:
         //   token: here
-        //   amountX10_D: here
+        //   amountX10_D: _deposit
 
         // the full process of withdrawal:
         // 1. settle funding payment to owedRealizedPnl
@@ -273,6 +279,30 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
     // INTERNAL NON-VIEW
     //
+    /// @param from deposit token from this address
+    /// @param to deposit token to this address
+    /// @param token the settlement token wish to deposit
+    /// @param amountX10_D the amount of token to deposit
+    function _deposit(
+        address from,
+        address to,
+        address token,
+        uint256 amountX10_D
+    ) internal {
+        _modifyBalance(to, token, amountX10_D.toInt256());
+
+        // check for deflationary tokens by assuring balances before and after transferring to be the same
+        uint256 balanceBefore = IERC20Metadata(token).balanceOf(address(this));
+        SafeERC20Upgradeable.safeTransferFrom(IERC20Upgradeable(token), from, address(this), amountX10_D);
+        // V_BAI: inconsistent balance amount, to prevent from deflationary tokens
+        require((IERC20Metadata(token).balanceOf(address(this)).sub(balanceBefore)) == amountX10_D, "V_IBA");
+
+        uint256 settlementTokenBalanceCap = IClearingHouseConfig(_clearingHouseConfig).getSettlementTokenBalanceCap();
+        // V_GTSTBC: greater than settlement token balance cap
+        require(IERC20Metadata(token).balanceOf(address(this)) <= settlementTokenBalanceCap, "V_GTSTBC");
+
+        emit Deposited(token, to, amountX10_D);
+    }
 
     /// @param amount can be 0; do not require this
     function _modifyBalance(
