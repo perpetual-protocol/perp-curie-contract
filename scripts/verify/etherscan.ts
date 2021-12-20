@@ -1,10 +1,10 @@
-import hre from "hardhat"
 import { NomicLabsHardhatPluginError } from "hardhat/plugins"
+import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { getContractsInfo } from "./tenderly"
 
-export async function verifyAndPushContract(): Promise<void> {
+export async function verifyOnEtherscan(hre: HardhatRuntimeEnvironment, contractName?: string): Promise<void> {
     const network = hre.network.name
-    const contractsInfo = getContractsInfo(network)
+    const contractsInfo = getContractsInfo(network, contractName)
 
     for (const { name, address, args } of contractsInfo) {
         console.log(`Verifying contract ${name} on ${address}`)
@@ -21,13 +21,4 @@ export async function verifyAndPushContract(): Promise<void> {
                 }
             })
     }
-}
-
-if (require.main === module) {
-    verifyAndPushContract()
-        .then(() => process.exit(0))
-        .catch(error => {
-            console.error(error)
-            process.exit(1)
-        })
 }

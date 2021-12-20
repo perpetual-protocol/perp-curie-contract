@@ -1,5 +1,5 @@
 import fs from "fs"
-import hre from "hardhat"
+import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { resolve } from "path"
 
 const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory", "BTCUSDChainlinkPriceFeed", "ETHUSDChainlinkPriceFeed"]
@@ -10,7 +10,7 @@ interface ContractInfo {
     args: any[]
 }
 
-export function getContractsInfo(network: String): Array<ContractInfo> {
+export function getContractsInfo(network: String, contractName?: string): Array<ContractInfo> {
     const contractsInfo = []
     const metadata = `./metadata/${network}.json`
     const jsonStr = fs.readFileSync(resolve(metadata), "utf8")
@@ -31,12 +31,15 @@ export function getContractsInfo(network: String): Array<ContractInfo> {
             address,
         })
     }
+    if (typeof contractName !== "undefined") {
+        return contractsInfo.filter(contract => contract.name == contractName)
+    }
     return contractsInfo
 }
 
-export async function verifyAndPushContract(): Promise<void> {
+export async function verifyOnTenderly(hre: HardhatRuntimeEnvironment, contractName?: string): Promise<void> {
     const network = hre.network.name
-    const contractsInfo = getContractsInfo(network)
+    const contractsInfo = getContractsInfo(network, contractName)
 
     for (const { name, address } of contractsInfo) {
         console.log(`verifying contract ${name} on ${address}`)
@@ -58,13 +61,4 @@ export async function verifyAndPushContract(): Promise<void> {
                 console.log(e)
             })
     }
-}
-
-if (require.main === module) {
-    verifyAndPushContract()
-        .then(() => process.exit(0))
-        .catch(error => {
-            console.error(error)
-            process.exit(1)
-        })
 }

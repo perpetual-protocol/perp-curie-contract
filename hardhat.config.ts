@@ -9,11 +9,13 @@ import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig } from "hardhat/config"
+import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
 import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
+import { verifyOnEtherscan } from "./scripts/verify/etherscan"
+import { verifyOnTenderly } from "./scripts/verify/tenderly"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -29,6 +31,18 @@ enum CompanionNetwork {
     rinkeby = "rinkeby",
     arbitrumRinkeby = "arbitrumRinkeby",
 }
+
+task("etherscanVerify", "Verify on etherscan")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        verifyOnEtherscan(hre, contract)
+    })
+
+task("tenderlyVerify", "Verify on tenderly")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        verifyOnTenderly(hre, contract)
+    })
 
 const config: HardhatUserConfig = {
     solidity: {
