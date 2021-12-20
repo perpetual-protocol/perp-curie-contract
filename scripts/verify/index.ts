@@ -1,16 +1,23 @@
 import fs from "fs"
+import { NomicLabsHardhatPluginError } from "hardhat/plugins"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { resolve } from "path"
-
-const exceptionList = ["DefaultProxyAdmin", "UniswapV3Factory", "BTCUSDChainlinkPriceFeed", "ETHUSDChainlinkPriceFeed"]
 
 interface ContractInfo {
     name: string
     address: string
-    args: any[]
+    args?: string[]
 }
 
 export function getContractsInfo(network: String, contractName?: string): Array<ContractInfo> {
+    // contract has no proxy
+    const noProxyContract = [
+        "DefaultProxyAdmin",
+        "UniswapV3Factory",
+        "BTCUSDChainlinkPriceFeed",
+        "ETHUSDChainlinkPriceFeed",
+    ]
+
     const contractsInfo = []
     const metadata = `./metadata/${network}.json`
     const jsonStr = fs.readFileSync(resolve(metadata), "utf8")
@@ -19,16 +26,17 @@ export function getContractsInfo(network: String, contractName?: string): Array<
     for (const [name] of Object.entries(contracts)) {
         let path
 
-        if (exceptionList.includes(name)) {
+        if (noProxyContract.includes(name)) {
             path = `./deployments/${network}/${name}.json`
         } else {
             path = `./deployments/${network}/${name}_Implementation.json`
         }
         const jsonStr = fs.readFileSync(resolve(path), "utf8")
-        const { address } = JSON.parse(jsonStr)
+        const { address, args } = JSON.parse(jsonStr)
         contractsInfo.push({
             name,
             address,
+            args,
         })
     }
     if (typeof contractName !== "undefined") {
@@ -59,6 +67,27 @@ export async function verifyOnTenderly(hre: HardhatRuntimeEnvironment, contractN
             })
             .catch(e => {
                 console.log(e)
+            })
+    }
+}
+
+export async function verifyOnEtherscan(hre: HardhatRuntimeEnvironment, contractName?: string): Promise<void> {
+    const network = hre.network.name
+    const contractsInfo = getContractsInfo(network, contractName)
+
+    for (const { name, address, args } of contractsInfo) {
+        console.log(`Verifying contract ${name} on ${address}`)
+        await hre
+            .run("verify:verify", {
+                address: address,
+                constructorArguments: args,
+            })
+            .catch(e => {
+                if (e instanceof NomicLabsHardhatPluginError) {
+                    console.error(`NomicLabsHardhatPluginError: ${(e as NomicLabsHardhatPluginError).message}`)
+                } else {
+                    console.error(e)
+                }
             })
     }
 }

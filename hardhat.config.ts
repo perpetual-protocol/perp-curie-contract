@@ -14,8 +14,7 @@ import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
 import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
-import { verifyOnEtherscan } from "./scripts/verify/etherscan"
-import { verifyOnTenderly } from "./scripts/verify/tenderly"
+import { verifyOnEtherscan, verifyOnTenderly } from "./scripts/verify"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -35,13 +34,13 @@ enum CompanionNetwork {
 task("etherscanVerify", "Verify on etherscan")
     .addOptionalParam("contract", "Contract need to verify")
     .setAction(async ({ contract }, hre) => {
-        verifyOnEtherscan(hre, contract)
+        await verifyOnEtherscan(hre, contract)
     })
 
 task("tenderlyVerify", "Verify on tenderly")
     .addOptionalParam("contract", "Contract need to verify")
     .setAction(async ({ contract }, hre) => {
-        verifyOnTenderly(hre, contract)
+        await verifyOnTenderly(hre, contract)
     })
 
 const config: HardhatUserConfig = {

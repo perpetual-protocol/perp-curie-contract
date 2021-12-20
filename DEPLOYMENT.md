@@ -72,11 +72,11 @@ args:
         access_key: super_secret_access_key
         ```
    - run `export OPTIMISM_KOVAN_WEB3_ENDPOINT=YOUR_OPTIMISM_KOVAN_WEB3_ENDPOINT`
-   - run `npm run tenderly:optimismKovan`
+   - run `npm run tenderly:optimismKovan -- [--contract contractName]`
 
 7. Verify contracts on Etherscan
    - run `export ETHERSCAN_API_KEY=YOUR_ETHERSCAN_API_KEY`
-   - run `npm run etherscan:optimismKovan`
+   - run `npm run etherscan:optimismKovan -- [--contract contractName]`
 
 8. Verify what's included in the packed npm package
 
