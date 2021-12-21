@@ -21,6 +21,11 @@
             "createdBlockNumber": 151697,
             "name": "contracts/ClearingHouseConfig.sol:ClearingHouseConfig"
         },
+        "ETHBandUSDPriceFeed": {
+            "address": "0x785Ac6b068eDCafbb10025e754589254714041E4",
+            "createdBlockNumber": 515136,
+            "name": "contracts/ChainlinkPriceFeed.sol:ChainlinkPriceFeed"
+        },
         "ETHUSDChainlinkPriceFeed": {
             "address": "0xf1e5a280bBe5362bD9ffa175790108EEE44aC798",
             "createdBlockNumber": 151754,
@@ -65,6 +70,11 @@
             "address": "0x7cE531e940B24EE760e5dDBF8A2E0E359fA04400",
             "createdBlockNumber": 151758,
             "name": "contracts/BaseToken.sol:BaseToken"
+        },
+        "vETHBand": {
+            "address": "0xa7C7b10997de7ad27327bEcF583EC4034c0Cc6Cf",
+            "createdBlockNumber": 515150,
+            "name": "contracts/BaseToken.sol:BaseToken"
         }
     },
     "externalContracts": {
@@ -85,6 +95,13 @@
             "address": "0x5897a3AD9694deeaA6Bd1C54dc8102503c2Ee4F9",
             "baseAddress": "0x362A09EB7D30ECb86DE395291f9D26931Baabc1d",
             "baseSymbol": "vBTC",
+            "quoteAddress": "0xd52d4175F937B965dE49E6C24E081eEe6DaE5645",
+            "quoteSymbol": "vUSD"
+        },
+        {
+            "address": "0xeB4d9D4Ef0249A2DfE06a7f1cfD4513c1515CEC3",
+            "baseAddress": "0xa7C7b10997de7ad27327bEcF583EC4034c0Cc6Cf",
+            "baseSymbol": "vETHBand",
             "quoteAddress": "0xd52d4175F937B965dE49E6C24E081eEe6DaE5645",
             "quoteSymbol": "vUSD"
         }
