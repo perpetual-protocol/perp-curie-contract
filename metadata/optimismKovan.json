@@ -24,7 +24,7 @@
         "ETHBandUSDPriceFeed": {
             "address": "0x785Ac6b068eDCafbb10025e754589254714041E4",
             "createdBlockNumber": 515136,
-            "name": "contracts/ChainlinkPriceFeed.sol:ChainlinkPriceFeed"
+            "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
         },
         "ETHUSDChainlinkPriceFeed": {
             "address": "0xf1e5a280bBe5362bD9ffa175790108EEE44aC798",
