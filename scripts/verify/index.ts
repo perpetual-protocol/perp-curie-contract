@@ -16,6 +16,7 @@ export function getContractsInfo(network: String, contractName?: string): Array<
         "UniswapV3Factory",
         "BTCUSDChainlinkPriceFeed",
         "ETHUSDChainlinkPriceFeed",
+        "ETHBandUSDPriceFeed",
     ]
 
     const contractsInfo = []
