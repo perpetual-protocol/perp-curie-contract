@@ -9,11 +9,12 @@ import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig } from "hardhat/config"
+import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
 import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
+import { verifyOnEtherscan, verifyOnTenderly } from "./scripts/verify"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -29,6 +30,18 @@ enum CompanionNetwork {
     rinkeby = "rinkeby",
     arbitrumRinkeby = "arbitrumRinkeby",
 }
+
+task("etherscanVerify", "Verify on etherscan")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        await verifyOnEtherscan(hre, contract)
+    })
+
+task("tenderlyVerify", "Verify on tenderly")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        await verifyOnTenderly(hre, contract)
+    })
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -81,6 +94,13 @@ const config: HardhatUserConfig = {
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
+        deployerAddress: {
+            // Only used in system tests
+            [ChainId.RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x849a19c0746fB0d335E02deC0d0B3E057e585176",
+        },
         cleanAccount: 1,
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
