@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.4] - 2021-12-23
+
+- Add fluctuation limit on `exchange.swap`
+
 ## [1.0.3] - 2021-12-10
 
 - Fix permission check in `setttleFunding` and `updateFundingGrowthAndLiquidityCoefficientInFundingPayment`
