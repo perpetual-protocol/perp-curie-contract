@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.1.2-staging] - 2021-12-24
+
+- deploy PERP market with Band price feed
+
+## [1.1.1-staging] - 2021-12-22
+
+- Add pause/stop market feature
+
 ## [1.0.4] - 2021-12-23
 
 - Add fluctuation limit on `exchange.swap`
