@@ -133,8 +133,8 @@ const config: HardhatUserConfig = {
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
             [ChainId.OPTIMISM_CHAIN_ID]: "0xc326371d4D866C6Ff522E69298e36Fe75797D358",
         },
-        // Currently, Band only supports few markets on Optimism mainnet/test
-        // and the list is not the same as Ethereum mainnet
+        // Band only supports:
+        // PERP/USD, CRV/USD, GRT/USD, SOL/USD, AVAX/USD, LUNA/USD on Optimism Kovan
         // https://app.asana.com/0/1200351347310168/1201463236501236
         // https://data.bandprotocol.com/
         bandStdReference: {
