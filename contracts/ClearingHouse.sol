@@ -508,8 +508,8 @@ contract ClearingHouse is
 
         _checkMarketOpen(baseToken);
 
-        // CH_CLWTISO: cannot liquidate when there is still order
-        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
+        // CH_CLWTISO: cannot liquidate when there is still order(except for paused markets)
+        require(!IAccountBalance(_accountBalance).hasOrderInOpenOrClosedMarket(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
         require(
