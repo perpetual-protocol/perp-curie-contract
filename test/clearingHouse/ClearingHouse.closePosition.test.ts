@@ -746,9 +746,6 @@ describe("ClearingHouse closePosition", () => {
         })
 
         it("reduce taker position and partial close", async () => {
-            // set MaxTickCrossedWithinBlock so that trigger over price limit
-            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
-
             // alice add liquidity
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
@@ -764,6 +761,9 @@ describe("ClearingHouse closePosition", () => {
 
             // alice partial close position, forward timestamp to bypass over price limit timestamp check
             await forwardTimestamp(clearingHouse, 3000)
+
+            // set MaxTickCrossedWithinBlock so that trigger over price limit
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
             await closePosition(fixture, alice)
 
             // expect partial close 5 * 25% = 1.25
