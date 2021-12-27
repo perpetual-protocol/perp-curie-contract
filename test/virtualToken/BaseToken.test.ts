@@ -8,7 +8,7 @@ import { BandPriceFeed, ChainlinkPriceFeed } from "../../typechain/perp-oracle"
 import { setNextBlockTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
-describe.only("BaseToken", async () => {
+describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
