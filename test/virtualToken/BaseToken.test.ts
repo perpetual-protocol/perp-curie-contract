@@ -143,7 +143,7 @@ describe("BaseToken", async () => {
         })
     })
 
-    describe.only("BaseToken changes PriceFeed", async () => {
+    describe("BaseToken changes PriceFeed", async () => {
         it("forced error when non-owner calls setPriceFeed", async () => {
             await expect(baseToken.connect(user).setPriceFeed(bandPriceFeed.address)).to.be.revertedWith("SO_CNO")
         })
@@ -155,19 +155,38 @@ describe("BaseToken", async () => {
             const twapFromChainlink = await baseToken.getIndexPrice(45)
             expect(twapFromChainlink).to.eq(parseEther("405"))
 
+            bandReferenceData.push([parseUnits("415", 18), currentTime, currentTime])
+            await updateBandPrice()
+
             // hardhat will increase block timestamp by 1 for each transactions
             await expect(baseToken.setPriceFeed(bandPriceFeed.address))
                 .to.emit(baseToken, "PriceFeedChanged")
                 .withArgs(bandPriceFeed.address)
 
             const spotPriceFromBand = await baseToken.getIndexPrice(0)
-            expect(spotPriceFromBand).to.eq(parseEther("410"))
+            expect(spotPriceFromBand).to.eq(parseEther("415"))
 
-            // TODO
-            currentTime += 70
+            currentTime += 15
             await setNextBlockTimestamp(currentTime)
+
+            // ob0 (ts, priceCumulative) = (t0,0)
+            // ob1 (ts, priceCumulative) = (t0+15,6000)
+            // ob2 (ts, priceCumulative) = (t0+30,12075)
+            // ob3 (ts, priceCumulative) = (t0+45,18225)
+            // latestBandData(ts, price): (t0+45, 415)
+            // current timestamp = t0+60
+            // currentPriceCumulative =
+            //     lastestObservation.priceCumulative +
+            //     (lastestObservation.price * (latestBandData.lastUpdatedBase - lastestObservation.timestamp)) +
+            //     (latestBandData.rate * (currentTimestamp - latestBandData.lastUpdatedBase));
+            // = 18225 + 415 * (t0+45 - (t0+45)) + 415 * (t0+60 - (t0+45))
+            // = 24450
+            // target ts: current ts - interval = t0+60-45 = t0+15
+            // targetPriceCumulative = ob1's PriceCumulative = 6000
+            // twap = (currentPriceCumulative-targetPriceCumulative) / interval
+            //      = (24450-6000) / 45 = 410
             const twapFromBand = await baseToken.getIndexPrice(45)
-            expect(twapFromBand).to.eq(parseEther("405"))
+            expect(twapFromBand).to.eq(parseEther("410"))
         })
     })
 
