@@ -4,9 +4,12 @@ pragma solidity 0.7.6;
 interface IBaseToken {
     enum Status { Open, Paused, Closed }
 
+    event PriceFeedChanged(address indexed priceFeed);
     event StatusUpdated(IBaseToken.Status indexed status);
 
     function close() external;
+
+    function setPriceFeed(address priceFeedArg) external;
 
     function getPriceFeed() external view returns (address);
 
