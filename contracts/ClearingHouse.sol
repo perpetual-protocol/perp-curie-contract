@@ -555,7 +555,8 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        _checkMarketOpen(baseToken);
+        // CH_NONC: Market paused
+        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
         if (orderIds.length == 0) {
             return;
         }
@@ -568,7 +569,9 @@ contract ClearingHouse is
         //   maker: in _cancelExcessOrders()
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
-        _checkMarketOpen(baseToken);
+
+        // CH_MP: Market paused
+        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         if (orderIds.length == 0) {
             return;
