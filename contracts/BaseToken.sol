@@ -66,7 +66,7 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         emit StatusUpdated(IBaseToken.Status.Closed);
     }
 
-    function setPriceFeed(address priceFeedArg) external override {
+    function setPriceFeed(address priceFeedArg) external onlyOwner {
         // ChainlinkPriceFeed uses 8 decimals
         // BandPriceFeed uses 18 decimals
         uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();

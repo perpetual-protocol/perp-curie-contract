@@ -143,7 +143,11 @@ describe("BaseToken", async () => {
         })
     })
 
-    describe("BaseToken changes PriceFeed", async () => {
+    describe.only("BaseToken changes PriceFeed", async () => {
+        it("forced error when non-owner calls setPriceFeed", async () => {
+            await expect(baseToken.connect(user).setPriceFeed(bandPriceFeed.address)).to.be.revertedWith("SO_CNO")
+        })
+
         it("change from ChainlinkPrice to BandPriceFeed", async () => {
             const spotPriceFromChainlink = await baseToken.getIndexPrice(0)
             expect(spotPriceFromChainlink).to.eq(parseEther("410"))

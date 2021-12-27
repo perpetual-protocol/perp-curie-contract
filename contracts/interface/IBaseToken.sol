@@ -9,8 +9,6 @@ interface IBaseToken {
 
     function close() external;
 
-    function setPriceFeed(address priceFeedArg) external;
-
     function getPriceFeed() external view returns (address);
 
     function getStatus() external view returns (IBaseToken.Status);
