@@ -4,22 +4,38 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
+import { BandPriceFeed, ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { setNextBlockTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
 describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
-    let mockedAggregator: MockContract
+    let chainlinkPriceFeed: ChainlinkPriceFeed
+    let mockedAggregator: MockContract // used by ChainlinkPriceFeed
+    let bandPriceFeed: BandPriceFeed
+    let mockedStdReference: MockContract // used by BandPriceFeed
     let currentTime: number
-    let roundData: any[]
+    let chainlinkRoundData: any[]
+    let bandReferenceData: any[]
     const twapInterval = 30
     const endingPrice = parseEther("200")
+
+    async function updateBandPrice(): Promise<void> {
+        mockedStdReference.smocked.getReferenceData.will.return.with(async () => {
+            return bandReferenceData[bandReferenceData.length - 1]
+        })
+        await bandPriceFeed.update()
+    }
 
     beforeEach(async () => {
         const _fixture = await loadFixture(baseTokenFixture)
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
+        bandPriceFeed = _fixture.bandPriceFeed
+        mockedStdReference = _fixture.mockedStdReference
+
         // `base` = now - _interval
         // aggregator's answer
         // timestamp(base + 0)  : 400
@@ -31,30 +47,41 @@ describe("BaseToken", async () => {
         //          base                          now
         const latestTimestamp = (await waffle.provider.getBlock("latest")).timestamp
         currentTime = latestTimestamp
-        roundData = [
+
+        chainlinkRoundData = [
             // [roundId, answer, startedAt, updatedAt, answeredInRound]
+        ]
+        bandReferenceData = [
+            // [rate, lastUpdatedBase, lastUpdatedQuote]
         ]
 
         currentTime += 0
-        roundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
+        chainlinkRoundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
+        bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
+        await updateBandPrice()
 
         currentTime += 15
-        roundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
+        await setNextBlockTimestamp(currentTime)
+        chainlinkRoundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
+        bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
+        await updateBandPrice()
 
         currentTime += 15
-        roundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
+        await setNextBlockTimestamp(currentTime)
+        chainlinkRoundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
+        bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
+        await updateBandPrice()
 
         mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return roundData[roundData.length - 1]
+            return chainlinkRoundData[chainlinkRoundData.length - 1]
         })
 
         mockedAggregator.smocked.getRoundData.will.return.with((round: BigNumber) => {
-            return roundData[round.toNumber()]
+            return chainlinkRoundData[round.toNumber()]
         })
 
         currentTime += 15
-        await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime])
-        await ethers.provider.send("evm_mine", [])
+        await setNextBlockTimestamp(currentTime)
     })
 
     describe("twap", () => {
@@ -74,7 +101,7 @@ describe("BaseToken", async () => {
         })
 
         it("given variant price period", async () => {
-            roundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
+            chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
             await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
             await ethers.provider.send("evm_mine", [])
 
@@ -94,14 +121,14 @@ describe("BaseToken", async () => {
         })
 
         it("if current price < 0, ignore the current price", async () => {
-            roundData.push([3, parseUnits("-10", 6), 250, 250, 3])
+            chainlinkRoundData.push([3, parseUnits("-10", 6), 250, 250, 3])
             const price = await baseToken.getIndexPrice(45)
             expect(price).to.eq(parseEther("405"))
         })
 
         it("if there is a negative price in the middle, ignore that price", async () => {
-            roundData.push([3, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 3])
-            roundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
+            chainlinkRoundData.push([3, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 3])
+            chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
             await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
             await ethers.provider.send("evm_mine", [])
 
@@ -113,6 +140,30 @@ describe("BaseToken", async () => {
         it("return latest price if interval is zero", async () => {
             const price = await baseToken.getIndexPrice(0)
             expect(price).to.eq(parseEther("410"))
+        })
+    })
+
+    describe("BaseToken changes PriceFeed", async () => {
+        it("change from ChainlinkPrice to BandPriceFeed", async () => {
+            const spotPriceFromChainlink = await baseToken.getIndexPrice(0)
+            expect(spotPriceFromChainlink).to.eq(parseEther("410"))
+
+            const twapFromChainlink = await baseToken.getIndexPrice(45)
+            expect(twapFromChainlink).to.eq(parseEther("405"))
+
+            // hardhat will increase block timestamp by 1 for each transactions
+            await expect(baseToken.setPriceFeed(bandPriceFeed.address))
+                .to.emit(baseToken, "PriceFeedChanged")
+                .withArgs(bandPriceFeed.address)
+
+            const spotPriceFromBand = await baseToken.getIndexPrice(0)
+            expect(spotPriceFromBand).to.eq(parseEther("410"))
+
+            // TODO
+            currentTime += 70
+            await setNextBlockTimestamp(currentTime)
+            const twapFromBand = await baseToken.getIndexPrice(45)
+            expect(twapFromBand).to.eq(parseEther("405"))
         })
     })
 
