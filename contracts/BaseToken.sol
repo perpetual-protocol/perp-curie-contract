@@ -14,7 +14,15 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint8;
 
+    //
+    // CONSTANT
+    //
+
     uint256 constant MAX_WAITING_PERIOD = 7 days;
+
+    //
+    // EXTERNAL NON-VIEW
+    //
 
     function initialize(
         string memory nameArg,
@@ -58,6 +66,28 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         emit StatusUpdated(IBaseToken.Status.Closed);
     }
 
+    function setPriceFeed(address priceFeedArg) external onlyOwner {
+        // ChainlinkPriceFeed uses 8 decimals
+        // BandPriceFeed uses 18 decimals
+        uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        // BT_IPFD: Invalid price feed decimals
+        require(__priceFeedDecimals <= decimals(), "BT_IPFD");
+
+        _priceFeed = priceFeedArg;
+        _priceFeedDecimals = __priceFeedDecimals;
+
+        emit PriceFeedChanged(priceFeedArg);
+    }
+
+    //
+    // EXTERNAL VIEW
+    //
+
+    /// @inheritdoc IBaseToken
+    function getPriceFeed() external view override returns (address) {
+        return _priceFeed;
+    }
+
     function getStatus() external view override returns (IBaseToken.Status) {
         return _status;
     }
@@ -82,6 +112,10 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _endingIndexPrice;
     }
 
+    //
+    // PUBLIC VIEW
+    //
+
     /// @inheritdoc IIndexPrice
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
         if (_status == IBaseToken.Status.Closed) {
@@ -93,10 +127,9 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         }
     }
 
-    /// @inheritdoc IBaseToken
-    function getPriceFeed() external view override returns (address) {
-        return _priceFeed;
-    }
+    //
+    // INTERNAL VIEW
+    //
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
         return _price.mul(10**(decimals().sub(_priceFeedDecimals)));
