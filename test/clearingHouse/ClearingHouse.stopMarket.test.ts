@@ -161,6 +161,35 @@ describe("Clearinghouse StopMarket", async () => {
                 expect(owedRealizedAfter.sub(owedRealizedBefore).mul(-1)).to.be.eq(pendingFundingPayment)
             })
         })
+
+        describe("liquidate", async () => {
+            it("should be able to liquidate if one market is paused", async () => {
+                await addOrder(fixture, alice, 300, 30000, lowerTick, upperTick, false, baseToken.address)
+
+                // add liquidity to baseToken2 market
+                await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
+
+                // swap on baseToken market
+                await q2bExactInput(fixture, bob, 10000, baseToken.address)
+
+                // pause baseToken2 market
+                await baseToken2.pause(600)
+
+                // drop price on baseToken market
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("0.0001", 6), 0, 0, 0]
+                })
+
+                // hasOrderInOpenOrClosedMarket check
+                expect(await accountBalance.hasOrderInOpenOrClosedMarket(bob.address)).to.be.eq(false)
+
+                // liquidate bob on baseToken market
+                await expect(clearingHouse.liquidate(bob.address, baseToken.address)).to.emit(
+                    clearingHouse,
+                    "PositionLiquidated",
+                )
+            })
+        })
     })
 
     describe("# close market", async () => {
@@ -231,6 +260,45 @@ describe("Clearinghouse StopMarket", async () => {
 
                 const baseTokens = await accountBalance.getBaseTokens(bob.address)
                 expect(baseTokens.length).to.be.eq(0)
+            })
+        })
+
+        describe("cancel order", async () => {
+            it("can cancel order in closed market if bob can be liquidated", async () => {
+                await addOrder(fixture, alice, 300, 30000, lowerTick, upperTick, false, baseToken.address)
+
+                // add liquidity to baseToken2 market
+                await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
+
+                // swap on baseToken market
+                await q2bExactInput(fixture, bob, 10000, baseToken.address)
+
+                // pause baseToken2 market
+                await baseToken2.pause(600)
+
+                // can not cancel order in paused market
+                await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)).to.be.revertedWith(
+                    "CH_MP",
+                )
+
+                // close baseToken2 market
+                await baseToken2["close(uint256)"](parseEther("0.0001"))
+
+                // drop price on baseToken market
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("0.0001", 6), 0, 0, 0]
+                })
+
+                // hasOrderInOpenOrClosedMarket check
+                expect(await accountBalance.hasOrderInOpenOrClosedMarket(bob.address)).to.be.eq(true)
+
+                // liquidate bob on baseToken market
+                await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)).to.emit(
+                    clearingHouse,
+                    "LiquidityChanged",
+                )
+
+                expect(await accountBalance.hasOrder(bob.address)).to.be.eq(false)
             })
         })
 
