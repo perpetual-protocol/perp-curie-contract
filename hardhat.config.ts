@@ -13,7 +13,7 @@ import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
-import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
+import { getMnemonic, getUrl, hardhatForkConfig, tenderlyConfig } from "./scripts/hardhatConfig"
 import { verifyOnEtherscan, verifyOnTenderly } from "./scripts/verify"
 
 enum ChainId {
@@ -40,6 +40,11 @@ task("etherscanVerify", "Verify on etherscan")
 task("tenderlyVerify", "Verify on tenderly")
     .addOptionalParam("contract", "Contract need to verify")
     .setAction(async ({ contract }, hre) => {
+        const network = hre.network.name
+        hre.config.tenderly = {
+            project: tenderlyConfig[network],
+            username: "perpprotocol",
+        }
         await verifyOnTenderly(hre, contract)
     })
 
@@ -171,10 +176,6 @@ const config: HardhatUserConfig = {
         jobs: 4,
         timeout: 120000,
         color: true,
-    },
-    tenderly: {
-        project: "curie-v1-0-2",
-        username: "perpprotocol",
     },
     etherscan: {
         apiKey: ETHERSCAN_API_KEY,
