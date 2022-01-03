@@ -13,7 +13,7 @@ import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
-import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
+import { getMnemonic, getUrl, hardhatForkConfig, tenderlyConfig } from "./scripts/hardhatConfig"
 import { verifyOnEtherscan, verifyOnTenderly } from "./scripts/verify"
 
 enum ChainId {
@@ -40,6 +40,11 @@ task("etherscanVerify", "Verify on etherscan")
 task("tenderlyVerify", "Verify on tenderly")
     .addOptionalParam("contract", "Contract need to verify")
     .setAction(async ({ contract }, hre) => {
+        const network = hre.network.name
+        hre.config.tenderly = {
+            project: tenderlyConfig[network],
+            username: "perpprotocol",
+        }
         await verifyOnTenderly(hre, contract)
     })
 
@@ -128,6 +133,14 @@ const config: HardhatUserConfig = {
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
             [ChainId.OPTIMISM_CHAIN_ID]: "0xc326371d4D866C6Ff522E69298e36Fe75797D358",
         },
+        // Band only supports:
+        // PERP/USD, CRV/USD, GRT/USD, SOL/USD, AVAX/USD, LUNA/USD on Optimism Kovan
+        // https://app.asana.com/0/1200351347310168/1201463236501236
+        // https://data.bandprotocol.com/
+        bandStdReference: {
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x85784004a2A4f3b14E789b5A42E86899215252d7",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0xDA7a001b254CD22e46d3eAB04d937489c93174C3",
+        },
         // USDC addresses (only needed for production)
         // Arbitrum: https://arbiscan.io/token/0xff970a61a04b1ca14834a43f5de4533ebddb5cc8
         // Optimism: https://optimistic.etherscan.io/token/0x7f5c764cbc14f9669b88837ca1490cca17c31607
@@ -163,10 +176,6 @@ const config: HardhatUserConfig = {
         jobs: 4,
         timeout: 120000,
         color: true,
-    },
-    tenderly: {
-        project: "curie-v1-0-2",
-        username: "perpprotocol",
     },
     etherscan: {
         apiKey: ETHERSCAN_API_KEY,
