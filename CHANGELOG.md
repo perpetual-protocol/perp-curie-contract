@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.5] - 2022-01-03
+
+### Added
+- Deploy `AVAXUSDBandPriceFeed` on **Optimism**.
+- Deploy `LUNAUSDBandPriceFeed` on **Optimism**.
+- Deploy `SOLUSDBandPriceFeed` on **Optimism**.
+
 ## [1.0.4] - 2021-12-23
 
 - Add fluctuation limit on `exchange.swap`

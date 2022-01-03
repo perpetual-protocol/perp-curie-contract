@@ -1,6 +1,11 @@
 {
   "chainId": 10,
   "contracts": {
+    "AVAXUSDBandPriceFeed": {
+      "address": "0xd9b1a9EbA74943f26887E2bb36B7305e829E05a9",
+      "createdBlockNumber": 1866740,
+      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
+    },
     "AccountBalance": {
       "address": "0xA7f3FC32043757039d5e13d790EE43edBcBa8b7c",
       "createdBlockNumber": 513569,
@@ -36,6 +41,11 @@
       "createdBlockNumber": 513530,
       "name": "contracts/InsuranceFund.sol:InsuranceFund"
     },
+    "LUNAUSDBandPriceFeed": {
+      "address": "0x3e3243EbCA4AF1c7DdF2D3fCd1cC4B771B983054",
+      "createdBlockNumber": 1866843,
+      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
+    },
     "MarketRegistry": {
       "address": "0xd5820eE0F55205f6cdE8BB0647072143b3060067",
       "createdBlockNumber": 513520,
@@ -50,6 +60,11 @@
       "address": "0xC84Da6c8ec7A57cD10B939E79eaF9d2D17834E04",
       "createdBlockNumber": 513502,
       "name": "contracts/QuoteToken.sol:QuoteToken"
+    },
+    "SOLUSDBandPriceFeed": {
+      "address": "0xAD927Fef0ad5B2384BD5a09F70531815B3A1F50C",
+      "createdBlockNumber": 1866917,
+      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
     },
     "Vault": {
       "address": "0xAD7b4C162707E0B2b5f6fdDbD3f8538A5fbA0d60",
