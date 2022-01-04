@@ -320,7 +320,7 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
-        // CH_NONC: Market paused
+        // CH_MP: Market paused
         require(!IBaseToken(params.baseToken).isPaused(), "CH_MP");
 
         address trader = _msgSender();
@@ -508,8 +508,8 @@ contract ClearingHouse is
 
         _checkMarketOpen(baseToken);
 
-        // CH_CLWTISO: cannot liquidate when there is still order(except for paused markets)
-        require(!IAccountBalance(_accountBalance).hasOrderInOpenOrClosedMarket(trader), "CH_CLWTISO");
+        // CH_CLWTISO: cannot liquidate when there is still order(only in open market)
+        require(!IAccountBalance(_accountBalance).hasOrderInOpenMarket(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
         require(
@@ -555,8 +555,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        // CH_NONC: Market paused
-        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
+        _checkMarketOpen(baseToken);
         if (orderIds.length == 0) {
             return;
         }
@@ -570,8 +569,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        // CH_MP: Market paused
-        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
+        _checkMarketOpen(baseToken);
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         if (orderIds.length == 0) {
             return;

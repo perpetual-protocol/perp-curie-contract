@@ -258,14 +258,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function hasOrderInOpenOrClosedMarket(address trader) external view override returns (bool) {
+    function hasOrderInOpenMarket(address trader) external view override returns (bool) {
         uint256 tokenLen = _baseTokensMap[trader].length;
         address[] memory tokens = new address[](tokenLen);
 
         uint256 skipped = 0;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            if (IBaseToken(baseToken).isPaused()) {
+            if (!IBaseToken(baseToken).isOpen()) {
                 skipped++;
                 continue;
             }
