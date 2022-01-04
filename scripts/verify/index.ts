@@ -11,11 +11,15 @@ interface ContractInfo {
 
 export function getContractsInfo(network: String, contractName?: string): Array<ContractInfo> {
     // contract has no proxy
+    // TODO: need another function to check if contract is price feed.
     const noProxyContract = [
         "DefaultProxyAdmin",
         "UniswapV3Factory",
         "BTCUSDChainlinkPriceFeed",
         "ETHUSDChainlinkPriceFeed",
+        "AVAXUSDBandPriceFeed",
+        "LUNAUSDBandPriceFeed",
+        "SOLUSDBandPriceFeed",
     ]
 
     const contractsInfo = []
