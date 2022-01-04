@@ -4,6 +4,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouseConfig,
     MarketRegistry,
     OrderBook,
     QuoteToken,
@@ -26,6 +27,7 @@ describe("Clearinghouse StopMarket", async () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let accountBalance: TestAccountBalance
     let marketRegistry: MarketRegistry
     let exchange: TestExchange
@@ -46,6 +48,7 @@ describe("Clearinghouse StopMarket", async () => {
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture(false))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
+        clearingHouseConfig = fixture.clearingHouseConfig
         accountBalance = fixture.accountBalance as TestAccountBalance
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
@@ -71,6 +74,11 @@ describe("Clearinghouse StopMarket", async () => {
 
         await pool.initialize(encodePriceSqrt(151.3733069, 1))
         await pool2.initialize(encodePriceSqrt(151.3733069, 1))
+
+        await pool.increaseObservationCardinalityNext(500)
+        await pool2.increaseObservationCardinalityNext(500)
+
+        await clearingHouseConfig.setMaxFundingRate(1000000)
 
         // add pool after it's initialized
         await marketRegistry.addPool(baseToken.address, 10000)
@@ -131,11 +139,28 @@ describe("Clearinghouse StopMarket", async () => {
 
         describe("funding payment", async () => {
             beforeEach(async () => {
-                await forward(1)
-                await clearingHouse.settleAllFunding(bob.address)
+                for (let i = 0; i < 15; i++) {
+                    await q2bExactInput(fixture, bob, 10 + i * 5, baseToken.address)
+                    await forward(1 * 60)
+                }
+
+                await forward(10 * 60)
+                // await clearingHouse.settleAllFunding(bob.address)
 
                 // pause market for baseToken
-                await baseToken.pause(15 * 60 * 1000)
+                await baseToken.pause(15 * 60)
+            })
+
+            it.only("fundingPayment should not change anymore in paused market", async () => {
+                const pendingFundingPayment1 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
+                expect(pendingFundingPayment1).not.eq("0")
+
+                // forward
+                await forward(15 * 60)
+                const pendingFundingPayment2 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
+
+                // pendingFundingPayment should not change
+                expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment2)
             })
 
             it("fundingPayment should not change anymore in paused market", async () => {

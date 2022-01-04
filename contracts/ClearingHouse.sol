@@ -587,25 +587,27 @@ contract ClearingHouse is
         require(IBaseToken(baseToken).isClosed(), "CH_MNC");
         // CH_HOICM: Has order in closed market
         require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
+        // CH_NP : no position
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        require(positionSize != 0, "CH_NP");
+
         _settleFunding(trader, baseToken);
 
-        (int256 takerPositionSize, int256 takerOpenNotional, int256 realizedPnl, uint256 indexPrice) =
+        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 indexPrice) =
             IAccountBalance(_accountBalance).settlePnlInClosedMarket(trader, baseToken);
 
-        if (takerPositionSize != 0) {
-            emit PositionChanged(
-                trader,
-                baseToken,
-                takerPositionSize,
-                takerOpenNotional,
-                0,
-                takerOpenNotional,
-                realizedPnl,
-                indexPrice
-            );
-        }
+        emit PositionChanged(
+            trader,
+            baseToken,
+            positionSize,
+            positionNotional,
+            0,
+            openNotional,
+            realizedPnl,
+            indexPrice
+        );
 
-        return (takerPositionSize.abs(), takerOpenNotional.abs());
+        return (positionSize.abs(), positionNotional.abs());
     }
 
     /// @inheritdoc IUniswapV3MintCallback
