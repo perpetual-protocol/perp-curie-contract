@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.6] - 2022-01-05
+
+- Only includes new deployments on **Optimism Kovan** compared with `1.0.5`.
+
 ## [1.0.6-staging] - 2022-01-04
 
 - Clean deploy all contracts on **Optimism Kovan** except external contracts (DefaultProxyAdmin, USDC, UniswapV3Factory). Note that the contract proxy addresses has been changed. Can find all contract addresses in `./metadata/optimismKovan.json`.
