@@ -812,10 +812,7 @@ contract ClearingHouse is
             // if realized pnl is not zero, that means trader is reducing or closing position
             // trader cannot reduce/close position if bad debt happen unless it's a liquidation
             // CH_BD: trader has bad debt after reducing position
-            require(
-                params.isLiquidation || IAccountBalance(_accountBalance).getAccountValue(params.trader) >= 0,
-                "CH_BD"
-            );
+            require(params.isLiquidation || getAccountValue(params.trader) >= 0, "CH_BD");
         }
 
         // if not closing a position, check margin ratio after swap

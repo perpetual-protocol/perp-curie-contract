@@ -97,8 +97,6 @@ interface IAccountBalance {
 
     function hasOrder(address trader) external view returns (bool);
 
-    function getAccountValue(address trader) external view returns (int256);
-
     function getBase(address trader, address baseToken) external view returns (int256);
 
     function getQuote(address trader, address baseToken) external view returns (int256);

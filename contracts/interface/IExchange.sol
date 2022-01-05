@@ -52,9 +52,6 @@ interface IExchange {
     /// @param accountBalance The address of accountBalance contract
     event AccountBalanceChanged(address accountBalance);
 
-    /// @param vault The address of vault contract
-    event VaultChanged(address vault);
-
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
     /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
