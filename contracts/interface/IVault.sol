@@ -18,6 +18,8 @@ interface IVault {
 
     function getBalance(address account) external view returns (int256);
 
+    function getAccountValueAndTotalCollateralValue(address trader) external view returns (int256, int256);
+
     /// @param trader The address of the trader to query
     /// @return freeCollateral Max(0, amount of collateral available for withdraw or opening new positions or orders)
     function getFreeCollateral(address trader) external view returns (uint256);

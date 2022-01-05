@@ -187,6 +187,13 @@ contract Exchange is
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
+            // trader cannot reduce/close position if bad debt happen unless it's a liquidation
+            // E_BD: trader has bad debt after reducing position
+            require(
+                params.isLiquidation || IAccountBalance(_accountBalance).getAccountValue(params.trader) >= 0,
+                "E_BD"
+            );
+
             pnlToBeRealized = _getPnlToBeRealized(
                 InternalRealizePnlParams({
                     trader: params.trader,

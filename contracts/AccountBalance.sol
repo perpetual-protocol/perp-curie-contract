@@ -8,6 +8,7 @@ import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/m
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
@@ -15,6 +16,7 @@ import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IVault } from "./interface/IVault.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
@@ -26,6 +28,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     using PerpMath for uint256;
     using PerpMath for int256;
     using PerpMath for uint160;
+    using SettlementTokenMath for int256;
     using AccountMarket for AccountMarket.Info;
 
     //
@@ -254,6 +257,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function hasOrder(address trader) external view override returns (bool) {
         return IOrderBook(_orderBook).hasOrder(trader, _baseTokensMap[trader]);
+    }
+
+    function getAccountValue(address trader) external view override returns (int256) {
+        (int256 accountValueX10_D, ) = IVault(_vault).getAccountValueAndTotalCollateralValue(trader);
+        return accountValueX10_D.parseSettlementToken(IVault(_vault).decimals());
     }
 
     //

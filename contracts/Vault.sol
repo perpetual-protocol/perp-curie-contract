@@ -235,21 +235,13 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return _balance[trader][_settlementToken];
     }
 
+    function getAccountValueAndTotalCollateralValue(address trader) public view override returns (int256, int256) {
+        return _getAccountValueAndTotalCollateralValue(trader);
+    }
+
     /// @inheritdoc IVault
     function getFreeCollateralByRatio(address trader, uint24 ratio) public view override returns (int256) {
-        // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
-        int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18, uint256 pendingFeeX10_18) =
-            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
-        int256 totalCollateralValueX10_D =
-            getBalance(trader).add(
-                owedRealizedPnlX10_18.sub(fundingPaymentX10_18).add(pendingFeeX10_18.toInt256()).formatSettlementToken(
-                    _decimals
-                )
-            );
-
-        // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
-        int256 accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));
+        (int256 accountValueX10_D, int256 totalCollateralValueX10_D) = _getAccountValueAndTotalCollateralValue(trader);
         uint256 totalMarginRequirementX10_18 = _getTotalMarginRequirement(trader, ratio);
 
         return
@@ -283,6 +275,25 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
     // INTERNAL VIEW
     //
+
+    function _getAccountValueAndTotalCollateralValue(address trader)
+        internal
+        view
+        returns (int256 accountValueX10_D, int256 totalCollateralValueX10_D)
+    {
+        // conservative config: freeCollateral = min(collateral, accountValue) - margin requirement ratio
+        int256 fundingPaymentX10_18 = IExchange(_exchange).getAllPendingFundingPayment(trader);
+        (int256 owedRealizedPnlX10_18, int256 unrealizedPnlX10_18, uint256 pendingFeeX10_18) =
+            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
+        totalCollateralValueX10_D = getBalance(trader).add(
+            owedRealizedPnlX10_18.sub(fundingPaymentX10_18).add(pendingFeeX10_18.toInt256()).formatSettlementToken(
+                _decimals
+            )
+        );
+
+        // accountValue = totalCollateralValue + totalUnrealizedPnl, in the settlement token's decimals
+        accountValueX10_D = totalCollateralValueX10_D.add(unrealizedPnlX10_18.formatSettlementToken(_decimals));
+    }
 
     /// @return totalMarginRequirement with decimals == 18, for freeCollateral calculation
     function _getTotalMarginRequirement(address trader, uint24 ratio) internal view returns (uint256) {

@@ -64,12 +64,14 @@ contract ClearingHouse is
         bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
+        bool isLiquidation;
     }
 
     struct InternalClosePositionParams {
         address trader;
         address baseToken;
         uint160 sqrtPriceLimitX96;
+        bool isLiquidation;
     }
 
     struct InternalCheckSlippageParams {
@@ -407,7 +409,8 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     isClose: false,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: false
                 })
             );
 
@@ -453,7 +456,8 @@ contract ClearingHouse is
                 InternalClosePositionParams({
                     trader: trader,
                     baseToken: params.baseToken,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: false
                 })
             );
 
@@ -506,7 +510,14 @@ contract ClearingHouse is
         // must settle funding first
         _settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
-            _closePosition(InternalClosePositionParams({ trader: trader, baseToken: baseToken, sqrtPriceLimitX96: 0 }));
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    sqrtPriceLimitX96: 0,
+                    isLiquidation: true
+                })
+            );
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
@@ -776,7 +787,8 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     isClose: params.isClose,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: params.isLiquidation
                 })
             );
 
@@ -842,7 +854,8 @@ contract ClearingHouse is
                     isExactInput: isLong,
                     isClose: true,
                     amount: positionSize.abs(),
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: params.isLiquidation
                 })
             );
     }

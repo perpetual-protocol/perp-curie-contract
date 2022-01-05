@@ -15,6 +15,7 @@ interface IExchange {
         bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
+        bool isLiquidation;
     }
 
     struct SwapResponse {
@@ -51,6 +52,9 @@ interface IExchange {
 
     /// @param accountBalance The address of accountBalance contract
     event AccountBalanceChanged(address accountBalance);
+
+    /// @param vault The address of vault contract
+    event VaultChanged(address vault);
 
     function swap(SwapParams memory params) external returns (SwapResponse memory);
 
