@@ -43,7 +43,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
         _priceFeed = priceFeedArg;
         _priceFeedDecimals = priceFeedDecimals;
 
-        emit PriceFeedChanged(priceFeedArg);
+        emit PriceFeedChanged(_priceFeed);
     }
 
     //
