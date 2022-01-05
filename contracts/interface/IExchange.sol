@@ -15,7 +15,6 @@ interface IExchange {
         bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
-        bool isLiquidation;
     }
 
     struct SwapResponse {

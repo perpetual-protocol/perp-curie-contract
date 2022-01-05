@@ -73,8 +73,7 @@ contract TestClearingHouse is ClearingHouse {
                     isExactInput: params.isExactInput,
                     isClose: false,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    isLiquidation: false
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 

@@ -787,8 +787,7 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     isClose: params.isClose,
                     amount: params.amount,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    isLiquidation: params.isLiquidation
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
 
@@ -808,6 +807,14 @@ contract ClearingHouse is
                 params.trader,
                 params.baseToken,
                 response.pnlToBeRealized
+            );
+
+            // if realized pnl is not zero, that means trader is reducing or closing position
+            // trader cannot reduce/close position if bad debt happen unless it's a liquidation
+            // CH_BD: trader has bad debt after reducing position
+            require(
+                params.isLiquidation || IAccountBalance(_accountBalance).getAccountValue(params.trader) >= 0,
+                "CH_BD"
             );
         }
 
