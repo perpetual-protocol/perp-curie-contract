@@ -42,9 +42,9 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     function pause(uint256 twInterval) external onlyOwner {
         // BT_NO: Not open
         require(_status == IBaseToken.Status.Open, "BT_NO");
-        _endingIndexPrice = getIndexPrice(twInterval);
+        _pausedIndexPrice = getIndexPrice(twInterval);
         _status = IBaseToken.Status.Paused;
-        _endingTimestamp = _blockTimestamp();
+        _pausedTimestamp = _blockTimestamp();
         emit StatusUpdated(IBaseToken.Status.Paused);
     }
 
@@ -60,9 +60,9 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         // BT_NP: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
         // BT_WPNE: Waiting period not expired
-        require(_blockTimestamp() > _endingTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
+        require(_blockTimestamp() > _pausedTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
         _status = IBaseToken.Status.Closed;
-        _closedPrice = _endingIndexPrice;
+        _closedPrice = _pausedIndexPrice;
         emit StatusUpdated(IBaseToken.Status.Closed);
     }
 
@@ -88,10 +88,6 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _priceFeed;
     }
 
-    function getStatus() external view override returns (IBaseToken.Status) {
-        return _status;
-    }
-
     function isOpen() external view override returns (bool) {
         return _status == IBaseToken.Status.Open;
     }
@@ -104,12 +100,12 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _status == IBaseToken.Status.Closed;
     }
 
-    function getEndingTimestamp() external view override returns (uint256) {
-        return _endingTimestamp;
+    function getPausedTimestamp() external view override returns (uint256) {
+        return _pausedTimestamp;
     }
 
-    function getEndingIndexPrice() external view override returns (uint256) {
-        return _endingIndexPrice;
+    function getPausedIndexPrice() external view override returns (uint256) {
+        return _pausedIndexPrice;
     }
 
     //
@@ -121,7 +117,7 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         if (_status == IBaseToken.Status.Closed) {
             return _closedPrice;
         } else if (_status == IBaseToken.Status.Paused) {
-            return _endingIndexPrice;
+            return _pausedIndexPrice;
         } else {
             return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
         }

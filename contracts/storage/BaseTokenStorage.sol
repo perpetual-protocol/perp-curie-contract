@@ -19,9 +19,9 @@ abstract contract BaseTokenStorageV1 {
 abstract contract BaseTokenStorageV2 is BaseTokenStorageV1 {
     IBaseToken.Status internal _status;
 
-    uint256 internal _endingIndexPrice;
+    uint256 internal _pausedIndexPrice;
 
-    uint256 internal _endingTimestamp;
+    uint256 internal _pausedTimestamp;
 
     uint256 internal _closedPrice;
 }
