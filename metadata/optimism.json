@@ -12,8 +12,8 @@
       "name": "contracts/AccountBalance.sol:AccountBalance"
     },
     "BTCUSDChainlinkPriceFeed": {
-      "address": "0x96daE65460d70aDFE3D16920EFcBa624B9bd02bd",
-      "createdBlockNumber": 513652,
+      "address": "0x7cF8f5f3092fdfD034C3aE48efb5103f8AC8f33F",
+      "createdBlockNumber": 1992864,
       "name": "contracts/ChainlinkPriceFeed.sol:ChainlinkPriceFeed"
     },
     "ClearingHouse": {
