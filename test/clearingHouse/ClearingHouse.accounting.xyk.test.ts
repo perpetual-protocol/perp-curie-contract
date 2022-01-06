@@ -600,8 +600,14 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await removeAllOrders(fixture, maker)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
-            // taker close, quote output: 184.21649272
-            await closePosition(fixture, taker)
+            // taker cannot close position()quote output: 184.21649272) but can be liquidated
+            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_BD")
+
+            // set index price to let taker be liquidated
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+            await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
 
             // taker has bad debt
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.lt(0)
