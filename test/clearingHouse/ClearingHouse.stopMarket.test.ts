@@ -151,28 +151,24 @@ describe("Clearinghouse StopMarket", async () => {
                 await baseToken.pause(15 * 60)
             })
 
-            it.only("fundingPayment should not change anymore in paused market", async () => {
-                const pendingFundingPayment1 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
-                expect(pendingFundingPayment1).not.eq("0")
-
-                // forward
-                await forward(15 * 60)
-                const pendingFundingPayment2 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
-
-                // pendingFundingPayment should not change
-                expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment2)
-            })
-
             it("fundingPayment should not change anymore in paused market", async () => {
                 const pendingFundingPayment1 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).not.eq("0")
 
-                // forward
-                await forward(3000)
+                // forward 5 mins
+                await forward(5 * 60)
                 const pendingFundingPayment2 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
-
-                // pendingFundingPayment should not change
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment2)
+
+                // forward 30 mins which is more than the twap interval
+                await forward(30 * 60)
+                const pendingFundingPayment3 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
+                expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment3)
+
+                // forward 7 days = 7 * 24 * 60 * 60
+                await forward(604800)
+                const pendingFundingPayment4 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
+                expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment4)
             })
 
             it("should be able to settle funding", async () => {

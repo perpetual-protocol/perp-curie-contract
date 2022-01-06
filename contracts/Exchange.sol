@@ -27,6 +27,7 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
+import "hardhat/console.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -358,19 +359,6 @@ contract Exchange is
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
-    function getSqrtMarkTwapX96From(
-        address baseToken,
-        uint32 secondsAgo,
-        uint32 twapInterval
-    ) public view returns (uint160) {
-        return
-            UniswapV3Broker.getSqrtMarkTwapX96From(
-                IMarketRegistry(_marketRegistry).getPool(baseToken),
-                secondsAgo,
-                twapInterval
-            );
-    }
-
     //
     // INTERNAL NON-VIEW
     //
@@ -594,21 +582,22 @@ contract Exchange is
             twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
-        uint256 markTwapX96 =
-            marketOpen
-                ? getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96()
-                : getSqrtMarkTwapX96From(
-                    baseToken,
-                    IBaseToken(baseToken).getPausedTimestamp().toUint32(),
-                    timestamp.sub(IBaseToken(baseToken).getPausedTimestamp()).toUint32()
-                )
-                    .formatSqrtPriceX96ToPriceX96();
-        // uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
-        markTwap = markTwapX96.formatX96ToX10_18();
+        uint256 markTwapX96;
+        if (marketOpen) {
+            markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+            indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        } else {
+            //
+            // -----+--- twap interval ---+--- secondsAgo ---+
+            //                        pausedTime            now
 
-        indexTwap = marketOpen
-            ? IIndexPrice(baseToken).getIndexPrice(twapInterval)
-            : IBaseToken(baseToken).getPausedIndexPrice();
+            uint32 secondsAgo = _blockTimestamp().sub(IBaseToken(baseToken).getPausedTimestamp()).toUint32();
+            markTwapX96 = UniswapV3Broker
+                .getSqrtMarkTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
+                .formatSqrtPriceX96ToPriceX96();
+            indexTwap = IBaseToken(baseToken).getPausedIndexPrice();
+        }
+        markTwap = markTwapX96.formatX96ToX10_18();
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
