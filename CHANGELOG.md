@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.7] - 2022-01-06
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism**
+
 ## [1.0.7-staging] - 2022-01-05
 
 ### Added
