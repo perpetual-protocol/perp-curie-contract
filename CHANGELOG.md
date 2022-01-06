@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.7-staging] - 2022-01-05
+
+### Added
+- add `BaseToken.setPriceFeed()` to set address of price feed.
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism Kovan**
+
 ## [1.0.6] - 2022-01-05
 
 - Only includes new deployments on **Optimism Kovan** compared with `1.0.5`.
