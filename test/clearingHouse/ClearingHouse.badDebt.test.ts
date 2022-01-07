@@ -146,10 +146,13 @@ describe("ClearingHouse closePosition", () => {
                 })
             })
 
+            // trader can close position even when his margin ratio is negative as long as he does not incur bad debt
             it("can close position when taker has bad debt(calc by index price) but actually not(calc by market price)", async () => {
                 await closePosition(fixture, bob)
             })
 
+            // on the contrary, the trader might not be able to reduce position because
+            // the remaining position might still incur bad debt due to the bad index price
             it("cannot reduce position when taker has bad debt(calc by index price) but actually not(calc by market price)", async () => {
                 await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_BD")
             })
