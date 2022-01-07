@@ -128,7 +128,7 @@ describe("ClearingHouse closePosition", () => {
             })
 
             it("cannot close position with partial close when trader has bad debt", async () => {
-                // set max price impact to 1% to trigger partial close
+                // set max price impact to 5% to trigger partial close
                 await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 500)
                 await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
             })
