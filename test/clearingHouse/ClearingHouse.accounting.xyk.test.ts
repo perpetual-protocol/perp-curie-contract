@@ -600,7 +600,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await removeAllOrders(fixture, maker)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
-            // taker cannot close position()quote output: 184.21649272) but can be liquidated
+            // taker cannot close position (quote output: 184.21649272), but can be liquidated
             await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_BD")
 
             // set index price to let taker be liquidated
