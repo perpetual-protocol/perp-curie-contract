@@ -198,6 +198,8 @@ contract OrderBook is
         address baseToken,
         Funding.Growth memory fundingGrowthGlobal
     ) external override returns (int256 liquidityCoefficientInFundingPayment) {
+        _requireOnlyExchange();
+
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
         mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
@@ -252,8 +254,8 @@ contract OrderBook is
     }
 
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
-        // OB_OEX: only exchange
-        require(_msgSender() == _exchange, "OB_OEX");
+        _requireOnlyExchange();
+
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint24 insuranceFundFeeRatio =
@@ -753,5 +755,10 @@ contract OrderBook is
         );
 
         return (pendingFee, feeGrowthInsideX128);
+    }
+
+    function _requireOnlyExchange() internal view {
+        // OB_OEX: Only exchange
+        require(_msgSender() == _exchange, "OB_OEX");
     }
 }

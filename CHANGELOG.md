@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.7] - 2022-01-06
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism**
+
+## [1.0.7-staging] - 2022-01-05
+
+### Added
+- add `BaseToken.setPriceFeed()` to set address of price feed.
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism Kovan**
+
+## [1.0.6] - 2022-01-05
+
+- Only includes new deployments on **Optimism Kovan** compared with `1.0.5`.
+
+## [1.0.6-staging] - 2022-01-04
+
+- Clean deploy all contracts on **Optimism Kovan** except external contracts (DefaultProxyAdmin, USDC, UniswapV3Factory). Note that the contract proxy addresses has been changed. Can find all contract addresses in `./metadata/optimismKovan.json`.
+
+## [1.0.5] - 2022-01-03
+
+### Added
+- Deploy `AVAXUSDBandPriceFeed` on **Optimism**.
+- Deploy `LUNAUSDBandPriceFeed` on **Optimism**.
+- Deploy `SOLUSDBandPriceFeed` on **Optimism**.
+
+## [1.0.4] - 2021-12-23
+
+- Add fluctuation limit on `exchange.swap`
+
+## [1.0.3] - 2021-12-10
+
+- Fix permission check in `setttleFunding` and `updateFundingGrowthAndLiquidityCoefficientInFundingPayment`
+
+## [1.0.3-staging] - 2021-12-10
+
+- Fix permission check in `setttleFunding` and `updateFundingGrowthAndLiquidityCoefficientInFundingPayment`
+
 ## [1.0.1] - 2021-11-25
 
 - Code is the same as `1.0.0`, but it's a clean deploy to Optimism Mainnet.

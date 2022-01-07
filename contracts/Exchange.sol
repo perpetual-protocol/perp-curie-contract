@@ -139,19 +139,20 @@ contract Exchange is
         _requireOnlyClearingHouse();
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
-        // when takerPositionSize < 0, it's a short position
-        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
 
         bool isPartialClose;
+        bool isOverPriceLimit = _isOverPriceLimit(params.baseToken);
         // if over price limit when
         // 1. closing a position, then partially close the position
-        // 2. reducing a position, then revert
+        // 2. else then revert
         if (params.isClose && takerPositionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
             // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
+            // if this is not the first tx in this timestamp and it's already over limit,
+            // then use _isOverPriceLimit is enough
             if (
-                _isOverPriceLimit(params.baseToken) ||
+                isOverPriceLimit ||
                 _isOverPriceLimitBySimulatingClosingPosition(
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
@@ -169,10 +170,8 @@ contract Exchange is
                 isPartialClose = true;
             }
         } else {
-            if (isReducingPosition) {
-                // EX_OPLBS: over price limit before swap
-                require(!_isOverPriceLimit(params.baseToken), "EX_OPLBS");
-            }
+            // EX_OPLBS: over price limit before swap
+            require(!isOverPriceLimit, "EX_OPLBS");
         }
 
         // get openNotional before swap
@@ -180,10 +179,12 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        if (!params.isClose && isReducingPosition) {
+        if (!params.isClose) {
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
+        // when takerPositionSize < 0, it's a short position
+        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
@@ -222,6 +223,7 @@ contract Exchange is
         override
         returns (int256 fundingPayment, Funding.Growth memory fundingGrowthGlobal)
     {
+        _requireOnlyClearingHouse();
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 

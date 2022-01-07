@@ -9,11 +9,12 @@ import "hardhat-dependency-compiler"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig } from "hardhat/config"
+import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import { ETHERSCAN_API_KEY } from "./constants"
 import "./mocha-test"
-import { getMnemonic, getUrl, hardhatForkConfig } from "./scripts/hardhatConfig"
+import { getMnemonic, getUrl, hardhatForkConfig, tenderlyConfig } from "./scripts/hardhatConfig"
+import { verifyOnEtherscan, verifyOnTenderly } from "./scripts/verify"
 
 enum ChainId {
     ARBITRUM_ONE_CHAIN_ID = 42161,
@@ -29,6 +30,23 @@ enum CompanionNetwork {
     rinkeby = "rinkeby",
     arbitrumRinkeby = "arbitrumRinkeby",
 }
+
+task("etherscanVerify", "Verify on etherscan")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        await verifyOnEtherscan(hre, contract)
+    })
+
+task("tenderlyVerify", "Verify on tenderly")
+    .addOptionalParam("contract", "Contract need to verify")
+    .setAction(async ({ contract }, hre) => {
+        const network = hre.network.name
+        hre.config.tenderly = {
+            project: tenderlyConfig[network],
+            username: "perpprotocol",
+        }
+        await verifyOnTenderly(hre, contract)
+    })
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -81,6 +99,13 @@ const config: HardhatUserConfig = {
     },
     namedAccounts: {
         deployer: 0, // 0 means ethers.getSigners[0]
+        deployerAddress: {
+            // Only used in system tests
+            [ChainId.RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x849a19c0746fB0d335E02deC0d0B3E057e585176",
+        },
         cleanAccount: 1,
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
@@ -90,7 +115,7 @@ const config: HardhatUserConfig = {
             [ChainId.RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x2a8725c1a9a397e2d1bA26634c8f8d62b403d968",
-            [ChainId.OPTIMISM_CHAIN_ID]: "0x801B15C92075D85204d1b23054407DA63cc3105B",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x76Ff908b6d43C182DAEC59b35CebC1d7A17D8086",
         },
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
@@ -107,6 +132,14 @@ const config: HardhatUserConfig = {
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x0c9973e7a27d00e656B9f153348dA46CaD70d03d",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
             [ChainId.OPTIMISM_CHAIN_ID]: "0xc326371d4D866C6Ff522E69298e36Fe75797D358",
+        },
+        // Band only supports:
+        // PERP/USD, CRV/USD, GRT/USD, SOL/USD, AVAX/USD, LUNA/USD on Optimism Kovan
+        // https://app.asana.com/0/1200351347310168/1201463236501236
+        // https://data.bandprotocol.com/
+        bandStdReference: {
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x85784004a2A4f3b14E789b5A42E86899215252d7",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0xDA7a001b254CD22e46d3eAB04d937489c93174C3",
         },
         // USDC addresses (only needed for production)
         // Arbitrum: https://arbiscan.io/token/0xff970a61a04b1ca14834a43f5de4533ebddb5cc8
@@ -143,10 +176,6 @@ const config: HardhatUserConfig = {
         jobs: 4,
         timeout: 120000,
         color: true,
-    },
-    tenderly: {
-        project: "curie-v1-0-2",
-        username: "perpprotocol",
     },
     etherscan: {
         apiKey: ETHERSCAN_API_KEY,

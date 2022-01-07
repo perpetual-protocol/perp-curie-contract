@@ -580,7 +580,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker pays funding
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
                 await forwardTimestamp(clearingHouse, 3000)
-                await exchange.settleFunding(taker.address, baseToken.address)
+                await clearingHouse.settleAllFunding(taker.address)
             }
 
             // liquidate taker
@@ -667,7 +667,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // funding are all correct
             await forwardTimestamp(clearingHouse, 200)
-            await exchange.settleFunding(taker.address, baseToken.address)
+            await clearingHouse.settleAllFunding(taker.address)
             await forwardTimestamp(clearingHouse, 200)
 
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")

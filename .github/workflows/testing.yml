@@ -42,7 +42,7 @@ jobs:
               run: npm run build
 
             - name: Run contract tests
-              run: npm run parallel-test
+              run: npm run test
               env:
                 # to solve problem of memory leak https://stackoverflow.com/a/59572966
                 NODE_OPTIONS: "--max-old-space-size=4096"

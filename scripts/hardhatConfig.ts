@@ -48,3 +48,8 @@ export function hardhatForkConfig() {
           }
         : {}
 }
+
+export const tenderlyConfig = {
+    optimism: "curie-optimism",
+    optimismKovan: "curie-optimismkovan",
+}

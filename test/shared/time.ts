@@ -11,3 +11,8 @@ export async function forwardTimestamp(clearingHouse: TestClearingHouse, step: n
     const now = await clearingHouse.getBlockTimestamp()
     await clearingHouse.setBlockTimestamp(now.add(step))
 }
+
+export async function setNextBlockTimestamp(timestamp: number) {
+    await waffle.provider.send("evm_setNextBlockTimestamp", [timestamp])
+    await waffle.provider.send("evm_mine", [])
+}

@@ -130,9 +130,6 @@ describe("ClearingHouse liquidate", () => {
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
-        // set MaxTickCrossedWithinBlock to enable price checking before/after swap
-        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-
         // set blockTimestamp
         await clearingHouse.setBlockTimestamp(blockTimeStamp)
     })
@@ -196,6 +193,9 @@ describe("ClearingHouse liquidate", () => {
 
             // increase blockTimestamp
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+
+            // set MaxTickCrossedWithinBlock to enable price checking before/after swap
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("davis liquidate alice's long position", async () => {
@@ -229,6 +229,7 @@ describe("ClearingHouse liquidate", () => {
             const davisPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davisPnl[0]).to.eq("2102129818649289842")
         })
+
         it("partial closes due to not enough liquidity", async () => {
             // maker remove 99.99% liquidity
             const liquidity = (await orderBook.getOpenOrder(carol.address, baseToken.address, 49000, 51400)).liquidity
@@ -355,6 +356,8 @@ describe("ClearingHouse liquidate", () => {
 
             // increase blockTimestamp
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("davis liquidate alice's short position", async () => {
@@ -455,6 +458,8 @@ describe("ClearingHouse liquidate", () => {
 
             // increase blockTimestamp
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("davis liquidate alice's ETH", async () => {
@@ -599,6 +604,9 @@ describe("ClearingHouse liquidate", () => {
 
             // increase blockTimestamp
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+
+            // set MaxTickCrossedWithinBlock to enable price checking before/after swap
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("davis liquidate alice's ETH", async () => {

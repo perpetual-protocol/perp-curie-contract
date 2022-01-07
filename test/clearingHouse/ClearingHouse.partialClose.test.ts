@@ -93,10 +93,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await collateral.connect(carol).approve(clearingHouse.address, carolCollateral)
         await deposit(carol, vault, 1000, collateral)
 
-        // price delta for every tick is 0.01%
-        // if we want to limit price impact to 1%, and 1% / 0.01% = 100
-        // so limiting price impact to 1% means tick should not cross 100 ticks
-        await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
     })
 
@@ -121,6 +117,11 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // otherwise we need to bring another trader to move the price further away
 
             await forwardTimestamp(clearingHouse)
+
+            // price delta for every tick is 0.01%
+            // if we want to limit price impact to 1%, and 1% / 0.01% = 100
+            // so limiting price impact to 1% means tick should not cross 100 ticks
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("carol reduces position with openPosition and it's not over price limit", async () => {
@@ -206,6 +207,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // otherwise we need to bring another trader to move the price further away
 
             await forwardTimestamp(clearingHouse)
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("carol's position is partially closed with given oppositeAmountBound", async () => {
@@ -247,6 +249,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             // liquidation can't happen in the same block because it's based on the index price
             await forwardTimestamp(clearingHouse)
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
         it("taker's position is partially liquidated", async () => {
@@ -315,6 +318,8 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
             // 3. carol can only close partial position, -(0.5 - 0.5/4) = -0.375
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
@@ -364,6 +369,8 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
+
+            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
 
             // 3. carol can only close partial position, -(0.5 - 0.5/4) = -0.375
             await clearingHouse.connect(carol).closePosition({

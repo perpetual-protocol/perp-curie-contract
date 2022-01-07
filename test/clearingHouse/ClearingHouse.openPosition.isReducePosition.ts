@@ -179,9 +179,6 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
         })
 
         it("force error, reduce taker position and partial close when excess price limit", async () => {
-            // set MaxTickCrossedWithinBlock so that trigger over price limit
-            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
-
             // alice add liquidity
             await addOrder(fixture, alice, 20, 1000, lowerTick, upperTick)
 
@@ -199,6 +196,8 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 parseEther("5"),
             )
 
+            // set MaxTickCrossedWithinBlock so that trigger over price limit
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
             // expect revert due to over price limit
             // alice reduce position
             await expect(b2qExactOutput(fixture, alice, 5)).to.be.revertedWith("EX_OPLBS")
