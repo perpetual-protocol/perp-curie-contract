@@ -13,14 +13,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.swap", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -36,25 +38,28 @@ describe("ClearingHouse.swap", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, "10000")
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

@@ -4,9 +4,9 @@ import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, MarketRegistry, UniswapV3Pool } from "../../typechain"
-import { mockedMarketRegistryFixture } from "./fixtures"
-import { token0Fixture } from "../shared/fixtures"
 import { ADDR_GREATER_THAN, ADDR_LESS_THAN, mockedBaseTokenTo } from "../clearingHouse/fixtures"
+import { token0Fixture } from "../shared/fixtures"
+import { mockedMarketRegistryFixture } from "./fixtures"
 
 describe("MarketRegistry Spec", () => {
     const [wallet, alice] = waffle.provider.getWallets()

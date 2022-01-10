@@ -18,15 +18,17 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt, filterLogs } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe.skip("ClearingHouse accounting", () => {
     const [admin, maker, taker1, taker2, taker3] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -56,19 +58,19 @@ describe.skip("ClearingHouse accounting", () => {
     let totalTakerFees: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false, 3000))
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance
-        vault = _clearingHouseFixture.vault
-        insuranceFund = _clearingHouseFixture.insuranceFund
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
+        fixture = await loadFixture(createClearingHouseFixture(false, 3000))
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        accountBalance = fixture.accountBalance
+        vault = fixture.vault
+        insuranceFund = fixture.insuranceFund
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
         getTakerRealizedPnlAndFees = (receipt: ContractReceipt): [BigNumber, BigNumber] => {
@@ -105,11 +107,16 @@ describe.skip("ClearingHouse accounting", () => {
         })
 
         tickSpacing = await pool.tickSpacing()
-        await pool.initialize(encodePriceSqrt("100", "1")) // tick = 46000 (1.0001^46000 = 99.4614384055)
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
         // add pool with 0.3% fee, set CH fee to 0.1%, IF fee ratio to 10%
-        await marketRegistry.addPool(baseToken.address, 3000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"), // tick = 46000 (1.0001^46000 = 99.4614384055)
+            3000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(tickSpacing),
+        )
         await marketRegistry.setFeeRatio(baseToken.address, 1000)
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 1e5)
 

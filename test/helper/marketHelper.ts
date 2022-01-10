@@ -1,10 +1,11 @@
-import { ClearingHouseFixture } from "../clearingHouse/fixtures"
+import { MockContract } from "@eth-optimism/smock"
 import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
+import { ethers } from "hardhat"
+import { UniswapV3Pool } from "../../typechain"
+import { ClearingHouseFixture } from "../clearingHouse/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 import { getMaxTick, getMinTick } from "./number"
-import { ethers } from "hardhat"
-import { MockContract } from "@eth-optimism/smock"
 
 export async function initMarket(
     fixture: ClearingHouseFixture,
@@ -27,7 +28,7 @@ export async function initMarket(
     const tickSpacing = await uniPool.tickSpacing()
 
     // the initial number of oracle can be recorded is 1; thus, have to expand it
-    await uniPool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+    await uniPool.increaseObservationCardinalityNext(2 ** 16 - 1)
 
     // update config
     const marketRegistry = fixture.marketRegistry
@@ -36,4 +37,20 @@ export async function initMarket(
     await marketRegistry.setInsuranceFundFeeRatio(baseToken, ifFeeRatio)
 
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }
+}
+
+export async function initAndAddPool(
+    fixture: ClearingHouseFixture,
+    pool: UniswapV3Pool,
+    baseToken: string,
+    sqrtPriceX96: BigNumberish,
+    feeRatio: BigNumberish,
+    maxTickCrossedWithinBlock: number,
+) {
+    await pool.initialize(sqrtPriceX96)
+    // the initial number of oracle can be recorded is 1; thus, have to expand it
+    await pool.increaseObservationCardinalityNext(2 ** 16 - 1)
+    // add pool after it's initialized
+    await fixture.marketRegistry.addPool(baseToken, feeRatio)
+    await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
 }

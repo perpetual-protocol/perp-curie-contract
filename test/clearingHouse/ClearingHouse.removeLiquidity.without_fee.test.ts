@@ -14,13 +14,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity without fee", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -35,16 +38,16 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let quoteAmount: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
@@ -71,9 +74,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     describe("remove non-zero liquidity", () => {
         // @SAMPLE - removeLiquidity
         it("above current price", async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226651", "1"),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(await pool.tickSpacing()),
+            )
 
             // assume imRatio = 0.1
             // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
@@ -152,9 +161,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
-                await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
+                await initAndAddPool(
+                    fixture,
+                    pool,
+                    baseToken.address,
+                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(await pool.tickSpacing()),
+                )
             })
 
             it("below current price", async () => {
@@ -419,9 +434,15 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     })
 
     it("remove zero liquidity; no swap no fee", async () => {
-        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50199 (1.0001^50199 = 151.373306858723226651)
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         // assume imRatio = 0.1
         // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote

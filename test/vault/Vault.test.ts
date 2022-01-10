@@ -17,6 +17,8 @@ import {
 } from "../../typechain"
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { q2bExactInput } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -55,10 +57,16 @@ describe("Vault test", () => {
 
         usdcDecimals = await usdc.decimals()
 
-        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
+
         await marketRegistry.setFeeRatio(baseToken.address, 10000)
 
         // mint and add liquidity

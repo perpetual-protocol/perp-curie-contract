@@ -14,13 +14,16 @@ import {
     Vault,
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getTotalPositionSize", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -34,17 +37,17 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         // alice
@@ -64,9 +67,15 @@ describe("ClearingHouse.getTotalPositionSize", () => {
 
     describe("initialized price = 151.3733069", () => {
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("151.3733069", "1"))
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.3733069", "1"),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(await pool.tickSpacing()),
+            )
         })
 
         it("size = 0, if no swap", async () => {
@@ -186,10 +195,15 @@ describe("ClearingHouse.getTotalPositionSize", () => {
 
     // see "out of maker's range; alice receives more fee as the price goes beyond carol's range" in ClearingHouse.removeLiquidity.test.ts
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
-        // initial price at 50200 == 151.3733069
-        await pool.initialize(encodePriceSqrt("148.3760629", "1"))
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("148.3760629", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         const lowerTick = "50000"
         const middleTick = "50200"

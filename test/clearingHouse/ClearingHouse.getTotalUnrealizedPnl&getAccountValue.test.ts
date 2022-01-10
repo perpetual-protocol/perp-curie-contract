@@ -14,13 +14,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
     const [admin, maker, taker, taker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -38,29 +41,32 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
     let totalUnrealizedPnlInCollateralDecimals: string
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("100", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         // prepare collateral for maker
         makerCollateral = parseUnits("1000000", collateralDecimals)

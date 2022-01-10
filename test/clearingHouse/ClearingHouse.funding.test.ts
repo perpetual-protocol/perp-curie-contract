@@ -17,6 +17,8 @@ import {
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -56,13 +58,15 @@ describe("ClearingHouse funding", () => {
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
-        // price at 50400 == 154.4310961
-        await pool.initialize(encodePriceSqrt("154.4310961", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))

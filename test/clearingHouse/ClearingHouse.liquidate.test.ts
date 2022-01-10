@@ -16,6 +16,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
@@ -89,20 +91,26 @@ describe("ClearingHouse liquidate", () => {
         hundred = parseUnits("100", collateralDecimals)
 
         // initialize ETH pool
-        await pool.initialize(encodePriceSqrt("151.3733069", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.3733069", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool.tickSpacing()),
+        )
 
         // initialize BTC pool
-        await pool2.initialize(encodePriceSqrt("151.3733069", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken2.address, 10000)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool2,
+            baseToken2.address,
+            encodePriceSqrt("151.3733069", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(await pool2.tickSpacing()),
+        )
 
         // mint
         collateral.mint(alice.address, hundred)

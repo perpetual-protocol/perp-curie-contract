@@ -18,6 +18,8 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -74,11 +76,25 @@ describe("ClearingHouse addLiquidity", () => {
     describe("# addLiquidity without using taker's position", () => {
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
-                await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
-                await marketRegistry.addPool(baseToken2.address, 10000)
+                await initAndAddPool(
+                    fixture,
+                    pool,
+                    baseToken.address,
+                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(await pool.tickSpacing()),
+                )
+
+                await initAndAddPool(
+                    fixture,
+                    pool2,
+                    baseToken2.address,
+                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(await pool2.tickSpacing()),
+                )
             })
 
             // @SAMPLE - addLiquidity
@@ -599,9 +615,15 @@ describe("ClearingHouse addLiquidity", () => {
 
         describe("initialized price = 151.373306858723226651", () => {
             beforeEach(async () => {
-                await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
+                await initAndAddPool(
+                    fixture,
+                    pool,
+                    baseToken.address,
+                    encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(await pool.tickSpacing()),
+                )
             })
 
             // @SAMPLE - addLiquidity
@@ -731,9 +753,15 @@ describe("ClearingHouse addLiquidity", () => {
         const aliceUpperTick = 50400
 
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(await pool.tickSpacing()),
+            )
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -1124,9 +1152,15 @@ describe("ClearingHouse addLiquidity", () => {
 
     describe("# OrderBook.getOpenOrderById", () => {
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226651", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(await pool.tickSpacing()),
+            )
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -1195,9 +1229,15 @@ describe("ClearingHouse addLiquidity", () => {
 
     describe("force error", () => {
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(await pool.tickSpacing()),
+            )
         })
 
         it("add 0 liquidity will fail", async () => {

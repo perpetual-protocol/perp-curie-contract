@@ -14,7 +14,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -56,12 +57,20 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
-        await pool.initialize(encodePriceSqrt("100", "1"))
-        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
+
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(tickSpacing),
+        )
 
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000000", collateralDecimals))

@@ -176,7 +176,6 @@ export function createClearingHouseFixture(
         }
 
         await clearingHouseConfig.setSettlementTokenBalanceCap(ethers.constants.MaxUint256)
-
         await quoteToken.mintMaximumTo(clearingHouse.address)
         await baseToken.mintMaximumTo(clearingHouse.address)
         await baseToken2.mintMaximumTo(clearingHouse.address)

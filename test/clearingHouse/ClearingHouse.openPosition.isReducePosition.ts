@@ -16,7 +16,8 @@ import {
     Vault,
 } from "../../typechain"
 import { addOrder, b2qExactInput, b2qExactOutput, q2bExactOutput } from "../helper/clearingHouseHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -65,15 +66,19 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
 
-        await marketRegistry.addPool(baseToken.address, "10000")
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(tickSpacing),
+        )
 
         await collateral.mint(alice.address, parseUnits("3000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
