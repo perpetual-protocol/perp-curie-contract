@@ -28,7 +28,7 @@ export async function initMarket(
     const tickSpacing = await uniPool.tickSpacing()
 
     // the initial number of oracle can be recorded is 1; thus, have to expand it
-    await uniPool.increaseObservationCardinalityNext(2 ** 16 - 1)
+    await uniPool.increaseObservationCardinalityNext(500)
 
     // update config
     const marketRegistry = fixture.marketRegistry
@@ -49,7 +49,7 @@ export async function initAndAddPool(
 ) {
     await pool.initialize(sqrtPriceX96)
     // the initial number of oracle can be recorded is 1; thus, have to expand it
-    await pool.increaseObservationCardinalityNext(2 ** 16 - 1)
+    await pool.increaseObservationCardinalityNext(500)
     // add pool after it's initialized
     await fixture.marketRegistry.addPool(baseToken, feeRatio)
     await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
