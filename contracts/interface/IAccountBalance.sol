@@ -98,7 +98,7 @@ interface IAccountBalance {
     /// @return openNotional Taker's open notional
     /// @return realizedPnl Settled realized pnl
     /// @return indexPrice The index price of the closed market
-    function settlePnlInClosedMarket(address trader, address baseToken)
+    function settlePositionInClosedMarket(address trader, address baseToken)
         external
         returns (
             int256 positionNotional,

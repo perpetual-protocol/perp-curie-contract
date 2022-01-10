@@ -151,7 +151,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     /// @dev we don't do swap to get position notional here.
     ///      we define the position notional in a closed market is `closed price * position size`
-    function settlePnlInClosedMarket(address trader, address baseToken)
+    function settlePositionInClosedMarket(address trader, address baseToken)
         external
         override
         returns (
