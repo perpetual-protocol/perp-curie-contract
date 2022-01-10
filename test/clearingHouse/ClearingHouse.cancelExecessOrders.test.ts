@@ -78,7 +78,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             encodePriceSqrt("100", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         await initAndAddPool(
@@ -88,7 +88,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             encodePriceSqrt("50000", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool2.tickSpacing()),
+            getMaxTickRange(),
         )
 
         // alice collateral = 10

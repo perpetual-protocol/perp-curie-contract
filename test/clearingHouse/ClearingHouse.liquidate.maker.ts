@@ -76,7 +76,7 @@ describe("ClearingHouse liquidate maker", () => {
             encodePriceSqrt("10", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         const tickSpacing = await pool.tickSpacing()
@@ -168,10 +168,10 @@ describe("ClearingHouse liquidate maker", () => {
                 fixture,
                 pool2,
                 baseToken2.address,
-                encodePriceSqrt("100", "1"),
+                encodePriceSqrt("10", "1"),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             // alice add v2 style liquidity on pool2

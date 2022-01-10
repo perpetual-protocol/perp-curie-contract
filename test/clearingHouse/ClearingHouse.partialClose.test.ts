@@ -69,7 +69,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             encodePriceSqrt("10", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(tickSpacing),
+            getMaxTickRange(),
         )
 
         // prepare collateral for maker

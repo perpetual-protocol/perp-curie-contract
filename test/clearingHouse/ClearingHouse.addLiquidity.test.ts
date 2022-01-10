@@ -83,7 +83,7 @@ describe("ClearingHouse addLiquidity", () => {
                     encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                     10000,
                     // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(await pool.tickSpacing()),
+                    getMaxTickRange(),
                 )
 
                 await initAndAddPool(
@@ -93,7 +93,7 @@ describe("ClearingHouse addLiquidity", () => {
                     encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                     10000,
                     // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(await pool2.tickSpacing()),
+                    getMaxTickRange(),
                 )
             })
 
@@ -622,7 +622,7 @@ describe("ClearingHouse addLiquidity", () => {
                     encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
                     10000,
                     // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(await pool.tickSpacing()),
+                    getMaxTickRange(),
                 )
             })
 
@@ -760,7 +760,7 @@ describe("ClearingHouse addLiquidity", () => {
                 encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             await clearingHouse.connect(alice).addLiquidity({
@@ -1159,7 +1159,7 @@ describe("ClearingHouse addLiquidity", () => {
                 encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             await clearingHouse.connect(alice).addLiquidity({
@@ -1233,10 +1233,10 @@ describe("ClearingHouse addLiquidity", () => {
                 fixture,
                 pool,
                 baseToken.address,
-                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
+                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
         })
 

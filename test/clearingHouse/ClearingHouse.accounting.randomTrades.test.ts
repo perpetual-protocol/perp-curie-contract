@@ -115,7 +115,7 @@ describe.skip("ClearingHouse accounting", () => {
             encodePriceSqrt("100", "1"), // tick = 46000 (1.0001^46000 = 99.4614384055)
             3000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(tickSpacing),
+            getMaxTickRange(),
         )
         await marketRegistry.setFeeRatio(baseToken.address, 1000)
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 1e5)

@@ -76,7 +76,7 @@ describe("ClearingHouse maker close position", () => {
             encodePriceSqrt("10", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(tickSpacing),
+            getMaxTickRange(),
         )
 
         // alice add v2 style liquidity
@@ -287,7 +287,7 @@ describe("ClearingHouse maker close position", () => {
                 encodePriceSqrt("10", "1"),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool2.tickSpacing()),
+                getMaxTickRange(),
             )
 
             // alice add liquidity to BTC

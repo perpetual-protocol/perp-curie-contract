@@ -77,7 +77,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             encodePriceSqrt("10", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(tickSpacing),
+            getMaxTickRange(),
         )
 
         await collateral.mint(alice.address, parseUnits("3000", collateralDecimals))

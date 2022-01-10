@@ -55,7 +55,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
             encodePriceSqrt("154", "1"), // 1.0001 ^ 50400 = 154.4310960807
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

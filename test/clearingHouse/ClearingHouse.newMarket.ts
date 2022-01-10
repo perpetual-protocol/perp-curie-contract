@@ -19,7 +19,7 @@ import { token0Fixture } from "../shared/fixtures"
 import { forward } from "../shared/time"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse setMaxTickCrossedWithinBlock test", () => {
+describe("ClearingHouse new market listing", () => {
     const [admin, alice, bob, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -68,7 +68,7 @@ describe("ClearingHouse setMaxTickCrossedWithinBlock test", () => {
         await baseToken3.addWhitelist(clearingHouse.address)
 
         // initial baseToken market
-        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, baseToken.address, mockedBaseAggregator3)
+        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 0, baseToken.address, mockedBaseAggregator3)
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
@@ -76,6 +76,7 @@ describe("ClearingHouse setMaxTickCrossedWithinBlock test", () => {
             148,
             uniFeeTier,
             ifFeeRatio,
+            0,
             baseToken3.address,
             mockedBaseAggregator3,
         )

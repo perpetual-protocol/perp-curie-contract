@@ -98,7 +98,7 @@ describe("ClearingHouse liquidate", () => {
             encodePriceSqrt("151.3733069", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         // initialize BTC pool
@@ -109,7 +109,7 @@ describe("ClearingHouse liquidate", () => {
             encodePriceSqrt("151.3733069", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool2.tickSpacing()),
+            getMaxTickRange(),
         )
 
         // mint

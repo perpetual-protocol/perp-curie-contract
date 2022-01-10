@@ -12,6 +12,7 @@ export async function initMarket(
     initPrice: BigNumberish,
     exFeeRatio: BigNumberish = 1000, // 0.1%
     ifFeeRatio: BigNumberish = 100000, // 10%
+    maxTickCrossedWithinBlock: number = 0,
     baseToken: string = fixture.baseToken.address,
     mockedBaseAggregator: MockContract = fixture.mockedBaseAggregator,
 ): Promise<{ minTick: number; maxTick: number }> {
@@ -35,6 +36,10 @@ export async function initMarket(
     await marketRegistry.addPool(baseToken, uniFeeRatio)
     await marketRegistry.setFeeRatio(baseToken, exFeeRatio)
     await marketRegistry.setInsuranceFundFeeRatio(baseToken, ifFeeRatio)
+
+    if (maxTickCrossedWithinBlock != 0) {
+        await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    }
 
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }
 }

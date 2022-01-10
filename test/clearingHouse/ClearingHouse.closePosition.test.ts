@@ -78,7 +78,7 @@ describe("ClearingHouse closePosition", () => {
                 encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             // alice add liquidity
@@ -264,7 +264,7 @@ describe("ClearingHouse closePosition", () => {
                 encodePriceSqrt(148.3760629, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
         })
 
@@ -644,7 +644,7 @@ describe("ClearingHouse closePosition", () => {
                 encodePriceSqrt(151.3733069, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             // alice add liquidity
@@ -701,7 +701,7 @@ describe("ClearingHouse closePosition", () => {
                 encodePriceSqrt(151.3733069, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(tickSpacing),
+                getMaxTickRange(),
             )
             lowerTick = getMinTick(tickSpacing)
             upperTick = getMaxTick(tickSpacing)

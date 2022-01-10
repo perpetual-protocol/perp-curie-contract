@@ -65,7 +65,7 @@ describe("ClearingHouse funding", () => {
             encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         // alice add long limit order

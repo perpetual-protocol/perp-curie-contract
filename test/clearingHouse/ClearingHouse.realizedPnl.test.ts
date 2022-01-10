@@ -79,7 +79,7 @@ describe("ClearingHouse realizedPnl", () => {
             encodePriceSqrt("100", "1"), // tick = 46000 (1.0001^46000 = 99.4614384055)
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         await marketRegistry.setFeeRatio(baseToken.address, 10000)

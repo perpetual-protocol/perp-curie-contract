@@ -65,7 +65,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
             encodePriceSqrt("100", "1"),
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "400000")

@@ -58,7 +58,7 @@ describe("ClearingHouse.swap", () => {
             encodePriceSqrt("10", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             10000,
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(await pool.tickSpacing()),
+            getMaxTickRange(),
         )
 
         const tickSpacing = await pool.tickSpacing()

@@ -80,6 +80,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         const tickSpacing = await pool.tickSpacing()
+        lowerTick = getMinTick(tickSpacing)
+        upperTick = getMaxTick(tickSpacing)
 
         // update config
         await initAndAddPool(
@@ -88,15 +90,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             baseToken.address,
             encodePriceSqrt("10", "1"),
             uniFeeRatio,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(tickSpacing),
+            getMaxTickRange(),
         )
 
         await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
-
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
 
         // prepare collateral for maker
         makerCollateral = parseUnits("1000", collateralDecimals)

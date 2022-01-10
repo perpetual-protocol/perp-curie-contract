@@ -89,7 +89,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     encodePriceSqrt(151.3733069, 1),
                     10000,
                     // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(await pool.tickSpacing()),
+                    getMaxTickRange(),
                 )
 
                 const lowerTick = "50000"
@@ -220,7 +220,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         encodePriceSqrt(148.3760629, 1),
                         10000,
                         // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                        getMaxTickRange(await pool.tickSpacing()),
+                        getMaxTickRange(),
                     )
                 })
 
@@ -467,7 +467,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     encodePriceSqrt(148.3760629, 1),
                     10000,
                     // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(await pool.tickSpacing()),
+                    getMaxTickRange(),
                 )
             })
 
@@ -961,7 +961,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 encodePriceSqrt(151.3733069, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             // alice add liquidity
@@ -1050,7 +1050,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 encodePriceSqrt(148.3760629, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(await pool.tickSpacing()),
+                getMaxTickRange(),
             )
 
             const base = 0.000816820841
@@ -1221,7 +1221,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 encodePriceSqrt(151.3733069, 1),
                 10000,
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(tickSpacing),
+                getMaxTickRange(),
             )
         })
 
