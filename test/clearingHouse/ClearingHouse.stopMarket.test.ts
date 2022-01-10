@@ -343,23 +343,21 @@ describe("Clearinghouse StopMarket", async () => {
             })
 
             it("force error, trader still has order in closed market, can not close position", async () => {
-                await expect(
-                    clearingHouse.closePositionInClosedMarket(alice.address, baseToken.address),
-                ).to.be.revertedWith("CH_HOICM")
+                await expect(clearingHouse.quitMarket(alice.address, baseToken.address)).to.be.revertedWith("CH_HOICM")
             })
 
-            it("should be able to closePositionInClosedMarket in closed market", async () => {
+            it("should be able to quitMarket in closed market", async () => {
                 const positionSize = await accountBalance.getTakerPositionSize(bob.address, baseToken.address)
                 expect(positionSize).to.be.eq(parseEther("0.1"))
 
-                await expect(clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address)).to.be.emit(
+                await expect(clearingHouse.quitMarket(bob.address, baseToken.address)).to.be.emit(
                     clearingHouse,
                     "PositionChanged",
                 )
             })
 
             it("should deregister closed market baseToken", async () => {
-                await clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address)
+                await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 const baseTokens = await accountBalance.getBaseTokens(bob.address)
                 expect(baseTokens.length).to.be.eq(0)
@@ -392,7 +390,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 const expectedPnl = closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance)
 
-                await expect(clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address))
+                await expect(clearingHouse.quitMarket(bob.address, baseToken.address))
                     .to.emit(accountBalance, "PnlRealized")
                     .withArgs(bob.address, expectedPnl)
 
@@ -407,7 +405,7 @@ describe("Clearinghouse StopMarket", async () => {
                     upperTick,
                 )
                 await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
-                await clearingHouse.closePositionInClosedMarket(alice.address, baseToken.address)
+                await clearingHouse.quitMarket(alice.address, baseToken.address)
 
                 const [makerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 1010) // error of 1wei * 1000
@@ -428,7 +426,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 const expectedPnl = closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance)
 
-                await expect(clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address))
+                await expect(clearingHouse.quitMarket(bob.address, baseToken.address))
                     .to.emit(accountBalance, "PnlRealized")
                     .withArgs(bob.address, expectedPnl)
 
@@ -443,7 +441,7 @@ describe("Clearinghouse StopMarket", async () => {
                     upperTick,
                 )
                 await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
-                await clearingHouse.closePositionInClosedMarket(alice.address, baseToken.address)
+                await clearingHouse.quitMarket(alice.address, baseToken.address)
 
                 const [makerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 60) // error of 1wei * 50
@@ -470,7 +468,7 @@ describe("Clearinghouse StopMarket", async () => {
                 )
 
                 // taker settle on closed market
-                await clearingHouse.closePositionInClosedMarket(bob.address, baseToken.address)
+                await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 // closedMarketPositionSize: 0.065271988421256964, closedMarketQuoteBalance: -10
                 // accountValue: 10055.1280550, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271988
@@ -503,7 +501,7 @@ describe("Clearinghouse StopMarket", async () => {
                 expect(freeCollateralBefore).to.be.closeTo(parseUnits("9924.120172", collateralDecimals), 2)
 
                 // taker settle on closed market
-                await clearingHouse.closePositionInClosedMarket(bob.address, baseToken2.address)
+                await clearingHouse.quitMarket(bob.address, baseToken2.address)
 
                 // closedMarketPositionSize: 0.6413142475, closedMarketQuoteBalance: -100, fundingPayment: 0.00004771-0.00006044
                 // accountValue: 9935.120122790010963572, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.065797

@@ -226,9 +226,7 @@ interface IClearingHouse {
     /// @param baseToken The address of baseToken
     /// @return base The amount of base token that is closed
     /// @return quote The amount of quote token that is closed
-    function closePositionInClosedMarket(address trader, address baseToken)
-        external
-        returns (uint256 base, uint256 quote);
+    function quitMarket(address trader, address baseToken) external returns (uint256 base, uint256 quote);
 
     /// @notice Get account value of trader
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in 18 decimals

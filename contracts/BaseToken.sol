@@ -45,15 +45,13 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         _pausedIndexPrice = getIndexPrice(twInterval);
         _status = IBaseToken.Status.Paused;
         _pausedTimestamp = _blockTimestamp();
-        emit StatusUpdated(IBaseToken.Status.Paused);
+        emit StatusUpdated(_status);
     }
 
     function close(uint256 closedPrice) external onlyOwner {
         // BT_NP: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = closedPrice;
-        emit StatusUpdated(IBaseToken.Status.Closed);
+        _close(closedPrice);
     }
 
     function close() external override {
@@ -61,9 +59,7 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         require(_status == IBaseToken.Status.Paused, "BT_NP");
         // BT_WPNE: Waiting period not expired
         require(_blockTimestamp() > _pausedTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = _pausedIndexPrice;
-        emit StatusUpdated(IBaseToken.Status.Closed);
+        _close(_pausedIndexPrice);
     }
 
     function setPriceFeed(address priceFeedArg) external onlyOwner {
@@ -77,6 +73,16 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         _priceFeedDecimals = __priceFeedDecimals;
 
         emit PriceFeedChanged(priceFeedArg);
+    }
+
+    //
+    // INTERNAL NON-VIEW
+    //
+
+    function _close(uint256 closedPrice) internal {
+        _status = IBaseToken.Status.Closed;
+        _closedPrice = closedPrice;
+        emit StatusUpdated(_status);
     }
 
     //
