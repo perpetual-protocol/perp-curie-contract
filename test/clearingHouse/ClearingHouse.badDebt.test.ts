@@ -169,14 +169,25 @@ describe("ClearingHouse closePosition", () => {
                 )
 
                 // all user's withdrawable amount
-                const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
                 const bobFreeCollateral = await vault.getFreeCollateral(bob.address)
-                const ifBalance = await vault.getFreeCollateral(insuranceFund.address)
+                expect(bobFreeCollateral).to.eq(0)
 
-                // total free collateral = 100000(alice's deposited collateral) + 100(bob's deposited collateral) + 693.49(bob's bad debt)
-                expect(aliceFreeCollateral.add(bobFreeCollateral).add(ifBalance)).to.be.eq(
-                    parseUnits("100793.658911", await collateral.decimals()),
-                )
+                // alice's pnl = 784.4035329255
+                // account value = 100,784.403532
+                // margin requirement = 0, since she has already closed position and withdrawn liquidity
+                const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
+                expect(aliceFreeCollateral).to.be.eq(parseUnits("100784.403532", await collateral.decimals()))
+                // IF gets (800 + 46247 + 6.51035726807423 + 45500) * 0.0001 = 9.255379 as fees
+                const ifBalance = await vault.getFreeCollateral(insuranceFund.address)
+                expect(ifBalance).to.be.eq(parseUnits("9.255379", await collateral.decimals()))
+
+                // total free collateral =
+                // 100000(alice's deposited collateral) + 100(bob's deposited collateral) + 693.49(bob's bad debt) + 0.162(liquidation fee)
+                // = 100793.65
+                const totalFreeCollateral = aliceFreeCollateral.add(ifBalance)
+                expect(totalFreeCollateral).to.be.eq(parseUnits("100793.658911", await collateral.decimals()))
+                // total free collateral > total deposits, meaning that there is bad debt
+                expect(totalFreeCollateral).to.be.gt(parseUnits("100100", await collateral.decimals()))
             })
 
             it("cannot close position with partial close when trader has bad debt", async () => {
