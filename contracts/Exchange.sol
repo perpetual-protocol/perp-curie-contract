@@ -525,6 +525,9 @@ contract Exchange is
         // EX_MIP: market is paused
         require(maxDeltaTick > 0, "EX_MIP");
 
+        if (maxDeltaTick == (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24()) {
+            return false;
+        }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         // no overflow/underflow issue because there are range limits for tick and maxDeltaTick
         int24 upperTickBound = lastUpdatedTick.add(maxDeltaTick).toInt24();
@@ -594,6 +597,9 @@ contract Exchange is
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
+        if (maxDeltaTick == (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24()) {
+            maxDeltaTick = 0;
+        }
         // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxDeltaTick) + 1 : lastUpdatedTick - int24(maxDeltaTick) - 1;
