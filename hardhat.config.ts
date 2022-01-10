@@ -101,7 +101,6 @@ const config: HardhatUserConfig = {
         deployer: 0, // 0 means ethers.getSigners[0]
         deployerAddress: {
             // Only used in system tests
-            [ChainId.RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x9E9DFaCCABeEcDA6dD913b3685c9fe908F28F58c",
             [ChainId.OPTIMISM_CHAIN_ID]: "0x849a19c0746fB0d335E02deC0d0B3E057e585176",
@@ -111,13 +110,13 @@ const config: HardhatUserConfig = {
         uniswapV3Factory: {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
-        usdcRichManAddress: {
+        hardhatForkTester: {
+            // only use for hardhatFork simulation
             [ChainId.OPTIMISM_CHAIN_ID]: "0x08968309443465c03244c9206052aa20cdbb6797",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x08968309443465c03244c9206052aa20cdbb6797",
         },
         gnosisSafeAddress: {
             // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
-            [ChainId.RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x2a8725c1a9a397e2d1bA26634c8f8d62b403d968",
             [ChainId.OPTIMISM_CHAIN_ID]: "0x801B15C92075D85204d1b23054407DA63cc3105B",
@@ -127,13 +126,11 @@ const config: HardhatUserConfig = {
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
         // Optimism: https://docs.chain.link/docs/optimism-price-feeds/#Optimism%20Kovan
         ethUsdChainlinkAggregator: {
-            [ChainId.RINKEBY_CHAIN_ID]: "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x5f0423B1a6935dc5596e7A24d98532b67A0AeFd8",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0xCb7895bDC70A1a1Dce69b689FD7e43A627475A06",
             [ChainId.OPTIMISM_CHAIN_ID]: "0xA969bEB73d918f6100163Cd0fba3C586C269bee1",
         },
         btcUsdChainlinkAggregator: {
-            [ChainId.RINKEBY_CHAIN_ID]: "0xECe365B379E1dD183B20fc5f022230C044d51404",
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x0c9973e7a27d00e656B9f153348dA46CaD70d03d",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x81AE7F8fF54070C52f0eB4EB5b8890e1506AA4f4",
             [ChainId.OPTIMISM_CHAIN_ID]: "0xc326371d4D866C6Ff522E69298e36Fe75797D358",
