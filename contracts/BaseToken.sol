@@ -119,6 +119,10 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     //
 
     /// @inheritdoc IIndexPrice
+    /// @dev we overwrite the index price in BaseToken depending on the status
+    ///      1. Open: the price is from the price feed
+    ///      2. Paused: the price is twap when the token was paused
+    ///      3. Closed: the price is set by the owner when the market was closed
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
         if (_status == IBaseToken.Status.Closed) {
             return _closedPrice;
