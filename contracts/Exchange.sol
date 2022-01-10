@@ -522,9 +522,9 @@ contract Exchange is
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxDeltaTick == 0) {
-            return false;
-        }
+        // EX_MIP: market is paused
+        require(maxDeltaTick > 0, "EX_MIP");
+
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         // no overflow/underflow issue because there are range limits for tick and maxDeltaTick
         int24 upperTickBound = lastUpdatedTick.add(maxDeltaTick).toInt24();
