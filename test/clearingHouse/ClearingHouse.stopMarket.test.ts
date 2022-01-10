@@ -132,7 +132,7 @@ describe("Clearinghouse StopMarket", async () => {
             )
         })
 
-        it("should be able to query unrealized Pnl in paused market", async () => {
+        it("it can query unrealized pnl in paused market", async () => {
             const [, unrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
             expect(unrealizedPnl).not.eq("0")
         })
@@ -145,7 +145,6 @@ describe("Clearinghouse StopMarket", async () => {
                 }
 
                 await forward(10 * 60)
-                // await clearingHouse.settleAllFunding(bob.address)
 
                 // pause market for baseToken
                 await baseToken.pause(15 * 60)
