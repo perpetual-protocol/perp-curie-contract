@@ -271,8 +271,8 @@ describe("ClearingHouse liquidate", () => {
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
 
             // second liquidation would fail because no liquidity left
-            // revert 'T' from uniswap V3 lib : tickMath
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("T")
+            // revert 'SPL' from @uniswap/v3-core/contracts/UniswapV3Pool.sol#L612
+            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("SPL")
         })
 
         it("partial closes due to bad price", async () => {
