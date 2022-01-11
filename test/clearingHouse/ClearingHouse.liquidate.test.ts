@@ -19,7 +19,7 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate", () => {
@@ -45,15 +45,6 @@ describe("ClearingHouse liquidate", () => {
     let collateralDecimals: number
     const oracleDecimals = 6
     const blockTimeStamp = 1
-
-    async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
-        const slot0 = await pool.slot0()
-        const sqrtPrice = slot0.sqrtPriceX96
-        const price = formatSqrtPriceX96ToPrice(sqrtPrice, oracleDecimals)
-        aggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
-        })
-    }
 
     function setPool1IndexPrice(price: BigNumberish) {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

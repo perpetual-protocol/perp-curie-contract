@@ -64,12 +64,14 @@ contract ClearingHouse is
         bool isClose;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
+        bool isLiquidation;
     }
 
     struct InternalClosePositionParams {
         address trader;
         address baseToken;
         uint160 sqrtPriceLimitX96;
+        bool isLiquidation;
     }
 
     struct InternalCheckSlippageParams {
@@ -407,7 +409,8 @@ contract ClearingHouse is
                     isExactInput: params.isExactInput,
                     amount: params.amount,
                     isClose: false,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: false
                 })
             );
 
@@ -453,7 +456,8 @@ contract ClearingHouse is
                 InternalClosePositionParams({
                     trader: trader,
                     baseToken: params.baseToken,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: false
                 })
             );
 
@@ -506,7 +510,14 @@ contract ClearingHouse is
         // must settle funding first
         _settleFunding(trader, baseToken);
         IExchange.SwapResponse memory response =
-            _closePosition(InternalClosePositionParams({ trader: trader, baseToken: baseToken, sqrtPriceLimitX96: 0 }));
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    sqrtPriceLimitX96: 0,
+                    isLiquidation: true
+                })
+            );
 
         // trader's pnl-- as liquidation penalty
         uint256 liquidationFee =
@@ -797,6 +808,11 @@ contract ClearingHouse is
                 params.baseToken,
                 response.pnlToBeRealized
             );
+
+            // if realized pnl is not zero, that means trader is reducing or closing position
+            // trader cannot reduce/close position if bad debt happen unless it's a liquidation
+            // CH_BD: trader has bad debt after reducing position
+            require(params.isLiquidation || getAccountValue(params.trader) >= 0, "CH_BD");
         }
 
         // if not closing a position, check margin ratio after swap
@@ -842,7 +858,8 @@ contract ClearingHouse is
                     isExactInput: isLong,
                     isClose: true,
                     amount: positionSize.abs(),
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    isLiquidation: params.isLiquidation
                 })
             );
     }
