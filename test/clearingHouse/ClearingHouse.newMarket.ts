@@ -68,7 +68,7 @@ describe("ClearingHouse new market listing", () => {
         await baseToken3.addWhitelist(clearingHouse.address)
 
         // initial baseToken market
-        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 0, baseToken.address, mockedBaseAggregator3)
+        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 0, baseToken.address, mockedBaseAggregator)
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
