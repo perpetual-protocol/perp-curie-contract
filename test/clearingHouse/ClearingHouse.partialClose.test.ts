@@ -140,10 +140,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("carol's position is partially closed with closePosition when it's over price limit", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-
             // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
@@ -156,11 +152,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         // values are the same as the above one
-        it("force error, partially closing position/isOverPriceLimit can only happen once", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-
+        it("force error, partially closing position/isOverPriceLimit can happen once", async () => {
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,
