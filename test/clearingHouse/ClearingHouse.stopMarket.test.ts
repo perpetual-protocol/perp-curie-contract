@@ -113,7 +113,7 @@ describe("Clearinghouse StopMarket", async () => {
 
         it("force error, can not operate in paused market", async () => {
             // stop market for baseToken
-            await baseToken.pause(15 * 60 * 1000)
+            await baseToken.pause()
 
             // can't open position
             await expect(q2bExactInput(fixture, bob, 10, baseToken.address)).to.be.revertedWith("CH_MNO")
@@ -147,7 +147,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await forward(10 * 60)
 
                 // pause market for baseToken
-                await baseToken.pause(15 * 60)
+                await baseToken.pause()
             })
 
             it("fundingPayment should not change anymore in paused market", async () => {
@@ -191,7 +191,7 @@ describe("Clearinghouse StopMarket", async () => {
                     return [0, parseUnits("1000", 6), 0, 0, 0]
                 })
                 // pause baseToken market
-                await baseToken.pause(600)
+                await baseToken.pause()
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
@@ -218,7 +218,7 @@ describe("Clearinghouse StopMarket", async () => {
                 })
 
                 // pause baseToken2 pool
-                await baseToken2.pause(600)
+                await baseToken2.pause()
 
                 // accountValue: 9935.1201076808, totalCollateralValue: 10000
                 // freeCollateral = 9935.1198114922 - 110(quote debt) * 0.1 = 9,924.119811
@@ -237,7 +237,7 @@ describe("Clearinghouse StopMarket", async () => {
                 })
 
                 // close baseToken pool
-                await baseToken.pause(600)
+                await baseToken.pause()
             })
 
             it("unrealized pnl accounting", async () => {
@@ -300,7 +300,7 @@ describe("Clearinghouse StopMarket", async () => {
             beforeEach(async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
                 // close market
-                await baseToken.pause(600)
+                await baseToken.pause()
                 await baseToken["close(uint256)"](parseEther("100"))
             })
 
@@ -338,7 +338,7 @@ describe("Clearinghouse StopMarket", async () => {
             beforeEach(async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
                 // close market
-                await baseToken.pause(600)
+                await baseToken.pause()
                 await baseToken["close(uint256)"](parseEther("100"))
             })
 
@@ -352,7 +352,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 await expect(clearingHouse.quitMarket(bob.address, baseToken.address)).to.be.emit(
                     clearingHouse,
-                    "PositionChanged",
+                    "PositionClosed",
                 )
             })
 
@@ -371,7 +371,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // close baseToken pool
-                await baseToken.pause(600)
+                await baseToken.pause()
             })
 
             it("taker has positive pnl in closed market", async () => {
@@ -455,7 +455,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // close baseToken pool
-                await baseToken.pause(600)
+                await baseToken.pause()
                 await baseToken["close(uint256)"](parseEther("1000"))
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
@@ -492,7 +492,7 @@ describe("Clearinghouse StopMarket", async () => {
                 })
 
                 // close baseToken pool
-                await baseToken2.pause(600)
+                await baseToken2.pause()
                 await baseToken2["close(uint256)"](parseEther("50"))
 
                 // accountValue: 9935.120172, totalCollateralValue: 10000
@@ -523,7 +523,7 @@ describe("Clearinghouse StopMarket", async () => {
                 })
 
                 // close baseToken pool
-                await baseToken.pause(600)
+                await baseToken.pause()
                 await baseToken["close(uint256)"](parseEther("50"))
             })
 
@@ -592,7 +592,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // await clearingHouse.settleAllFunding(bob.address)
 
                 // pause market for baseToken
-                await baseToken.pause(15 * 60)
+                await baseToken.pause()
                 await baseToken["close(uint256)"](parseEther("50"))
             })
 
@@ -638,7 +638,7 @@ describe("Clearinghouse StopMarket", async () => {
             expect(await accountBalance.hasOrderInOpenMarket(bob.address)).to.be.eq(true)
 
             // pause baseToken2 market
-            await baseToken2.pause(600)
+            await baseToken2.pause()
 
             // can not cancel order in paused market
             await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)).to.be.revertedWith(
@@ -663,7 +663,7 @@ describe("Clearinghouse StopMarket", async () => {
             await q2bExactInput(fixture, bob, 10000, baseToken.address)
 
             // pause baseToken market
-            await baseToken.pause(600)
+            await baseToken.pause()
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -687,7 +687,7 @@ describe("Clearinghouse StopMarket", async () => {
             await q2bExactInput(fixture, bob, 15000, baseToken.address)
 
             // pause baseToken2 market
-            await baseToken2.pause(600)
+            await baseToken2.pause()
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -715,7 +715,7 @@ describe("Clearinghouse StopMarket", async () => {
             await q2bExactInput(fixture, bob, 15000, baseToken.address)
 
             // pause baseToken2 market
-            await baseToken2.pause(600)
+            await baseToken2.pause()
 
             // close baseToken2 market
             await baseToken2["close(uint256)"](parseEther("0.0001"))

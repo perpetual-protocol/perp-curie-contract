@@ -18,6 +18,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     // CONSTANT
     //
 
+    uint256 constant TWAP_INTERVAL_FOR_PAUSE = 8 * 60 * 60; // 8 hours
     uint256 constant MAX_WAITING_PERIOD = 7 days;
 
     //
@@ -39,10 +40,10 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         _priceFeedDecimals = __priceFeedDecimals;
     }
 
-    function pause(uint256 twInterval) external onlyOwner {
+    function pause() external onlyOwner {
         // BT_NO: Not open
         require(_status == IBaseToken.Status.Open, "BT_NO");
-        _pausedIndexPrice = getIndexPrice(twInterval);
+        _pausedIndexPrice = getIndexPrice(TWAP_INTERVAL_FOR_PAUSE);
         _status = IBaseToken.Status.Paused;
         _pausedTimestamp = _blockTimestamp();
         emit StatusUpdated(_status);
