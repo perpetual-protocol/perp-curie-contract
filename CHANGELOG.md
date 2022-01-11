@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.8-staging] - 2022-01-11
+
+### Fixed
+- revert when reducing position with bad debt
+
+### Deploy
+- Upgrade ClearingHouse on **Optimism Kovan**
+
 ## [1.0.7] - 2022-01-06
 
 ### Deploy
