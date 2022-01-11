@@ -597,12 +597,20 @@ contract Exchange is
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
+
+        // no price limit return zero, will calculate min or max sqrtPriceLimitX96 in orderBook
         if (maxDeltaTick == (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24()) {
-            maxDeltaTick = 0;
+            return 0;
         }
+
         // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxDeltaTick) + 1 : lastUpdatedTick - int24(maxDeltaTick) - 1;
+
+        // tickBoundary should be in [MIN_TICK, MAX_TICK]
+        tickBoundary = tickBoundary > TickMath.MAX_TICK ? TickMath.MAX_TICK : tickBoundary;
+        tickBoundary = tickBoundary < TickMath.MIN_TICK ? TickMath.MIN_TICK : tickBoundary;
+
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 

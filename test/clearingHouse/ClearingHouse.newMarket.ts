@@ -97,7 +97,7 @@ describe("ClearingHouse new market listing", () => {
         await deposit(davis, vault, 1000, collateral)
     })
 
-    describe("list new market", () => {
+    describe("list new market but not enable to trade", () => {
         it("force error when open position", async () => {
             await expect(q2bExactInput(fixture, bob, 100, baseToken3.address)).to.be.revertedWith("EX_MIP")
         })
@@ -118,7 +118,7 @@ describe("ClearingHouse new market listing", () => {
         })
     })
 
-    describe("stop market", () => {
+    describe("pause market", () => {
         beforeEach(async () => {
             // add liquidity
             await addOrder(fixture, alice, 100, 10000, 48000, 52000, false, baseToken3.address)
@@ -130,7 +130,7 @@ describe("ClearingHouse new market listing", () => {
             await q2bExactInput(fixture, bob, 4, baseToken3.address)
             await b2qExactOutput(fixture, davis, 2, baseToken3.address)
 
-            // stop market
+            // pause market
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
         })
         it("force error when close position", async () => {
