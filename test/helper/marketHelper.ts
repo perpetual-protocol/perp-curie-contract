@@ -50,7 +50,7 @@ export async function initAndAddPool(
     baseToken: string,
     sqrtPriceX96: BigNumberish,
     feeRatio: BigNumberish,
-    maxTickCrossedWithinBlock: number,
+    maxTickCrossedWithinBlock: number = 1000,
 ) {
     await pool.initialize(sqrtPriceX96)
     // the initial number of oracle can be recorded is 1; thus, have to expand it
