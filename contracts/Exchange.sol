@@ -675,7 +675,7 @@ contract Exchange is
     }
 
     // @dev use virtual for testing
-    function _getMaxTickCrossedWithinBlockCap() internal virtual returns (uint24) {
+    function _getMaxTickCrossedWithinBlockCap() internal pure virtual returns (uint24) {
         return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
     }
 }

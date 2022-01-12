@@ -25,7 +25,7 @@ contract TestExchange is Exchange {
 
     // @dev max tick range = 887272 * 2
     // @dev ref : https://github.com/Uniswap/v3-core/blob/main/contracts/libraries/TickMath.sol#L25
-    function _getMaxTickCrossedWithinBlockCap() internal override returns (uint24) {
+    function _getMaxTickCrossedWithinBlockCap() internal pure override returns (uint24) {
         return 1774544;
     }
 }
