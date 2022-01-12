@@ -151,8 +151,8 @@ export function createClearingHouseFixture(
         let clearingHouse: ClearingHouse | TestClearingHouse
         if (canMockTime) {
             const clearingHouseFactory = await ethers.getContractFactory("TestClearingHouse")
-            clearingHouse = (await clearingHouseFactory.deploy()) as TestClearingHouse
-            await clearingHouse.initialize(
+            const testClearingHouse = (await clearingHouseFactory.deploy()) as TestClearingHouse
+            await testClearingHouse.__TestClearingHouse_init(
                 clearingHouseConfig.address,
                 vault.address,
                 quoteToken.address,
@@ -161,6 +161,7 @@ export function createClearingHouseFixture(
                 accountBalance.address,
                 insuranceFund.address,
             )
+            clearingHouse = testClearingHouse
         } else {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
