@@ -40,7 +40,7 @@ describe("ClearingHouse new market listing", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true))
+        fixture = await loadFixture(createClearingHouseFixture(false))
         clearingHouse = fixture.clearingHouse
         orderBook = fixture.orderBook
         exchange = fixture.exchange

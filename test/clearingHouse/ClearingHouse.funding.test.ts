@@ -18,10 +18,9 @@ import {
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
-import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
+import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
@@ -64,8 +63,7 @@ describe("ClearingHouse funding", () => {
             baseToken.address,
             encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
             10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
+            1000,
         )
 
         // alice add long limit order
