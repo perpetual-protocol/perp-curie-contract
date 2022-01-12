@@ -37,7 +37,7 @@ describe("Exchange complicated test", () => {
     let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(false))
+        fixture = await loadFixture(createClearingHouseFixture())
         vault = fixture.vault
         usdc = fixture.USDC
         clearingHouse = fixture.clearingHouse

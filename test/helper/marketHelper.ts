@@ -38,6 +38,9 @@ export async function initMarket(
     await marketRegistry.setInsuranceFundFeeRatio(baseToken, ifFeeRatio)
 
     if (maxTickCrossedWithinBlock != 0) {
+        if (maxTickCrossedWithinBlock > 1000) {
+            maxTickCrossedWithinBlock = 1000
+        }
         await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
     }
 
@@ -57,5 +60,6 @@ export async function initAndAddPool(
     await pool.increaseObservationCardinalityNext(500)
     // add pool after it's initialized
     await fixture.marketRegistry.addPool(baseToken, feeRatio)
-    await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    // todo fix
+    await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, 1000)
 }

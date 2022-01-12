@@ -20,6 +20,7 @@ import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
+import { forwardTimestamp } from "../shared/time"
 
 describe("ClearingHouse badDebt", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -42,7 +43,7 @@ describe("ClearingHouse badDebt", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        fixture = await loadFixture(createClearingHouseFixture(false, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         insuranceFund = fixture.insuranceFund
@@ -105,7 +106,11 @@ describe("ClearingHouse badDebt", () => {
 
                 // bob's account value is greater than 0 bc it's calculated by index price
                 // bob's account value: 100 + 7.866 * 103.222 - 800 = 111.944
-                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414171892600616")
+
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414171876722414")
+
+                // to avoid over maxTickCrossedPerBlock
+                await forwardTimestamp(clearingHouse)
             })
 
             it("cannot close position when user has bad debt", async () => {
