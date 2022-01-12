@@ -119,7 +119,7 @@ const config: HardhatUserConfig = {
             // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
             [ChainId.ARBITRUM_RINKEBY_CHAIN_ID]: "0x374152052700eDf29Fc2D4ed5eF93cA7d3fdF38e",
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x2a8725c1a9a397e2d1bA26634c8f8d62b403d968",
-            [ChainId.OPTIMISM_CHAIN_ID]: "0x801B15C92075D85204d1b23054407DA63cc3105B",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x76ff908b6d43c182daec59b35cebc1d7a17d8086",
         },
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
