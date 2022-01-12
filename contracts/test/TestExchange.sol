@@ -9,25 +9,6 @@ contract TestExchange is Exchange {
 
     uint256 private _testBlockTimestamp;
 
-    // @dev copy from Exchange to bypass the constant
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock)
-        public
-        override
-        onlyOwner
-    {
-        // EX_BNC: baseToken is not contract
-        require(baseToken.isContract(), "EX_BNC");
-        // EX_BTNE: base token does not exists
-        require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
-
-        // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
-        // EX_MTCLOOR: max tick crossed limit out of range
-        require(maxTickCrossedWithinBlock <= 1774544, "EX_MTCLOOR");
-
-        _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
-        emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
-    }
-
     // copy paste from AccountBalance.initialize to avoid it to be public
 
     function setBlockTimestamp(uint256 blockTimestamp) external {
@@ -40,5 +21,11 @@ contract TestExchange is Exchange {
 
     function _blockTimestamp() internal view override returns (uint256) {
         return _testBlockTimestamp;
+    }
+
+    // @dev max tick range = 887272 * 2
+    // @dev ref : https://github.com/Uniswap/v3-core/blob/main/contracts/libraries/TickMath.sol#L25
+    function _getMaxTickCrossedWithinBlockCap() internal override returns (uint24) {
+        return 1774544;
     }
 }

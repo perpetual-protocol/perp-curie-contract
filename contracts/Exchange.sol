@@ -113,12 +113,7 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
-    // @dev use virtual for testing
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock)
-        external
-        virtual
-        onlyOwner
-    {
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BNC: baseToken is not contract
         require(baseToken.isContract(), "EX_BNC");
         // EX_BTNE: base token does not exists
@@ -126,7 +121,7 @@ contract Exchange is
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
-        require(maxTickCrossedWithinBlock <= _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP, "EX_MTCLOOR");
+        require(maxTickCrossedWithinBlock <= _getMaxTickCrossedWithinBlockCap(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
@@ -190,6 +185,7 @@ contract Exchange is
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose) {
+            // over price limit after swap
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
@@ -676,5 +672,10 @@ contract Exchange is
         }
 
         return pnlToBeRealized;
+    }
+
+    // @dev use virtual for testing
+    function _getMaxTickCrossedWithinBlockCap() internal virtual returns (uint24) {
+        return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
     }
 }
