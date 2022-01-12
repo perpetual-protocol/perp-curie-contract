@@ -113,7 +113,12 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
-    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
+    // @dev use virtual for testing
+    function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock)
+        external
+        virtual
+        onlyOwner
+    {
         // EX_BNC: baseToken is not contract
         require(baseToken.isContract(), "EX_BNC");
         // EX_BTNE: base token does not exists
