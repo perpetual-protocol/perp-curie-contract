@@ -44,18 +44,21 @@ export async function initMarket(
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }
 }
 
+// todo replace caller getMaxTickRange to default value
 export async function initAndAddPool(
     fixture: ClearingHouseFixture,
     pool: UniswapV3Pool,
     baseToken: string,
     sqrtPriceX96: BigNumberish,
     feeRatio: BigNumberish,
-    maxTickCrossedWithinBlock: number,
+    maxTickCrossedWithinBlock: number = 1000,
 ) {
     await pool.initialize(sqrtPriceX96)
     // the initial number of oracle can be recorded is 1; thus, have to expand it
     await pool.increaseObservationCardinalityNext(500)
     // add pool after it's initialized
     await fixture.marketRegistry.addPool(baseToken, feeRatio)
-    await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    if (maxTickCrossedWithinBlock != 0) {
+        await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    }
 }

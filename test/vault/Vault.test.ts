@@ -18,7 +18,6 @@ import {
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { q2bExactInput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -63,8 +62,7 @@ describe("Vault test", () => {
             baseToken.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
+            1000,
         )
 
         await marketRegistry.setFeeRatio(baseToken.address, 10000)

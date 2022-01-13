@@ -18,7 +18,6 @@ import {
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -64,8 +63,7 @@ describe("ClearingHouse funding", () => {
             baseToken.address,
             encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
             10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
+            1000,
         )
 
         // alice add long limit order
@@ -1197,40 +1195,50 @@ describe("ClearingHouse funding", () => {
             })
 
             it("markTwap above indexTwap and exceeded max funding rate", async () => {
-                // initial mark price 154.4310961
-                await q2bExactOutput(fixture, bob, 5)
+                // initial mark price 154.4310961, bob takes long
+                await q2bExactOutput(fixture, bob, 0.1)
+                // current mark price 156.844502866592198095
 
-                // current mark price 409.86647972
+                // index price 50
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("50", 6), 0, 0, 0]
+                })
+
                 await forward(100)
 
-                // diff: 409.86647972 - 150.953124 > 150.953124 * 10%
-                // bob's funding payment = 5 * 150.953124 * 10% * 100 / 86400 = 0.08735713194444444
+                // diff: 156.844502 - 50 > 50 * 10%
+                // bob's funding payment = 0.1 * 50 * 10% * 100 / 86400 = 0.0005787037037
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.be.eq(
-                    parseEther("0.087357131944444444"),
+                    parseEther("0.000578703703703703"),
                 )
 
-                // alice's funding payment = -5 * 150.953124 * 10% * 100 / 86400 = -0.08735713194444444
+                // alice's funding payment
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.be.eq(
-                    parseEther("-0.087357131944444444"),
+                    parseEther("-0.000578703703703703"),
                 )
             })
 
             it("markTwap below indexTwap and exceeded max funding rate", async () => {
-                // initial mark price 154.4310961
-                await b2qExactInput(fixture, bob, 5)
+                // initial mark price 154.4310961, bob takes short
+                await b2qExactInput(fixture, bob, 0.1)
+                // current mark price 152.072967341735143415
 
-                // current mark price 80.3711255154
+                // index price 200
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("200", 6), 0, 0, 0]
+                })
+
                 await forward(100)
 
-                // diff: 150.953124 - 80.3711255154 > 150.953124 * 10%
-                // bob's funding payment = 5 * 150.953124 * 10% * 100 / 86400 = 0.08735713194444444
+                // diff: 200 - 152.072967341735143415 > 200 * 10%
+                // bob's funding payment = 0.1 * 200 * 10% * 100 / 86400 = 0.002314814815
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.be.eq(
-                    parseEther("0.087357131944444444"),
+                    parseEther("0.002314814814814814"),
                 )
 
-                // alice's funding payment = -5 * 150.953124 * 10% * 100 / 86400 = -0.08735713194444444
+                // alice's funding payment
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.be.eq(
-                    parseEther("-0.087357131944444444"),
+                    parseEther("-0.002314814814814814"),
                 )
             })
         })
