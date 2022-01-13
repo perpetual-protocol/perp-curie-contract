@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.8] - 2022-01-12
+
+Code is same as `v1.0.8-staging`.
+
+### Deploy
+- Upgrade ClearingHouse on **Optimism**
+
 ## [1.0.8-staging] - 2022-01-11
 
 ### Fixed
