@@ -16,7 +16,8 @@ import {
     Vault,
 } from "../../typechain"
 import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -81,12 +82,15 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     describe("remove zero liquidity", () => {
         describe("one maker; current price is in maker's range", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
-                await pool.initialize(encodePriceSqrt(151.3733069, 1))
-                // the initial number of oracle can be recorded is 1; thus, have to expand it
-                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
+                await initAndAddPool(
+                    fixture,
+                    pool,
+                    baseToken.address,
+                    encodePriceSqrt(151.3733069, 1),
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(),
+                )
 
                 const lowerTick = "50000"
                 const upperTick = "50200"
@@ -209,12 +213,15 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
             describe("initialized price = 148.3760629", () => {
                 beforeEach(async () => {
-                    await pool.initialize(encodePriceSqrt(148.3760629, 1))
-                    // the initial number of oracle can be recorded is 1; thus, have to expand it
-                    await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-                    // add pool after it's initialized
-                    await marketRegistry.addPool(baseToken.address, 10000)
+                    await initAndAddPool(
+                        fixture,
+                        pool,
+                        baseToken.address,
+                        encodePriceSqrt(148.3760629, 1),
+                        10000,
+                        // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                        getMaxTickRange(),
+                    )
                 })
 
                 it("a trader swaps quote to base, thus the maker receives quote fee in Uniswap", async () => {
@@ -453,12 +460,15 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         // expect to have more tests
         describe("multi makers", () => {
             beforeEach(async () => {
-                await pool.initialize(encodePriceSqrt(148.3760629, 1))
-                // the initial number of oracle can be recorded is 1; thus, have to expand it
-                await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-                // add pool after it's initialized
-                await marketRegistry.addPool(baseToken.address, 10000)
+                await initAndAddPool(
+                    fixture,
+                    pool,
+                    baseToken.address,
+                    encodePriceSqrt(148.3760629, 1),
+                    10000,
+                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                    getMaxTickRange(),
+                )
             })
 
             it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
@@ -944,12 +954,15 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         const upperTick = "50200"
 
         it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
-            await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            // the initial number of oracle can be recorded is 1; thus, have to expand it
-            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt(151.3733069, 1),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -1030,12 +1043,15 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         })
 
         it("two makers; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
-            await pool.initialize(encodePriceSqrt(148.3760629, 1))
-            // the initial number of oracle can be recorded is 1; thus, have to expand it
-            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt(148.3760629, 1),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
 
             const base = 0.000816820841
 
@@ -1194,13 +1210,19 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         let upperTick: number
 
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt(151.3733069, 1))
-            await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-            await marketRegistry.addPool(baseToken.address, 10000)
-
             const tickSpacing = await pool.tickSpacing()
             lowerTick = getMinTick(tickSpacing)
             upperTick = getMaxTick(tickSpacing)
+
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt(151.3733069, 1),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
         })
 
         it("maker should withdraw after multiple trader process", async () => {

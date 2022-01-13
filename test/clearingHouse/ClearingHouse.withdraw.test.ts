@@ -15,6 +15,8 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -55,9 +57,15 @@ describe("ClearingHouse withdraw", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt(151.3733069, 1))
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt(151.3733069, 1),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
     })
 
     describe("# withdraw with maker fee", () => {

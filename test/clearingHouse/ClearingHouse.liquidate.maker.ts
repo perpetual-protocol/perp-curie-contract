@@ -15,14 +15,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: ClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -47,27 +49,35 @@ describe("ClearingHouse liquidate maker", () => {
     }
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        quoteToken = _clearingHouseFixture.quoteToken
-        baseToken = _clearingHouseFixture.baseToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
-        baseToken2 = _clearingHouseFixture.baseToken2
-        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
-        pool2 = _clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        quoteToken = fixture.quoteToken
+        baseToken = fixture.baseToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
+        baseToken2 = fixture.baseToken2
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        await marketRegistry.addPool(baseToken.address, "10000")
+
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -154,8 +164,15 @@ describe("ClearingHouse liquidate maker", () => {
 
     describe("maker has multiple orders", async () => {
         beforeEach(async () => {
-            await pool2.initialize(encodePriceSqrt("10", "1"))
-            await marketRegistry.addPool(baseToken2.address, "10000")
+            await initAndAddPool(
+                fixture,
+                pool2,
+                baseToken2.address,
+                encodePriceSqrt("10", "1"),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
 
             // alice add v2 style liquidity on pool2
             await collateral.mint(alice.address, parseUnits("200", collateralDecimals))

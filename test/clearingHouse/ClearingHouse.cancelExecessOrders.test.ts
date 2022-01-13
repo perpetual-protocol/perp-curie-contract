@@ -15,6 +15,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
@@ -69,13 +71,25 @@ describe("ClearingHouse cancelExcessOrders", () => {
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 10, collateral)
 
-        await pool.initialize(encodePriceSqrt("100", "1"))
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
-        await pool2.initialize(encodePriceSqrt("50000", "1"))
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken2.address, 10000)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool2,
+            baseToken2.address,
+            encodePriceSqrt("50000", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
         // alice collateral = 10
         // mint 1 base (now 1 eth = $100)

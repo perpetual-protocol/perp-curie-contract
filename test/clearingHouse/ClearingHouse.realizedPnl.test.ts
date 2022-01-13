@@ -19,6 +19,8 @@ import {
     Vault,
 } from "../../typechain"
 import { q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -70,12 +72,16 @@ describe("ClearingHouse realizedPnl", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("100", "1")) // tick = 46000 (1.0001^46000 = 99.4614384055)
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"), // tick = 46000 (1.0001^46000 = 99.4614384055)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
         await marketRegistry.setFeeRatio(baseToken.address, 10000)
 
         // prepare collateral for maker

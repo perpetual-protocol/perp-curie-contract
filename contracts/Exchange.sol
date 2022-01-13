@@ -82,6 +82,7 @@ contract Exchange is
     //
 
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
+    uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
 
     //
     // EXTERNAL NON-VIEW
@@ -120,7 +121,7 @@ contract Exchange is
 
         // tick range is [MIN_TICK, MAX_TICK], maxTickCrossedWithinBlock should be in [0, MAX_TICK - MIN_TICK]
         // EX_MTCLOOR: max tick crossed limit out of range
-        require(maxTickCrossedWithinBlock <= (TickMath.MAX_TICK.sub(TickMath.MIN_TICK)).toUint24(), "EX_MTCLOOR");
+        require(maxTickCrossedWithinBlock <= _getMaxTickCrossedWithinBlockCap(), "EX_MTCLOOR");
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
@@ -137,6 +138,10 @@ contract Exchange is
 
     function swap(SwapParams memory params) external override returns (SwapResponse memory) {
         _requireOnlyClearingHouse();
+
+        // EX_MIP: market is paused
+        require(_maxTickCrossedWithinBlockMap[params.baseToken] > 0, "EX_MIP");
+
         int256 takerPositionSize =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
@@ -180,6 +185,7 @@ contract Exchange is
         InternalSwapResponse memory response = _swap(params);
 
         if (!params.isClose) {
+            // over price limit after swap
             require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
         }
 
@@ -522,9 +528,6 @@ contract Exchange is
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
-        if (maxDeltaTick == 0) {
-            return false;
-        }
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         // no overflow/underflow issue because there are range limits for tick and maxDeltaTick
         int24 upperTickBound = lastUpdatedTick.add(maxDeltaTick).toInt24();
@@ -594,9 +597,15 @@ contract Exchange is
     function _getSqrtPriceLimitForReplaySwap(address baseToken, bool isLong) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
+
         // price limit = max tick + 1 or min tick - 1, depending on which direction
         int24 tickBoundary =
             isLong ? lastUpdatedTick + int24(maxDeltaTick) + 1 : lastUpdatedTick - int24(maxDeltaTick) - 1;
+
+        // tickBoundary should be in [MIN_TICK, MAX_TICK]
+        tickBoundary = tickBoundary > TickMath.MAX_TICK ? TickMath.MAX_TICK : tickBoundary;
+        tickBoundary = tickBoundary < TickMath.MIN_TICK ? TickMath.MIN_TICK : tickBoundary;
+
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
@@ -663,5 +672,10 @@ contract Exchange is
         }
 
         return pnlToBeRealized;
+    }
+
+    // @dev use virtual for testing
+    function _getMaxTickCrossedWithinBlockCap() internal pure virtual returns (uint24) {
+        return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
     }
 }

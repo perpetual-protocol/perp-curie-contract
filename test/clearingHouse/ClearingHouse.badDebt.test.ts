@@ -15,12 +15,14 @@ import {
     Vault,
 } from "../../typechain"
 import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeOrder } from "../helper/clearingHouseHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
+import { forwardTimestamp } from "../shared/time"
 
-describe("ClearingHouse closePosition", () => {
+describe("ClearingHouse badDebt", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -41,7 +43,7 @@ describe("ClearingHouse closePosition", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        fixture = await loadFixture(createClearingHouseFixture(false, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         insuranceFund = fixture.insuranceFund
@@ -58,11 +60,17 @@ describe("ClearingHouse closePosition", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("100", "1"))
-        await pool.increaseObservationCardinalityNext(500)
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            uniFeeRatio,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
         // update config
-        await marketRegistry.addPool(baseToken.address, uniFeeRatio)
         await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
 
@@ -98,7 +106,11 @@ describe("ClearingHouse closePosition", () => {
 
                 // bob's account value is greater than 0 bc it's calculated by index price
                 // bob's account value: 100 + 7.866 * 103.222 - 800 = 111.944
-                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414171892600616")
+
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414171876722414")
+
+                // to avoid over maxTickCrossedPerBlock
+                await forwardTimestamp(clearingHouse)
             })
 
             it("cannot close position when user has bad debt", async () => {

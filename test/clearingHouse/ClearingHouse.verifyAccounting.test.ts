@@ -14,6 +14,7 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -47,7 +48,7 @@ describe("ClearingHouse verify accounting", () => {
         balanceBefore = parseUnits("1000", decimals).mul(wallets.length)
 
         // prepare market
-        const { minTick, maxTick } = await initMarket(fixture, 10, exFeeRatio, ifFeeRatio)
+        const { minTick, maxTick } = await initMarket(fixture, 10, exFeeRatio, ifFeeRatio, getMaxTickRange())
         lowerTick = minTick
         upperTick = maxTick
         await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick)
@@ -118,6 +119,7 @@ describe("ClearingHouse verify accounting", () => {
                 10,
                 exFeeRatio,
                 ifFeeRatio,
+                getMaxTickRange(),
                 fixture.baseToken2.address,
                 fixture.mockedBaseAggregator2,
             )
