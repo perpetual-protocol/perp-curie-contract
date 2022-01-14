@@ -7,6 +7,7 @@ import { it } from "mocha"
 import {
     AccountBalance,
     BaseToken,
+    ClearingHouseConfig,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
@@ -43,6 +44,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
+    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: QuoteToken
@@ -71,6 +73,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         insuranceFund = fixture.insuranceFund
+        clearingHouseConfig = fixture.clearingHouseConfig
         mockedBaseAggregator = fixture.mockedBaseAggregator
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
@@ -611,6 +614,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("4", 6), 0, 0, 0]
             })
+
+            await clearingHouseConfig.setBackstopLiquidityProvider(taker2.address, true)
             await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
 
             // taker has bad debt

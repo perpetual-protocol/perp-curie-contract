@@ -7,6 +7,7 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     ClearingHouse,
+    ClearingHouseConfig,
     Exchange,
     MarketRegistry,
     OrderBook,
@@ -30,6 +31,7 @@ describe("ClearingHouse liquidate maker", () => {
     let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
+    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let quoteToken: QuoteToken
     let baseToken: BaseToken
@@ -55,6 +57,7 @@ describe("ClearingHouse liquidate maker", () => {
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         vault = fixture.vault
+        clearingHouseConfig = fixture.clearingHouseConfig
         collateral = fixture.USDC
         quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
@@ -242,7 +245,8 @@ describe("ClearingHouse liquidate maker", () => {
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
-            // liquidate maker's position on pool2
+            // liquidate maker's position on pool2 (with bad debt)
+            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).to.emit(
                 clearingHouse,
                 "PositionLiquidated",
@@ -334,6 +338,7 @@ describe("ClearingHouse liquidate maker", () => {
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
             // liquidate maker's position on pool2, but the margin ratio is still too low, maker will be liquidated on pool1
+            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address)).to.emit(
                 clearingHouse,
                 "PositionLiquidated",
