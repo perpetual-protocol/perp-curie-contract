@@ -291,6 +291,9 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
+            // set davis as backstop liquidity provider
+            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
+
             // first liquidation should be partial because price movement exceeds the limit
             await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
 

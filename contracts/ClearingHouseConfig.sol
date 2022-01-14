@@ -16,7 +16,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
     event SettlementTokenBalanceCapChanged(uint256 cap);
     event MaxFundingRateChanged(uint24 rate);
-    event BackstopLiquidityProviderChanged(address account, bool isProvider);
+    event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
 
     //
     // MODIFIER

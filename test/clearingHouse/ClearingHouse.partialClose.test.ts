@@ -259,6 +259,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // liquidation can't happen in the same block because it's based on the index price
             await forwardTimestamp(clearingHouse)
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+            // set liquidator as backstop liquidity provider
+            await clearingHouseConfig.setBackstopLiquidityProvider(liquidator.address, true)
         })
 
         it("taker's position is partially liquidated", async () => {
