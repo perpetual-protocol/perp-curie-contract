@@ -18,8 +18,8 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     // CONSTANT
     //
 
-    uint256 constant TWAP_INTERVAL_FOR_PAUSE = 8 * 60 * 60; // 8 hours
-    uint256 constant MAX_WAITING_PERIOD = 7 days;
+    uint256 constant TWAP_INTERVAL_FOR_PAUSE = 15 * 60; // 15 minutes
+    uint256 constant MAX_WAITING_PERIOD = 5 days;
 
     //
     // EXTERNAL NON-VIEW
