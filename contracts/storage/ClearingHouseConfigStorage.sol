@@ -14,3 +14,7 @@ abstract contract ClearingHouseConfigStorageV1 {
     uint32 internal _twapInterval;
     uint256 internal _settlementTokenBalanceCap;
 }
+
+abstract contract ClearingHouseConfigStorageV2 is ClearingHouseConfigStorageV1 {
+    mapping(address => bool) internal _backstopLiquidityProviderMap;
+}

@@ -4,6 +4,7 @@ import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouseConfig,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
@@ -18,9 +19,9 @@ import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeOrder } fr
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
+import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
-import { forwardTimestamp } from "../shared/time"
 
 describe("ClearingHouse badDebt", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -32,6 +33,7 @@ describe("ClearingHouse badDebt", () => {
     let accountBalance: TestAccountBalance
     let exchange: TestExchange
     let insuranceFund: InsuranceFund
+    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
@@ -47,6 +49,7 @@ describe("ClearingHouse badDebt", () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         insuranceFund = fixture.insuranceFund
+        clearingHouseConfig = fixture.clearingHouseConfig
         orderBook = fixture.orderBook
         accountBalance = fixture.accountBalance as TestAccountBalance
         marketRegistry = fixture.marketRegistry
@@ -150,7 +153,26 @@ describe("ClearingHouse badDebt", () => {
                 )
             })
 
-            it("can close position by liquidation", async () => {
+            it("cannot liquidate bad debt position by non backstop liquidity provider", async () => {
+                // sync index price to market price so that bob can be liquidated
+                // current index price: 0.829
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
+
+                // close bob's position by liquidation
+                // exchanged notional: 6.510
+                // realized PnL: 6.510 - 800 = -793.490
+                // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
+                await expect(clearingHouse.connect(alice).liquidate(bob.address, baseToken.address)).to.be.revertedWith(
+                    "CH_BD",
+                )
+            })
+
+            it("can liquidate bad debt position by backstop liquidity provider", async () => {
+                // add alice to backstop liquidity provider
+                await clearingHouseConfig.setBackstopLiquidityProvider(alice.address, true)
+
                 // sync index price to market price so that bob can be liquidated
                 // current index price: 0.829
                 await syncIndexToMarketPrice(mockedBaseAggregator, pool)
