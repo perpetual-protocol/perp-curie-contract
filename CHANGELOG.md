@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.9] - 2022-01-14
+
+### Changed
+- Revert swap if _maxTickCrossedWithinBlockMap[baseToken] is 0
+
+### Deploy
+- Upgrade Exchange on **Optimism**
+
 ## [1.0.9-staging] - 2022-01-13
 
 - Upgrade Exchange for zero tick crossing
