@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.11-staging] - 2022-01-17
+### Deploy
+- Deploy `AVAX` market to optimismKovan
+
 ## [1.0.10] - 2022-01-17
 ### Changed
 - Add _backstopLiquidityProviderMap in ClearingHouseConfigStorageV2. It's for only configured backstopLiquidityProvider can liquidate the trader's position who has bad debt.
