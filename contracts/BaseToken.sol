@@ -10,7 +10,7 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseTokenStorageV2 {
+contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseTokenStorageV2 {
     using SafeMathUpgradeable for uint256;
     using SafeMathUpgradeable for uint8;
 
@@ -18,7 +18,8 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     // CONSTANT
     //
 
-    uint256 constant MAX_WAITING_PERIOD = 7 days;
+    uint256 constant TWAP_INTERVAL_FOR_PAUSE = 15 * 60; // 15 minutes
+    uint256 constant MAX_WAITING_PERIOD = 5 days;
 
     //
     // EXTERNAL NON-VIEW
@@ -39,31 +40,27 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         _priceFeedDecimals = __priceFeedDecimals;
     }
 
-    function pause(uint256 twInterval) external onlyOwner {
+    function pause() external onlyOwner {
         // BT_NO: Not open
         require(_status == IBaseToken.Status.Open, "BT_NO");
-        _endingIndexPrice = getIndexPrice(twInterval);
+        _pausedIndexPrice = getIndexPrice(TWAP_INTERVAL_FOR_PAUSE);
         _status = IBaseToken.Status.Paused;
-        _endingTimestamp = _blockTimestamp();
-        emit StatusUpdated(IBaseToken.Status.Paused);
+        _pausedTimestamp = _blockTimestamp();
+        emit StatusUpdated(_status);
     }
 
     function close(uint256 closedPrice) external onlyOwner {
         // BT_NP: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = closedPrice;
-        emit StatusUpdated(IBaseToken.Status.Closed);
+        _close(closedPrice);
     }
 
     function close() external override {
         // BT_NP: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
         // BT_WPNE: Waiting period not expired
-        require(_blockTimestamp() > _endingTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = _endingIndexPrice;
-        emit StatusUpdated(IBaseToken.Status.Closed);
+        require(_blockTimestamp() > _pausedTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
+        _close(_pausedIndexPrice);
     }
 
     function setPriceFeed(address priceFeedArg) external onlyOwner {
@@ -80,16 +77,22 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     }
 
     //
+    // INTERNAL NON-VIEW
+    //
+
+    function _close(uint256 closedPrice) internal {
+        _status = IBaseToken.Status.Closed;
+        _closedPrice = closedPrice;
+        emit StatusUpdated(_status);
+    }
+
+    //
     // EXTERNAL VIEW
     //
 
     /// @inheritdoc IBaseToken
     function getPriceFeed() external view override returns (address) {
         return _priceFeed;
-    }
-
-    function getStatus() external view override returns (IBaseToken.Status) {
-        return _status;
     }
 
     function isOpen() external view override returns (bool) {
@@ -104,12 +107,12 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
         return _status == IBaseToken.Status.Closed;
     }
 
-    function getEndingTimestamp() external view override returns (uint256) {
-        return _endingTimestamp;
+    function getPausedTimestamp() external view override returns (uint256) {
+        return _pausedTimestamp;
     }
 
-    function getEndingIndexPrice() external view override returns (uint256) {
-        return _endingIndexPrice;
+    function getPausedIndexPrice() external view override returns (uint256) {
+        return _pausedIndexPrice;
     }
 
     //
@@ -117,11 +120,15 @@ contract BaseToken is IBaseToken, IIndexPrice, BlockContext, VirtualToken, BaseT
     //
 
     /// @inheritdoc IIndexPrice
+    /// @dev we overwrite the index price in BaseToken depending on the status
+    ///      1. Open: the price is from the price feed
+    ///      2. Paused: the price is twap when the token was paused
+    ///      3. Closed: the price is set by the owner when the market was closed
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
         if (_status == IBaseToken.Status.Closed) {
             return _closedPrice;
         } else if (_status == IBaseToken.Status.Paused) {
-            return _endingIndexPrice;
+            return _pausedIndexPrice;
         } else {
             return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
         }

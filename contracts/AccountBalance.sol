@@ -148,6 +148,33 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
+    /// @inheritdoc IAccountBalance
+    /// @dev we don't do swap to get position notional here.
+    ///      we define the position notional in a closed market is `closed price * position size`
+    function settlePositionInClosedMarket(address trader, address baseToken)
+        external
+        override
+        returns (
+            int256 positionNotional,
+            int256 openNotional,
+            int256 realizedPnl,
+            uint256 indexPrice
+        )
+    {
+        _requireOnlyClearingHouse();
+
+        int256 positionSize = getTakerPositionSize(trader, baseToken);
+        indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
+        positionNotional = positionSize.mulDiv(indexPrice.toInt256(), 1e18);
+        openNotional = _accountMarketMap[trader][baseToken].takerOpenNotional;
+        realizedPnl = positionNotional.add(openNotional);
+
+        _deleteBaseToken(trader, baseToken);
+        _modifyOwedRealizedPnl(trader, realizedPnl);
+
+        return (positionNotional, openNotional, realizedPnl, indexPrice);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -258,14 +285,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     /// @inheritdoc IAccountBalance
-    function hasOrderInOpenOrClosedMarket(address trader) external view override returns (bool) {
+    function hasOrderInOpenMarket(address trader) external view override returns (bool) {
         uint256 tokenLen = _baseTokensMap[trader].length;
         address[] memory tokens = new address[](tokenLen);
 
         uint256 skipped = 0;
         for (uint256 i = 0; i < tokenLen; i++) {
             address baseToken = _baseTokensMap[trader][i];
-            if (IBaseToken(baseToken).isPaused()) {
+            if (!IBaseToken(baseToken).isOpen()) {
                 skipped++;
                 continue;
             }
@@ -340,35 +367,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             totalPositionValue = totalPositionValue.add(positionValue);
         }
         return totalPositionValue;
-    }
-
-    /// @inheritdoc IAccountBalance
-    function settlePnlInClosedMarket(address trader, address baseToken)
-        external
-        override
-        returns (
-            int256 takerPositionSize,
-            int256 takerOpenNotional,
-            int256 realizedPnl,
-            uint256 indexPrice
-        )
-    {
-        _requireOnlyClearingHouse();
-
-        int256 totalPositionValue = getTotalPositionValue(trader, baseToken);
-        int256 totalOpenNotional = getTotalOpenNotional(trader, baseToken);
-        takerPositionSize = getTakerPositionSize(trader, baseToken);
-        indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
-        realizedPnl = totalPositionValue.add(totalOpenNotional);
-
-        if (takerPositionSize > 0) {
-            takerOpenNotional = realizedPnl.sub(totalOpenNotional);
-        }
-
-        _deleteBaseToken(trader, baseToken);
-        _modifyOwedRealizedPnl(trader, realizedPnl);
-
-        return (takerPositionSize, takerOpenNotional, realizedPnl, indexPrice);
     }
 
     //

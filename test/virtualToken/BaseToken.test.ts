@@ -20,7 +20,7 @@ describe("BaseToken", async () => {
     let chainlinkRoundData: any[]
     let bandReferenceData: any[]
     const twapInterval = 30
-    const endingPrice = parseEther("200")
+    const closedPrice = parseEther("200")
 
     async function updateBandPrice(): Promise<void> {
         mockedStdReference.smocked.getReferenceData.will.return.with(async () => {
@@ -194,55 +194,52 @@ describe("BaseToken", async () => {
 
     describe("BaseToken status", async () => {
         it("forced error when close by owner without paused", async () => {
-            await expect(baseToken["close(uint256)"](endingPrice)).to.be.revertedWith("BT_NP")
+            await expect(baseToken["close(uint256)"](closedPrice)).to.be.revertedWith("BT_NP")
             await expect(baseToken.connect(user)["close()"]()).to.be.revertedWith("BT_NP")
         })
 
         it("forced error when close by user before waiting period expired", async () => {
-            await baseToken.pause(twapInterval)
+            await baseToken.pause()
             await expect(baseToken.connect(user)["close()"]()).to.be.revertedWith("BT_WPNE")
         })
 
         it("forced error when pause without opened", async () => {
-            await baseToken.pause(twapInterval)
-            await expect(baseToken.pause(twapInterval)).to.be.revertedWith("BT_NO")
-            await baseToken["close(uint256)"](endingPrice)
-            await expect(baseToken.pause(twapInterval)).to.be.revertedWith("BT_NO")
+            await baseToken.pause()
+            await expect(baseToken.pause()).to.be.revertedWith("BT_NO")
+            await baseToken["close(uint256)"](closedPrice)
+            await expect(baseToken.pause()).to.be.revertedWith("BT_NO")
         })
 
         describe("opened status", async () => {
             it("initial status should be opened", async () => {
-                const status = await baseToken.getStatus()
-                expect(status).to.be.eq(0)
                 expect(await baseToken.isOpen()).to.be.eq(true)
             })
         })
 
         describe("paused status", async () => {
-            it("should return endingIndexPrice as index price in paused status", async () => {
+            it("should return pausedIndexPrice as index price in paused status", async () => {
                 await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
 
-                // ending index price(twInterval=31): (410*16+405*15)/31 = 407.58064516
-                await baseToken.pause(twapInterval + 1)
+                // paused index price (410*16+405*15+400*15)/46 = 405.108695
+                await baseToken.pause()
 
-                expect(await baseToken.getStatus()).to.be.eq(1)
                 expect(await baseToken.isPaused()).to.be.eq(true)
 
                 let indexPrice = await baseToken.getIndexPrice(0)
-                expect(indexPrice).to.be.eq(parseEther("407.580645"))
+                expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
                 indexPrice = await baseToken.getIndexPrice(100)
-                expect(indexPrice).to.be.eq(parseEther("407.580645"))
+                expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
-                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
+                expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
             })
 
-            it("should return the ending timestamp", async () => {
+            it("should return the paused timestamp", async () => {
                 await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
-                await baseToken.pause(twapInterval)
-                expect(await baseToken.getStatus()).to.be.eq(1)
+                await baseToken.pause()
+
                 expect(await baseToken.isPaused()).to.be.eq(true)
-                expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
+                expect(await baseToken.getPausedTimestamp()).to.eq(currentTime + 1)
             })
         })
 
@@ -250,34 +247,34 @@ describe("BaseToken", async () => {
             beforeEach(async () => {
                 await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
 
-                // index price(31) at pause: (410*16+405*15)/31 = 407.58064516
-                await baseToken.pause(twapInterval + 1)
+                // paused index price (410*16+405*15+400*15)/46 = 405.108695
+                await baseToken.pause()
+            })
 
-                const indexPrice = await baseToken.getIndexPrice(0)
-                expect(indexPrice).to.be.eq(parseEther("407.580645"))
+            it("verify status after market paused", async () => {
+                const indexPrice = await baseToken.getIndexPrice(15 * 60)
+                expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
-                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
-                expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
+                expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
+                expect(await baseToken.getPausedTimestamp()).to.eq(currentTime + 1)
 
-                expect(await baseToken.getStatus()).to.be.eq(1)
                 expect(await baseToken.isPaused()).to.be.eq(true)
             })
 
-            it("close by owner, should return endPrice as index price", async () => {
-                await baseToken["close(uint256)"](endingPrice)
+            it("close by owner, should return closedPrice as index price", async () => {
+                await baseToken["close(uint256)"](closedPrice)
 
-                expect(await baseToken.getStatus()).to.be.eq(2)
                 expect(await baseToken.isClosed()).to.be.eq(true)
 
-                let indexPrice = await baseToken.getIndexPrice(0)
-                expect(indexPrice).to.be.eq(endingPrice)
+                let indexPrice = await baseToken.getIndexPrice(15 * 60)
+                expect(indexPrice).to.be.eq(closedPrice)
 
                 indexPrice = await baseToken.getIndexPrice(100)
-                expect(indexPrice).to.be.eq(endingPrice)
+                expect(indexPrice).to.be.eq(closedPrice)
 
-                expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
-
-                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
+                // need to check paused status because we will calculate funding form paused time
+                expect(await baseToken.getPausedTimestamp()).to.eq(currentTime + 1)
+                expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
             })
 
             it("close by user", async () => {
@@ -286,18 +283,17 @@ describe("BaseToken", async () => {
 
                 await baseToken.connect(user)["close()"]()
 
-                expect(await baseToken.getStatus()).to.be.eq(2)
                 expect(await baseToken.isClosed()).to.be.eq(true)
 
                 let indexPrice = await baseToken.getIndexPrice(0)
-                expect(indexPrice).to.be.eq(parseEther("407.580645"))
+                expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
                 indexPrice = await baseToken.getIndexPrice(100)
-                expect(indexPrice).to.be.eq(parseEther("407.580645"))
+                expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
-                expect(await baseToken.getEndingTimestamp()).to.eq(currentTime + 1)
-
-                expect(await baseToken.getEndingIndexPrice()).to.be.eq(parseEther("407.580645"))
+                // need to check paused status because we will calculate funding form paused time
+                expect(await baseToken.getPausedTimestamp()).to.eq(currentTime + 1)
+                expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
             })
         })
     })

@@ -320,7 +320,7 @@ contract ClearingHouse is
         //   liquidity: in LiquidityMath.addDelta()
         //   minBase, minQuote & deadline: here
 
-        // CH_NONC: Market paused
+        // CH_MP: Market paused
         require(!IBaseToken(params.baseToken).isPaused(), "CH_MP");
 
         address trader = _msgSender();
@@ -508,8 +508,8 @@ contract ClearingHouse is
 
         _checkMarketOpen(baseToken);
 
-        // CH_CLWTISO: cannot liquidate when there is still order(except for paused markets)
-        require(!IAccountBalance(_accountBalance).hasOrderInOpenOrClosedMarket(trader), "CH_CLWTISO");
+        // CH_CLWTISO: cannot liquidate when there is still order(only in open market)
+        require(!IAccountBalance(_accountBalance).hasOrderInOpenMarket(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
         require(
@@ -555,8 +555,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        // CH_NONC: Market paused
-        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
+        _checkMarketOpen(baseToken);
         if (orderIds.length == 0) {
             return;
         }
@@ -570,8 +569,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
-        // CH_MP: Market paused
-        require(!IBaseToken(baseToken).isPaused(), "CH_MP");
+        _checkMarketOpen(baseToken);
         bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
         if (orderIds.length == 0) {
             return;
@@ -580,34 +578,23 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
-    function closePositionInClosedMarket(address trader, address baseToken)
-        external
-        override
-        returns (uint256 base, uint256 quote)
-    {
+    function quitMarket(address trader, address baseToken) external override returns (uint256 base, uint256 quote) {
         // CH_MNC: Market not closed
         require(IBaseToken(baseToken).isClosed(), "CH_MNC");
         // CH_HOICM: Has order in closed market
         require(IOrderBook(_orderBook).getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
+        // CH_NP : no position
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        require(positionSize != 0, "CH_NP");
+
         _settleFunding(trader, baseToken);
 
-        (int256 takerPositionSize, int256 takerOpenNotional, int256 realizedPnl, uint256 indexPrice) =
-            IAccountBalance(_accountBalance).settlePnlInClosedMarket(trader, baseToken);
+        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 indexPrice) =
+            IAccountBalance(_accountBalance).settlePositionInClosedMarket(trader, baseToken);
 
-        if (takerPositionSize != 0) {
-            emit PositionChanged(
-                trader,
-                baseToken,
-                takerPositionSize,
-                takerOpenNotional,
-                0,
-                takerOpenNotional,
-                realizedPnl,
-                indexPrice
-            );
-        }
+        emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, indexPrice);
 
-        return (takerPositionSize.abs(), takerOpenNotional.abs());
+        return (positionSize.abs(), positionNotional.abs());
     }
 
     /// @inheritdoc IUniswapV3MintCallback

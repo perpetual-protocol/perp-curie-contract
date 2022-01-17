@@ -141,6 +141,24 @@ interface IClearingHouse {
         uint256 sqrtPriceAfterX96
     );
 
+    /// @notice Emitted when taker close her position in closed market
+    /// @param trader Trader address
+    /// @param baseToken The address of virtual base token(ETH, BTC, etc...)
+    /// @param closedPositionSize Trader's position size in closed market
+    /// @param closedPositionNotional Trader's position notional in closed market, based on closed price
+    /// @param openNotional The cost of open/close position, < 0: long, > 0: short
+    /// @param realizedPnl The realized Pnl after close position
+    /// @param closePrice The close price of position
+    event PositionClosed(
+        address indexed trader,
+        address indexed baseToken,
+        int256 closedPositionSize,
+        int256 closedPositionNotional,
+        int256 openNotional,
+        int256 realizedPnl,
+        uint256 closePrice
+    );
+
     /// @notice Emitted when settling a trader's funding payment
     /// @param trader The address of trader
     /// @param baseToken The address of virtual base token(ETH, BTC, etc...)
@@ -226,9 +244,7 @@ interface IClearingHouse {
     /// @param baseToken The address of baseToken
     /// @return base The amount of base token that is closed
     /// @return quote The amount of quote token that is closed
-    function closePositionInClosedMarket(address trader, address baseToken)
-        external
-        returns (uint256 base, uint256 quote);
+    function quitMarket(address trader, address baseToken) external returns (uint256 base, uint256 quote);
 
     /// @notice Get account value of trader
     /// @dev accountValue = totalCollateralValue + totalUnrealizedPnl, in 18 decimals
