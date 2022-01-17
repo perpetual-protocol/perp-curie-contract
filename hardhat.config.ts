@@ -114,6 +114,10 @@ const config: HardhatUserConfig = {
             [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x2a8725c1a9a397e2d1bA26634c8f8d62b403d968",
             [ChainId.OPTIMISM_CHAIN_ID]: "0x76Ff908b6d43C182DAEC59b35CebC1d7A17D8086",
         },
+        backstopLiquidityProvider: {
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x93fA06E81C25D7168A0D0Ce89b1A6A77E0722650",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x5B3b3Ed2BC7E643f6b558237e7c488e6B32EeD80",
+        },
         // Chainlink addresses
         // Rinkeby: https://docs.chain.link/docs/ethereum-addresses/#Rinkeby%20Testnet
         // Arbitrum: https://docs.chain.link/docs/arbitrum-price-feeds/
