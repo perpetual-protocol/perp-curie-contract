@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [1.0.10-staging] - 2022-01-14
+## [1.0.10] - 2022-01-17
 ### Changed
 - Add _backstopLiquidityProviderMap in ClearingHouseConfigStorageV2. It's for only configured backstopLiquidityProvider can liquidate the trader's position who has bad debt.
 
 ### Deploy
-- Upgrade AccountBalance, ClearingHouse, ClearingHouseConfig, Exchange, Vault on **Optimism Kovan**
+- Upgrade AccountBalance, ClearingHouse, ClearingHouseConfig, Exchange, Vault
 
 ## [1.0.9] - 2022-01-14
 
