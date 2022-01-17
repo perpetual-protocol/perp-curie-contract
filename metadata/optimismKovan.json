@@ -71,6 +71,11 @@
       "createdBlockNumber": 748061,
       "name": "contracts/Vault.sol:Vault"
     },
+    "vAVAX": {
+      "address": "0x1dbC57cF0e38f3aB2e31DAe6c32829eACDe6Fd3A",
+      "createdBlockNumber": 954471,
+      "name": "contracts/BaseToken.sol:BaseToken"
+    },
     "vBTC": {
       "address": "0x1f91666a0706EF6e8E1506E3889171940c94B51A",
       "createdBlockNumber": 748098,
@@ -100,6 +105,13 @@
       "address": "0xe12359A761054dACCA3e96b6D4FF727d98F62950",
       "baseAddress": "0x1f91666a0706EF6e8E1506E3889171940c94B51A",
       "baseSymbol": "vBTC",
+      "quoteAddress": "0xbD21D227d989A1Ee1BC717F1658474c487A06993",
+      "quoteSymbol": "vUSD"
+    },
+    {
+      "address": "0x0bbC282CdB5d8300F151ED1ddC9e8c96f515d5e6",
+      "baseAddress": "0x1dbC57cF0e38f3aB2e31DAe6c32829eACDe6Fd3A",
+      "baseSymbol": "vAVAX",
       "quoteAddress": "0xbD21D227d989A1Ee1BC717F1658474c487A06993",
       "quoteSymbol": "vUSD"
     }
