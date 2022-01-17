@@ -15,7 +15,14 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import {
+    addOrder,
+    cancelAllOrders,
+    closePosition,
+    q2bExactInput,
+    q2bExactOutput,
+    removeOrder,
+} from "../helper/clearingHouseHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -126,10 +133,13 @@ describe("Clearinghouse StopMarket", async () => {
                 addOrder(fixture, bob, 1, 10, lowerTick, upperTick, false, baseToken.address),
             ).to.be.revertedWith("CH_MNO")
 
-            // can't remove liquidity when market is paused
+            // can't remove liquidity
             await expect(removeOrder(fixture, alice, 0, lowerTick, upperTick, baseToken.address)).to.be.revertedWith(
                 "CH_MP",
             )
+
+            // can't cancel orders
+            await expect(cancelAllOrders(fixture, alice, baseToken.address)).to.be.revertedWith("CH_MNO")
         })
 
         it("it can query unrealized pnl in paused market", async () => {

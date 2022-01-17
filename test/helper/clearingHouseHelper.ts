@@ -144,6 +144,14 @@ export async function removeOrder(
     })
 }
 
+export async function cancelAllOrders(
+    fixture: ClearingHouseFixture,
+    wallet: Wallet,
+    baseToken: string = fixture.baseToken.address,
+): Promise<ContractTransaction | undefined> {
+    return fixture.clearingHouse.connect(wallet).cancelAllExcessOrders(wallet.address, baseToken)
+}
+
 export async function getOrderIds(
     fixture: ClearingHouseFixture,
     wallet: Wallet,
