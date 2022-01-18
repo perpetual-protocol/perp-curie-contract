@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [1.0.11-staging] - 2022-01-17
+## [1.0.11] - 2022-01-18
 ### Deploy
-- Deploy `AVAX` market to optimismKovan
+- Deploy `AVAX` market to optimism
 
 ## [1.0.10] - 2022-01-17
 ### Changed
