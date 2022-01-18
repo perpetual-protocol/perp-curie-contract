@@ -133,12 +133,16 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         it("it can query unrealized pnl in paused market", async () => {
+            // stop market for baseToken
+            await baseToken.pause()
+
             const [, unrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
             expect(unrealizedPnl).not.eq("0")
         })
 
         describe("funding payment", async () => {
             beforeEach(async () => {
+                // bob open long position
                 for (let i = 0; i < 15; i++) {
                     await q2bExactInput(fixture, bob, 10 + i * 5, baseToken.address)
                     await forward(1 * 60)
