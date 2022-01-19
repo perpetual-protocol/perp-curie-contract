@@ -463,10 +463,7 @@ contract ClearingHouse is
 
         // if exchangedPositionSize < 0, closing it is short, B2Q; else, closing it is long, Q2B
         bool isBaseToQuote = response.exchangedPositionSize < 0 ? true : false;
-        uint256 oppositeAmountBound =
-            response.isPartialClose
-                ? params.oppositeAmountBound.mulRatio(IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio())
-                : params.oppositeAmountBound;
+        uint256 oppositeAmountBound = _getPartialOppositeAmount(params.oppositeAmountBound, response.isPartialClose);
 
         _checkSlippage(
             InternalCheckSlippageParams({
@@ -485,7 +482,52 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
-    function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
+    function liquidate(
+        address trader,
+        address baseToken,
+        uint256 oppositeAmountBound
+    )
+        external
+        override
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        )
+    {
+        // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
+        // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
+        int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        bool isLong = positionSize > 0;
+
+        (base, quote, isPartialClose) = liquidate(trader, baseToken);
+
+        oppositeAmountBound = _getPartialOppositeAmount(oppositeAmountBound, isPartialClose);
+        _checkSlippage(
+            InternalCheckSlippageParams({
+                isBaseToQuote: isLong,
+                isExactInput: isLong,
+                base: base,
+                quote: quote,
+                oppositeAmountBound: oppositeAmountBound
+            })
+        );
+
+        return (base, quote, isPartialClose);
+    }
+
+    /// @inheritdoc IClearingHouse
+    function liquidate(address trader, address baseToken)
+        public
+        override
+        whenNotPaused
+        nonReentrant
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        )
+    {
         // liquidation trigger:
         //   accountMarginRatio < accountMaintenanceMarginRatio
         //   => accountValue / sum(abs(positionValue_market)) <
@@ -539,6 +581,8 @@ contract ClearingHouse is
             liquidationFee,
             liquidator
         );
+
+        return (response.base, response.quote, response.isPartialClose);
     }
 
     /// @inheritdoc IClearingHouse
@@ -916,7 +960,18 @@ contract ClearingHouse is
         );
     }
 
-    function _checkSlippage(InternalCheckSlippageParams memory params) internal pure {
+    function _getPartialOppositeAmount(uint256 oppositeAmountBound, bool isPartialClose)
+        internal
+        view
+        returns (uint256)
+    {
+        return
+            isPartialClose
+                ? oppositeAmountBound.mulRatio(IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio())
+                : oppositeAmountBound;
+    }
+
+    function _checkSlippage(InternalCheckSlippageParams memory params) internal view {
         // skip when params.oppositeAmountBound is zero
         if (params.oppositeAmountBound == 0) {
             return;

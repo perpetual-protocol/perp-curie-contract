@@ -207,10 +207,12 @@ describe("ClearingHouse new market listing", () => {
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken3.address)
 
             // can't liquidate position in baseToken3(paused market)
-            await expect(clearingHouse.liquidate(bob.address, baseToken3.address)).to.be.revertedWith("EX_MIP")
+            await expect(
+                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken3.address, 0),
+            ).to.be.revertedWith("EX_MIP")
 
             // can liquidate position in baseToken market
-            await clearingHouse.liquidate(bob.address, baseToken.address)
+            await clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0)
         })
     })
 })

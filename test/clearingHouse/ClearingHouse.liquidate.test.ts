@@ -143,9 +143,9 @@ describe("ClearingHouse liquidate", () => {
     })
 
     it("force error, zero address should fail", async () => {
-        await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
-            "CH_EAV",
-        )
+        await expect(
+            clearingHouse.connect(bob)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+        ).to.be.revertedWith("CH_EAV")
     })
 
     describe("alice long ETH; price doesn't change", () => {
@@ -161,9 +161,9 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            await expect(clearingHouse.connect(bob).liquidate(alice.address, baseToken.address)).to.be.revertedWith(
-                "CH_EAV",
-            )
+            await expect(
+                clearingHouse.connect(bob)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            ).to.be.revertedWith("CH_EAV")
         })
     })
 
@@ -212,7 +212,9 @@ describe("ClearingHouse liquidate", () => {
             // pnl = 84.085192745971593683 - 90 = -5.914807254
             // account value: 10 + (-5.914807254) = 4.085192746
             // fee = 84.085192745971593683 * 0.025 = 2.1021298186
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,
@@ -252,7 +254,9 @@ describe("ClearingHouse liquidate", () => {
             })
 
             // first liquidation
-            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+            await clearingHouse
+                .connect(davis)
+                ["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0)
 
             // current tick was pushed to MIN_TICK because all liquidity were depleted
             const afterLiquidateTick = (await pool.slot0()).tick
@@ -263,7 +267,9 @@ describe("ClearingHouse liquidate", () => {
 
             // second liquidation would fail because no liquidity left
             // revert 'SPL' from @uniswap/v3-core/contracts/UniswapV3Pool.sol#L612
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith("SPL")
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            ).revertedWith("SPL")
         })
 
         it("partial closes due to bad price", async () => {
@@ -295,7 +301,9 @@ describe("ClearingHouse liquidate", () => {
             await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
 
             // first liquidation should be partial because price movement exceeds the limit
-            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+            await clearingHouse
+                .connect(davis)
+                ["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0)
 
             // alice has partial close when first liquidity
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
@@ -308,7 +316,9 @@ describe("ClearingHouse liquidate", () => {
             await clearingHouse.setBlockTimestamp(blockTimeStamp + 2)
 
             // second liquidation should be liquidate all positionSize since the liquidity here is plenty
-            await clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)
+            await clearingHouse
+                .connect(davis)
+                ["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0)
             expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.deep.eq("0")
         })
 
@@ -324,9 +334,9 @@ describe("ClearingHouse liquidate", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address)).revertedWith(
-                "CH_F0S",
-            )
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            ).revertedWith("CH_F0S")
         })
     })
 
@@ -377,7 +387,9 @@ describe("ClearingHouse liquidate", () => {
             // pnl = -95.3377165103265 + 90 = -5.3032597722
             // account value: 10 + (-5.3032597722) = 4.6967402278
             // fee = 95.3377165103265 * 0.025 = 2.23834429128
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,
@@ -399,6 +411,45 @@ describe("ClearingHouse liquidate", () => {
             // liquidator gets liquidation reward
             const davidPnl = await accountBalance.getPnlAndPendingFee(davis.address)
             expect(davidPnl[0]).to.eq("2383442912758163616")
+        })
+
+        it("davis liquidate alice's short position with oppositeAmountBound", async () => {
+            // position size: -0.600774259337639952
+            // position value: -95.337716510326544666
+            // pnl = -95.3377165103265 + 90 = -5.3032597722
+            // account value: 10 + (-5.3032597722) = 4.6967402278
+            // fee = 95.3377165103265 * 0.025 = 2.23834429128
+
+            // quote 95.337716510326544666 / 0.99 = 96.300723747804590572
+            // if oppositeAmountBound == 96.3007237477, slippage check will fail as alice is not willing to pay more than 96.3007237477 to close her short position
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](
+                        alice.address,
+                        baseToken.address,
+                        parseEther("96.3007237477"),
+                    ),
+            ).to.be.revertedWith("CH_TMRL")
+
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](
+                        alice.address,
+                        baseToken.address,
+                        parseEther("96.30072374781"),
+                    ),
+            )
+                .to.emit(clearingHouse, "PositionLiquidated")
+                .withArgs(
+                    alice.address,
+                    baseToken.address,
+                    "95337716510326544666",
+                    parseEther("0.600774259337639952"),
+                    "2383442912758163616",
+                    davis.address,
+                )
         })
     })
 
@@ -479,7 +530,9 @@ describe("ClearingHouse liquidate", () => {
             // pnl =  40.63876(ETH) + 44.5919558312(BTC) - 90 = -4.7625741688
             // account value: 10 + (-4.7625741688) = 5.2374258312
             // fee =  40.63876 * 0.025 = 1.015969
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,
@@ -509,13 +562,55 @@ describe("ClearingHouse liquidate", () => {
             expect(davisPnl[0]).to.eq("1015969115608315255")
         })
 
+        it("davis liquidate alice's ETH with oppositeAmountBound", async () => {
+            // position size of ETH: 0.294254629696195230
+            // position value of ETH:  40.638764624332610211
+            // pnl =  40.63876(ETH) + 44.5919558312(BTC) - 90 = -4.7625741688
+            // account value: 10 + (-4.7625741688) = 5.2374258312
+
+            // quote 40.638764624332610211 * 0.99 = 40.232376978089284108
+            // if oppositeAmountBound == 40.2323769781, slippage check will fail as alice is not willing to accept less than 40.2323769781 to close her short position
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](
+                        alice.address,
+                        baseToken.address,
+                        parseEther("40.2323769781"),
+                    ),
+            ).to.be.revertedWith("CH_TLRS")
+
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](
+                        alice.address,
+                        baseToken.address,
+                        parseEther("40.232376978"),
+                    ),
+            )
+                .to.emit(clearingHouse, "PositionLiquidated")
+                .withArgs(
+                    alice.address,
+                    baseToken.address,
+                    "40638764624332610211", // 40.63876
+                    "294254629696195230", // 0.29
+                    "1015969115608315255", // 1.015969
+                    davis.address,
+                )
+        })
+
         it("davis liquidate alice's BTC position even her BTC position is safe", async () => {
             // position size of BTC: 0.294254629696195230
             // position value of BTC:  44.591955831233061486
             // pnl =  40.63876(ETH) + 44.591955831233(BTC) - 90 = -4.76256667585
             // account value: 10 + (-4.76256667585) = 5.2374258312
             // fee =  44.584241981393002740 * 0.025 = 1.1146060495
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address))
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](alice.address, baseToken2.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,
@@ -626,7 +721,9 @@ describe("ClearingHouse liquidate", () => {
             // pnl = -50.040175199 +(-45.41088242) + 90 = -5.459069
             // account value: 10 + (-5.459069) = 4.540931
             // fee = 50.040175199 * 0.025 = 1.25100438
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken.address))
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address,uint256)"](alice.address, baseToken.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,
@@ -701,7 +798,11 @@ describe("ClearingHouse liquidate", () => {
             // pnl = -50.040175199 +(-45.4188940109116) + 90 = -5.459069
             // account value: 10 + (-5.459069) = 4.540931
             // fee = 45.4188940 * 0.025 = 1.135472350272790574
-            await expect(clearingHouse.connect(davis).liquidate(alice.address, baseToken2.address))
+            await expect(
+                clearingHouse
+                    .connect(davis)
+                    ["liquidate(address,address,uint256)"](alice.address, baseToken2.address, 0),
+            )
                 .to.emit(clearingHouse, "PositionLiquidated")
                 .withArgs(
                     alice.address,

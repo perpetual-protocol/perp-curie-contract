@@ -563,7 +563,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // liquidate taker
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
-                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+                await clearingHouse
+                    .connect(taker2)
+                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
             }
 
             expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
@@ -592,7 +594,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // liquidate taker
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
-                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+                await clearingHouse
+                    .connect(taker2)
+                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
             }
         })
 
@@ -616,7 +620,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             })
 
             await clearingHouseConfig.setBackstopLiquidityProvider(taker2.address, true)
-            await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+            await clearingHouse
+                .connect(taker2)
+                ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
 
             // taker has bad debt
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.lt(0)
