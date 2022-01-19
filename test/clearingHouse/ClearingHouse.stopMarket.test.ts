@@ -265,22 +265,24 @@ describe("Clearinghouse StopMarket", async () => {
                 )
                 const [, bobUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
 
+                // TODO: why don't we use getTotalPositionValue here?
                 expect(bobUnrealizedPnl).to.be.eq(
                     bobStoppedMarketPositionSize.mul("50").add(bobStoppedMarketQuoteBalance),
                 )
 
                 const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
-                    bob.address,
+                    alice.address,
                     baseToken.address,
                 )
                 const aliceStoppedMarketQuoteBalance = await accountBalance.getTotalOpenNotional(
-                    bob.address,
+                    alice.address,
                     baseToken.address,
                 )
-                const [, aliceUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
+                const [, aliceUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
 
-                expect(aliceUnrealizedPnl).to.be.eq(
+                expect(aliceUnrealizedPnl).to.be.closeTo(
                     aliceStoppedMarketPositionSize.mul("50").add(aliceStoppedMarketQuoteBalance),
+                    1, // there is 1 wei error
                 )
             })
 
