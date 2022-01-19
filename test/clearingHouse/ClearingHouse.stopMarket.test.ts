@@ -15,14 +15,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import {
-    addOrder,
-    cancelAllOrders,
-    closePosition,
-    q2bExactInput,
-    q2bExactOutput,
-    removeOrder,
-} from "../helper/clearingHouseHelper"
+import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
@@ -137,9 +130,6 @@ describe("Clearinghouse StopMarket", async () => {
             await expect(removeOrder(fixture, alice, 0, lowerTick, upperTick, baseToken.address)).to.be.revertedWith(
                 "CH_MP",
             )
-
-            // can't cancel orders
-            await expect(cancelAllOrders(fixture, alice, baseToken.address)).to.be.revertedWith("CH_MNO")
         })
 
         it("it can query unrealized pnl in paused market", async () => {
@@ -362,6 +352,26 @@ describe("Clearinghouse StopMarket", async () => {
                 await expect(clearingHouse.quitMarket(alice.address, baseToken.address)).to.be.revertedWith("CH_HOICM")
             })
 
+            it("should be able to quitMarket after removeLiquidity in closed market", async () => {
+                const { liquidity } = await orderBook.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                expect(liquidity).to.be.gt("0")
+                await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
+                expect(await orderBook.hasOrder(alice.address, [baseToken.address])).to.be.eq(false)
+
+                await expect(clearingHouse.quitMarket(alice.address, baseToken.address)).to.be.emit(
+                    clearingHouse,
+                    "PositionClosed",
+                )
+
+                const positionSize = await accountBalance.getTotalPositionSize(alice.address, baseToken.address)
+                expect(positionSize).to.be.eq(0)
+            })
+
             it("should be able to quitMarket in closed market", async () => {
                 const positionSize = await accountBalance.getTakerPositionSize(bob.address, baseToken.address)
                 expect(positionSize).to.be.eq(parseEther("0.1"))
@@ -370,6 +380,9 @@ describe("Clearinghouse StopMarket", async () => {
                     clearingHouse,
                     "PositionClosed",
                 )
+
+                const positionSizeAfter = await accountBalance.getTotalPositionSize(bob.address, baseToken.address)
+                expect(positionSizeAfter).to.be.eq(0)
             })
 
             it("should deregister closed market baseToken", async () => {
