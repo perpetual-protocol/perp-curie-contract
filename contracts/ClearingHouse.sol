@@ -495,18 +495,17 @@ contract ClearingHouse is
             bool isPartialClose
         )
     {
-        // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
-        // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
         int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
-        bool isLong = positionSize > 0;
+        // if positionSize > 0, it's long, and closing it is thus short, B2Q; else, closing it is long, Q2B
+        bool isBaseToQuote = positionSize > 0;
 
         (base, quote, isPartialClose) = liquidate(trader, baseToken);
 
         oppositeAmountBound = _getPartialOppositeAmount(oppositeAmountBound, isPartialClose);
         _checkSlippage(
             InternalCheckSlippageParams({
-                isBaseToQuote: isLong,
-                isExactInput: isLong,
+                isBaseToQuote: isBaseToQuote,
+                isExactInput: isBaseToQuote,
                 base: base,
                 quote: quote,
                 oppositeAmountBound: oppositeAmountBound
@@ -896,16 +895,15 @@ contract ClearingHouse is
         // CH_PSZ: position size is zero
         require(positionSize != 0, "CH_PSZ");
 
-        // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
-        // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
-        bool isLong = positionSize > 0;
+        // if positionSize > 0, it's long, and closing it is thus short, B2Q; else, closing it is long, Q2B
+        bool isBaseToQuote = positionSize > 0;
         return
             _openPosition(
                 InternalOpenPositionParams({
                     trader: params.trader,
                     baseToken: params.baseToken,
-                    isBaseToQuote: isLong,
-                    isExactInput: isLong,
+                    isBaseToQuote: isBaseToQuote,
+                    isExactInput: isBaseToQuote,
                     isClose: true,
                     amount: positionSize.abs(),
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
@@ -971,7 +969,7 @@ contract ClearingHouse is
                 : oppositeAmountBound;
     }
 
-    function _checkSlippage(InternalCheckSlippageParams memory params) internal view {
+    function _checkSlippage(InternalCheckSlippageParams memory params) internal pure {
         // skip when params.oppositeAmountBound is zero
         if (params.oppositeAmountBound == 0) {
             return;
