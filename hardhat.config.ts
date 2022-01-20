@@ -104,8 +104,8 @@ const config: HardhatUserConfig = {
             default: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         },
         usdcRichManAddress: {
-            [ChainId.OPTIMISM_CHAIN_ID]: "0x4fef64cdb12f7df11edf18a3817690f7c9b8317e",
-            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x4fef64cdb12f7df11edf18a3817690f7c9b8317e",
+            [ChainId.OPTIMISM_CHAIN_ID]: "0x3cbc3bed185b837d79ba18d36a3859ecbcfc3dc8",
+            [ChainId.OPTIMISM_KOVAN_CHAIN_ID]: "0x3cbc3bed185b837d79ba18d36a3859ecbcfc3dc8",
         },
         gnosisSafeAddress: {
             // It's an EOA account created for v2 because Gnosis safe doesn't support ArbitrumRinkeby now
