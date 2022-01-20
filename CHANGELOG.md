@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.12-staging] - 2022-01-20
+### Deploy
+- Deploy `LUNA` market to optimismKovan
+
 ## [1.0.11] - 2022-01-18
 ### Deploy
 - Deploy `AVAX` market to optimism
