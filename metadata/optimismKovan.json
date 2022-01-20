@@ -85,6 +85,11 @@
       "address": "0x5802918dC503c465F969DA0847b71E3Fbe9B141c",
       "createdBlockNumber": 748138,
       "name": "contracts/BaseToken.sol:BaseToken"
+    },
+    "vLUNA": {
+      "address": "0x798310F8dD81E9f0117a66A8615ad769b3f801AE",
+      "createdBlockNumber": 968188,
+      "name": "contracts/BaseToken.sol:BaseToken"
     }
   },
   "externalContracts": {
@@ -112,6 +117,13 @@
       "address": "0x0bbC282CdB5d8300F151ED1ddC9e8c96f515d5e6",
       "baseAddress": "0x1dbC57cF0e38f3aB2e31DAe6c32829eACDe6Fd3A",
       "baseSymbol": "vAVAX",
+      "quoteAddress": "0xbD21D227d989A1Ee1BC717F1658474c487A06993",
+      "quoteSymbol": "vUSD"
+    },
+    {
+      "address": "0xc8dE4cCE04A7c15a4b48f5519b649C10D428dBC6",
+      "baseAddress": "0x798310F8dD81E9f0117a66A8615ad769b3f801AE",
+      "baseSymbol": "vLUNA",
       "quoteAddress": "0xbD21D227d989A1Ee1BC717F1658474c487A06993",
       "quoteSymbol": "vUSD"
     }
