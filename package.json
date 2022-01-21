@@ -1,6 +1,6 @@
 {
   "name": "@perp/curie-contract",
-  "version": "1.0.12",
+  "version": "1.0.13-staging",
   "description": "Perpetual Protocol Curie (V2) core contracts",
   "license": "GPL-2.0-or-later",
   "author": {
