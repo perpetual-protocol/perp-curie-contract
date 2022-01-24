@@ -489,6 +489,8 @@ contract ClearingHouse is
     )
         external
         override
+        whenNotPaused
+        nonReentrant
         returns (
             uint256 base,
             uint256 quote,
@@ -499,7 +501,7 @@ contract ClearingHouse is
         // if positionSize > 0, it's long, and closing it is thus short, B2Q; else, closing it is long, Q2B
         bool isBaseToQuote = positionSize > 0;
 
-        (base, quote, isPartialClose) = liquidate(trader, baseToken);
+        (base, quote, isPartialClose) = _liquidate(trader, baseToken);
 
         oppositeAmountBound = _getPartialOppositeAmount(oppositeAmountBound, isPartialClose);
         _checkSlippage(
@@ -516,72 +518,8 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
-    function liquidate(address trader, address baseToken)
-        public
-        override
-        whenNotPaused
-        nonReentrant
-        returns (
-            uint256 base,
-            uint256 quote,
-            bool isPartialClose
-        )
-    {
-        // liquidation trigger:
-        //   accountMarginRatio < accountMaintenanceMarginRatio
-        //   => accountValue / sum(abs(positionValue_market)) <
-        //        sum(mmRatio * abs(positionValue_market)) / sum(abs(positionValue_market))
-        //   => accountValue < sum(mmRatio * abs(positionValue_market))
-        //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
-        //
-
-        // input requirement checks:
-        //   trader: here
-        //   baseToken: in Exchange.settleFunding()
-
-        // CH_CLWTISO: cannot liquidate when there is still order
-        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
-
-        // CH_EAV: enough account value
-        require(
-            getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader),
-            "CH_EAV"
-        );
-
-        // must settle funding first
-        _settleFunding(trader, baseToken);
-        IExchange.SwapResponse memory response =
-            _closePosition(
-                InternalClosePositionParams({
-                    trader: trader,
-                    baseToken: baseToken,
-                    sqrtPriceLimitX96: 0,
-                    isLiquidation: true
-                })
-            );
-
-        // trader's pnl-- as liquidation penalty
-        uint256 liquidationFee =
-            response.exchangedPositionNotional.abs().mulRatio(
-                IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
-            );
-
-        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, liquidationFee.neg256());
-
-        // increase liquidator's pnl liquidation reward
-        address liquidator = _msgSender();
-        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(liquidator, liquidationFee.toInt256());
-
-        emit PositionLiquidated(
-            trader,
-            baseToken,
-            response.exchangedPositionNotional.abs(),
-            response.base,
-            liquidationFee,
-            liquidator
-        );
-
-        return (response.base, response.quote, response.isPartialClose);
+    function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
+        _liquidate(trader, baseToken);
     }
 
     /// @inheritdoc IClearingHouse
@@ -728,6 +666,71 @@ contract ClearingHouse is
     //
     // INTERNAL NON-VIEW
     //
+
+    function _liquidate(address trader, address baseToken)
+        internal
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        )
+    {
+        // liquidation trigger:
+        //   accountMarginRatio < accountMaintenanceMarginRatio
+        //   => accountValue / sum(abs(positionValue_market)) <
+        //        sum(mmRatio * abs(positionValue_market)) / sum(abs(positionValue_market))
+        //   => accountValue < sum(mmRatio * abs(positionValue_market))
+        //   => accountValue < sum(abs(positionValue_market)) * mmRatio = totalMinimumMarginRequirement
+        //
+
+        // input requirement checks:
+        //   trader: here
+        //   baseToken: in Exchange.settleFunding()
+
+        // CH_CLWTISO: cannot liquidate when there is still order
+        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
+
+        // CH_EAV: enough account value
+        require(
+            getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader),
+            "CH_EAV"
+        );
+
+        // must settle funding first
+        _settleFunding(trader, baseToken);
+        IExchange.SwapResponse memory response =
+            _closePosition(
+                InternalClosePositionParams({
+                    trader: trader,
+                    baseToken: baseToken,
+                    sqrtPriceLimitX96: 0,
+                    isLiquidation: true
+                })
+            );
+
+        // trader's pnl-- as liquidation penalty
+        uint256 liquidationFee =
+            response.exchangedPositionNotional.abs().mulRatio(
+                IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio()
+            );
+
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, liquidationFee.neg256());
+
+        // increase liquidator's pnl liquidation reward
+        address liquidator = _msgSender();
+        IAccountBalance(_accountBalance).modifyOwedRealizedPnl(liquidator, liquidationFee.toInt256());
+
+        emit PositionLiquidated(
+            trader,
+            baseToken,
+            response.exchangedPositionNotional.abs(),
+            response.base,
+            liquidationFee,
+            liquidator
+        );
+
+        return (response.base, response.quote, response.isPartialClose);
+    }
 
     function _cancelExcessOrders(
         address maker,

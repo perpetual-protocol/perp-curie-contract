@@ -147,13 +147,8 @@ interface IClearingHouse {
             bool isPartialClose
         );
 
-    function liquidate(address trader, address baseToken)
-        external
-        returns (
-            uint256 base,
-            uint256 quote,
-            bool isPartialClose
-        );
+    /// @dev This function will be deprecated in the future, recommend to use the above one liquidate
+    function liquidate(address trader, address baseToken) external;
 
     function cancelExcessOrders(
         address maker,
