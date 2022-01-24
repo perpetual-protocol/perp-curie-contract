@@ -4,7 +4,7 @@ import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import bn from "bignumber.js"
 import { BaseContract, BigNumber, BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
-import { UniswapV3Pool, VirtualToken } from "../../typechain"
+import { BaseToken, Exchange, UniswapV3Pool, VirtualToken } from "../../typechain"
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
@@ -58,4 +58,9 @@ export async function syncIndexToMarketPrice(aggregator: MockContract, pool: Uni
     aggregator.smocked.latestRoundData.will.return.with(async () => {
         return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
     })
+}
+
+export async function getMarketTwap(exchange: Exchange, baseToken: BaseToken, interval: number) {
+    const sqrtPrice = await exchange.getSqrtMarkTwapX96(baseToken.address, interval)
+    return formatSqrtPriceX96ToPrice(sqrtPrice, 18)
 }
