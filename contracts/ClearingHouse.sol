@@ -497,8 +497,11 @@ contract ClearingHouse is
             bool isPartialClose
         )
     {
+        // getTakerPosSize == getTotalPosSize now, because it will revert in _liquidate() if there's any maker order
         int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
-        // if positionSize > 0, it's long, and closing it is thus short, B2Q; else, closing it is long, Q2B
+
+        // if positionSize > 0, it's long base, and closing it is thus short base, B2Q;
+        // else, closing it is long base, Q2B
         bool isBaseToQuote = positionSize > 0;
 
         (base, quote, isPartialClose) = _liquidate(trader, baseToken);
