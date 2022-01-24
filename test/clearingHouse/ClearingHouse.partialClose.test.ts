@@ -271,7 +271,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             // should be partially liquidated
             // remaining position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            await clearingHouse
+                .connect(liquidator)
+                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
             expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
@@ -280,10 +282,14 @@ describe("ClearingHouse partial close in xyk pool", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
-            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            await clearingHouse
+                .connect(liquidator)
+                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
 
             await expect(
-                clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
+                clearingHouse
+                    .connect(liquidator)
+                    ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0),
             ).to.be.revertedWith("EX_AOPLO")
         })
     })

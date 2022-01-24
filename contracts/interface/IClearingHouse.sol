@@ -135,7 +135,25 @@ interface IClearingHouse {
 
     function closePosition(ClosePositionParams calldata params) external returns (uint256 base, uint256 quote);
 
-    function liquidate(address trader, address baseToken) external;
+    function liquidate(
+        address trader,
+        address baseToken,
+        uint256 oppositeAmountBound
+    )
+        external
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        );
+
+    function liquidate(address trader, address baseToken)
+        external
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        );
 
     function cancelExcessOrders(
         address maker,

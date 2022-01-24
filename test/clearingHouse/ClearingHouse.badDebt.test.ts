@@ -164,9 +164,11 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 6.510
                 // realized PnL: 6.510 - 800 = -793.490
                 // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
-                await expect(clearingHouse.connect(alice).liquidate(bob.address, baseToken.address)).to.be.revertedWith(
-                    "CH_BD",
-                )
+                await expect(
+                    clearingHouse
+                        .connect(alice)
+                        ["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                ).to.be.revertedWith("CH_BD")
             })
 
             it("can liquidate bad debt position by backstop liquidity provider", async () => {
@@ -184,10 +186,11 @@ describe("ClearingHouse badDebt", () => {
                 // realized PnL: 6.510 - 800 = -793.490
                 // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
                 // liquidation fee: 0.162
-                await expect(clearingHouse.connect(alice).liquidate(bob.address, baseToken.address)).to.emit(
-                    clearingHouse,
-                    "PositionLiquidated",
-                )
+                await expect(
+                    clearingHouse
+                        .connect(alice)
+                        ["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                ).to.emit(clearingHouse, "PositionLiquidated")
 
                 // now every one close position and withdraw their balances
                 await closePosition(fixture, alice)
