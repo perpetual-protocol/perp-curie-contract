@@ -220,7 +220,25 @@ interface IClearingHouse {
     /// @dev If trader has open orders, need to call `cancelAllExcessOrders` first
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
-    function liquidate(address trader, address baseToken) external;
+    function liquidate(
+        address trader,
+        address baseToken,
+        uint256 oppositeAmountBound
+    )
+        external
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        );
+
+    function liquidate(address trader, address baseToken)
+        external
+        returns (
+            uint256 base,
+            uint256 quote,
+            bool isPartialClose
+        );
 
     /// @notice Cancel excess order of a maker
     /// @dev Order id can get from `OrderBook.getOpenOrderIds`

@@ -15,6 +15,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
@@ -55,9 +57,17 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
-        await pool.initialize(encodePriceSqrt(100, 1))
 
-        await marketRegistry.addPool(baseToken.address, "10000")
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("100", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
+
         await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "400000")
 
         // prepare collateral for maker1

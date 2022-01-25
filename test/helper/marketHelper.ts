@@ -1,16 +1,18 @@
-import { ClearingHouseFixture } from "../clearingHouse/fixtures"
+import { MockContract } from "@eth-optimism/smock"
 import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
+import { ethers } from "hardhat"
+import { UniswapV3Pool } from "../../typechain"
+import { ClearingHouseFixture } from "../clearingHouse/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
 import { getMaxTick, getMinTick } from "./number"
-import { ethers } from "hardhat"
-import { MockContract } from "@eth-optimism/smock"
 
 export async function initMarket(
     fixture: ClearingHouseFixture,
     initPrice: BigNumberish,
     exFeeRatio: BigNumberish = 1000, // 0.1%
     ifFeeRatio: BigNumberish = 100000, // 10%
+    maxTickCrossedWithinBlock: number = 0,
     baseToken: string = fixture.baseToken.address,
     mockedBaseAggregator: MockContract = fixture.mockedBaseAggregator,
 ): Promise<{ minTick: number; maxTick: number }> {
@@ -27,7 +29,7 @@ export async function initMarket(
     const tickSpacing = await uniPool.tickSpacing()
 
     // the initial number of oracle can be recorded is 1; thus, have to expand it
-    await uniPool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+    await uniPool.increaseObservationCardinalityNext(500)
 
     // update config
     const marketRegistry = fixture.marketRegistry
@@ -35,5 +37,28 @@ export async function initMarket(
     await marketRegistry.setFeeRatio(baseToken, exFeeRatio)
     await marketRegistry.setInsuranceFundFeeRatio(baseToken, ifFeeRatio)
 
+    if (maxTickCrossedWithinBlock != 0) {
+        await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    }
+
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }
+}
+
+// todo replace caller getMaxTickRange to default value
+export async function initAndAddPool(
+    fixture: ClearingHouseFixture,
+    pool: UniswapV3Pool,
+    baseToken: string,
+    sqrtPriceX96: BigNumberish,
+    feeRatio: BigNumberish,
+    maxTickCrossedWithinBlock: number = 1000,
+) {
+    await pool.initialize(sqrtPriceX96)
+    // the initial number of oracle can be recorded is 1; thus, have to expand it
+    await pool.increaseObservationCardinalityNext(500)
+    // add pool after it's initialized
+    await fixture.marketRegistry.addPool(baseToken, feeRatio)
+    if (maxTickCrossedWithinBlock != 0) {
+        await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
+    }
 }

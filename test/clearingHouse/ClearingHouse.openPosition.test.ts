@@ -16,6 +16,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
@@ -65,14 +67,26 @@ describe("ClearingHouse openPosition", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
-        await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
-        await marketRegistry.addPool(baseToken2.address, 10000)
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool2,
+            baseToken2.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
+
         await marketRegistry.setFeeRatio(baseToken.address, 10000)
         await marketRegistry.setFeeRatio(baseToken2.address, 10000)
 

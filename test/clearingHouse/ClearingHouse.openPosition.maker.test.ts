@@ -15,14 +15,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse maker close position", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -42,36 +44,40 @@ describe("ClearingHouse maker close position", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        quoteToken = _clearingHouseFixture.quoteToken
-        baseToken = _clearingHouseFixture.baseToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
-        baseToken2 = _clearingHouseFixture.baseToken2
-        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
-        pool2 = _clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        quoteToken = fixture.quoteToken
+        baseToken = fixture.baseToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
+        baseToken2 = fixture.baseToken2
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        await marketRegistry.addPool(baseToken.address, "10000")
-
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
+
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
@@ -273,11 +279,16 @@ describe("ClearingHouse maker close position", () => {
             mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10", 6), 0, 0, 0]
             })
-            await pool2.initialize(encodePriceSqrt("10", "1"))
-            // the initial number of oracle can be recorded is 1; thus, have to expand it
-            await pool2.increaseObservationCardinalityNext((2 ^ 16) - 1)
 
-            await marketRegistry.addPool(baseToken2.address, "10000")
+            await initAndAddPool(
+                fixture,
+                pool2,
+                baseToken2.address,
+                encodePriceSqrt("10", "1"),
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))

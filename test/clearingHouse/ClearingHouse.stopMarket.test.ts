@@ -698,11 +698,15 @@ describe("Clearinghouse StopMarket", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("0.0001", 6), 0, 0, 0]
             })
-            await expect(clearingHouse.liquidate(bob.address, baseToken.address)).to.be.revertedWith("CH_MNO")
+            await expect(
+                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+            ).to.be.revertedWith("CH_MNO")
 
             // close baseToken market
             await baseToken["close(uint256)"](parseEther("0.0001"))
-            await expect(clearingHouse.liquidate(bob.address, baseToken.address)).to.be.revertedWith("CH_MNO")
+            await expect(
+                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+            ).to.be.revertedWith("CH_MNO")
         })
 
         it("position in open market can be liquidated even if the trader has orders in other paused market", async () => {
@@ -727,10 +731,9 @@ describe("Clearinghouse StopMarket", async () => {
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
 
             // liquidate bob on baseToken market
-            await expect(clearingHouse.liquidate(bob.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "PositionLiquidated",
-            )
+            await expect(
+                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+            ).to.emit(clearingHouse, "PositionLiquidated")
         })
 
         it("position in open market can be liquidated even if the trader has orders in other closed market", async () => {
@@ -758,10 +761,9 @@ describe("Clearinghouse StopMarket", async () => {
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
 
             // liquidate bob on baseToken market
-            await expect(clearingHouse.liquidate(bob.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "PositionLiquidated",
-            )
+            await expect(
+                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+            ).to.emit(clearingHouse, "PositionLiquidated")
         })
     })
 })

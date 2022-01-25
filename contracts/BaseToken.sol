@@ -32,12 +32,13 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     ) external initializer {
         __VirtualToken_init(nameArg, symbolArg);
 
-        uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
-        // BT_IPFD: Invalid price feed decimals
-        require(__priceFeedDecimals <= decimals(), "BT_IPFD");
+        uint8 priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+
+        // invalid price feed decimals
+        require(priceFeedDecimals <= decimals(), "BT_IPFD");
 
         _priceFeed = priceFeedArg;
-        _priceFeedDecimals = __priceFeedDecimals;
+        _priceFeedDecimals = priceFeedDecimals;
     }
 
     function pause() external onlyOwner {
@@ -66,14 +67,14 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     function setPriceFeed(address priceFeedArg) external onlyOwner {
         // ChainlinkPriceFeed uses 8 decimals
         // BandPriceFeed uses 18 decimals
-        uint8 __priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        uint8 priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
         // BT_IPFD: Invalid price feed decimals
-        require(__priceFeedDecimals <= decimals(), "BT_IPFD");
+        require(priceFeedDecimals <= decimals(), "BT_IPFD");
 
         _priceFeed = priceFeedArg;
-        _priceFeedDecimals = __priceFeedDecimals;
+        _priceFeedDecimals = priceFeedDecimals;
 
-        emit PriceFeedChanged(priceFeedArg);
+        emit PriceFeedChanged(_priceFeed);
     }
 
     //
