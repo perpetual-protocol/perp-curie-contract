@@ -135,6 +135,14 @@ interface IClearingHouse {
 
     function closePosition(ClosePositionParams calldata params) external returns (uint256 base, uint256 quote);
 
+    /// @notice If trader is underwater, any one can call `liquidate` to liquidate this trader
+    /// @dev If trader has open orders, need to call `cancelAllExcessOrders` first
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
+    /// @param oppositeAmountBound please check OpenPositionParams
+    /// @return base The amount of baseToken the taker got or spent
+    /// @return quote The amount of quoteToken the taker got or spent
+    /// @return isPartialClose when it's over price limit return true and only liquidate 25% of the position
     function liquidate(
         address trader,
         address baseToken,
@@ -147,13 +155,8 @@ interface IClearingHouse {
             bool isPartialClose
         );
 
-    function liquidate(address trader, address baseToken)
-        external
-        returns (
-            uint256 base,
-            uint256 quote,
-            bool isPartialClose
-        );
+    /// @dev This function will be deprecated in the future, recommend to use the function `liquidate()` above
+    function liquidate(address trader, address baseToken) external;
 
     function cancelExcessOrders(
         address maker,
