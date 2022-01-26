@@ -509,6 +509,8 @@ contract ClearingHouse is
             bool isPartialClose
         )
     {
+        _checkMarketOpen(baseToken);
+
         // getTakerPosSize == getTotalPosSize now, because it will revert in _liquidate() if there's any maker order
         int256 positionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
 
@@ -534,6 +536,7 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function liquidate(address trader, address baseToken) external override whenNotPaused nonReentrant {
+        _checkMarketOpen(baseToken);
         _liquidate(trader, baseToken);
     }
 
