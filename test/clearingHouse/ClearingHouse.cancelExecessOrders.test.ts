@@ -15,15 +15,17 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -42,21 +44,21 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let baseAmount: BigNumber
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        accountBalance = _clearingHouseFixture.accountBalance
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        baseToken2 = _clearingHouseFixture.baseToken2
-        quoteToken = _clearingHouseFixture.quoteToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
-        pool = _clearingHouseFixture.pool
-        pool2 = _clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        accountBalance = fixture.accountBalance
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        baseToken2 = fixture.baseToken2
+        quoteToken = fixture.quoteToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        pool = fixture.pool
+        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -72,7 +74,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         await deposit(alice, vault, 10, collateral)
 
         await initAndAddPool(
-            _clearingHouseFixture,
+            fixture,
             pool,
             baseToken.address,
             encodePriceSqrt("100", "1"),
@@ -82,7 +84,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         )
 
         await initAndAddPool(
-            _clearingHouseFixture,
+            fixture,
             pool2,
             baseToken2.address,
             encodePriceSqrt("50000", "1"),
@@ -119,9 +121,17 @@ describe("ClearingHouse cancelExcessOrders", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
-            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "LiquidityChanged",
+            const tx = await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
+                alice.address, // trader
+                baseToken.address, // baseToken
+                "-1", // exchangedPositionSize. it's rounding difference.
+                "0", // exchangedPositionNotional
+                "0", // fee
+                "0", // openNotional
+                "0", // realizedPnl
+                encodePriceSqrt("100", "1"), // sqrtPriceAfterX96
             )
         })
 
@@ -164,9 +174,17 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
 
-            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "LiquidityChanged",
+            const tx = await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
+                alice.address, // trader
+                baseToken.address, // baseToken
+                "-2", // exchangedPositionSize, it's rounding difference.
+                "0", // exchangedPositionNotional
+                "0", // fee
+                "0", // openNotional
+                "0", // realizedPnl
+                encodePriceSqrt("100", "1"), // sqrtPriceAfterX96
             )
         })
 
@@ -219,12 +237,81 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
             // requiredCollateral = min(collateral, accountValue) - mmReq
             //                = min(10, 14.95) - 10.125  < 0
-            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "LiquidityChanged",
+            const tx = await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
+                alice.address, // trader
+                baseToken.address, // baseToken
+                parseEther("-0.000490465148677081"), // exchangedPositionSize
+                parseEther("4.949999999999999999"), // exchangedPositionNotional
+                "0", // fee
+                parseEther("4.949999999999999999"), // openNotional
+                "0", // realizedPnl
+                "7959378662046472307986903031465", // sqrtPriceAfterX96
             )
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
+        })
+    })
+
+    describe("realize Pnl after cancel orders", () => {
+        beforeEach(async () => {
+            const amount = parseUnits("20", await collateral.decimals())
+            await collateral.transfer(bob.address, amount)
+            await deposit(bob, vault, 20, collateral)
+
+            await collateral.transfer(carol.address, amount)
+            await deposit(carol, vault, 20, collateral)
+        })
+
+        it("bob should get realizedPnl after cancel orders", async () => {
+            // 1. bob opens a long position, position size: 0.000490465148677081
+            await clearingHouse.connect(bob).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("5"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // 2. alice remove liquidity to make test easier
+            await removeAllOrders(fixture, alice, baseToken.address)
+
+            // 3. bob add liquidity
+            await addOrder(fixture, bob, 1, 0, 92400, 92800, false, baseToken.address)
+
+            // 4. carol opens a long position and bob incurs a short position
+            // carol position size: 0 -> 0.000961493924477756
+            // bob position size: 0 -> -0.000961493924477756
+            await q2bExactInput(fixture, carol, "10", baseToken.address)
+
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("1000", 6), 0, 0, 0]
+            })
+
+            // 5. cancel bob's open orders
+            // bob's taker base = 0.000490465148677081
+            // bob's taker quote = -5
+            // bob's maker base = -0.000961493924477757
+            // bob's maker quote = 9.9
+            // realized pnl after cancel order:  -5 + (9.9 / (0.000961493924477757/0.000490465148677081)) = 0.05006308234
+            // bob's taker base = 0.000490465148677081 - 0.000961493924477757 = -0.0004710287758
+            // bob's taker quote = 4.8499369177
+            const tx = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
+            await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
+                bob.address, // trader
+                baseToken.address, // baseToken
+                parseEther("-0.000961493924477757"), // exchangedPositionSize, close to -0.000961493924477756 due to rounding difference
+                parseEther("9.899999999999999999"), // exchangedPositionNotional, close to 9.9 due to rounding difference
+                "0", // fee
+                parseEther("4.849936917656081816"), // openNotional
+                parseEther("0.050063082343918183"), // realizedPnl
+                "8039481551169820550306381345628", // sqrtPriceAfterX96
+            )
         })
     })
 
@@ -376,10 +463,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
             })
 
             // cancel order successfully
-            await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)).to.not.emit(
-                clearingHouse,
-                "LiquidityChanged",
-            )
+            const tx = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
+            await expect(tx).to.not.emit(clearingHouse, "LiquidityChanged")
         })
     })
 })
