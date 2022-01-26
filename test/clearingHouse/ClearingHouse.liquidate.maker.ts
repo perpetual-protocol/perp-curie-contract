@@ -314,20 +314,7 @@ describe("ClearingHouse liquidate maker", () => {
     })
 
     describe("maker has multiple orders", async () => {
-        beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool2,
-                baseToken2.address,
-                encodePriceSqrt("10", "1"),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
-
-            // alice add v2 style liquidity on pool2
-            await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
-            await deposit(alice, vault, 200, collateral)
+        it("alice has three orders: below, in range and above; bob long, all alice's orders should be cancelled and positions be liquidated", async () => {
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: parseEther("1"),
@@ -439,6 +426,7 @@ describe("ClearingHouse liquidate maker", () => {
             beforeEach(async () => {
                 await pool2.initialize(encodePriceSqrt("10", "1"))
                 await marketRegistry.addPool(baseToken2.address, "10000")
+                await exchange.setMaxTickCrossedWithinBlock(baseToken2.address, getMaxTickRange())
 
                 // alice add v2 style liquidity in pool2
                 await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -521,6 +509,7 @@ describe("ClearingHouse liquidate maker", () => {
                     )
 
                 // liquidating all maker's positions
+                await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
                 await expect(
                     clearingHouse
                         .connect(davis)
@@ -629,6 +618,7 @@ describe("ClearingHouse liquidate maker", () => {
                     // 31.622776601683793320 * 9 (only carol's liquidity is left) * (1 / sqrt(38.805748602) - 1 / sqrt(51.2288687261)) = 5.9236452164
                     // 31.622776601683793320 * 9 * (sqrt(51.2288687261) - sqrt(38.805748602)) = 264.1158442544 (imprecision)
                     // liquidation fee = 264.1158442544 * 0.025 = 6.6028961064
+                    await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
                     await expect(
                         clearingHouse
                             .connect(davis)
@@ -686,6 +676,7 @@ describe("ClearingHouse liquidate maker", () => {
 
                     // notice that in this case, liquidation happens in pool2 first, which is different from the above case
                     // since the loss is incurred in pool1, liquidating position in pool2 doesn't help margin ratio much
+                    await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
                     await expect(
                         clearingHouse
                             .connect(davis)
