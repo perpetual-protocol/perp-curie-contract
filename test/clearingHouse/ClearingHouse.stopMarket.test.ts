@@ -84,6 +84,9 @@ describe("Clearinghouse StopMarket", async () => {
         await marketRegistry.addPool(baseToken.address, 10000)
         await marketRegistry.addPool(baseToken2.address, 10000)
 
+        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "1000")
+        await exchange.setMaxTickCrossedWithinBlock(baseToken2.address, "1000")
+
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
