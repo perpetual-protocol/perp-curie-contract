@@ -736,7 +736,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
 
         // CH_CLWTISO: cannot liquidate when there is still order
-        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
+        require(!IAccountBalance(_accountBalance).hasOrderInOpenMarket(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
         require(

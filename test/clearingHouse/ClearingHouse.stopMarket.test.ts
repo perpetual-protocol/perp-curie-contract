@@ -692,14 +692,18 @@ describe("Clearinghouse StopMarket", async () => {
         it("position can't be liquidated if the position is in paused/closed market", async () => {
             // Bob as taker in baseToken market
             await addOrder(fixture, alice, 300, 30000, lowerTick, upperTick, false, baseToken.address)
-            await q2bExactInput(fixture, bob, 10000, baseToken.address)
+
+            // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
+            for (let i = 0; i < 10; i++) {
+                await q2bExactInput(fixture, bob, 1000, baseToken.address)
+            }
 
             // pause baseToken market
             await baseToken.pause()
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.0001", 6), 0, 0, 0]
+                return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
             await expect(
                 clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
@@ -719,15 +723,17 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob add liquidity to baseToken2 market
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
-            // Bob swaps on baseToken market
-            await q2bExactInput(fixture, bob, 15000, baseToken.address)
+            // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
+            for (let i = 0; i < 10; i++) {
+                await q2bExactInput(fixture, bob, 1000, baseToken.address)
+            }
 
             // pause baseToken2 market
             await baseToken2.pause()
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.00001", 6), 0, 0, 0]
+                return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
 
             // Bob's free collateral should be 0 if his position is underwater
@@ -746,8 +752,10 @@ describe("Clearinghouse StopMarket", async () => {
             // bob add liquidity to baseToken2 market
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
-            // bob swap on baseToken market
-            await q2bExactInput(fixture, bob, 15000, baseToken.address)
+            // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
+            for (let i = 0; i < 10; i++) {
+                await q2bExactInput(fixture, bob, 1000, baseToken.address)
+            }
 
             // pause baseToken2 market
             await baseToken2.pause()
@@ -757,7 +765,7 @@ describe("Clearinghouse StopMarket", async () => {
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.0001", 6), 0, 0, 0]
+                return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
 
             // Bob's free collateral should be 0 if his position is underwater
