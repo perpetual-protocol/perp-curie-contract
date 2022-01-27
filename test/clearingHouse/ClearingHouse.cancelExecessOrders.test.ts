@@ -299,7 +299,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
             // bob's maker quote = 9.9
             // realized pnl after cancel order:  -5 + (9.9 / (0.000961493924477757/0.000490465148677081)) = 0.05006308234
             // bob's taker base = 0.000490465148677081 - 0.000961493924477757 = -0.0004710287758
-            // bob's taker quote = 4.8499369177
+            // bob's taker quote = takerQuote + makerQuote - realizedPnl
+            //                   = -5 + 9.9 - 0.05006308234 = 4.8499369177
             const tx = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
             await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
             await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
