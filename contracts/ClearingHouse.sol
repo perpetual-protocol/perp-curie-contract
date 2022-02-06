@@ -556,9 +556,6 @@ contract ClearingHouse is
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
         _checkMarketOpen(baseToken);
-        if (orderIds.length == 0) {
-            return;
-        }
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -570,11 +567,7 @@ contract ClearingHouse is
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
         _checkMarketOpen(baseToken);
-        bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
-        if (orderIds.length == 0) {
-            return;
-        }
-        _cancelExcessOrders(maker, baseToken, orderIds);
+        _cancelExcessOrders(maker, baseToken, IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken));
     }
 
     /// @inheritdoc IClearingHouse
@@ -726,6 +719,10 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
+        if (orderIds.length == 0) {
+            return;
+        }
+
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
