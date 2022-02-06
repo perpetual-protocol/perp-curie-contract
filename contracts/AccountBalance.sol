@@ -282,11 +282,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function hasOrder(address trader) external view override returns (bool) {
-        return IOrderBook(_orderBook).hasOrder(trader, _baseTokensMap[trader]);
-    }
-
-    /// @inheritdoc IAccountBalance
-    function hasOrderInOpenMarket(address trader) external view override returns (bool) {
         uint256 tokenLen = _baseTokensMap[trader].length;
         address[] memory tokens = new address[](tokenLen);
 

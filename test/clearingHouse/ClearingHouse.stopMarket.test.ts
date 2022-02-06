@@ -22,7 +22,7 @@ import { forward } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe("Clearinghouse StopMarket", async () => {
+describe.only("Clearinghouse StopMarket", async () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -664,7 +664,7 @@ describe("Clearinghouse StopMarket", async () => {
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
             // should have order in open market
-            expect(await accountBalance.hasOrderInOpenMarket(bob.address)).to.be.eq(true)
+            expect(await accountBalance.hasOrder(bob.address)).to.be.eq(true)
 
             // pause baseToken2 market
             await baseToken2.pause()
@@ -678,7 +678,7 @@ describe("Clearinghouse StopMarket", async () => {
             await baseToken2["close(uint256)"](parseEther("0.0001"))
 
             // should not have order in open market
-            expect(await accountBalance.hasOrderInOpenMarket(bob.address)).to.be.eq(false)
+            expect(await accountBalance.hasOrder(bob.address)).to.be.eq(false)
 
             // can not cancel order in closed market
             await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)).to.be.revertedWith(

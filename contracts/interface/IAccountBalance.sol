@@ -174,15 +174,10 @@ interface IAccountBalance {
             uint256 pendingFee
         );
 
-    /// @notice Check trader has open order or not
+    /// @notice Check trader has open order in open/closed market.
     /// @param trader The address of trader
-    /// @return hasOrderOrNot True of false
-    function hasOrder(address trader) external view returns (bool hasOrderOrNot);
-
-    /// @notice Check trader has open order in open/closed market
-    /// @param trader The address of trader
-    /// @return hasOrderInOpenMarketOrNot True of false
-    function hasOrderInOpenMarket(address trader) external view returns (bool hasOrderInOpenMarketOrNot);
+    /// @return hasOrder True of false
+    function hasOrder(address trader) external view returns (bool hasOrder);
 
     /// @notice Get trader base amount
     /// @dev `base amount = takerPositionSize - orderBaseDebt`
