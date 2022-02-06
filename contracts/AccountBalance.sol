@@ -216,7 +216,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     // @inheritdoc IAccountBalance
-    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
+    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
         // quote.pool[baseToken] + quoteBalance[baseToken]
         (uint256 quoteInPool, ) =
             IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);

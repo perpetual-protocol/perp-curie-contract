@@ -94,7 +94,7 @@ interface IAccountBalance {
     /// @dev Only used by `ClearingHouse`
     /// @param trader The address of the trader
     /// @param baseToken The address of the trader's base token
-    /// @return positionNotional Taker's position notional settled with close price
+    /// @return positionNotional Taker's position notional settled with closed price
     /// @return openNotional Taker's open notional
     /// @return realizedPnl Settled realized pnl
     /// @return closedPrice The closed price of the closed market
