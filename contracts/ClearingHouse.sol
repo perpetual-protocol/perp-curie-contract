@@ -589,10 +589,10 @@ contract ClearingHouse is
 
         _settleFunding(trader, baseToken);
 
-        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 indexPrice) =
+        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 closedPrice) =
             IAccountBalance(_accountBalance).settlePositionInClosedMarket(trader, baseToken);
 
-        emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, indexPrice);
+        emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, closedPrice);
 
         return (positionSize.abs(), positionNotional.abs());
     }

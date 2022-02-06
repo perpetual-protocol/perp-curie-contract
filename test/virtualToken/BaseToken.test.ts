@@ -261,20 +261,22 @@ describe("BaseToken", async () => {
                 expect(await baseToken.isPaused()).to.be.eq(true)
             })
 
-            it("close by owner, should return closedPrice as index price", async () => {
+            it("close by owner, should return closedPrice", async () => {
                 await baseToken["close(uint256)"](closedPrice)
 
                 expect(await baseToken.isClosed()).to.be.eq(true)
 
                 let indexPrice = await baseToken.getIndexPrice(15 * 60)
-                expect(indexPrice).to.be.eq(closedPrice)
+                let pausedIndexPrice = await baseToken.getPausedIndexPrice()
+                expect(indexPrice).to.be.eq(pausedIndexPrice)
 
                 indexPrice = await baseToken.getIndexPrice(100)
-                expect(indexPrice).to.be.eq(closedPrice)
+                expect(indexPrice).to.be.eq(pausedIndexPrice)
 
                 // need to check paused status because we will calculate funding form paused time
                 expect(await baseToken.getPausedTimestamp()).to.eq(currentTime + 1)
-                expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
+                expect(pausedIndexPrice).to.be.eq(parseEther("405.108695"))
+                expect(await baseToken.getClosedPrice()).to.be.eq(parseEther("200"))
             })
 
             it("close by user", async () => {

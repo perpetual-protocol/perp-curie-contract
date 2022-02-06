@@ -158,21 +158,22 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             int256 positionNotional,
             int256 openNotional,
             int256 realizedPnl,
-            uint256 indexPrice
+            uint256 closedPrice
         )
     {
         _requireOnlyClearingHouse();
 
         int256 positionSize = getTakerPositionSize(trader, baseToken);
-        indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
-        positionNotional = positionSize.mulDiv(indexPrice.toInt256(), 1e18);
+
+        closedPrice = IBaseToken(baseToken).getClosedPrice();
+        positionNotional = positionSize.mulDiv(closedPrice.toInt256(), 1e18);
         openNotional = _accountMarketMap[trader][baseToken].takerOpenNotional;
         realizedPnl = positionNotional.add(openNotional);
 
         _deleteBaseToken(trader, baseToken);
         _modifyOwedRealizedPnl(trader, realizedPnl);
 
-        return (positionNotional, openNotional, realizedPnl, indexPrice);
+        return (positionNotional, openNotional, realizedPnl, closedPrice);
     }
 
     //
@@ -235,7 +236,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             // baseDebt = baseBalance when it's negative
             if (baseBalance < 0) {
                 // baseDebtValue = baseDebt * indexPrice
-                baseDebtValue = baseBalance.mulDiv(_getIndexPrice(baseToken).toInt256(), 1e18);
+                baseDebtValue = baseBalance.mulDiv(_getReferencePrice(baseToken).toInt256(), 1e18);
             }
             totalBaseDebtValue = totalBaseDebtValue.add(baseDebtValue);
 
@@ -348,7 +349,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         int256 positionSize = getTotalPositionSize(trader, baseToken);
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = _getIndexPrice(baseToken);
+        uint256 indexTwap = _getReferencePrice(baseToken);
         // both positionSize & indexTwap are in 10^18 already
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
@@ -437,8 +438,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     // INTERNAL VIEW
     //
 
-    function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+    function _getReferencePrice(address baseToken) internal view returns (uint256) {
+        return
+            IBaseToken(baseToken).isClosed()
+                ? IBaseToken(baseToken).getClosedPrice()
+                : IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools

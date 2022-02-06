@@ -16,6 +16,8 @@ interface IBaseToken {
 
     function getPausedIndexPrice() external view returns (uint256);
 
+    function getClosedPrice() external view returns (uint256);
+
     function isOpen() external view returns (bool);
 
     function isPaused() external view returns (bool);
