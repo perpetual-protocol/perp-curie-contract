@@ -251,6 +251,7 @@ contract Exchange is
             fundingGrowthGlobal
         );
 
+        // funding will be stopped once the market is being paused
         uint256 timestamp =
             IBaseToken(baseToken).isOpen() ? _blockTimestamp() : IBaseToken(baseToken).getPausedTimestamp();
 
@@ -569,10 +570,10 @@ contract Exchange is
         )
     {
         bool marketOpen = IBaseToken(baseToken).isOpen();
-        uint32 twapInterval;
         uint256 timestamp = marketOpen ? _blockTimestamp() : IBaseToken(baseToken).getPausedTimestamp();
 
         // shorten twapInterval if prior observations are not enough
+        uint32 twapInterval;
         if (_firstTradedTimestampMap[baseToken] != 0) {
             twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
             // overflow inspection:
@@ -591,7 +592,8 @@ contract Exchange is
             // -----+--- twap interval ---+--- secondsAgo ---+
             //                        pausedTime            now
 
-            uint32 secondsAgo = _blockTimestamp().sub(IBaseToken(baseToken).getPausedTimestamp()).toUint32();
+            // timestamp is pausedTime when the market is not open
+            uint32 secondsAgo = _blockTimestamp().sub(timestamp).toUint32();
             markTwapX96 = UniswapV3Broker
                 .getSqrtMarkTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
                 .formatSqrtPriceX96ToPriceX96();
