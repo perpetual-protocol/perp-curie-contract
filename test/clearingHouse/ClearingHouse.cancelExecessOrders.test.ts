@@ -463,9 +463,13 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("105", 6), 0, 0, 0]
             })
 
-            // cancel order successfully
+            // Bob has no order in ETH market, and can cancel order in ETH market successfully
             const tx = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
             await expect(tx).to.not.emit(clearingHouse, "LiquidityChanged")
+
+            // cancel order in BTC market successfully
+            const tx2 = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)
+            await expect(tx2).to.emit(clearingHouse, "LiquidityChanged")
         })
     })
 })
