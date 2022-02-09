@@ -791,7 +791,20 @@ contract ClearingHouse is
             );
         }
 
-        _settleBalanceAndRealizePnl(maker, baseToken, removeLiquidityResponse);
+        int256 realizedPnl = _settleBalanceAndRealizePnl(maker, baseToken, removeLiquidityResponse);
+
+        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(maker, baseToken);
+        uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(baseToken, 0);
+        emit PositionChanged(
+            maker,
+            baseToken,
+            removeLiquidityResponse.takerBase, // exchangedPositionSize
+            removeLiquidityResponse.takerQuote, // exchangedPositionNotional
+            0,
+            takerOpenNotional, // openNotional
+            realizedPnl, // realizedPnl
+            sqrtPrice
+        );
     }
 
     function _settleBalanceAndRealizePnl(
