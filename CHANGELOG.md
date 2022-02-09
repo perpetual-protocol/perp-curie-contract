@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.0.15] - 2022-02-09
+
+### Changed
+- emit `PositionChanged` event in `cancelExcessOrders` and `cancelAllExcessOrders`
+
 ## [1.0.14] - 2022-01-28
 ### Added
 - Add `IClearingHouse.liquidte(address, address, uint)` to liquidate with slippage protection.
