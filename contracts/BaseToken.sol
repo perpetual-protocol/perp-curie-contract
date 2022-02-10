@@ -116,6 +116,13 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         return _pausedIndexPrice;
     }
 
+    /// @inheritdoc IBaseToken
+    function getClosedPrice() external view override returns (uint256) {
+        // not closed
+        require(_status == IBaseToken.Status.Closed, "BT_NC");
+        return _closedPrice;
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -123,16 +130,13 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     /// @inheritdoc IIndexPrice
     /// @dev we overwrite the index price in BaseToken depending on the status
     ///      1. Open: the price is from the price feed
-    ///      2. Paused: the price is twap when the token was paused
-    ///      3. Closed: the price is set by the owner when the market was closed
+    ///      2. Paused or Closed: the price is twap when the token was paused
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
-        if (_status == IBaseToken.Status.Closed) {
-            return _closedPrice;
-        } else if (_status == IBaseToken.Status.Paused) {
-            return _pausedIndexPrice;
-        } else {
+        if (_status == IBaseToken.Status.Open) {
             return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
         }
+
+        return _pausedIndexPrice;
     }
 
     //

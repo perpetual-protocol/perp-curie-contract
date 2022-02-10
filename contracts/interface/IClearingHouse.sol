@@ -148,7 +148,7 @@ interface IClearingHouse {
     /// @param closedPositionNotional Trader's position notional in closed market, based on closed price
     /// @param openNotional The cost of open/close position, < 0: long, > 0: short
     /// @param realizedPnl The realized Pnl after close position
-    /// @param closePrice The close price of position
+    /// @param closedPrice The close price of position
     event PositionClosed(
         address indexed trader,
         address indexed baseToken,
@@ -156,7 +156,7 @@ interface IClearingHouse {
         int256 closedPositionNotional,
         int256 openNotional,
         int256 realizedPnl,
-        uint256 closePrice
+        uint256 closedPrice
     );
 
     /// @notice Emitted when settling a trader's funding payment

@@ -552,9 +552,6 @@ contract ClearingHouse is
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
         _checkMarketOpen(baseToken);
-        if (orderIds.length == 0) {
-            return;
-        }
         _cancelExcessOrders(maker, baseToken, orderIds);
     }
 
@@ -566,11 +563,7 @@ contract ClearingHouse is
         //   orderIds: in OrderBook.removeLiquidityByIds()
 
         _checkMarketOpen(baseToken);
-        bytes32[] memory orderIds = IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken);
-        if (orderIds.length == 0) {
-            return;
-        }
-        _cancelExcessOrders(maker, baseToken, orderIds);
+        _cancelExcessOrders(maker, baseToken, IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken));
     }
 
     /// @inheritdoc IClearingHouse
@@ -585,10 +578,10 @@ contract ClearingHouse is
 
         _settleFunding(trader, baseToken);
 
-        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 indexPrice) =
+        (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 closedPrice) =
             IAccountBalance(_accountBalance).settlePositionInClosedMarket(trader, baseToken);
 
-        emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, indexPrice);
+        emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, closedPrice);
 
         return (positionSize.abs(), positionNotional.abs());
     }
@@ -736,7 +729,7 @@ contract ClearingHouse is
         //   baseToken: in Exchange.settleFunding()
 
         // CH_CLWTISO: cannot liquidate when there is still order
-        require(!IAccountBalance(_accountBalance).hasOrderInOpenMarket(trader), "CH_CLWTISO");
+        require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
         require(
@@ -787,6 +780,10 @@ contract ClearingHouse is
         address baseToken,
         bytes32[] memory orderIds
     ) internal {
+        if (orderIds.length == 0) {
+            return;
+        }
+
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
