@@ -9,6 +9,7 @@ import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
@@ -147,6 +148,33 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _accountMarketMap[trader][baseToken].lastTwPremiumGrowthGlobalX96 = lastTwPremiumGrowthGlobalX96;
     }
 
+    /// @inheritdoc IAccountBalance
+    /// @dev we don't do swap to get position notional here.
+    ///      we define the position notional in a closed market is `closed price * position size`
+    function settlePositionInClosedMarket(address trader, address baseToken)
+        external
+        override
+        returns (
+            int256 positionNotional,
+            int256 openNotional,
+            int256 realizedPnl,
+            uint256 indexPrice
+        )
+    {
+        _requireOnlyClearingHouse();
+
+        int256 positionSize = getTakerPositionSize(trader, baseToken);
+        indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
+        positionNotional = positionSize.mulDiv(indexPrice.toInt256(), 1e18);
+        openNotional = _accountMarketMap[trader][baseToken].takerOpenNotional;
+        realizedPnl = positionNotional.add(openNotional);
+
+        _deleteBaseToken(trader, baseToken);
+        _modifyOwedRealizedPnl(trader, realizedPnl);
+
+        return (positionNotional, openNotional, realizedPnl, indexPrice);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -187,7 +215,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     // @inheritdoc IAccountBalance
-    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
+    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
         // quote.pool[baseToken] + quoteBalance[baseToken]
         (uint256 quoteInPool, ) =
             IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
@@ -254,6 +282,24 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function hasOrder(address trader) external view override returns (bool) {
         return IOrderBook(_orderBook).hasOrder(trader, _baseTokensMap[trader]);
+    }
+
+    /// @inheritdoc IAccountBalance
+    function hasOrderInOpenMarket(address trader) external view override returns (bool) {
+        uint256 tokenLen = _baseTokensMap[trader].length;
+        address[] memory tokens = new address[](tokenLen);
+
+        uint256 skipped = 0;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address baseToken = _baseTokensMap[trader][i];
+            if (!IBaseToken(baseToken).isOpen()) {
+                skipped++;
+                continue;
+            }
+            tokens[i - skipped] = baseToken;
+        }
+
+        return IOrderBook(_orderBook).hasOrder(trader, tokens);
     }
 
     //
@@ -326,7 +372,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
     // INTERNAL NON-VIEW
     //
-
     function _modifyTakerBalance(
         address trader,
         address baseToken,
@@ -367,6 +412,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             return;
         }
 
+        _deleteBaseToken(trader, baseToken);
+    }
+
+    function _deleteBaseToken(address trader, address baseToken) internal {
         delete _accountMarketMap[trader][baseToken];
 
         address[] storage tokensStorage = _baseTokensMap[trader];

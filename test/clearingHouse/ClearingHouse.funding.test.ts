@@ -184,16 +184,18 @@ describe("ClearingHouse funding", () => {
 
             it("trader short, no funding payment for the maker providing the order above current price", async () => {
                 // bob short
-                await clearingHouse.connect(bob).openPosition({
-                    baseToken: baseToken.address,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    oppositeAmountBound: 0,
-                    amount: parseEther("1"),
-                    sqrtPriceLimitX96: 0,
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                })
+                await expect(
+                    clearingHouse.connect(bob).openPosition({
+                        baseToken: baseToken.address,
+                        isBaseToQuote: true,
+                        isExactInput: true,
+                        oppositeAmountBound: 0,
+                        amount: parseEther("1"),
+                        sqrtPriceLimitX96: 0,
+                        deadline: ethers.constants.MaxUint256,
+                        referralCode: ethers.constants.HashZero,
+                    }),
+                ).to.emit(exchange, "FundingUpdated")
                 // settleFunding:
                 // markTwap: 154.431096099999999999
                 // indexTwap: 150.953124
@@ -228,15 +230,17 @@ describe("ClearingHouse funding", () => {
                 expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(parseEther("0"))
 
                 // carol remove liquidity
-                await clearingHouse.connect(carol).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick: 51000,
-                    upperTick: 51200,
-                    liquidity: "12870245414941510880707",
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                })
+                await expect(
+                    clearingHouse.connect(carol).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick: 51000,
+                        upperTick: 51200,
+                        liquidity: "12870245414941510880707",
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.emit(exchange, "FundingUpdated")
 
                 // should settle funding payment and add into owedRealizePnl
                 // owedRealizePnl should be 0
