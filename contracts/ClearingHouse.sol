@@ -268,7 +268,7 @@ contract ClearingHouse is
                 );
 
             uint256 sqrtPrice = _getSqrtMarkTwapX96(params.baseToken, 0);
-            emitPositionChanged(
+            _emitPositionChanged(
                 trader,
                 params.baseToken,
                 removedPositionSize, // exchangedPositionSize
@@ -360,7 +360,7 @@ contract ClearingHouse is
 
         uint256 sqrtPrice = _getSqrtMarkTwapX96(params.baseToken, 0);
         int256 openNotional = _getTakerOpenNotional(trader, params.baseToken);
-        emitPositionChanged(
+        _emitPositionChanged(
             trader,
             params.baseToken,
             response.takerBase, // exchangedPositionSize
@@ -831,7 +831,7 @@ contract ClearingHouse is
 
         uint256 sqrtPrice = _getSqrtMarkTwapX96(baseToken, 0);
         int256 openNotional = _getTakerOpenNotional(maker, baseToken);
-        emitPositionChanged(
+        _emitPositionChanged(
             maker,
             baseToken,
             removeLiquidityResponse.takerBase, // exchangedPositionSize
@@ -926,7 +926,7 @@ contract ClearingHouse is
         }
 
         int256 openNotional = _getTakerOpenNotional(params.trader, params.baseToken);
-        emitPositionChanged(
+        _emitPositionChanged(
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,
@@ -990,11 +990,11 @@ contract ClearingHouse is
         return fundingGrowthGlobal;
     }
 
-    function _modifyOwedRealizedPnl(address trader, int256 amount) private {
+    function _modifyOwedRealizedPnl(address trader, int256 amount) internal {
         IAccountBalance(_accountBalance).modifyOwedRealizedPnl(trader, amount);
     }
 
-    function emitPositionChanged(
+    function _emitPositionChanged(
         address trader,
         address baseToken,
         int256 exchangedPositionSize,
@@ -1003,7 +1003,7 @@ contract ClearingHouse is
         int256 openNotional,
         int256 realizedPnl,
         uint256 sqrtPriceAfterX96
-    ) private {
+    ) internal {
         emit PositionChanged(
             trader,
             baseToken,
