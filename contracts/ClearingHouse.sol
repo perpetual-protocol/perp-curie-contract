@@ -268,7 +268,7 @@ contract ClearingHouse is
                 );
 
             uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
-            emit PositionChanged(
+            emitPositionChanged(
                 trader,
                 params.baseToken,
                 removedPositionSize, // exchangedPositionSize
@@ -358,15 +358,15 @@ contract ClearingHouse is
             response.fee
         );
 
-        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(trader, params.baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(params.baseToken, 0);
-        emit PositionChanged(
+        int256 openNotional = _getTakerOpenNotional(trader, params.baseToken);
+        emitPositionChanged(
             trader,
             params.baseToken,
             response.takerBase, // exchangedPositionSize
             response.takerQuote, // exchangedPositionNotional
             0,
-            takerOpenNotional, // openNotional
+            openNotional,
             realizedPnl, // realizedPnl
             sqrtPrice
         );
@@ -832,15 +832,15 @@ contract ClearingHouse is
 
         int256 realizedPnl = _settleBalanceAndRealizePnl(maker, baseToken, removeLiquidityResponse);
 
-        int256 takerOpenNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(maker, baseToken);
         uint256 sqrtPrice = IExchange(_exchange).getSqrtMarkTwapX96(baseToken, 0);
-        emit PositionChanged(
+        int256 openNotional = _getTakerOpenNotional(maker, baseToken);
+        emitPositionChanged(
             maker,
             baseToken,
             removeLiquidityResponse.takerBase, // exchangedPositionSize
             removeLiquidityResponse.takerQuote, // exchangedPositionNotional
             0,
-            takerOpenNotional, // openNotional
+            openNotional,
             realizedPnl, // realizedPnl
             sqrtPrice
         );
@@ -928,8 +928,8 @@ contract ClearingHouse is
             _requireEnoughFreeCollateral(params.trader);
         }
 
-        int256 openNotional = IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
-        emit PositionChanged(
+        int256 openNotional = _getTakerOpenNotional(params.trader, params.baseToken);
+        emitPositionChanged(
             params.trader,
             params.baseToken,
             response.exchangedPositionSize,
@@ -993,6 +993,28 @@ contract ClearingHouse is
         return fundingGrowthGlobal;
     }
 
+    function emitPositionChanged(
+        address trader,
+        address baseToken,
+        int256 exchangedPositionSize,
+        int256 exchangedPositionNotional,
+        uint256 fee,
+        int256 openNotional,
+        int256 realizedPnl,
+        uint256 sqrtPriceAfterX96
+    ) private {
+        emit PositionChanged(
+            trader,
+            baseToken,
+            exchangedPositionSize,
+            exchangedPositionNotional,
+            fee,
+            openNotional,
+            realizedPnl,
+            sqrtPriceAfterX96
+        );
+    }
+
     //
     // INTERNAL VIEW
     //
@@ -1005,6 +1027,10 @@ contract ClearingHouse is
     /// @inheritdoc BaseRelayRecipient
     function _msgData() internal view override(BaseRelayRecipient, OwnerPausable) returns (bytes memory) {
         return super._msgData();
+    }
+
+    function _getTakerOpenNotional(address trader, address baseToken) internal view returns (int256) {
+        return IAccountBalance(_accountBalance).getTakerOpenNotional(trader, baseToken);
     }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
