@@ -19,8 +19,8 @@ import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHous
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, filterLogs } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { encodePriceSqrt } from "../shared/utilities"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -186,7 +186,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 "0", // realizedPnl
                 encodePriceSqrt("100", "1"), // sqrtPriceAfterX96
             )
-
         })
 
         it("has 0 open orders left", async () => {
@@ -472,7 +471,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
             // cancel order in BTC market successfully
             const tx2 = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)
             await expect(tx2).to.emit(clearingHouse, "LiquidityChanged")
-
         })
     })
 })
