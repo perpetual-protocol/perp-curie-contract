@@ -6,15 +6,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
-- Add `AccountBalance.hasOrderInOpenOrClosedMarket` to check order in Open/Closed market.
 
-## [1.1.2-staging] - 2021-12-24
+## [1.0.15] - 2022-02-09
 
-- deploy PERP market with Band price feed
+### Changed
+- emit `PositionChanged` event in `cancelExcessOrders` and `cancelAllExcessOrders`
 
-## [1.1.1-staging] - 2021-12-22
+## [1.0.14] - 2022-01-28
 
-- Add pause/stop market feature
+### Added
+- Add `IClearingHouse.liquidte(address, address, uint)` to liquidate with slippage protection.
+- 
+## [1.0.13] - 2022-01-21
+### Deploy
+- Deploy `SOL` market to optimism
+
+## [1.0.12] - 2022-01-20
+### Deploy
+- Deploy `LUNA` market to optimism
+
+## [1.0.11] - 2022-01-18
+### Deploy
+- Deploy `AVAX` market to optimism
+
+## [1.0.10] - 2022-01-17
+### Changed
+- Add _backstopLiquidityProviderMap in ClearingHouseConfigStorageV2. It's for only configured backstopLiquidityProvider can liquidate the trader's position who has bad debt.
+
+### Deploy
+- Upgrade AccountBalance, ClearingHouse, ClearingHouseConfig, Exchange, Vault
+
+## [1.0.9] - 2022-01-14
+
+### Changed
+- Revert swap if _maxTickCrossedWithinBlockMap[baseToken] is 0
+
+### Deploy
+- Upgrade Exchange on **Optimism**
+
+## [1.0.9-staging] - 2022-01-13
+
+- Upgrade Exchange for zero tick crossing
+
+## [1.0.8] - 2022-01-12
+
+Code is same as `v1.0.8-staging`.
+
+### Deploy
+- Upgrade ClearingHouse on **Optimism**
+
+## [1.0.8-staging] - 2022-01-11
+
+### Fixed
+- revert when reducing position with bad debt
+
+### Deploy
+- Upgrade ClearingHouse on **Optimism Kovan**
+
+## [1.0.7] - 2022-01-06
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism**
+
+## [1.0.7-staging] - 2022-01-05
+
+### Added
+- add `BaseToken.setPriceFeed()` to set address of price feed.
+
+### Deploy
+- Upgrade vBTC and vETH on **Optimism Kovan**
+
+## [1.0.6] - 2022-01-05
+
+- Only includes new deployments on **Optimism Kovan** compared with `1.0.5`.
+
+## [1.0.6-staging] - 2022-01-04
+
+- Clean deploy all contracts on **Optimism Kovan** except external contracts (DefaultProxyAdmin, USDC, UniswapV3Factory). Note that the contract proxy addresses has been changed. Can find all contract addresses in `./metadata/optimismKovan.json`.
+
+## [1.0.5] - 2022-01-03
+
+### Added
+- Deploy `AVAXUSDBandPriceFeed` on **Optimism**.
+- Deploy `LUNAUSDBandPriceFeed` on **Optimism**.
+- Deploy `SOLUSDBandPriceFeed` on **Optimism**.
 
 ## [1.0.4] - 2021-12-23
 

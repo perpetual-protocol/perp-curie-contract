@@ -14,14 +14,16 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let exchange: Exchange
@@ -40,19 +42,19 @@ describe("AccountBalance", () => {
     let upperTick: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        baseToken2 = _clearingHouseFixture.baseToken2
-        quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
-        pool2 = _clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        baseToken2 = fixture.baseToken2
+        quoteToken = fixture.quoteToken
+        pool = fixture.pool
+        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         tickSpacing = await pool.tickSpacing()
@@ -70,12 +72,25 @@ describe("AccountBalance", () => {
 
     describe("getBaseTokens()", () => {
         beforeEach(async () => {
-            await pool.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            await pool2.initialize(encodePriceSqrt("151.373306858723226652", "1")) // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
 
-            // add pool after it's initialized
-            await marketRegistry.addPool(baseToken.address, 10000)
-            await marketRegistry.addPool(baseToken2.address, 10000)
+            await initAndAddPool(
+                fixture,
+                pool2,
+                baseToken2.address,
+                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
         })
 
         it("alice add liquidity", async () => {

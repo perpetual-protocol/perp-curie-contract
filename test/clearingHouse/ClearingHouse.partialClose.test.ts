@@ -14,7 +14,8 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
@@ -56,12 +57,20 @@ describe("ClearingHouse partial close in xyk pool", () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        await marketRegistry.addPool(baseToken.address, "10000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
+
+        await initAndAddPool(
+            _clearingHouseFixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"),
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000", collateralDecimals)
@@ -140,10 +149,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("carol's position is partially closed with closePosition when it's over price limit", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-
             // remaining position size = -25 - (-25 * 1/4) = -18.75
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
@@ -156,11 +161,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         // values are the same as the above one
-        it("force error, partially closing position/isOverPriceLimit can only happen once", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-
+        it("force error, partially closing position/isOverPriceLimit can happen once", async () => {
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,
@@ -258,6 +259,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // liquidation can't happen in the same block because it's based on the index price
             await forwardTimestamp(clearingHouse)
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
+
+            // set liquidator as backstop liquidity provider
+            await clearingHouseConfig.setBackstopLiquidityProvider(liquidator.address, true)
         })
 
         it("taker's position is partially liquidated", async () => {
@@ -267,7 +271,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             // should be partially liquidated
             // remaining position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            await clearingHouse
+                .connect(liquidator)
+                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
             expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
         })
 
@@ -276,10 +282,14 @@ describe("ClearingHouse partial close in xyk pool", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("10000000", 6), 0, 0, 0]
             })
-            await clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address)
+            await clearingHouse
+                .connect(liquidator)
+                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
 
             await expect(
-                clearingHouse.connect(liquidator).liquidate(carol.address, baseToken.address),
+                clearingHouse
+                    .connect(liquidator)
+                    ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0),
             ).to.be.revertedWith("EX_AOPLO")
         })
     })
