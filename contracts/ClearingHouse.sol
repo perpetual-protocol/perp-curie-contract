@@ -732,10 +732,7 @@ contract ClearingHouse is
         require(!IAccountBalance(_accountBalance).hasOrder(trader), "CH_CLWTISO");
 
         // CH_EAV: enough account value
-        require(
-            getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader),
-            "CH_EAV"
-        );
+        require(_isLiquidatable(trader), "CH_EAV");
 
         // must settle funding first
         _settleFunding(trader, baseToken);
@@ -787,7 +784,7 @@ contract ClearingHouse is
         // CH_NEXO: not excess orders
         require(
             (_getFreeCollateralByRatio(maker, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) < 0) ||
-                getAccountValue(maker) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(maker),
+                _isLiquidatable(maker),
             "CH_NEXO"
         );
 
@@ -1047,6 +1044,10 @@ contract ClearingHouse is
 
     function _getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
         return IExchange(_exchange).getSqrtMarkTwapX96(baseToken, twapInterval);
+    }
+
+    function _isLiquidatable(address trader) internal view returns (bool) {
+        return getAccountValue(trader) < IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader);
     }
 
     function _requireEnoughFreeCollateral(address trader) internal view {
