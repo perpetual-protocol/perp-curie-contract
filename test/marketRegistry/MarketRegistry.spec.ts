@@ -146,11 +146,16 @@ describe("MarketRegistry Spec", () => {
         describe("after addPool", () => {
             beforeEach(async () => {
                 await marketRegistry.setClearingHouse(mockedClearingHouse.address)
-                await marketRegistry.addPool(baseToken.address, DEFAULT_FEE)
+                await expect(marketRegistry.addPool(baseToken.address, DEFAULT_FEE))
+                    .to.emit(marketRegistry, "PoolAdded")
+                    .withArgs(baseToken.address, DEFAULT_FEE, mockedPool.address)
             })
 
             it("setFeeRatio", async () => {
-                await marketRegistry.setFeeRatio(baseToken.address, 10000) // 1%
+                // 1% fee ratio
+                await expect(marketRegistry.setFeeRatio(baseToken.address, 10000))
+                    .to.emit(marketRegistry, "FeeRatioChanged")
+                    .withArgs(baseToken.address, 10000)
                 expect(await marketRegistry.getFeeRatio(baseToken.address)).eq(10000)
             })
 
@@ -162,7 +167,10 @@ describe("MarketRegistry Spec", () => {
             })
 
             it("setInsuranceFundFeeRatio", async () => {
-                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000) // 1%
+                // 1% fee ratio
+                await expect(marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 10000))
+                    .to.emit(marketRegistry, "InsuranceFundFeeRatioChanged")
+                    .withArgs(baseToken.address, 10000)
                 expect(await marketRegistry.getInsuranceFundFeeRatio(baseToken.address)).eq(10000)
             })
 

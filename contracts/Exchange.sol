@@ -16,13 +16,14 @@ import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { AccountMarket } from "./lib/AccountMarket.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
@@ -106,6 +107,7 @@ contract Exchange is
         _clearingHouseConfig = clearingHouseConfigArg;
     }
 
+    /// @param accountBalanceArg: AccountBalance contract address
     function setAccountBalance(address accountBalanceArg) external onlyOwner {
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
@@ -113,6 +115,11 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
+    /// @dev Restrict the price impact by setting the ticks can be crossed within a block when
+    /// trader reducing liquidity. It is used to prevent the malicious behavior of the malicious traders.
+    /// The restriction is applied in _isOverPriceLimitWithTick()
+    /// @param baseToken The base token address
+    /// @param maxTickCrossedWithinBlock The maximum ticks can be crossed within a block
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BNC: baseToken is not contract
         require(baseToken.isContract(), "EX_BNC");
@@ -128,6 +135,8 @@ contract Exchange is
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
+    /// @dev This callback is forwarded to ClearingHouse.uniswapV3SwapCallback() because all the tokens
+    /// are stored in there.
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -136,6 +145,9 @@ contract Exchange is
         IUniswapV3SwapCallback(_clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
+    /// @param params The parameters of the swap
+    /// @return The result of the swap
+    /// @dev can only be called from ClearingHouse
     function swap(SwapParams memory params) external override returns (SwapResponse memory) {
         _requireOnlyClearingHouse();
 
@@ -245,7 +257,9 @@ contract Exchange is
             fundingGrowthGlobal
         );
 
-        uint256 timestamp = _blockTimestamp();
+        uint256 timestamp =
+            IBaseToken(baseToken).isOpen() ? _blockTimestamp() : IBaseToken(baseToken).getPausedTimestamp();
+
         // update states before further actions in this block; once per block
         if (timestamp != _lastSettledTimestampMap[baseToken]) {
             // update fundingGrowthGlobal and _lastSettledTimestamp
@@ -284,10 +298,12 @@ contract Exchange is
         return _clearingHouseConfig;
     }
 
+    /// @inheritdoc IExchange
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
+    /// @inheritdoc IExchange
     function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
         AccountMarket.Info memory info =
             IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
@@ -312,6 +328,7 @@ contract Exchange is
                 : 0;
     }
 
+    /// @inheritdoc IExchange
     function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
@@ -342,6 +359,7 @@ contract Exchange is
             );
     }
 
+    /// @inheritdoc IExchange
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
@@ -553,8 +571,10 @@ contract Exchange is
             uint256 indexTwap
         )
     {
+        bool marketOpen = IBaseToken(baseToken).isOpen();
         uint32 twapInterval;
-        uint256 timestamp = _blockTimestamp();
+        uint256 timestamp = marketOpen ? _blockTimestamp() : IBaseToken(baseToken).getPausedTimestamp();
+
         // shorten twapInterval if prior observations are not enough
         if (_firstTradedTimestampMap[baseToken] != 0) {
             twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
@@ -564,9 +584,23 @@ contract Exchange is
             twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
-        uint256 markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+        uint256 markTwapX96;
+        if (marketOpen) {
+            markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+            indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        } else {
+            // if a market is paused/closed, we use the last known index price which is getPausedIndexPrice
+            //
+            // -----+--- twap interval ---+--- secondsAgo ---+
+            //                        pausedTime            now
+
+            uint32 secondsAgo = _blockTimestamp().sub(IBaseToken(baseToken).getPausedTimestamp()).toUint32();
+            markTwapX96 = UniswapV3Broker
+                .getSqrtMarkTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
+                .formatSqrtPriceX96ToPriceX96();
+            indexTwap = IBaseToken(baseToken).getPausedIndexPrice();
+        }
         markTwap = markTwapX96.formatX96ToX10_18();
-        indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];

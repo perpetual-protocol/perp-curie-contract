@@ -224,6 +224,14 @@ library UniswapV3Broker {
     /// @dev if twapInterval < 10 (should be less than 1 block), return mark price without twap directly,
     ///      as twapInterval is too short and makes getting twap over such a short period meaningless
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {
+        return getSqrtMarkTwapX96From(pool, 0, twapInterval);
+    }
+
+    function getSqrtMarkTwapX96From(
+        address pool,
+        uint32 secondsAgo,
+        uint32 twapInterval
+    ) internal view returns (uint160) {
         // return the current price as twapInterval is too short/ meaningless
         if (twapInterval < 10) {
             (uint160 sqrtMarkPrice, , , , , , ) = getSlot0(pool);
@@ -232,8 +240,8 @@ library UniswapV3Broker {
         uint32[] memory secondsAgos = new uint32[](2);
 
         // solhint-disable-next-line not-rely-on-time
-        secondsAgos[0] = twapInterval;
-        secondsAgos[1] = 0;
+        secondsAgos[0] = secondsAgo + twapInterval;
+        secondsAgos[1] = secondsAgo;
         (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
 
         // tick(imprecise as it's an integer) to price

@@ -1,11 +1,6 @@
 {
   "chainId": 10,
   "contracts": {
-    "AVAXUSDBandPriceFeed": {
-      "address": "0xd9b1a9EbA74943f26887E2bb36B7305e829E05a9",
-      "createdBlockNumber": 1866740,
-      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
-    },
     "AccountBalance": {
       "address": "0xA7f3FC32043757039d5e13d790EE43edBcBa8b7c",
       "createdBlockNumber": 513569,
@@ -41,11 +36,6 @@
       "createdBlockNumber": 513530,
       "name": "contracts/InsuranceFund.sol:InsuranceFund"
     },
-    "LUNAUSDBandPriceFeed": {
-      "address": "0x3e3243EbCA4AF1c7DdF2D3fCd1cC4B771B983054",
-      "createdBlockNumber": 1866843,
-      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
-    },
     "MarketRegistry": {
       "address": "0xd5820eE0F55205f6cdE8BB0647072143b3060067",
       "createdBlockNumber": 513520,
@@ -61,20 +51,10 @@
       "createdBlockNumber": 513502,
       "name": "contracts/QuoteToken.sol:QuoteToken"
     },
-    "SOLUSDBandPriceFeed": {
-      "address": "0xAD927Fef0ad5B2384BD5a09F70531815B3A1F50C",
-      "createdBlockNumber": 1866917,
-      "name": "contracts/BandPriceFeed.sol:BandPriceFeed"
-    },
     "Vault": {
       "address": "0xAD7b4C162707E0B2b5f6fdDbD3f8538A5fbA0d60",
       "createdBlockNumber": 513580,
       "name": "contracts/Vault.sol:Vault"
-    },
-    "vAVAX": {
-      "address": "0x5FAa136Fc58B6136fFDAeAAC320076C4865c070F",
-      "createdBlockNumber": 2390611,
-      "name": "contracts/BaseToken.sol:BaseToken"
     },
     "vBTC": {
       "address": "0x86f1e0420c26a858fc203A3645dD1A36868F18e5",
@@ -84,16 +64,6 @@
     "vETH": {
       "address": "0x8C835DFaA34e2AE61775e80EE29E2c724c6AE2BB",
       "createdBlockNumber": 513630,
-      "name": "contracts/BaseToken.sol:BaseToken"
-    },
-    "vLUNA": {
-      "address": "0xB24F50Dd9918934AB2228bE7A097411ca28F6C14",
-      "createdBlockNumber": 2458632,
-      "name": "contracts/BaseToken.sol:BaseToken"
-    },
-    "vSOL": {
-      "address": "0x151Bb01c79F4516c233948D69daE39869BCcB737",
-      "createdBlockNumber": 2499786,
       "name": "contracts/BaseToken.sol:BaseToken"
     }
   },
@@ -115,27 +85,6 @@
       "address": "0xC64f9436f8Ca50CDCC096105C62DaD52FAEb1f2e",
       "baseAddress": "0x86f1e0420c26a858fc203A3645dD1A36868F18e5",
       "baseSymbol": "vBTC",
-      "quoteAddress": "0xC84Da6c8ec7A57cD10B939E79eaF9d2D17834E04",
-      "quoteSymbol": "vUSD"
-    },
-    {
-      "address": "0x14Bc698Fdc368f2487d3eaD12DFF458E7c272047",
-      "baseAddress": "0x5FAa136Fc58B6136fFDAeAAC320076C4865c070F",
-      "baseSymbol": "vAVAX",
-      "quoteAddress": "0xC84Da6c8ec7A57cD10B939E79eaF9d2D17834E04",
-      "quoteSymbol": "vUSD"
-    },
-    {
-      "address": "0x4d7C361d7758107BDb88e4d36EF5ac5d85f8c6Fa",
-      "baseAddress": "0xB24F50Dd9918934AB2228bE7A097411ca28F6C14",
-      "baseSymbol": "vLUNA",
-      "quoteAddress": "0xC84Da6c8ec7A57cD10B939E79eaF9d2D17834E04",
-      "quoteSymbol": "vUSD"
-    },
-    {
-      "address": "0xf993cc412eDF1257F3e771Bb744645daF4c19b14",
-      "baseAddress": "0x151Bb01c79F4516c233948D69daE39869BCcB737",
-      "baseSymbol": "vSOL",
       "quoteAddress": "0xC84Da6c8ec7A57cD10B939E79eaF9d2D17834E04",
       "quoteSymbol": "vUSD"
     }

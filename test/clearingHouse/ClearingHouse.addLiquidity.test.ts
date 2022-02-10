@@ -117,19 +117,18 @@ describe("ClearingHouse addLiquidity", () => {
 
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
-                await expect(
-                    clearingHouse.connect(alice).addLiquidity({
-                        baseToken: baseToken.address,
-                        base: 0,
-                        quote: parseUnits("10000", await quoteToken.decimals()),
-                        lowerTick: 50000,
-                        upperTick: 50200,
-                        minBase: 0,
-                        minQuote: 0,
-                        useTakerBalance: false,
-                        deadline: ethers.constants.MaxUint256,
-                    }),
-                )
+                const tx = await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: 0,
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50200,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerBalance: false,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                await expect(tx)
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
@@ -142,6 +141,7 @@ describe("ClearingHouse addLiquidity", () => {
                         "81689571696303801037492",
                         0,
                     )
+                await expect(tx).to.not.emit(accountBalance, "PnlRealized")
 
                 // verify account states
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(
@@ -247,19 +247,18 @@ describe("ClearingHouse addLiquidity", () => {
 
                 // assume imRatio = 0.1
                 // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
-                await expect(
-                    clearingHouse.connect(alice).addLiquidity({
-                        baseToken: baseToken.address,
-                        base: parseUnits("100", await baseToken.decimals()),
-                        quote: parseUnits("10000", await quoteToken.decimals()),
-                        lowerTick: 50000,
-                        upperTick: 50400,
-                        minBase: 0,
-                        minQuote: 0,
-                        useTakerBalance: false,
-                        deadline: ethers.constants.MaxUint256,
-                    }),
-                )
+                const tx = await clearingHouse.connect(alice).addLiquidity({
+                    baseToken: baseToken.address,
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    lowerTick: 50000,
+                    upperTick: 50400,
+                    minBase: 0,
+                    minQuote: 0,
+                    useTakerBalance: false,
+                    deadline: ethers.constants.MaxUint256,
+                })
+                await expect(tx)
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
@@ -272,6 +271,7 @@ describe("ClearingHouse addLiquidity", () => {
                         "81689571696303801018159",
                         0,
                     )
+                await expect(tx).to.not.emit(accountBalance, "PnlRealized")
 
                 // verify account states
                 const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(

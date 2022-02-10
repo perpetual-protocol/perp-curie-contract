@@ -18,7 +18,7 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
@@ -164,10 +164,12 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("100000", 6), 0, 0, 0]
             })
 
-            await expect(clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)).to.emit(
-                clearingHouse,
-                "LiquidityChanged",
-            )
+            const tx = await (
+                await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
+            ).wait()
+
+            const logs = filterLogs(tx, clearingHouse.interface.getEventTopic("LiquidityChanged"), clearingHouse)
+            expect(logs.length).to.be.eq(2)
         })
 
         it("has 0 open orders left", async () => {
@@ -223,6 +225,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 clearingHouse,
                 "LiquidityChanged",
             )
+
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
@@ -375,7 +378,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 return [0, parseUnits("105", 6), 0, 0, 0]
             })
 
-            // cancel order successfully
+            // cancel order successfully without orders in this market
             await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)).to.not.emit(
                 clearingHouse,
                 "LiquidityChanged",
