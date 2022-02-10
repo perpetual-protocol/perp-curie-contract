@@ -14,6 +14,7 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -60,7 +61,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
         baseToken = fixture.baseToken
 
         // prepare market
-        const { minTick, maxTick } = await initMarket(fixture, 10, 0, 0)
+        const { minTick, maxTick } = await initMarket(fixture, 10, 0, 0, getMaxTickRange())
         lowerTick = minTick
         upperTick = maxTick
     })

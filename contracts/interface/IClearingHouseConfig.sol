@@ -24,5 +24,7 @@ interface IClearingHouseConfig {
     function getSettlementTokenBalanceCap() external view returns (uint256 settlementTokenBalanceCap);
 
     /// @return maxFundingRate Max value of funding rate
-    function getMaxFundingRate() external view returns (uint24 maxFundingRate);
+    function getMaxFundingRate() external view returns (uint24);
+
+    function isBackstopLiquidityProvider(address account) external view returns (bool);
 }

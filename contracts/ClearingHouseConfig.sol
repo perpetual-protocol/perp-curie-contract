@@ -2,11 +2,11 @@
 pragma solidity 0.7.6;
 
 import { SafeOwnable } from "./base/SafeOwnable.sol";
-import { ClearingHouseConfigStorageV1 } from "./storage/ClearingHouseConfigStorage.sol";
+import { ClearingHouseConfigStorageV2 } from "./storage/ClearingHouseConfigStorage.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV1 {
+contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV2 {
     //
     // EVENT
     //
@@ -16,6 +16,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
     event SettlementTokenBalanceCapChanged(uint256 cap);
     event MaxFundingRateChanged(uint24 rate);
+    event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
 
     //
     // MODIFIER
@@ -84,6 +85,11 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit MaxFundingRateChanged(rate);
     }
 
+    function setBackstopLiquidityProvider(address account, bool isProvider) external onlyOwner {
+        _backstopLiquidityProviderMap[account] = isProvider;
+        emit BackstopLiquidityProviderChanged(account, isProvider);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -126,5 +132,10 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function getMaxFundingRate() external view override returns (uint24) {
         return _maxFundingRate;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function isBackstopLiquidityProvider(address account) external view override returns (bool) {
+        return _backstopLiquidityProviderMap[account];
     }
 }

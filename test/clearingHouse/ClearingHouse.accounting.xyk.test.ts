@@ -7,6 +7,7 @@ import { it } from "mocha"
 import {
     AccountBalance,
     BaseToken,
+    ClearingHouseConfig,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
@@ -25,11 +26,12 @@ import {
     q2bExactInput,
     removeAllOrders,
 } from "../helper/clearingHouseHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward, forwardTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
 describe("ClearingHouse accounting verification in xyk pool", () => {
@@ -42,6 +44,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
+    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: QuoteToken
@@ -50,7 +53,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
-    let fixture
+    let fixture: ClearingHouseFixture
 
     let makerCollateral: BigNumber
     let takerCollateral: BigNumber
@@ -59,38 +62,42 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange as TestExchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        vault = _clearingHouseFixture.vault
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
-        insuranceFund = _clearingHouseFixture.insuranceFund
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        pool = _clearingHouseFixture.pool
+        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        exchange = fixture.exchange as TestExchange
+        accountBalance = fixture.accountBalance
+        marketRegistry = fixture.marketRegistry
+        vault = fixture.vault
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        quoteToken = fixture.quoteToken
+        insuranceFund = fixture.insuranceFund
+        clearingHouseConfig = fixture.clearingHouseConfig
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
-        fixture = _clearingHouseFixture
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("10", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt("10", "1"))
-        // the initial number of oracle can be recorded is 1; thus, have to expand it
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        // update config
-        await marketRegistry.addPool(baseToken.address, uniFeeRatio)
-        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
-
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
+
+        // update config
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("10", "1"),
+            uniFeeRatio,
+            getMaxTickRange(),
+        )
+
+        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
+        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
 
         // prepare collateral for maker
         makerCollateral = parseUnits("1000", collateralDecimals)
@@ -556,7 +563,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // liquidate taker
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
-                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+                await clearingHouse
+                    .connect(taker2)
+                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
             }
 
             expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
@@ -585,7 +594,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // liquidate taker
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
-                await clearingHouse.connect(taker2).liquidate(taker.address, baseToken.address)
+                await clearingHouse
+                    .connect(taker2)
+                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
             }
         })
 
@@ -600,8 +611,18 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await removeAllOrders(fixture, maker)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
-            // taker close, quote output: 184.21649272
-            await closePosition(fixture, taker)
+            // taker cannot close position (quote output: 184.21649272), but can be liquidated
+            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_BD")
+
+            // set index price to let taker be liquidated
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+
+            await clearingHouseConfig.setBackstopLiquidityProvider(taker2.address, true)
+            await clearingHouse
+                .connect(taker2)
+                ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
 
             // taker has bad debt
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.lt(0)
