@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
@@ -15,8 +15,9 @@ import {
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { token0Fixture } from "../shared/fixtures"
+import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
 import { forward } from "../shared/time"
+import { getMarketTwap } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse new market listing", () => {
@@ -34,6 +35,7 @@ describe("ClearingHouse new market listing", () => {
     let baseToken3: BaseToken
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator3: MockContract
+    let pool3Addr: string
 
     let lowerTick: number
     let upperTick: number
@@ -59,10 +61,10 @@ describe("ClearingHouse new market listing", () => {
         const uniFeeTier = 10000
         const ifFeeRatio = 100000
         await fixture.uniV3Factory.createPool(baseToken3.address, quoteToken.address, uniFeeTier)
-        const poolAddr = await fixture.uniV3Factory.getPool(baseToken3.address, quoteToken.address, fixture.uniFeeTier)
+        pool3Addr = await fixture.uniV3Factory.getPool(baseToken3.address, quoteToken.address, fixture.uniFeeTier)
 
-        await baseToken3.addWhitelist(poolAddr)
-        await quoteToken.addWhitelist(poolAddr)
+        await baseToken3.addWhitelist(pool3Addr)
+        await quoteToken.addWhitelist(pool3Addr)
 
         await baseToken3.mintMaximumTo(clearingHouse.address)
         await baseToken3.addWhitelist(clearingHouse.address)
@@ -168,6 +170,44 @@ describe("ClearingHouse new market listing", () => {
 
             expect(bobPendingFundingAfter.abs()).to.be.gt(bobPendingFundingBefore.abs())
             expect(davisPendingFundingAfter.abs()).to.be.gt(davisPendingFundingBefore.abs())
+        })
+
+        it("Stop to cumulate funding after change to emergency oracle", async () => {
+            await forward(100)
+            // Random to update global funding
+            await clearingHouse.settleAllFunding(bob.address)
+
+            // Bob's funding has been settled
+            const bobBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
+            expect(bobBefore).to.be.eq(0)
+
+            // Davis's funding still cumulate
+            const davisBefore = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
+            expect(davisBefore.abs()).to.be.gt(0)
+
+            const emergencyPriceFeed = await emergencyPriceFeedFixture(pool3Addr, baseToken3)
+            const priceFeed = await baseToken3.getPriceFeed()
+            expect(priceFeed).to.be.eq(emergencyPriceFeed.address)
+
+            // Ensure index twap should be equal market twap
+            // There's rounding difference when converting sqrtPriceX96 to price
+            const interval = 60
+            const indexTwap = await baseToken3.getIndexPrice(interval)
+            const markTwap = parseEther(await getMarketTwap(exchange, baseToken, interval))
+            expect(indexTwap).to.be.closeTo(markTwap, 1)
+
+            // Should not cumulate funding after forward timestamp
+            await forward(100)
+            const bobAfter100 = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
+            expect(bobAfter100).to.be.eq(0)
+            const davisAfter100 = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
+            expect(davisAfter100).to.be.eq(davisBefore)
+
+            // Davis should get zero pending funding after funding settlement
+            await clearingHouse.settleAllFunding(davis.address)
+            await forward(100)
+            const davisAfterSettle = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
+            expect(davisAfterSettle).to.be.eq(0)
         })
     })
     describe("liquidate when trader has order in paused market", () => {
