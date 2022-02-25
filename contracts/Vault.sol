@@ -231,6 +231,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     // PUBLIC VIEW
     //
 
+    // @inheritdoc IVault
     function getBalance(address trader) public view override returns (int256) {
         return _balance[trader][_settlementToken];
     }
