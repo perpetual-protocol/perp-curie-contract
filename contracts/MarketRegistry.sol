@@ -48,6 +48,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         _maxOrdersPerMarket = type(uint8).max;
     }
 
+    /// @inheritdoc IMarketRegistry
     function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
         // existent pool
         require(_poolMap[baseToken] == address(0), "MR_EP");
@@ -89,6 +90,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         return pool;
     }
 
+    /// @inheritdoc IMarketRegistry
     function setFeeRatio(address baseToken, uint24 feeRatio)
         external
         override
@@ -100,6 +102,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit FeeRatioChanged(baseToken, feeRatio);
     }
 
+    /// @inheritdoc IMarketRegistry
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
         external
         override
@@ -111,6 +114,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit InsuranceFundFeeRatioChanged(insuranceFundFeeRatioArg);
     }
 
+    /// @inheritdoc IMarketRegistry
     function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external override onlyOwner {
         _maxOrdersPerMarket = maxOrdersPerMarketArg;
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
@@ -120,30 +124,37 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     // EXTERNAL VIEW
     //
 
+    /// @inheritdoc IMarketRegistry
     function getQuoteToken() external view override returns (address) {
         return _quoteToken;
     }
 
+    /// @inheritdoc IMarketRegistry
     function getUniswapV3Factory() external view override returns (address) {
         return _uniswapV3Factory;
     }
 
+    /// @inheritdoc IMarketRegistry
     function getMaxOrdersPerMarket() external view override returns (uint8) {
         return _maxOrdersPerMarket;
     }
 
+    /// @inheritdoc IMarketRegistry
     function getPool(address baseToken) external view override checkPool(baseToken) returns (address) {
         return _poolMap[baseToken];
     }
 
+    /// @inheritdoc IMarketRegistry
     function getFeeRatio(address baseToken) external view override checkPool(baseToken) returns (uint24) {
         return _exchangeFeeRatioMap[baseToken];
     }
 
+    /// @inheritdoc IMarketRegistry
     function getInsuranceFundFeeRatio(address baseToken) external view override checkPool(baseToken) returns (uint24) {
         return _insuranceFundFeeRatioMap[baseToken];
     }
 
+    /// @inheritdoc IMarketRegistry
     function getMarketInfo(address baseToken) external view override checkPool(baseToken) returns (MarketInfo memory) {
         return
             MarketInfo({
@@ -154,6 +165,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
             });
     }
 
+    /// @inheritdoc IMarketRegistry
     function hasPool(address baseToken) external view override returns (bool) {
         return _poolMap[baseToken] != address(0);
     }
