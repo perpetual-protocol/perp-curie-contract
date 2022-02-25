@@ -95,6 +95,7 @@ contract OrderBook is
         emit ExchangeChanged(exchangeArg);
     }
 
+    /// @inheritdoc IOrderBook
     function addLiquidity(AddLiquidityParams calldata params) external override returns (AddLiquidityResponse memory) {
         _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
@@ -170,6 +171,7 @@ contract OrderBook is
             });
     }
 
+    /// @inheritdoc IOrderBook
     function removeLiquidity(RemoveLiquidityParams calldata params)
         external
         override
@@ -233,6 +235,7 @@ contract OrderBook is
         return liquidityCoefficientInFundingPayment;
     }
 
+    /// @inheritdoc IOrderBook
     function updateOrderDebt(
         bytes32 orderId,
         int256 base,
@@ -253,6 +256,7 @@ contract OrderBook is
         IUniswapV3MintCallback(_clearingHouse).uniswapV3MintCallback(amount0Owed, amount1Owed, data);
     }
 
+    /// @inheritdoc IOrderBook
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
         _requireOnlyExchange();
 
@@ -387,14 +391,17 @@ contract OrderBook is
         return _exchange;
     }
 
+    /// @inheritdoc IOrderBook
     function getOpenOrderIds(address trader, address baseToken) external view override returns (bytes32[] memory) {
         return _openOrderIdsMap[trader][baseToken];
     }
 
+    /// @inheritdoc IOrderBook
     function getOpenOrderById(bytes32 orderId) external view override returns (OpenOrder.Info memory) {
         return _openOrderMap[orderId];
     }
 
+    /// @inheritdoc IOrderBook
     function getOpenOrder(
         address trader,
         address baseToken,
@@ -404,6 +411,7 @@ contract OrderBook is
         return _openOrderMap[OpenOrder.calcOrderKey(trader, baseToken, lowerTick, upperTick)];
     }
 
+    /// @inheritdoc IOrderBook
     function hasOrder(address trader, address[] calldata tokens) external view override returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
             if (_openOrderIdsMap[trader][tokens[i]].length > 0) {
@@ -413,6 +421,7 @@ contract OrderBook is
         return false;
     }
 
+    /// @inheritdoc IOrderBook
     function getTotalQuoteBalanceAndPendingFee(address trader, address[] calldata baseTokens)
         external
         view
@@ -470,6 +479,7 @@ contract OrderBook is
         return liquidityCoefficientInFundingPayment;
     }
 
+    /// @inheritdoc IOrderBook
     function getPendingFee(
         address trader,
         address baseToken,
@@ -488,6 +498,7 @@ contract OrderBook is
     // PUBLIC VIEW
     //
 
+    /// @inheritdoc IOrderBook
     function getTotalOrderDebt(
         address trader,
         address baseToken,
@@ -657,12 +668,13 @@ contract OrderBook is
     // INTERNAL VIEW
     //
 
-    /// @return makerQuoteBalance includes maker fee
+    /// @return makerBalance maker quote balance
+    /// @return pendingFee pending fee
     function _getMakerQuoteBalanceAndPendingFee(
         address trader,
         address baseToken,
         bool fetchBase
-    ) internal view returns (int256, uint256) {
+    ) internal view returns (int256 makerBalance, uint256 pendingFee) {
         (uint256 totalBalanceFromOrders, uint256 pendingFee) = _getTotalTokenAmountInPool(trader, baseToken, fetchBase);
         uint256 totalOrderDebt = getTotalOrderDebt(trader, baseToken, fetchBase);
 
