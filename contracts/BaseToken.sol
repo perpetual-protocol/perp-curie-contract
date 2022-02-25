@@ -33,7 +33,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BaseTokenStorageV1 
         _priceFeedDecimals = priceFeedDecimals;
     }
 
-    /// @dev This function is only used for emergency shutdown
+    /// @dev This function is only used for emergency shutdown, to set priceFeed to an emergencyPriceFeed
     function setPriceFeed(address priceFeedArg) external onlyOwner {
         // ChainlinkPriceFeed uses 8 decimals
         // BandPriceFeed uses 18 decimals
