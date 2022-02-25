@@ -58,6 +58,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         emit VaultChanged(vaultArg);
     }
 
+    /// @inheritdoc IAccountBalance
     function modifyTakerBalance(
         address trader,
         address baseToken,
@@ -68,11 +69,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _modifyTakerBalance(trader, baseToken, base, quote);
     }
 
+    /// @inheritdoc IAccountBalance
     function modifyOwedRealizedPnl(address trader, int256 amount) external override {
         _requireOnlyClearingHouse();
         _modifyOwedRealizedPnl(trader, amount);
     }
 
+    /// @inheritdoc IAccountBalance
     function settleQuoteToOwedRealizedPnl(
         address trader,
         address baseToken,
@@ -82,6 +85,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _settleQuoteToOwedRealizedPnl(trader, baseToken, amount);
     }
 
+    /// @inheritdoc IAccountBalance
     function settleOwedRealizedPnl(address trader) external override returns (int256) {
         // only vault
         require(_msgSender() == _vault, "AB_OV");
@@ -91,6 +95,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return owedRealizedPnl;
     }
 
+    /// @inheritdoc IAccountBalance
     function settleBalanceAndDeregister(
         address maker,
         address baseToken,
@@ -121,6 +126,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _deregisterBaseToken(maker, baseToken);
     }
 
+    /// @inheritdoc IAccountBalance
     function registerBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
         address[] storage tokensStorage = _baseTokensMap[trader];
@@ -133,11 +139,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(tokensStorage.length <= IClearingHouseConfig(_clearingHouseConfig).getMaxMarketsPerAccount(), "AB_MNE");
     }
 
+    /// @inheritdoc IAccountBalance
     function deregisterBaseToken(address trader, address baseToken) external override {
         _requireOnlyClearingHouse();
         _deregisterBaseToken(trader, baseToken);
     }
 
+    /// @inheritdoc IAccountBalance
     function updateTwPremiumGrowthGlobal(
         address trader,
         address baseToken,
