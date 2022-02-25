@@ -2,22 +2,30 @@
 pragma solidity 0.7.6;
 
 interface IClearingHouseConfig {
-    function getMaxMarketsPerAccount() external view returns (uint8);
+    /// @return maxMarketsPerAccount Max value of total markets per account
+    function getMaxMarketsPerAccount() external view returns (uint8 maxMarketsPerAccount);
 
-    function getImRatio() external view returns (uint24);
+    /// @return imRatio Initial margin ratio
+    function getImRatio() external view returns (uint24 imRatio);
 
-    function getMmRatio() external view returns (uint24);
+    /// @return mmRatio Maintenance margin requirement ratio
+    function getMmRatio() external view returns (uint24 mmRatio);
 
-    function getLiquidationPenaltyRatio() external view returns (uint24);
+    /// @return liquidationPenaltyRatio Liquidation penalty ratio
+    function getLiquidationPenaltyRatio() external view returns (uint24 liquidationPenaltyRatio);
 
-    function getPartialCloseRatio() external view returns (uint24);
+    /// @return partialCloseRatio Partial close ratio
+    function getPartialCloseRatio() external view returns (uint24 partialCloseRatio);
 
-    /// @return twapInterval for funding and prices (mark & index) calculations
-    function getTwapInterval() external view returns (uint32);
+    /// @return twapInterval TwapInterval for funding and prices (mark & index) calculations
+    function getTwapInterval() external view returns (uint32 twapInterval);
 
-    function getSettlementTokenBalanceCap() external view returns (uint256);
+    /// @return settlementTokenBalanceCap Max value of settlement token balance
+    function getSettlementTokenBalanceCap() external view returns (uint256 settlementTokenBalanceCap);
 
-    function getMaxFundingRate() external view returns (uint24);
+    /// @return maxFundingRate Max value of funding rate
+    function getMaxFundingRate() external view returns (uint24 maxFundingRate);
 
-    function isBackstopLiquidityProvider(address account) external view returns (bool);
+    /// @return isBackstopLiquidityProvider is backstop liquidity provider
+    function isBackstopLiquidityProvider(address account) external view returns (bool isBackstopLiquidityProvider);
 }
