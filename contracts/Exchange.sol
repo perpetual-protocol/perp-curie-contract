@@ -106,6 +106,7 @@ contract Exchange is
         _clearingHouseConfig = clearingHouseConfigArg;
     }
 
+    /// @param accountBalanceArg: AccountBalance contract address
     function setAccountBalance(address accountBalanceArg) external onlyOwner {
         // accountBalance is 0
         require(accountBalanceArg != address(0), "E_AB0");
@@ -113,6 +114,11 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
+    /// @dev Restrict the price impact by setting the ticks can be crossed within a block when
+    /// trader reducing liquidity. It is used to prevent the malicious behavior of the malicious traders.
+    /// The restriction is applied in _isOverPriceLimitWithTick()
+    /// @param baseToken The base token address
+    /// @param maxTickCrossedWithinBlock The maximum ticks can be crossed within a block
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external onlyOwner {
         // EX_BNC: baseToken is not contract
         require(baseToken.isContract(), "EX_BNC");
@@ -128,6 +134,8 @@ contract Exchange is
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
+    /// @dev This callback is forwarded to ClearingHouse.uniswapV3SwapCallback() because all the tokens
+    /// are stored in there.
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -136,6 +144,7 @@ contract Exchange is
         IUniswapV3SwapCallback(_clearingHouse).uniswapV3SwapCallback(amount0Delta, amount1Delta, data);
     }
 
+    /// @inheritdoc IExchange
     function swap(SwapParams memory params) external override returns (SwapResponse memory) {
         _requireOnlyClearingHouse();
 
@@ -284,10 +293,12 @@ contract Exchange is
         return _clearingHouseConfig;
     }
 
+    /// @inheritdoc IExchange
     function getMaxTickCrossedWithinBlock(address baseToken) external view override returns (uint24) {
         return _maxTickCrossedWithinBlockMap[baseToken];
     }
 
+    /// @inheritdoc IExchange
     function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
         AccountMarket.Info memory info =
             IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
@@ -312,6 +323,7 @@ contract Exchange is
                 : 0;
     }
 
+    /// @inheritdoc IExchange
     function getAllPendingFundingPayment(address trader) external view override returns (int256 pendingFundingPayment) {
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
@@ -342,6 +354,7 @@ contract Exchange is
             );
     }
 
+    /// @inheritdoc IExchange
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
         return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
@@ -373,8 +386,8 @@ contract Exchange is
             );
     }
 
-    /// @return the resulting tick (derived from price) after replaying the swap
-    function _replaySwap(InternalReplaySwapParams memory params) internal returns (int24) {
+    /// @return tick the resulting tick (derived from price) after replaying the swap
+    function _replaySwap(InternalReplaySwapParams memory params) internal returns (int24 tick) {
         IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
