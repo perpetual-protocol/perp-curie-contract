@@ -4,8 +4,6 @@ import "@openzeppelin/hardhat-upgrades"
 import "@typechain/hardhat"
 import "hardhat-contract-sizer"
 import "hardhat-dependency-compiler"
-import "hardhat-deploy"
-import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
 import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
@@ -30,21 +28,14 @@ const config: HardhatUserConfig = {
             allowUnlimitedContractSize: true,
         },
     },
-    namedAccounts: {
-        deployer: 0, // 0 means ethers.getSigners[0]
-    },
     dependencyCompiler: {
         // We have to compile from source since UniswapV3 doesn't provide artifacts in their npm package
-        paths: ["@uniswap/v3-core/contracts/UniswapV3Factory.sol", "@uniswap/v3-core/contracts/UniswapV3Pool.sol"],
-    },
-    external: {
-        contracts: [
-            {
-                artifacts: "node_modules/@openzeppelin/contracts/build",
-            },
-            {
-                artifacts: "node_modules/@perp/perp-oracle-contract/artifacts",
-            },
+        paths: [
+            "@uniswap/v3-core/contracts/UniswapV3Factory.sol",
+            "@uniswap/v3-core/contracts/UniswapV3Pool.sol",
+            "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeed.sol",
+            "@perp/perp-oracle-contract/contracts/BandPriceFeed.sol",
+            "@perp/perp-oracle-contract/contracts/EmergencyPriceFeed.sol",
         ],
     },
     contractSizer: {
