@@ -25,7 +25,7 @@ export async function initMarket(
     const uniPoolFactory = await ethers.getContractFactory("UniswapV3Pool")
     const uniPool = uniPoolFactory.attach(poolAddr)
     await uniPool.initialize(encodePriceSqrt(initPrice.toString(), "1"))
-    const uniFeeRatio = uniPool.fee()
+    const uniFeeRatio = await uniPool.fee()
     const tickSpacing = await uniPool.tickSpacing()
 
     // the initial number of oracle can be recorded is 1; thus, have to expand it
