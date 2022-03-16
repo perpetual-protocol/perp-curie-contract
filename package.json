@@ -6,11 +6,11 @@
   "author": {
     "name": "Perpetual Protocol",
     "email": "hi@perp.fi",
-    "url": "https://perp.fi/"
+    "url": "https://perp.com/"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/perpetual-protocol/perp-lushan.git"
+    "url": "https://github.com/perpetual-protocol/perp-curie.git"
   },
   "main": "index.js",
   "files": [
