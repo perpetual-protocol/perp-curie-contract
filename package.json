@@ -12,6 +12,15 @@
     "type": "git",
     "url": "https://github.com/perpetual-protocol/perp-curie.git"
   },
+  "homepage": "https://perp.com/",
+  "keywords": [
+    "perpetual-protocol",
+    "perpetual-protocol-v2",
+    "perp",
+    "core",
+    "contracts",
+    "artifacts"
+  ],
   "main": "index.js",
   "files": [
     "artifacts/contracts/",
