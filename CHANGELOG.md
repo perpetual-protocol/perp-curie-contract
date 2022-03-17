@@ -523,7 +523,7 @@ event Swapped(
 
 ### Fixed
 
-- fix `Vault` is missing from `@perp/lushan/artifacts/contracts`
+- fix `Vault` is missing from `@perp/curie-contract/artifacts/contracts`
 
 ## [0.1.0] - 2021-07-23
 
