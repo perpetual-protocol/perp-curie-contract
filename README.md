@@ -58,11 +58,7 @@ npm run test
 
 ## Audit Reports
 
-- Trail of Bits (2022/03)
-- Dedaub (2022/03)
-- HashCloak (2021/11)
-- ConsenSys (2021/10)
-- ABDK (2021/09)
+See [audits](https://github.com/perpetual-protocol/perp-curie/tree/main/audits).
 
 ## Bug Bounty Program
 
