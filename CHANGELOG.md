@@ -257,7 +257,7 @@ Code is same as `v1.0.8-staging`.
 
 - remove state `_versionRecipient` from `ClearingHouse` and `Vault`
 - remove `Quoter` and `Multicall2` contracts from core.
-    - You can find these contracts in [@perp/curie-periphery](https://www.npmjs.com/package/@perp/curie-periphery).
+    - You can find these contracts in [@perp/curie-periphery-contract](https://www.npmjs.com/package/@perp/curie-periphery-contract).
 
 ## [0.12.7] - 2021-11-09
 

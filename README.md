@@ -1,4 +1,4 @@
-# perp-curie
+# perp-curie-contract
 
 [![@perp/curie-contract on npm](https://img.shields.io/npm/v/@perp/curie-contract?style=flat-square)](https://www.npmjs.com/package/@perp/curie-contract)
 [![@perp/curie-deployments on npm](https://img.shields.io/npm/v/@perp/curie-deployments?style=flat-square)](https://www.npmjs.com/package/@perp/curie-deployments)
@@ -35,7 +35,7 @@ You need Node.js 16+ to build. Use [nvm](https://github.com/nvm-sh/nvm) to insta
 Clone this repository, install Node.js dependencies, and build the source code:
 
 ```bash
-git clone git@github.com:perpetual-protocol/perp-curie.git
+git clone git@github.com:perpetual-protocol/perp-curie-contract.git
 npm i
 npm run build
 ```
@@ -56,9 +56,13 @@ Run all the test cases:
 npm run test
 ```
 
+## Changelog
+
+See [CHANGELOG](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/CHANGELOG.md).
+
 ## Audit Reports
 
-See [audits](https://github.com/perpetual-protocol/perp-curie/tree/main/audits).
+See [audits](https://github.com/perpetual-protocol/perp-curie-contract/tree/main/audits).
 
 ## Bug Bounty Program
 
@@ -70,6 +74,6 @@ Projects, ideas and events that benefit Perpetual Protocol and its ecosystem are
 
 ## Related Projects
 
-- [perp-oracle](https://github.com/perpetual-protocol/perp-oracle)
-- [perp-curie-periphery](https://github.com/perpetual-protocol/perp-curie-periphery)
+- [perp-oracle-contract](https://github.com/perpetual-protocol/perp-oracle-contract)
+- [perp-curie-periphery-contract](https://github.com/perpetual-protocol/perp-curie-periphery-contract)
 - [perp-curie-subgraph](https://github.com/perpetual-protocol/perp-curie-subgraph)
