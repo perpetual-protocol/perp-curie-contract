@@ -1,3 +1,5 @@
+![image](https://user-images.githubusercontent.com/105896/160323402-1e5854cb-e6cf-4c0a-9479-e4303c642720.png)
+
 # perp-curie-contract
 
 [![@perp/curie-contract on npm](https://img.shields.io/npm/v/@perp/curie-contract?style=flat-square)](https://www.npmjs.com/package/@perp/curie-contract)
