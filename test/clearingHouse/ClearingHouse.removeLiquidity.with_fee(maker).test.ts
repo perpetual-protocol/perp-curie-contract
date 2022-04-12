@@ -150,7 +150,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 // B2QFee: expect 1% of quote = 0.0006151334175725025 ~= 615133417572502 / 10^18
                 // will transfer all 0.0004084104205 base the the remaining quote to CH
                 // will collect and burn all extra base and quote tokens (Uniswap v3 pool fees that we are not using)
-                await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
+                const tx = await clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams)
+                await expect(tx)
                     .to.emit(clearingHouse, "LiquidityChanged")
                     .withArgs(
                         alice.address,
@@ -163,6 +164,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                         "0",
                         "615133417572502",
                     )
+                await expect(tx).to.emit(accountBalance, "PnlRealized").withArgs(alice.address, "615133417572502")
 
                 // alice received 0.0006151334175725025 quote tokens as fee
                 const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
@@ -403,7 +405,8 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                     // Q2BFee: expect 1% of quote = 0.001135501475
                     // 0.00112414646 + 0.001135501475 = 0.002259647935
                     // will transfer and burnt all Uniswap fees collected
-                    await expect(clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams))
+                    const tx = await clearingHouse.connect(alice).removeLiquidity(removeLiquidityParams)
+                    await expect(tx)
                         .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
                             alice.address,
@@ -416,6 +419,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                             "0",
                             parseEther("0.002259647935249999"),
                         )
+                    await expect(tx)
+                        .to.emit(accountBalance, "PnlRealized")
+                        .withArgs(alice.address, parseEther("0.002259647935249999"))
 
                     // no base fee
                     // 100 - 0.000816820841 = 99.9991831792

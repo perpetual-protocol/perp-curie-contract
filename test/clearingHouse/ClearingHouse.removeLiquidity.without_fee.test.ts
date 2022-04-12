@@ -146,6 +146,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         })
 
         it("force error, pool does not exist", async () => {
+            // will reverted due to function selector was not recognized (IBaseToken(baseToken).getStatus)
             await expect(
                 clearingHouse.connect(alice).removeLiquidity({
                     baseToken: collateral.address, // can't use quote token because _settleFunding would revert first
@@ -156,7 +157,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     minQuote: 0,
                     deadline: ethers.constants.MaxUint256,
                 }),
-            ).to.be.revertedWith("EX_BTNE")
+            ).to.be.reverted
         })
 
         describe("initialized price = 151.373306858723226652", () => {

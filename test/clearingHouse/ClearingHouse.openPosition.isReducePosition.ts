@@ -117,7 +117,8 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice reduce position
             // alice maker positionSize : -6.5
             // alice taker positionSize : 0.5
-            await expect(b2qExactInput(fixture, alice, 0.5)).to.emit(clearingHouse, "PositionChanged").withArgs(
+            const tx = await b2qExactInput(fixture, alice, 0.5)
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
                 alice.address,
                 baseToken.address,
                 parseEther("-0.5"),
@@ -127,6 +128,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 "36938869647837350", // 5692599620493358632(deltaQuote) - 11311321501691042565(old taker open notional) * 0.5 = 3.693886965E16
                 "267958768315559284688164142991",
             )
+            await expect(tx).to.emit(accountBalance, "PnlRealized").withArgs(alice.address, "36938869647837350")
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("0.5"),
@@ -161,7 +163,8 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
             // alice reduce position
             // alice maker positionSize : -4.5
             // alice taker positionSize : -0.5
-            await expect(q2bExactOutput(fixture, alice, 0.5)).to.emit(clearingHouse, "PositionChanged").withArgs(
+            const tx = await q2bExactOutput(fixture, alice, 0.5)
+            await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
                 alice.address,
                 baseToken.address,
                 parseEther("0.5"),
@@ -171,6 +174,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
                 "-81209008427250369", // -5508840587374618789(deltaQuote) + 10855263157894736841(old taker open notional) * 0.5 = -8.12090084e16
                 "262347066361306734224496029540",
             )
+            await expect(tx).to.emit(accountBalance, "PnlRealized").withArgs(alice.address, "-81209008427250369")
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("-0.5"),

@@ -22,8 +22,9 @@ interface IMarketRegistry {
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
 
     /// @notice Emitted when the insurance fund fee ratio is updated.
+    /// @param baseToken The address of the base token
     /// @param feeRatio Insurance fund fee ratio
-    event InsuranceFundFeeRatioChanged(uint24 feeRatio);
+    event InsuranceFundFeeRatioChanged(address baseToken, uint24 feeRatio);
 
     /// @notice Emitted when the max orders per market is updated.
     /// @param maxOrdersPerMarket Max orders per market

@@ -7,14 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.1.0] - 2022-04-12
+- Add `BaseToken.pause()` (only owner)
+- Add `BaseToken.close(uint256)` (only owner)
+- Add `IBaseToken.close()`
+- Add `IBaseToken.getPausedTimestamp()`
+- Add `IBaseToken.getPausedIndexPrice()`
+- Add `IBaseToken.getClosedPrice()`
+- Add `IBaseToken.isOpen()`
+- Add `IBaseToken.isPaused()`
+- Add `IBaseToken.isClosed()`
+- Add `IVault.depositFor(address, address, uint256)`
+- Add `IClearingHouse.quitMarket(address, address)`
+- Add new event `PositionClosed` to `ClearingHouse`, will emit in `quitMarket(address, address)`
+
 ## [1.0.15] - 2022-02-09
 
 ### Changed
 - emit `PositionChanged` event in `cancelExcessOrders` and `cancelAllExcessOrders`
 
 ## [1.0.14] - 2022-01-28
+
 ### Added
-- Add `IClearingHouse.liquidte(address, address, uint)` to liquidate with slippage protection.
+- Add `IClearingHouse.liquidate(address, address, uint)` to liquidate with slippage protection.
+- 
 ## [1.0.13] - 2022-01-21
 ### Deploy
 - Deploy `SOL` market to optimism

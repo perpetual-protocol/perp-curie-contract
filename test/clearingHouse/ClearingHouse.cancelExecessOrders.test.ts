@@ -249,6 +249,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 "0", // realizedPnl
                 "7959378662046472307986903031465", // sqrtPriceAfterX96
             )
+
             const openOrderIds = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
             expect(openOrderIds).be.deep.eq([])
         })
