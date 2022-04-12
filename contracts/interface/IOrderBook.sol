@@ -75,7 +75,9 @@ interface IOrderBook {
     /// @notice Remove liquidity logic, only used by `ClearingHouse` contract
     /// @param params Remove liquidity params, detail on `IOrderBook.RemoveLiquidityParams`
     /// @return response Remove liquidity response, detail on `IOrderBook.RemoveLiquidityResponse`
-    function removeLiquidity(RemoveLiquidityParams calldata params) external returns (RemoveLiquidityResponse memory);
+    function removeLiquidity(RemoveLiquidityParams calldata params)
+        external
+        returns (RemoveLiquidityResponse memory response);
 
     /// @dev This is the non-view version of `getLiquidityCoefficientInFundingPayment()`,
     /// only can be called by `ClearingHouse` contract
@@ -106,12 +108,12 @@ interface IOrderBook {
     /// @param trader The trader address
     /// @param baseToken The base token address
     /// @return orderIds The open order ids
-    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory);
+    function getOpenOrderIds(address trader, address baseToken) external view returns (bytes32[] memory orderIds);
 
     /// @notice Get open order info by given order id
     /// @param orderId The order id
     /// @return info The open order info encoded in `OpenOrder.Info`
-    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder.Info memory);
+    function getOpenOrderById(bytes32 orderId) external view returns (OpenOrder.Info memory info);
 
     /// @notice Get open order info by given base token, upper tick and lower tick
     /// @param trader The trader address
@@ -124,13 +126,13 @@ interface IOrderBook {
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (OpenOrder.Info memory);
+    ) external view returns (OpenOrder.Info memory info);
 
     /// @notice Check if the specified trader has order in given markets
     /// @param trader The trader address
     /// @param tokens The base token addresses
     /// @return hasOrder True if the trader has order in given markets
-    function hasOrder(address trader, address[] calldata tokens) external view returns (bool);
+    function hasOrder(address trader, address[] calldata tokens) external view returns (bool hasOrder);
 
     /// @notice Get the total quote token amount and pending fees of all orders in given markets
     /// @param trader The trader address
@@ -163,7 +165,7 @@ interface IOrderBook {
         address trader,
         address baseToken,
         bool fetchBase
-    ) external view returns (uint256);
+    ) external view returns (uint256 debtAmount);
 
     /// @notice Get the pending funding payment of all orders in the given market
     /// @dev This is the view version of `updateFundingGrowthAndLiquidityCoefficientInFundingPayment()`, so only
@@ -187,9 +189,9 @@ interface IOrderBook {
         address baseToken,
         int24 lowerTick,
         int24 upperTick
-    ) external view returns (uint256);
+    ) external view returns (uint256 fee);
 
     /// @notice Get `Exchange` contract address
     /// @return exchange The `Exchange` contract address
-    function getExchange() external view returns (address);
+    function getExchange() external view returns (address exchange);
 }

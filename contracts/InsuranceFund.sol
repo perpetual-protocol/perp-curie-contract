@@ -34,9 +34,9 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     /// @inheritdoc IInsuranceFund
     function borrow(uint256 amount) external override nonReentrant whenNotPaused {
-        // only borrower
+        // IF_OB: only borrower
         require(_msgSender() == _borrower, "IF_OB");
-        // not enough balance
+        // IF_NEB: not enough balance
         require(IERC20Upgradeable(_token).balanceOf(address(this)) >= amount, "IF_NEB");
 
         SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(_token), _borrower, amount);
