@@ -6,7 +6,7 @@ import { TestERC20, Vault } from "../../typechain"
 import { mockedVaultFixture } from "./fixtures"
 
 describe("Vault spec", () => {
-    const [admin, alice] = waffle.provider.getWallets()
+    const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
     let usdc: TestERC20
@@ -108,6 +108,69 @@ describe("Vault spec", () => {
         })
 
         it("can't add collateral not supported")
+    })
+
+    describe("depositFor", async () => {
+        beforeEach(async () => {
+            clearingHouseConfig.smocked.getSettlementTokenBalanceCap.will.return.with(
+                async () => ethers.constants.MaxUint256,
+            )
+        })
+
+        it("should be able to deposit for others", async () => {
+            const amount = parseUnits("100", await usdc.decimals())
+            await vault.connect(alice).depositFor(bob.address, usdc.address, amount)
+
+            const bobBalance = await vault.getBalance(bob.address)
+            const aliceBalance = await vault.getBalance(alice.address)
+            const aliceUsdcBalanceAfter = await usdc.balanceOf(alice.address)
+
+            // reduce alice's usdc balance
+            expect(aliceUsdcBalanceAfter).to.be.eq(parseUnits("900", await usdc.decimals()))
+
+            // bob's usdc balance not changed
+            expect(await usdc.balanceOf(bob.address)).to.be.eq("0")
+
+            // alice's vault balance not changed
+            expect(aliceBalance).to.be.eq(parseUnits("0", await usdc.decimals()))
+
+            // increase bob's vault balance
+            expect(bobBalance).to.be.eq(amount)
+
+            // increase vault balance
+            expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
+        })
+
+        it("should be able to deposit for alice herself", async () => {
+            const amount = parseUnits("100", await usdc.decimals())
+            await vault.connect(alice).depositFor(alice.address, usdc.address, amount)
+
+            const aliceBalance = await vault.getBalance(alice.address)
+            const aliceUsdcBalanceAfter = await usdc.balanceOf(alice.address)
+
+            // reduce alice's usdc balance
+            expect(aliceUsdcBalanceAfter).to.be.eq(parseUnits("900", await usdc.decimals()))
+
+            // increase alice's vault balance
+            expect(aliceBalance).to.be.eq(amount)
+
+            // increase vault balance
+            expect(await usdc.balanceOf(vault.address)).to.eq(parseUnits("100", await usdc.decimals()))
+        })
+
+        it("force error when depositor do not have enough money", async () => {
+            const amount = parseUnits("1100", await usdc.decimals())
+            await expect(vault.connect(alice).depositFor(bob.address, usdc.address, amount)).to.be.revertedWith(
+                "revert ERC20: transfer amount exceeds balance",
+            )
+        })
+
+        it("force error when deposit for zero address", async () => {
+            const amount = parseUnits("1000", await usdc.decimals())
+            await expect(
+                vault.connect(alice).depositFor(ethers.constants.AddressZero, usdc.address, amount),
+            ).to.be.revertedWith("V_DFZA")
+        })
     })
 
     describe("getFreeCollateral", () => {

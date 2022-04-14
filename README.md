@@ -1,4 +1,4 @@
-![image](https://user-images.githubusercontent.com/105896/160323402-1e5854cb-e6cf-4c0a-9479-e4303c642720.png)
+[![banner](https://user-images.githubusercontent.com/105896/160323402-1e5854cb-e6cf-4c0a-9479-e4303c642720.png)](https://perp.com/)
 
 # perp-curie-contract
 

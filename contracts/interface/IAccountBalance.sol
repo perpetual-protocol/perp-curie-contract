@@ -26,7 +26,7 @@ interface IAccountBalance {
         address baseToken,
         int256 base,
         int256 quote
-    ) external returns (int256, int256);
+    ) external returns (int256 takerPositionSize, int256 takerOpenNotional);
 
     /// @notice Modify trader owedRealizedPnl
     /// @dev Only used by `ClearingHouse` contract
@@ -90,52 +90,75 @@ interface IAccountBalance {
         int256 lastTwPremiumGrowthGlobalX96
     ) external;
 
+    /// @notice Settle trader's PnL in closed market
+    /// @dev Only used by `ClearingHouse`
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the trader's base token
+    /// @return positionNotional Taker's position notional settled with closed price
+    /// @return openNotional Taker's open notional
+    /// @return realizedPnl Settled realized pnl
+    /// @return closedPrice The closed price of the closed market
+    function settlePositionInClosedMarket(address trader, address baseToken)
+        external
+        returns (
+            int256 positionNotional,
+            int256 openNotional,
+            int256 realizedPnl,
+            uint256 closedPrice
+        );
+
     /// @notice Get `ClearingHouseConfig` address
     /// @return clearingHouseConfig The address of ClearingHouseConfig
-    function getClearingHouseConfig() external view returns (address);
+    function getClearingHouseConfig() external view returns (address clearingHouseConfig);
 
     /// @notice Get `OrderBook` address
     /// @return orderBook The address of OrderBook
-    function getOrderBook() external view returns (address);
+    function getOrderBook() external view returns (address orderBook);
 
     /// @notice Get `Vault` address
     /// @return vault The address of Vault
-    function getVault() external view returns (address);
+    function getVault() external view returns (address vault);
 
     /// @notice Get trader registered baseTokens
     /// @param trader The address of trader
     /// @return baseTokens The array of baseToken address
-    function getBaseTokens(address trader) external view returns (address[] memory);
+    function getBaseTokens(address trader) external view returns (address[] memory baseTokens);
 
     /// @notice Get trader account info
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return traderAccountInfo The baseToken account info of trader
-    function getAccountInfo(address trader, address baseToken) external view returns (AccountMarket.Info memory);
+    function getAccountInfo(address trader, address baseToken)
+        external
+        view
+        returns (AccountMarket.Info memory traderAccountInfo);
 
     /// @notice Get taker cost of trader's baseToken
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return openNotional The taker cost of trader's baseToken
-    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
+    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256 openNotional);
 
     /// @notice Get total cost of trader's baseToken
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return totalOpenNotional the amount of quote token paid for a position when opening
-    function getTotalOpenNotional(address trader, address baseToken) external view returns (int256);
+    function getTotalOpenNotional(address trader, address baseToken) external view returns (int256 totalOpenNotional);
 
     /// @notice Get total debt value of trader
     /// @param trader The address of trader
     /// @dev Total debt value will relate to `Vault.getFreeCollateral()`
     /// @return totalDebtValue The debt value of trader
-    function getTotalDebtValue(address trader) external view returns (uint256);
+    function getTotalDebtValue(address trader) external view returns (uint256 totalDebtValue);
 
     /// @notice Get margin requirement to check whether trader will be able to liquidate
     /// @dev This is different from `Vault._getTotalMarginRequirement()`, which is for freeCollateral calculation
     /// @param trader The address of trader
     /// @return marginRequirementForLiquidation It is compared with `ClearingHouse.getAccountValue` which is also an int
-    function getMarginRequirementForLiquidation(address trader) external view returns (int256);
+    function getMarginRequirementForLiquidation(address trader)
+        external
+        view
+        returns (int256 marginRequirementForLiquidation);
 
     /// @notice Get owedRealizedPnl, realizedPnl and pending fee
     /// @param trader The address of trader
@@ -151,38 +174,38 @@ interface IAccountBalance {
             uint256 pendingFee
         );
 
-    /// @notice Check trader has open order or not
+    /// @notice Check trader has open order in open/closed market.
     /// @param trader The address of trader
-    /// @return hasOrderOrNot True of false
-    function hasOrder(address trader) external view returns (bool);
+    /// @return hasOrder True of false
+    function hasOrder(address trader) external view returns (bool hasOrder);
 
     /// @notice Get trader base amount
     /// @dev `base amount = takerPositionSize - orderBaseDebt`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return baseAmount The base amount of trader's baseToken market
-    function getBase(address trader, address baseToken) external view returns (int256);
+    function getBase(address trader, address baseToken) external view returns (int256 baseAmount);
 
     /// @notice Get trader quote amount
     /// @dev `quote amount = takerOpenNotional - orderQuoteDebt`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return quoteAmount The quote amount of trader's baseToken market
-    function getQuote(address trader, address baseToken) external view returns (int256);
+    function getQuote(address trader, address baseToken) external view returns (int256 quoteAmount);
 
     /// @notice Get taker position size of trader's baseToken market
     /// @dev This will only has taker position, can get maker impermanent position through `getTotalPositionSize`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return takerPositionSize The taker position size of trader's baseToken market
-    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
+    function getTakerPositionSize(address trader, address baseToken) external view returns (int256 takerPositionSize);
 
     /// @notice Get total position size of trader's baseToken market
     /// @dev `total position size = taker position size + maker impermanent position size`
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return totalPositionSize The total position size of trader's baseToken market
-    function getTotalPositionSize(address trader, address baseToken) external view returns (int256);
+    function getTotalPositionSize(address trader, address baseToken) external view returns (int256 totalPositionSize);
 
     /// @notice Get total position value of trader's baseToken market
     /// @dev A negative returned value is only be used when calculating pnl,
@@ -190,10 +213,10 @@ interface IAccountBalance {
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return totalPositionValue Total position value of trader's baseToken market
-    function getTotalPositionValue(address trader, address baseToken) external view returns (int256);
+    function getTotalPositionValue(address trader, address baseToken) external view returns (int256 totalPositionValue);
 
     /// @notice Get all market position abs value of trader
     /// @param trader The address of trader
     /// @return totalAbsPositionValue Sum up positions value of every market
-    function getTotalAbsPositionValue(address trader) external view returns (uint256);
+    function getTotalAbsPositionValue(address trader) external view returns (uint256 totalAbsPositionValue);
 }

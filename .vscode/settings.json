@@ -67,7 +67,8 @@
         "twap",
         "Twaps",
         "typechain",
-        "VUSD"
+        "VUSD",
+        "Liquidatable"
     ],
     "solidity.defaultCompiler": "localNodeModule",
 }

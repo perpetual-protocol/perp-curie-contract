@@ -6,7 +6,7 @@ import { Funding } from "../lib/Funding.sol";
 
 interface IExchange {
     /// @param amount when closing position, amount(uint256) == takerPositionSize(int256),
-    ///        as amount is assigned as takerPositionSize in ClearingHouse.closePosition()
+    /// as amount is assigned as takerPositionSize in ClearingHouse.closePosition()
     struct SwapParams {
         address trader;
         address baseToken;
@@ -66,7 +66,8 @@ interface IExchange {
     /// @return swapResponse The result of the swap
     function swap(SwapParams memory params) external returns (SwapResponse memory swapResponse);
 
-    /// @dev this function should be called at the beginning of every high-level function, such as openPosition()
+    /// @notice Settle the funding payment for the time interval since the last settlement
+    /// @dev This function should be called at the beginning of every high-level function, such as `openPosition()`
     ///      while it doesn't matter who calls this function
     ///      this function 1. settles personal funding payment 2. updates global funding growth
     ///      personal funding payment is settled whenever there is pending funding payment
@@ -80,19 +81,22 @@ interface IExchange {
     /// @notice Get the max ticks allowed to be crossed within a block when reducing position
     /// @param baseToken Address of the base token
     /// @return maxTickCrossedWithinBlock The max ticks allowed to be crossed within a block when reducing position
-    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24);
+    function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24 maxTickCrossedWithinBlock);
 
     /// @notice Get all the pending funding payment for a trader
     /// @return pendingFundingPayment The pending funding payment of the trader.
     /// Positive value means the trader pays funding, negative value means the trader receives funding.
-    function getAllPendingFundingPayment(address trader) external view returns (int256);
+    function getAllPendingFundingPayment(address trader) external view returns (int256 pendingFundingPayment);
 
     /// @notice Get the pending funding payment for a trader in a given market
     /// @dev this is the view version of _updateFundingGrowth()
     /// @return pendingFundingPayment The pending funding payment of a trader in one market,
     /// including liquidity & balance coefficients. Positive value means the trader pays funding,
     /// negative value means the trader receives funding.
-    function getPendingFundingPayment(address trader, address baseToken) external view returns (int256);
+    function getPendingFundingPayment(address trader, address baseToken)
+        external
+        view
+        returns (int256 pendingFundingPayment);
 
     /// @notice Get the square root of the market twap price with the given time interval
     /// @dev The return value is a X96 number

@@ -11,3 +11,8 @@
 - 2022.03.04 - Dedaub
     - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.03.04-dedaub-2.pdf)
     - [Source Code](https://github.com/perpetual-protocol/perp-curie-contract/tree/audit-dedaub-2)
+
+- 2022.03.22 - Trail of Bits (ToB)
+    - [Audit Report - Retest](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.03.21-tob-retest.pdf)
+    - [Audit Report - Final](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.03.22-tob-final.pdf)
+    - [Source Code](https://github.com/perpetual-protocol/perp-curie-contract/tree/audit-tob)

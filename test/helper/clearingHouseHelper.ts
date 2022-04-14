@@ -2,6 +2,8 @@ import { BigNumberish, ContractTransaction, ethers, Wallet } from "ethers"
 import { parseEther } from "ethers/lib/utils"
 import { ClearingHouse, OrderBook } from "../../typechain"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
+import { LogDescription } from "@ethersproject/abi"
 
 export function q2bExactInput(
     fixture: ClearingHouseFixture,
@@ -155,20 +157,39 @@ export async function removeAllOrders(
     fixture: ClearingHouseFixture,
     wallet: Wallet,
     baseToken: string = fixture.baseToken.address,
-): Promise<void> {
+): Promise<ContractTransaction[]> {
     const orderIds = await getOrderIds(fixture, wallet, baseToken)
     const clearingHouse: ClearingHouse = fixture.clearingHouse
     const orderBook: OrderBook = fixture.orderBook
+    const txs = []
     for (const orderId of orderIds) {
         const { lowerTick, upperTick, liquidity } = await orderBook.getOpenOrderById(orderId)
-        await clearingHouse.connect(wallet).removeLiquidity({
-            baseToken: baseToken,
-            lowerTick,
-            upperTick,
-            liquidity,
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
+        txs.push(
+            await clearingHouse.connect(wallet).removeLiquidity({
+                baseToken: baseToken,
+                lowerTick,
+                upperTick,
+                liquidity,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            }),
+        )
     }
+    return txs
+}
+
+export function findPnlRealizedEvents(fixture: ClearingHouseFixture, receipt: TransactionReceipt): LogDescription[] {
+    const pnlRealizedTopic = fixture.accountBalance.interface.getEventTopic("PnlRealized")
+    return receipt.logs
+        .filter(log => log.topics[0] === pnlRealizedTopic)
+        .map(log => fixture.accountBalance.interface.parseLog(log))
+}
+
+export function findLiquidityChangedEvents(
+    fixture: ClearingHouseFixture,
+    receipt: TransactionReceipt,
+): LogDescription[] {
+    const topic = fixture.clearingHouse.interface.getEventTopic("LiquidityChanged")
+    return receipt.logs.filter(log => log.topics[0] === topic).map(log => fixture.clearingHouse.interface.parseLog(log))
 }
