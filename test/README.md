@@ -1,5 +1,19 @@
 # Chai Bugs
 
+## Must `await expect()` when sending tx
+
+```ts
+// DO
+await expect(clearingHouse.connect(maker).removeLiquidity()).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx)
+// or
+const makerRemoveLiquidityTx = await clearingHouse.connect(maker).removeLiquidity()
+await expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx)
+
+// DON'T
+const makerRemoveLiquidityTx = await clearingHouse.connect(maker).removeLiquidity()
+expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx) // without await, this expect always passes
+```
+
 ## Chai/Waffle doesn't handle "one contract emits multiple events" correctly
 
 For instance:

@@ -244,9 +244,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
+        await expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
+        await expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
     })
 
     describe("zero sum game", () => {
@@ -304,7 +304,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("has same realizedPnl once everyone close their position", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
+        await expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "9082643876716065096", // exchangedPositionSize
@@ -316,7 +316,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         )
 
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
+        await expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "-9082643876716065096", // exchangedPositionSize
@@ -339,7 +339,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
+        await expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
             maker.address,
             baseToken.address,
             quoteToken.address,
