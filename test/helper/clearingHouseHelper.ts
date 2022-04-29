@@ -1,9 +1,11 @@
-import { BigNumberish, ContractTransaction, ethers, Wallet } from "ethers"
-import { parseEther } from "ethers/lib/utils"
-import { ClearingHouse, OrderBook } from "../../typechain"
-import { ClearingHouseFixture } from "../clearingHouse/fixtures"
-import { TransactionReceipt } from "@ethersproject/abstract-provider"
+import { MockContract } from "@eth-optimism/smock"
 import { LogDescription } from "@ethersproject/abi"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
+import { BigNumberish, ContractTransaction, ethers, Wallet } from "ethers"
+import { parseEther, parseUnits } from "ethers/lib/utils"
+import { ClearingHouse, OrderBook, UniswapV3Pool } from "../../typechain"
+import { ClearingHouseFixture } from "../clearingHouse/fixtures"
+import { formatSqrtPriceX96ToPrice } from "../shared/utilities"
 
 export function q2bExactInput(
     fixture: ClearingHouseFixture,
@@ -192,4 +194,14 @@ export function findLiquidityChangedEvents(
 ): LogDescription[] {
     const topic = fixture.clearingHouse.interface.getEventTopic("LiquidityChanged")
     return receipt.logs.filter(log => log.topics[0] === topic).map(log => fixture.clearingHouse.interface.parseLog(log))
+}
+
+export async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
+    const slot0 = await pool.slot0()
+    const sqrtPrice = slot0.sqrtPriceX96
+    const oracleDecimals = 6
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice, oracleDecimals)
+    aggregator.smocked.latestRoundData.will.return.with(async () => {
+        return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
+    })
 }

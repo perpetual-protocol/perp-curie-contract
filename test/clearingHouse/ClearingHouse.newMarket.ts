@@ -157,8 +157,8 @@ describe("ClearingHouse new market listing", () => {
             expect(await orderBook.hasOrder(alice.address, [baseToken3.address])).eq(false)
         })
         it("funding will cumulate", async () => {
-            await clearingHouse.settleAllFunding(bob.address)
-            await clearingHouse.settleAllFunding(davis.address)
+            await clearingHouse.connect(bob).settleAllFunding(bob.address)
+            await clearingHouse.connect(davis).settleAllFunding(davis.address)
 
             await forward(100)
             const bobPendingFundingBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
@@ -175,7 +175,7 @@ describe("ClearingHouse new market listing", () => {
         it("Stop to cumulate funding after change to emergency oracle", async () => {
             await forward(100)
             // Random to update global funding
-            await clearingHouse.settleAllFunding(bob.address)
+            await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
             // Bob's funding has been settled
             const bobBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
@@ -204,7 +204,7 @@ describe("ClearingHouse new market listing", () => {
             expect(davisAfter100).to.be.eq(davisBefore)
 
             // Davis should get zero pending funding after funding settlement
-            await clearingHouse.settleAllFunding(davis.address)
+            await clearingHouse.connect(davis).settleAllFunding(davis.address)
             await forward(100)
             const davisAfterSettle = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
             expect(davisAfterSettle).to.be.eq(0)

@@ -43,3 +43,4 @@ await expect(clearingHouse.addLiquidity())
 ## `revertedWith()` is not exact match
 
 If your revert msg is `AA_BB`, it passes when `revertedWith("AA")`.
+`revertedWith("x")` always passes but `revertedWith("4")` would fail, so don't rely on a single character.

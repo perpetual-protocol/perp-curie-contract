@@ -381,7 +381,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // rounding error in 6 decimals with 1wei
             expect(totalAccountValue.div(1e12).add(insuranceFreeCollateral)).to.be.closeTo(
                 totalCollateralDeposited.sub(totalCollateralWithdrawn),
-                1,
+                3,
             )
         })
 
@@ -404,7 +404,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
                 maker.address,
             )
             expect(makerAccountValue).to.be.deep.eq(
-                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL).add(fee),
+                makerCollateral.add(makerOwedRealizedPnl.add(makerUnsettledPnL).add(fee).div(1e12)).mul(1e12),
             )
 
             // maker remove liquidity
@@ -589,7 +589,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker pays funding
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
                 await forwardTimestamp(clearingHouse, 3000)
-                await clearingHouse.settleAllFunding(taker.address)
+
+                await clearingHouse.connect(taker).settleAllFunding(taker.address)
             }
 
             // liquidate taker
@@ -682,7 +683,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // funding are all correct
             await forwardTimestamp(clearingHouse, 200)
-            await clearingHouse.settleAllFunding(taker.address)
+
+            await clearingHouse.connect(taker).settleAllFunding(taker.address)
+
             await forwardTimestamp(clearingHouse, 200)
 
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")

@@ -1,10 +1,12 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers } from "hardhat"
 import {
     AccountBalance,
     BaseToken,
     ClearingHouse,
     ClearingHouseConfig,
+    CollateralManager,
     Exchange,
     InsuranceFund,
     MarketRegistry,
@@ -31,10 +33,15 @@ export interface ClearingHouseFixture {
     exchange: TestExchange | Exchange
     vault: Vault
     insuranceFund: InsuranceFund
+    collateralManager: CollateralManager
     uniV3Factory: UniswapV3Factory
     pool: UniswapV3Pool
     uniFeeTier: number
     USDC: TestERC20
+    WETH: TestERC20
+    WBTC: TestERC20
+    mockedWethPriceFeed: MockContract
+    mockedWbtcPriceFeed: MockContract
     quoteToken: QuoteToken
     baseToken: BaseToken
     mockedBaseAggregator: MockContract
@@ -62,9 +69,26 @@ export function createClearingHouseFixture(
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
         await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
+        const WETH = (await tokenFactory.deploy()) as TestERC20
+        await WETH.__TestERC20_init("TestWETH", "WETH", 18)
+        const WBTC = (await tokenFactory.deploy()) as TestERC20
+        await WBTC.__TestERC20_init("TestWBTC", "WBTC", 8)
+
+        const usdcDecimals = await USDC.decimals()
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
         const { token0, mockedAggregator0, token1 } = await tokensFixture()
+
+        // price feed for weth and wbtc
+        const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
+        const aggregator = await aggregatorFactory.deploy()
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
+        const wethPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const mockedWethPriceFeed = await smockit(wethPriceFeed)
+        const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const mockedWbtcPriceFeed = await smockit(wbtcPriceFeed)
+        mockedWethPriceFeed.smocked.decimals.will.return.with(18)
+        mockedWbtcPriceFeed.smocked.decimals.will.return.with(18)
 
         // we assume (base, quote) == (token0, token1)
         baseToken = token0
@@ -119,7 +143,8 @@ export function createClearingHouseFixture(
 
         await accountBalance.initialize(clearingHouseConfig.address, orderBook.address)
 
-        const vaultFactory = await ethers.getContractFactory("Vault")
+        // deploy vault
+        const vaultFactory = await ethers.getContractFactory("TestVault")
         const vault = (await vaultFactory.deploy()) as Vault
         await vault.initialize(
             insuranceFund.address,
@@ -127,6 +152,34 @@ export function createClearingHouseFixture(
             accountBalance.address,
             exchange.address,
         )
+
+        const collateralManagerFactory = await ethers.getContractFactory("CollateralManager")
+        const collateralManager = (await collateralManagerFactory.deploy()) as CollateralManager
+        await collateralManager.initialize(
+            clearingHouseConfig.address,
+            vault.address,
+            5, // maxCollateralTokensPerAccount
+            "750000", // debtNonSettlementTokenValueRatio
+            "500000", // liquidationRatio
+            "2000", // mmRatioBuffer
+            "30000", // clInsuranceFundFeeRatio
+            parseUnits("10000", usdcDecimals), // debtThreshold
+            parseUnits("500", usdcDecimals), // collateralValueDust
+        )
+        await collateralManager.addCollateral(WETH.address, {
+            priceFeed: mockedWethPriceFeed.address,
+            collateralRatio: (0.7e6).toString(),
+            discountRatio: (0.1e6).toString(),
+            depositCap: parseEther("1000"),
+        })
+        await collateralManager.addCollateral(WBTC.address, {
+            priceFeed: mockedWbtcPriceFeed.address,
+            collateralRatio: (0.7e6).toString(),
+            discountRatio: (0.1e6).toString(),
+            depositCap: parseUnits("1000", await WBTC.decimals()),
+        })
+
+        await vault.setCollateralManager(collateralManager.address)
         await insuranceFund.setBorrower(vault.address)
         await accountBalance.setVault(vault.address)
 
@@ -198,10 +251,15 @@ export function createClearingHouseFixture(
             exchange,
             vault,
             insuranceFund,
+            collateralManager,
             uniV3Factory,
             pool,
             uniFeeTier,
             USDC,
+            WETH,
+            WBTC,
+            mockedWethPriceFeed,
+            mockedWbtcPriceFeed,
             quoteToken,
             baseToken,
             mockedBaseAggregator,

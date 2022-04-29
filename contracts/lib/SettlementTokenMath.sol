@@ -91,13 +91,37 @@ library SettlementTokenMath {
         return amount.mul(int256(10**(18 - decimals)));
     }
 
-    // returns number with settlementToken's decimals
+    // returns number converted from 18 decimals to settlementToken's decimals
     function formatSettlementToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
         return amount.div(10**(18 - decimals));
     }
 
-    // returns number with settlementToken's decimals
+    // returns number converted from 18 decimals to settlementToken's decimals
     function formatSettlementToken(int256 amount, uint8 decimals) internal pure returns (int256) {
         return amount.div(int256(10**(18 - decimals)));
+    }
+
+    // returns number converted between specified decimals
+    function convertTokenDecimals(
+        uint256 amount,
+        uint8 fromDecimals,
+        uint8 toDecimals
+    ) internal pure returns (uint256) {
+        return
+            fromDecimals >= toDecimals
+                ? amount.div(10**(fromDecimals - toDecimals))
+                : amount.mul(10**(toDecimals - fromDecimals));
+    }
+
+    // returns number converted between specified decimals
+    function convertTokenDecimals(
+        int256 amount,
+        uint8 fromDecimals,
+        uint8 toDecimals
+    ) internal pure returns (int256) {
+        return
+            fromDecimals >= toDecimals
+                ? amount.div(int256(10**(fromDecimals - toDecimals)))
+                : amount.mul(int256(10**(toDecimals - fromDecimals)));
     }
 }

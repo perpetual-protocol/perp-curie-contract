@@ -160,7 +160,7 @@ interface IAccountBalance {
         view
         returns (int256 marginRequirementForLiquidation);
 
-    /// @notice Get owedRealizedPnl, realizedPnl and pending fee
+    /// @notice Get owedRealizedPnl, unrealizedPnl and pending fee
     /// @param trader The address of trader
     /// @return owedRealizedPnl the pnl realized already but stored temporarily in AccountBalance
     /// @return unrealizedPnl the pnl not yet realized

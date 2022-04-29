@@ -376,6 +376,10 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function settleAllFunding(address trader) external override {
+        // only vault or trader
+        // vault must check msg.sender == trader when calling settleAllFunding
+        require(_msgSender() == _vault || _msgSender() == trader, "CH_OVOT");
+
         address[] memory baseTokens = IAccountBalance(_accountBalance).getBaseTokens(trader);
         uint256 baseTokenLength = baseTokens.length;
         for (uint256 i = 0; i < baseTokenLength; i++) {
@@ -693,15 +697,7 @@ contract ClearingHouse is
 
     /// @inheritdoc IClearingHouse
     function getAccountValue(address trader) public view override returns (int256) {
-        int256 fundingPayment = IExchange(_exchange).getAllPendingFundingPayment(trader);
-        (int256 owedRealizedPnl, int256 unrealizedPnl, uint256 pendingFee) =
-            IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
-        // solhint-disable-next-line var-name-mixedcase
-        int256 balanceX10_18 =
-            SettlementTokenMath.parseSettlementToken(IVault(_vault).getBalance(trader), _settlementTokenDecimals);
-
-        // accountValue = collateralValue + owedRealizedPnl - fundingPayment + unrealizedPnl + pendingMakerFee
-        return balanceX10_18.add(owedRealizedPnl.sub(fundingPayment)).add(unrealizedPnl).add(pendingFee.toInt256());
+        return IVault(_vault).getAccountValue(trader).parseSettlementToken(_settlementTokenDecimals);
     }
 
     //
