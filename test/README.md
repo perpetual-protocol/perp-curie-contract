@@ -1,5 +1,19 @@
 # Chai Bugs
 
+## Must `await expect()` when sending tx
+
+```ts
+// DO
+await expect(clearingHouse.connect(maker).removeLiquidity()).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx)
+// or
+const makerRemoveLiquidityTx = await clearingHouse.connect(maker).removeLiquidity()
+await expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx)
+
+// DON'T
+const makerRemoveLiquidityTx = await clearingHouse.connect(maker).removeLiquidity()
+expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(xxx) // without await, this expect always passes
+```
+
 ## Chai/Waffle doesn't handle "one contract emits multiple events" correctly
 
 For instance:
@@ -43,3 +57,4 @@ await expect(clearingHouse.addLiquidity())
 ## `revertedWith()` is not exact match
 
 If your revert msg is `AA_BB`, it passes when `revertedWith("AA")`.
+`revertedWith("x")` always passes but `revertedWith("4")` would fail, so don't rely on a single character.

@@ -1,9 +1,11 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
+import { parseEther } from "ethers/lib/utils"
 import { ethers } from "hardhat"
 import {
     AccountBalance,
     ClearingHouse,
     ClearingHouseConfig,
+    CollateralManager,
     Exchange,
     InsuranceFund,
     MarketRegistry,
@@ -20,6 +22,7 @@ interface MockedVaultFixture {
     mockedInsuranceFund: MockContract
     mockedAccountBalance: MockContract
     mockedClearingHouseConfig: MockContract
+    mockedCollateralManager: MockContract
 }
 
 export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
@@ -68,6 +71,21 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
         mockedExchange.address,
     )
 
+    const collateralManagerFactory = await ethers.getContractFactory("CollateralManager")
+    const collateralManager = (await collateralManagerFactory.deploy()) as CollateralManager
+    await collateralManager.initialize(
+        clearingHouseConfig.address,
+        vault.address,
+        5,
+        "800000",
+        "500000",
+        "2000",
+        "30000",
+        parseEther("10000"),
+        parseEther("500"),
+    )
+    const mockedCollateralManager = await smockit(collateralManager)
+
     const { baseToken: quoteToken } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
     mockedExchange.smocked.getOrderBook.will.return.with(orderBook.address)
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
@@ -84,6 +102,14 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     const mockedClearingHouse = await smockit(clearingHouse)
 
     await vault.setClearingHouse(mockedClearingHouse.address)
+    await vault.setCollateralManager(mockedCollateralManager.address)
 
-    return { vault, USDC, mockedInsuranceFund, mockedAccountBalance, mockedClearingHouseConfig }
+    return {
+        vault,
+        USDC,
+        mockedInsuranceFund,
+        mockedAccountBalance,
+        mockedClearingHouseConfig,
+        mockedCollateralManager,
+    }
 }

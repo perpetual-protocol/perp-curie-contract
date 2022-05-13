@@ -181,9 +181,9 @@ describe("Clearinghouse StopMarket", async () => {
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 const [owedRealizedBefore] = await accountBalance.getPnlAndPendingFee(bob.address)
 
-                // settleFunding
-                await expect(clearingHouse.settleAllFunding(bob.address)).to.be.not.reverted
+                await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
+                // free collateral unchanged, owedRealizedPnl and pendingFundingPayment are being settled
                 const [owedRealizedAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
                 expect(owedRealizedAfter.sub(owedRealizedBefore).mul(-1)).to.be.eq(pendingFundingPayment)
             })
@@ -621,7 +621,7 @@ describe("Clearinghouse StopMarket", async () => {
                 }
 
                 await forward(10 * 60)
-                // await clearingHouse.settleAllFunding(bob.address)
+                // await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
                 // pause market for baseToken
                 await baseToken.pause()
@@ -653,7 +653,7 @@ describe("Clearinghouse StopMarket", async () => {
                 const [owedRealizedBefore] = await accountBalance.getPnlAndPendingFee(bob.address)
 
                 // settleFunding
-                await expect(clearingHouse.settleAllFunding(bob.address)).to.be.not.reverted
+                await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
                 const [owedRealizedAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
                 expect(owedRealizedAfter.sub(owedRealizedBefore).mul(-1)).to.be.eq(pendingFundingPayment)

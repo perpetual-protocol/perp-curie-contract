@@ -16,10 +16,11 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate", () => {

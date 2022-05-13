@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.2.0] - 2022-04-28
+### Changed
+- `ClearingHouse.getAccountValue()` function now calls `Vault.getAccountValue()`
+- `Vault.deposit()`, `Vault.withdraw()`, `Vault.depositFor()` can be used for non-settlement token
+
+### Added
+- `Vault` now supports depositing non-settlement token as collateral
+- Add `CollateralManager` contract for non-settlement collateral related params management
+- Add `Vault.depositEther()`, `Vault.depositEtherFor()` `Vault.withdrawEther()` for ETH deposit/withdraw
+- Add `Vault.getAccountValue()` to get the account value in settlement token's decimals
+- Add `Vault.getBalanceByToken()` to query collateral balance by token address
+- Add `Vault.getCollateralTokens()` to query all non-settlement collateral token addresses of a trader
+- Add `Vault.getFreeCollateralByToken()` to query free collateral by given  collateral token addresses
+- Add `Vault.getSettlementTokenValue()` to query trader's settlement token value
+- Add `Vault.isLiquidatable()` to check if a trader's non-settlement collateral can be liquidated
+- Add `Vault.getMarginRequirementForCollateralLiquidation()` to get the margin requirement that a trader's
+  non-settlement collateral is eligible to be liquidated
+- Add `Vault.getCollateralMmRatio()` to get the mmRatio for collateral liquidation
+- Add `Vault.getLiquidatableCollateralBySettlement()` to get the liquidatable collateral amount by given
+  repaid settlement amount
+- Add `Vault.getRepaidSettlementByCollateral` to get the repaid settlement amount by given collateral amount
+  for liquidation
+- Add `Vault.getMaxRepaidSettlementAndLiquidatableCollateral()` to query the max repaid settlement amount and
+  max collateral amount for liquidation
+- Add `Vault.liquidateCollateral` to liquidate trader's non-settlement collateral
+
 ## [1.1.0] - 2022-04-12
 - Add `BaseToken.pause()` (only owner)
 - Add `BaseToken.close(uint256)` (only owner)
@@ -30,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add `IClearingHouse.liquidate(address, address, uint)` to liquidate with slippage protection.
-- 
+
 ## [1.0.13] - 2022-01-21
 ### Deploy
 - Deploy `SOL` market to optimism

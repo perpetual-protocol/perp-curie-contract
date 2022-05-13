@@ -23,3 +23,12 @@ abstract contract VaultStorageV1 {
     // key: trader, token address
     mapping(address => mapping(address => int256)) internal _balance;
 }
+
+abstract contract VaultStorageV2 is VaultStorageV1 {
+    address internal _collateralManager;
+    address internal _WETH9;
+
+    // trader => collateral token
+    // collateral token registry of each trader
+    mapping(address => address[]) internal _collateralTokensMap;
+}

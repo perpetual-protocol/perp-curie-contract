@@ -110,7 +110,7 @@ describe("ClearingHouse badDebt", () => {
                 // bob's account value is greater than 0 bc it's calculated by index price
                 // bob's account value: 100 + 7.866 * 103.222 - 800 = 111.944
 
-                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414171876722414")
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414000000000000")
 
                 // to avoid over maxTickCrossedPerBlock
                 await forwardTimestamp(clearingHouse)

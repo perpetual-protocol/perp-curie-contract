@@ -244,9 +244,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
+        await expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
+        await expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
     })
 
     describe("zero sum game", () => {
@@ -304,7 +304,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     it("has same realizedPnl once everyone close their position", async () => {
         const openPositionTx = await takerLongExactInput(100)
-        expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
+        await expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "9082643876716065096", // exchangedPositionSize
@@ -316,7 +316,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         )
 
         const closePositionTx = await takerCloseEth()
-        expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
+        await expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
             "-9082643876716065096", // exchangedPositionSize
@@ -339,7 +339,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             minQuote: 0,
             deadline: ethers.constants.MaxUint256,
         })
-        expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
+        await expect(makerRemoveLiquidityTx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
             maker.address,
             baseToken.address,
             quoteToken.address,
@@ -381,7 +381,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // rounding error in 6 decimals with 1wei
             expect(totalAccountValue.div(1e12).add(insuranceFreeCollateral)).to.be.closeTo(
                 totalCollateralDeposited.sub(totalCollateralWithdrawn),
-                1,
+                3,
             )
         })
 
@@ -404,7 +404,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
                 maker.address,
             )
             expect(makerAccountValue).to.be.deep.eq(
-                makerCollateral.mul(1e12).add(makerOwedRealizedPnl).add(makerUnsettledPnL).add(fee),
+                makerCollateral.add(makerOwedRealizedPnl.add(makerUnsettledPnL).add(fee).div(1e12)).mul(1e12),
             )
 
             // maker remove liquidity
@@ -589,7 +589,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker pays funding
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
                 await forwardTimestamp(clearingHouse, 3000)
-                await clearingHouse.settleAllFunding(taker.address)
+
+                await clearingHouse.connect(taker).settleAllFunding(taker.address)
             }
 
             // liquidate taker
@@ -682,7 +683,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // funding are all correct
             await forwardTimestamp(clearingHouse, 200)
-            await clearingHouse.settleAllFunding(taker.address)
+
+            await clearingHouse.connect(taker).settleAllFunding(taker.address)
+
             await forwardTimestamp(clearingHouse, 200)
 
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
