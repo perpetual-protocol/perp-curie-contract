@@ -26,6 +26,7 @@ contract TestERC20 is ERC20PresetMinterPauserUpgradeable {
     }
 
     function setTransferFeeRatio(uint256 ratio) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "TestERC20: must have admin role to mint");
         _transferFeeRatio = ratio;
     }
 
