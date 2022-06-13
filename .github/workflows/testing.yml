@@ -30,10 +30,10 @@ jobs:
                   restore-keys: |
                       ${{ github.job }}-${{ runner.os }}-node-
 
-            - name: Use Node.js 12.x
+            - name: Use Node.js 16.x
               uses: actions/setup-node@v1
               with:
-                  node-version: 12.x
+                  node-version: 16.x
 
             - name: Install contract package dependencies
               run: npm ci
