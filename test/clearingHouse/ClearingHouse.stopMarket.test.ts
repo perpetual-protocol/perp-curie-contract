@@ -1,10 +1,13 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
+import { ContractReceipt } from "@ethersproject/contracts"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
     ClearingHouseConfig,
+    InsuranceFund,
     MarketRegistry,
     OrderBook,
     QuoteToken,
@@ -19,7 +22,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } f
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forward } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -29,6 +32,7 @@ describe("Clearinghouse StopMarket", async () => {
     let clearingHouse: TestClearingHouse
     let clearingHouseConfig: ClearingHouseConfig
     let accountBalance: TestAccountBalance
+    let insuranceFund: InsuranceFund
     let marketRegistry: MarketRegistry
     let exchange: TestExchange
     let orderBook: OrderBook
@@ -50,6 +54,7 @@ describe("Clearinghouse StopMarket", async () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         clearingHouseConfig = fixture.clearingHouseConfig
         accountBalance = fixture.accountBalance as TestAccountBalance
+        insuranceFund = fixture.insuranceFund as InsuranceFund
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
         marketRegistry = fixture.marketRegistry
@@ -657,6 +662,104 @@ describe("Clearinghouse StopMarket", async () => {
 
                 const [owedRealizedAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
                 expect(owedRealizedAfter.sub(owedRealizedBefore).mul(-1)).to.be.eq(pendingFundingPayment)
+            })
+        })
+
+        describe("realizedPnl", async () => {
+            const getPositionClosedEvent = (receipt: ContractReceipt): [BigNumber, BigNumber] => {
+                const logs = filterLogs(receipt, clearingHouse.interface.getEventTopic("PositionClosed"), clearingHouse)
+                let realizedPnl = BigNumber.from(0)
+                let positionNotional = BigNumber.from(0)
+                for (const log of logs) {
+                    realizedPnl = realizedPnl.add(log.args.realizedPnl)
+                    positionNotional = positionNotional.add(log.args.closedPositionNotional)
+                }
+                return [realizedPnl, positionNotional]
+            }
+
+            const getRemoveLiquidityEvent = (receipt: ContractReceipt): BigNumber => {
+                const logs = filterLogs(
+                    receipt,
+                    clearingHouse.interface.getEventTopic("LiquidityChanged"),
+                    clearingHouse,
+                )
+                let owedRealizedPnl = BigNumber.from(0)
+                for (const log of logs) {
+                    owedRealizedPnl = owedRealizedPnl.add(log.args.quoteFee)
+                }
+                return owedRealizedPnl
+            }
+
+            it("quitMarket when no InsuranceFundFee", async () => {
+                await q2bExactInput(fixture, bob, "100", baseToken.address)
+
+                // close market
+                await baseToken.pause()
+                await baseToken["close(uint256)"](parseEther("0.001"))
+
+                const { liquidity } = await orderBook.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                const tx = await (
+                    await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
+                ).wait()
+                // get maker fee
+                const aliceOwedRealizedPnl = getRemoveLiquidityEvent(tx)
+
+                const aliceTx = await (await clearingHouse.quitMarket(alice.address, baseToken.address)).wait()
+                const bobTx = await (await clearingHouse.quitMarket(bob.address, baseToken.address)).wait()
+
+                const [aliceRealizedPnl, alicePositionNotional] = getPositionClosedEvent(aliceTx)
+                const [bobRealizedPnl, bobPositionNotional] = getPositionClosedEvent(bobTx)
+
+                const totalPositionNotional = alicePositionNotional.add(bobPositionNotional)
+                // totalRealizedPnl = totalTakerRealizedPnl + totalMakerFee = 0
+                const totalRealizedPnl = aliceRealizedPnl.add(aliceOwedRealizedPnl).add(bobRealizedPnl)
+
+                expect(totalPositionNotional).to.be.eq("0")
+                expect(totalRealizedPnl).to.be.closeTo("0", 2)
+            })
+
+            it("quitMarket when InsuranceFundFee", async () => {
+                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "400000")
+
+                await q2bExactInput(fixture, bob, "100", baseToken.address)
+
+                // close market
+                await baseToken.pause()
+                await baseToken["close(uint256)"](parseEther("0.001"))
+
+                const { liquidity } = await orderBook.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                const tx = await (
+                    await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
+                ).wait()
+                // get maker fee
+                const aliceOwedRealizedPnl = getRemoveLiquidityEvent(tx)
+
+                const aliceTx = await (await clearingHouse.quitMarket(alice.address, baseToken.address)).wait()
+                const bobTx = await (await clearingHouse.quitMarket(bob.address, baseToken.address)).wait()
+
+                const [aliceRealizedPnl, alicePositionNotional] = getPositionClosedEvent(aliceTx)
+                const [bobRealizedPnl, bobPositionNotional] = getPositionClosedEvent(bobTx)
+
+                const [insuranceFundFee] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+                const totalPositionNotional = alicePositionNotional.add(bobPositionNotional)
+                // totalRealizedPnl = totalTakerRealizedPnl + totalMakerFee + insuranceFundFee = 0
+                const totalRealizedPnl = bobRealizedPnl
+                    .add(aliceRealizedPnl)
+                    .add(aliceOwedRealizedPnl)
+                    .add(insuranceFundFee)
+
+                expect(totalPositionNotional).to.be.eq("0")
+                expect(totalRealizedPnl).to.be.closeTo("0", 2)
             })
         })
     })
