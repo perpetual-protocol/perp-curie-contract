@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
@@ -41,6 +42,8 @@ describe("ClearingHouse addLiquidity", () => {
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -56,6 +59,8 @@ describe("ClearingHouse addLiquidity", () => {
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         pool2 = fixture.pool2
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
@@ -69,6 +74,13 @@ describe("ClearingHouse addLiquidity", () => {
         await deposit(alice, vault, 10000, collateral)
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
+        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
     })
 
     // simulation results:

@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
@@ -33,6 +34,7 @@ describe("ClearingHouse closePosition", () => {
     let vault: Vault
     let baseToken: BaseToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
 
@@ -47,6 +49,7 @@ describe("ClearingHouse closePosition", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -71,6 +74,9 @@ describe("ClearingHouse closePosition", () => {
 
     describe("one maker; initialized price = 151.373306858723226652", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -257,6 +263,9 @@ describe("ClearingHouse closePosition", () => {
     // different range
     describe("two makers; initialized price = 148.3760629", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("148", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -637,6 +646,9 @@ describe("ClearingHouse closePosition", () => {
     describe("dust test for UniswapV3Broker.swap()", () => {
         // this test will fail if the _DUST constant in UniswapV3Broker is set to 1 (no dust allowed)
         it("a trader swaps base to quote and then closes; one maker", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -693,6 +705,9 @@ describe("ClearingHouse closePosition", () => {
     describe("close position when user is maker and taker", async () => {
         let lowerTick: number, upperTick: number
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             const tickSpacing = await pool.tickSpacing()
             await initAndAddPool(
                 fixture,

@@ -20,7 +20,7 @@ import {
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { getMaxTickRange, IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -45,7 +45,7 @@ describe("Vault withdraw test", () => {
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
-    const check = async (user: Wallet, hasAccountValue: boolean) => {
+    const check = async (user: Wallet, hasAccountValue: boolean, accountValueDust: number = 0) => {
         let freeCollateral: BigNumber
         let accountValue: BigNumber
 
@@ -59,7 +59,7 @@ describe("Vault withdraw test", () => {
         accountValue = await clearingHouse.getAccountValue(user.address)
         expect(freeCollateral).to.be.eq(0)
         if (!hasAccountValue) {
-            expect(accountValue).to.be.eq(0)
+            expect(accountValue).to.be.closeTo(parseEther("0"), accountValueDust)
         }
         await expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
     }
@@ -132,7 +132,8 @@ describe("Vault withdraw test", () => {
             // bob remove liquidity & close position
             await removeAllOrders(fixture, bob)
 
-            await check(bob, false)
+            // bob might have dust position
+            await check(bob, false, IGNORABLE_DUST)
             await check(alice, false)
         })
 

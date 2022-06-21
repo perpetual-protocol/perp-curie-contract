@@ -109,18 +109,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         _modifyTakerBalance(maker, baseToken, takerBase, takerQuote);
         _modifyOwedRealizedPnl(maker, fee);
 
-        // to avoid dust, let realizedPnl = getQuote() when there's no order
-        if (
-            getTakerPositionSize(maker, baseToken) == 0 &&
-            IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
-        ) {
-            // only need to take care of taker's accounting when there's no order
-            int256 takerOpenNotional = _accountMarketMap[maker][baseToken].takerOpenNotional;
-            // AB_IQBAR: inconsistent quote balance and realizedPnl
-            require(realizedPnl.abs() <= takerOpenNotional.abs(), "AB_IQBAR");
-            realizedPnl = takerOpenNotional;
-        }
-
         // @audit should merge _addOwedRealizedPnl and settleQuoteToOwedRealizedPnl in some way.
         // PnlRealized will be emitted three times when removing trader's liquidity
         _settleQuoteToOwedRealizedPnl(maker, baseToken, realizedPnl);

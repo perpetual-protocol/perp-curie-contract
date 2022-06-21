@@ -178,6 +178,10 @@ contract ClearingHouse is
 
         _checkMarketOpen(params.baseToken);
 
+        // This condition is to prevent the intentional bad debt attack through price manipulation.
+        // CH_OMPS: Over the maximum price spread
+        require(!IExchange(_exchange).isOverPriceSpread(params.baseToken), "CH_OMPS");
+
         // CH_DUTB: Disable useTakerBalance
         require(!params.useTakerBalance, "CH_DUTB");
 

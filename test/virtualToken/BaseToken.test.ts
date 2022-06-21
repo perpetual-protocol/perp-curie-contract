@@ -4,7 +4,7 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { setNextBlockTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
@@ -12,14 +12,13 @@ describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
-    let chainlinkPriceFeed: ChainlinkPriceFeed
-    let mockedAggregator: MockContract // used by ChainlinkPriceFeed
+    let chainlinkPriceFeed: ChainlinkPriceFeedV2
+    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
     let bandPriceFeed: BandPriceFeed
     let mockedStdReference: MockContract // used by BandPriceFeed
     let currentTime: number
     let chainlinkRoundData: any[]
     let bandReferenceData: any[]
-    const twapInterval = 30
     const closedPrice = parseEther("200")
 
     async function updateBandPrice(): Promise<void> {
@@ -29,11 +28,19 @@ describe("BaseToken", async () => {
         await bandPriceFeed.update()
     }
 
+    async function updateChainlinkPrice(): Promise<void> {
+        mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return chainlinkRoundData[chainlinkRoundData.length - 1]
+        })
+        await chainlinkPriceFeed.update()
+    }
+
     beforeEach(async () => {
         const _fixture = await loadFixture(baseTokenFixture)
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
         bandPriceFeed = _fixture.bandPriceFeed
+        chainlinkPriceFeed = _fixture.chainlinkPriceFeed
         mockedStdReference = _fixture.mockedStdReference
 
         // `base` = now - _interval
@@ -55,26 +62,24 @@ describe("BaseToken", async () => {
             // [rate, lastUpdatedBase, lastUpdatedQuote]
         ]
 
-        currentTime += 0
         chainlinkRoundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
         bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
         await updateBandPrice()
+        await updateChainlinkPrice()
 
         currentTime += 15
         await setNextBlockTimestamp(currentTime)
         chainlinkRoundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
         bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
         await updateBandPrice()
+        await updateChainlinkPrice()
 
         currentTime += 15
         await setNextBlockTimestamp(currentTime)
         chainlinkRoundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
         bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
         await updateBandPrice()
-
-        mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return chainlinkRoundData[chainlinkRoundData.length - 1]
-        })
+        await updateChainlinkPrice()
 
         mockedAggregator.smocked.getRoundData.will.return.with((round: BigNumber) => {
             return chainlinkRoundData[round.toNumber()]

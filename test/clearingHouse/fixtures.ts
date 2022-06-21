@@ -19,7 +19,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
@@ -82,10 +82,10 @@ export function createClearingHouseFixture(
         // price feed for weth and wbtc
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        const wethPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        const wethPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         const mockedWethPriceFeed = await smockit(wethPriceFeed)
-        const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         const mockedWbtcPriceFeed = await smockit(wbtcPriceFeed)
         mockedWethPriceFeed.smocked.decimals.will.return.with(18)
         mockedWbtcPriceFeed.smocked.decimals.will.return.with(18)
@@ -308,10 +308,12 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const aggregator = await aggregatorFactory.deploy()
         const mockedAggregator = await smockit(aggregator)
 
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        const cacheTwapInterval = 15 * 60
         const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
             mockedAggregator.address,
-        )) as ChainlinkPriceFeed
+            cacheTwapInterval,
+        )) as ChainlinkPriceFeedV2
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const token = (await baseTokenFactory.deploy()) as BaseToken

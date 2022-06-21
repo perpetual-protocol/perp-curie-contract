@@ -15,7 +15,7 @@ import {
     TestVault,
     UniswapV3Pool,
 } from "../../typechain"
-import { ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import {
     addOrder,
@@ -262,8 +262,8 @@ describe("Vault test", () => {
             // setup xxx price feed
             const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
             const aggregator = await aggregatorFactory.deploy()
-            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-            const xxxPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+            const xxxPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
             const mockedXxxPriceFeed = await smockit(xxxPriceFeed)
 
             // set xxx oracle price with 18 decimals

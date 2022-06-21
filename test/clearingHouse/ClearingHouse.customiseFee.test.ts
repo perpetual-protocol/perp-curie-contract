@@ -55,7 +55,7 @@ describe("ClearingHouse customized fee", () => {
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("151", 6), 0, 0, 0]
         })
 
         await initAndAddPool(

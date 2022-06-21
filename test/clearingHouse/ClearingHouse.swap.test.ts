@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
@@ -33,6 +34,7 @@ describe("ClearingHouse.swap", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -49,6 +51,7 @@ describe("ClearingHouse.swap", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
         await initAndAddPool(
@@ -60,6 +63,10 @@ describe("ClearingHouse.swap", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("10", 6), 0, 0, 0]
+        })
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)

@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
@@ -36,6 +37,8 @@ describe("AccountBalance", () => {
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
     let tickSpacing: number
     let lowerTick: number
@@ -55,6 +58,8 @@ describe("AccountBalance", () => {
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         pool2 = fixture.pool2
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         collateralDecimals = await collateral.decimals()
 
         tickSpacing = await pool.tickSpacing()
@@ -72,6 +77,9 @@ describe("AccountBalance", () => {
 
     describe("getBaseTokens()", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -82,6 +90,9 @@ describe("AccountBalance", () => {
                 getMaxTickRange(),
             )
 
+            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool2,

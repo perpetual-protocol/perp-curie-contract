@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
@@ -14,9 +15,10 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { addOrder, removeOrder } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
-import { deposit } from "../helper/token"
+import { mintAndDeposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -33,6 +35,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
@@ -48,6 +51,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
@@ -56,17 +60,13 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
 
         // prepare collateral for alice
-        const amount = parseUnits("1000", await collateral.decimals())
-        await collateral.transfer(alice.address, amount)
-        await deposit(alice, vault, 1000, collateral)
+        await mintAndDeposit(fixture, alice, 10000)
 
         // prepare collateral for bob
-        await collateral.transfer(bob.address, amount)
-        await deposit(bob, vault, 1000, collateral)
+        await mintAndDeposit(fixture, bob, 1000)
 
         // prepare collateral for carol
-        await collateral.transfer(carol.address, amount)
-        await deposit(carol, vault, 1000, collateral)
+        await mintAndDeposit(fixture, carol, 1000)
     })
 
     // simulation results:
@@ -74,6 +74,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     describe("remove non-zero liquidity", () => {
         // @SAMPLE - removeLiquidity
         it("above current price", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -85,7 +88,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             )
 
             // assume imRatio = 0.1
-            // alice collateral = 1000, freeCollateral = 10,000, mint 100 base
+            // alice collateral = 10000, freeCollateral = 100,000, mint 100 base
             // will mint 100 base -> transfer to pool
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -162,6 +165,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("151", 6), 0, 0, 0]
+                })
                 await initAndAddPool(
                     fixture,
                     pool,
@@ -175,7 +181,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             it("below current price", async () => {
                 // assume imRatio = 0.1
-                // alice collateral = 1000, freeCollateral = 10,000, mint 10,000 quote
+                // alice collateral = 10000, freeCollateral = 100,000, mint 10,000 quote
                 // will mint 10000 quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -242,7 +248,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             it("at current price", async () => {
                 // assume imRatio = 0.1
-                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -308,7 +314,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             it("twice", async () => {
                 // assume imRatio = 0.1
-                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -376,7 +382,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             it("force error, remove too much liquidity", async () => {
                 // assume imRatio = 0.1
-                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseUnits("100", await baseToken.decimals()),
@@ -406,7 +412,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             it("force error, range does not exist", async () => {
                 // assume imRatio = 0.1
-                // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+                // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseUnits("100", await baseToken.decimals()),
@@ -435,6 +441,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     })
 
     it("remove zero liquidity; no swap no fee", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
         await initAndAddPool(
             fixture,
             pool,
@@ -444,9 +453,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
-
         // assume imRatio = 0.1
-        // alice collateral = 1000, freeCollateral = 10,000, mint 100 base and 10000 quote
+        // alice collateral = 10000, freeCollateral = 100,000, mint 10 base and 1000 quote
         // will mint x base and y quote and transfer to pool
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
@@ -497,5 +505,68 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             parseUnits("66.061845430469484023", await baseToken.decimals()),
             parseUnits("10000", await quoteToken.decimals()),
         ])
+    })
+
+    describe("baseToken and quoteToken are only transferred between uniswap pool and clearingHouse", async () => {
+        let baseTokenBalanceInit, quoteTokenBalanceInit
+        let baseTokenBalanceAddLiq, quoteTokenBalanceAddLiq
+
+        beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
+            await initAndAddPool(
+                fixture,
+                pool,
+                baseToken.address,
+                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+                10000,
+                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+                getMaxTickRange(),
+            )
+            baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)
+            quoteTokenBalanceInit = await quoteToken.balanceOf(clearingHouse.address)
+            expect(await baseTokenBalanceInit).to.be.not.eq(0)
+            expect(await quoteTokenBalanceInit).to.be.not.eq(0)
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+
+            // will mint x base and y quote and transfer to pool
+            await addOrder(fixture, alice, 100, 10000, 50000, 50400, false, baseToken.address)
+
+            baseTokenBalanceAddLiq = await baseToken.balanceOf(clearingHouse.address)
+            quoteTokenBalanceAddLiq = await quoteToken.balanceOf(clearingHouse.address)
+
+            const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+            expect(baseTokenBalanceInit.sub(baseTokenBalanceAddLiq)).to.be.eq(openOrder.baseDebt)
+            expect(quoteTokenBalanceInit.sub(quoteTokenBalanceAddLiq)).to.be.eq(openOrder.quoteDebt)
+            // Should not transfer any token to exchange
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+        })
+
+        it("remove zero liquidity, should not transfer baseToken and quoteToken", async () => {
+            await removeOrder(fixture, alice, 0, 50000, 50400)
+            // Should not transfer any token to clearingHouse
+            expect(await baseToken.balanceOf(clearingHouse.address)).to.be.eq(baseTokenBalanceAddLiq)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.eq(quoteTokenBalanceAddLiq)
+
+            // Should not transfer any token to exchange
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+        })
+
+        it("remove non-zero liquidity, should only transfer baseToken and quoteToken to cleaningHouse", async () => {
+            const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+            await removeOrder(fixture, alice, openOrder.liquidity, 50000, 50400)
+
+            // removeLiquidity might not return complete base and quote tokens back due to rounding issue
+            expect(await baseToken.balanceOf(clearingHouse.address)).to.be.closeTo(baseTokenBalanceInit, 1)
+            expect(await quoteToken.balanceOf(clearingHouse.address)).to.be.closeTo(quoteTokenBalanceInit, 1)
+
+            // Should not transfer any token to exchange
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+        })
     })
 })

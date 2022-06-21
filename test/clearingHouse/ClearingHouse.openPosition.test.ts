@@ -16,15 +16,17 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
-import { createClearingHouseFixture } from "./fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
     const [admin, maker, maker2, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let clearingHouseFixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
@@ -45,30 +47,29 @@ describe("ClearingHouse openPosition", () => {
     const upperTick: number = 100000
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
-        clearingHouseConfig = _clearingHouseFixture.clearingHouseConfig
-        vault = _clearingHouseFixture.vault
-        exchange = _clearingHouseFixture.exchange
-        marketRegistry = _clearingHouseFixture.marketRegistry
-        collateral = _clearingHouseFixture.USDC
-        baseToken = _clearingHouseFixture.baseToken
-        baseToken2 = _clearingHouseFixture.baseToken2
-        quoteToken = _clearingHouseFixture.quoteToken
-        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
-        mockedBaseAggregator2 = _clearingHouseFixture.mockedBaseAggregator2
-        pool = _clearingHouseFixture.pool
-        pool2 = _clearingHouseFixture.pool2
+        clearingHouseFixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = clearingHouseFixture.clearingHouse as TestClearingHouse
+        orderBook = clearingHouseFixture.orderBook
+        accountBalance = clearingHouseFixture.accountBalance as TestAccountBalance
+        clearingHouseConfig = clearingHouseFixture.clearingHouseConfig
+        vault = clearingHouseFixture.vault
+        exchange = clearingHouseFixture.exchange
+        marketRegistry = clearingHouseFixture.marketRegistry
+        collateral = clearingHouseFixture.USDC
+        baseToken = clearingHouseFixture.baseToken
+        baseToken2 = clearingHouseFixture.baseToken2
+        quoteToken = clearingHouseFixture.quoteToken
+        mockedBaseAggregator = clearingHouseFixture.mockedBaseAggregator
+        mockedBaseAggregator2 = clearingHouseFixture.mockedBaseAggregator2
+        pool = clearingHouseFixture.pool
+        pool2 = clearingHouseFixture.pool2
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("151", 6), 0, 0, 0]
         })
-
         await initAndAddPool(
-            _clearingHouseFixture,
+            clearingHouseFixture,
             pool,
             baseToken.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
@@ -77,8 +78,11 @@ describe("ClearingHouse openPosition", () => {
             getMaxTickRange(),
         )
 
+        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
         await initAndAddPool(
-            _clearingHouseFixture,
+            clearingHouseFixture,
             pool2,
             baseToken2.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
@@ -1317,12 +1321,12 @@ describe("ClearingHouse openPosition", () => {
 
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
                 // openNotional = 2
-                // positionValue = (-0.013348304809274554*100) = -1.3348304809
-                // unrealizedPnL = -1.3348304809 + 2 = 0.6651695191
+                // positionValue = (-0.013348304809274554*151) = -2.0155940262
+                // unrealizedPnL = -2.0155940262 + 2 = -0.0155940262
                 // free collateral = min(collateral, account value) - total debt * imRatio
-                //                 = min(100, 100 + (0.6651695191)) - (1.3348304809) * 0.1
-                //                 = 100 - (1.3348304809) * 0.1
-                //                 = 99.866516
+                //                 = min(100, 100 + (-0.0155940262)) - (2.0155940262) * 0.1
+                //                 = 99.9844059738 - (2.0155940262) * 0.1
+                //                 = 99.7828465712
 
                 // remove other maker liquidity to simplify the following tests
                 const liquidity = (await orderBook.getOpenOrder(maker.address, baseToken.address, lowerTick, upperTick))
@@ -1369,23 +1373,19 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
-                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
-                // unrealizedPnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
-                // total debt = 0.013348304809274554 * 100
-                // fee = 1 / 0.99 * 0.01
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 151 = -0.982438320124068
+                // unrealizedPnL = positionValue + openNotional = -0.982438320124068 + 1 = 0.017561679875932046
+                // total debt = 0.013348304809274554 * 151 = 2.0155940262004575
+                // fee = 1 / 0.99 * 0.01 = 0.0101010101
                 // free collateral = min(collateral + fee, account value) - total debt * imRatio
-                // free collateral = min(100 + fee, 100+0.349378595944325698) - (1.3348304809274554) * 0.1
-                //                 = 100 + 0.010101 - (1.3348304809274554) * 0.1
-                //                 = 99.8766179519
+                // free collateral = min(100+0.0101010101, 100+0.017561679875932046) - (2.0155940262004575) * 0.1
+                //                 = 100 + 0.0101010101 - (2.0155940262004575) * 0.1
+                //                 = 99.80854160747995
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.876618", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.808542", collateralDecimals))
             })
 
             it("add other market liquidity below the current tick", async () => {
-                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("100", 6), 0, 0, 0]
-                })
-
                 await clearingHouse.connect(taker).addLiquidity({
                     baseToken: baseToken2.address,
                     base: "0",
@@ -1416,16 +1416,16 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
-                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 100 = -0.6506214040556743
-                // unrealizedPnL = positionValue + openNotional = -0.6506214040556743 + 1 = 0.349378595944325698
-                // total debt = 0.013348304809274554 * 100
-                // fee = 1 / 0.99 * 0.01 = 0.0101010
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 151 = -0.9824383201
+                // unrealizedPnL = positionValue + openNotional = -0.9824383201 + 1 = 0.0175616799
+                // total debt = 0.013348304809274554 * 151
+                // fee = 1 / 0.99 * 0.01 = 0.0101010101
                 // free collateral = min(collateral + fee, account value) - total debt * imRatio
-                // free collateral = min(100 + 0.101010, 100 + 0.349378595944325698) - (1.3348304809274554) * 0.1
-                //                 = 100.0101010 - (1.3348304809274554) * 0.1
-                //                 = 99.8766179519
+                // free collateral = min(100 + 0.0101010101, 100 + 0.0175616799) - (2.0155940262) * 0.1
+                //                 = 100.0101010101 - (2.0155940262) * 0.1
+                //                 = 99.8085416075
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.876618", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.808542", collateralDecimals))
             })
         })
     })
@@ -1465,6 +1465,55 @@ describe("ClearingHouse openPosition", () => {
                     referralCode: ethers.constants.HashZero,
                 }),
             ).not.to.emit(clearingHouse, "ReferredPositionChanged")
+        })
+    })
+
+    describe("baseToken and quoteToken are only transferred between uniswap pool and clearingHouse", async () => {
+        let baseTokenBalanceInit, quoteTokenBalanceInit
+
+        beforeEach(async () => {
+            await deposit(taker, vault, 1000, collateral)
+            baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)
+            quoteTokenBalanceInit = await quoteToken.balanceOf(clearingHouse.address)
+            expect(await baseTokenBalanceInit).to.be.not.eq(0)
+            expect(await quoteTokenBalanceInit).to.be.not.eq(0)
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+        })
+
+        it("open long position, clearingHouse transfer quoteToken to pool and receive baseToken", async () => {
+            await q2bExactInput(clearingHouseFixture, taker, 250, baseToken.address)
+            // Should not transfer any token to clearingHouse
+            const baseTokenBalance = await baseToken.balanceOf(clearingHouse.address)
+            const quoteTokenBalance = await quoteToken.balanceOf(clearingHouse.address)
+            const baseBalance = await accountBalance.getBase(taker.address, baseToken.address)
+
+            expect(quoteTokenBalanceInit.sub(quoteTokenBalance)).to.be.eq(parseEther("250"))
+            expect(baseTokenBalance.sub(baseTokenBalanceInit)).to.be.eq(baseBalance)
+
+            // Should not transfer any token to exchange
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
+        })
+
+        it("open short position, cleaningHouse transfer baseToken to pool and receive quoteToken", async () => {
+            // short  0.673541846948735088 base token with 100 quote token
+            await b2qExactOutput(clearingHouseFixture, taker, 100, baseToken.address)
+            // Should not transfer any token to clearingHouse
+            const baseTokenBalance = await baseToken.balanceOf(clearingHouse.address)
+            const quoteTokenBalance = await quoteToken.balanceOf(clearingHouse.address)
+
+            // openNotional + perpFee = quoteTokenFromUniswap
+            // 100 + 100*1% = 101
+            expect(quoteTokenBalance.sub(quoteTokenBalanceInit)).to.be.eq(parseEther("101.010101010101010102"))
+            // baseTokenToUniswap - baseTokenToUniswap * 1% (uniswapFee) = positionSize
+            // baseTokenToUniswap = positionSize / 99%
+            // baseTokenToUniswap = 0.673541846948735088 / 99% = 0.6803452999
+            expect(baseTokenBalanceInit.sub(baseTokenBalance)).to.be.eq(parseEther("0.680345299948217261"))
+
+            // Should not transfer any token to exchange
+            expect(await baseToken.balanceOf(exchange.address)).to.be.eq(0)
+            expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
         })
     })
 })

@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { LogDescription } from "@ethersproject/abi"
 import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import { BigNumber } from "@ethersproject/bignumber"
@@ -34,6 +35,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let fixture: ClearingHouseFixture
 
     function findLiquidityChangedEvents(receipt: TransactionReceipt): LogDescription[] {
@@ -52,6 +54,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
         pool = _clearingHouseFixture.pool
+        mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         fixture = _clearingHouseFixture
 
         const collateralDecimals = await collateral.decimals()
@@ -82,6 +85,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     describe("remove zero liquidity", () => {
         describe("one maker; current price is in maker's range", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("151", 6), 0, 0, 0]
+                })
                 await initAndAddPool(
                     fixture,
                     pool,
@@ -215,6 +221,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
             describe("initialized price = 148.3760629", () => {
                 beforeEach(async () => {
+                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                        return [0, parseUnits("148", 6), 0, 0, 0]
+                    })
                     await initAndAddPool(
                         fixture,
                         pool,
@@ -466,6 +475,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         // expect to have more tests
         describe("multi makers", () => {
             beforeEach(async () => {
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("148", 6), 0, 0, 0]
+                })
                 await initAndAddPool(
                     fixture,
                     pool,
@@ -960,6 +972,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         const upperTick = "50200"
 
         it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -1049,6 +1064,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         })
 
         it("two makers; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("148", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -1216,6 +1234,9 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         let upperTick: number
 
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             const tickSpacing = await pool.tickSpacing()
             lowerTick = getMinTick(tickSpacing)
             upperTick = getMaxTick(tickSpacing)

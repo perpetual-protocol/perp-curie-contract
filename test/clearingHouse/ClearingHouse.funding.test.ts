@@ -57,6 +57,10 @@ describe("ClearingHouse funding", () => {
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("154", 6), 0, 0, 0]
+        })
+
         await initAndAddPool(
             fixture,
             pool,

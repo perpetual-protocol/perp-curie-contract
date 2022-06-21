@@ -17,7 +17,7 @@ import { QuoteToken } from "../../typechain/QuoteToken"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getTotalPositionValue", () => {
@@ -82,6 +82,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
                 getMaxTickRange(),
             )
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         })
 
         // see more desc in getTotalPositionSize test
@@ -260,6 +261,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         const lowerTick = "50000"
         const middleTick = "50200"

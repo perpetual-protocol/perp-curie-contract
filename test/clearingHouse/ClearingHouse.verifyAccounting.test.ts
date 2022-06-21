@@ -1,8 +1,9 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber, BigNumberish, Wallet } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { InsuranceFund, Vault } from "../../typechain"
+import { InsuranceFund, UniswapV3Pool, Vault } from "../../typechain"
 import {
     addOrder,
     b2qExactInput,
@@ -16,6 +17,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse verify accounting", () => {
@@ -30,6 +32,8 @@ describe("ClearingHouse verify accounting", () => {
     let vault: Vault
     let decimals: number
     let insuranceFund: InsuranceFund
+    let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let lowerTick: number
     let upperTick: number
     let baseTokenList: string[]
@@ -40,6 +44,8 @@ describe("ClearingHouse verify accounting", () => {
         vault = fixture.vault
         decimals = await fixture.USDC.decimals()
         insuranceFund = fixture.insuranceFund
+        pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
 
         // mint 1000 to every wallets and store balanceBefore
         for (const wallet of wallets) {
@@ -168,6 +174,7 @@ describe("ClearingHouse verify accounting", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
             await removeOrder(fixture, alice, 0, lowerTick, upperTick)
             await closePosition(fixture, alice)

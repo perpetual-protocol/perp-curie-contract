@@ -18,7 +18,7 @@ import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../help
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Exchange complicated test", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
@@ -60,6 +60,7 @@ describe("Exchange complicated test", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         await marketRegistry.setFeeRatio(baseToken.address, 10000)
 

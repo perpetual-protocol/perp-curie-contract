@@ -54,7 +54,7 @@ describe("ClearingHouse withdraw", () => {
         collateralDecimals = await collateral.decimals()
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("151", 6), 0, 0, 0]
         })
 
         await initAndAddPool(
@@ -99,6 +99,9 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("taker swap and then withdraw maker's free collateral", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100", 6), 0, 0, 0]
+            })
             // prepare collateral for bob
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
@@ -281,6 +284,9 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("maker withdraw after adding liquidity", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100", 6), 0, 0, 0]
+            })
             // free collateral = max(min(collateral, accountValue) - imReq, 0)
             //                 = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                 = max(min(20000, 20000) - max(0, 330.3092180998 * 100 + 50000) * 0.1, 0)

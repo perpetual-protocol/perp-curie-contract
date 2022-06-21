@@ -28,9 +28,9 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
-import { deposit } from "../helper/token"
+import { deposit, mintAndDeposit } from "../helper/token"
 import { forward, forwardTimestamp } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -391,6 +391,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 6000, upperTick - 6000)
 
             // taker close
@@ -419,6 +420,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
 
             // taker, taker2, taker3 close
@@ -439,6 +441,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await b2qExactInput(fixture, taker3, 0.987)
 
             // maker2, maker3 add liquidity
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker2, 100, 1000, lowerTick, upperTick)
             await addOrder(fixture, maker3, 100, 1000, lowerTick, upperTick)
 
@@ -488,6 +491,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move
             await removeAllOrders(fixture, maker)
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
 
             // taker reduce position
@@ -610,6 +614,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
             // taker cannot close position (quote output: 184.21649272), but can be liquidated
@@ -643,23 +648,18 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
     describe("Liquidity outage", async () => {
         it("swap all liquidity", async () => {
-            // set index price to let taker pay funding fee
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("4", 6), 0, 0, 0]
-            })
-
-            // prepare collateral
-            takerCollateral = parseUnits("100", collateralDecimals)
-            await collateral.mint(taker.address, takerCollateral)
-            await collateral.connect(taker).approve(clearingHouse.address, takerCollateral)
-            await deposit(taker, vault, 100, collateral)
-
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
 
             // maker add liquidity, current tick 23027
             await addOrder(fixture, maker, 10, 1000, 22000, 24000)
 
+            // set index price to let taker pay funding fee
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+            // prepare collateral
+            await mintAndDeposit(fixture, taker, 1000)
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
             await q2bExactInput(fixture, taker, 2000)
             console.log(`current tick ${(await pool.slot0()).tick}`)
@@ -690,11 +690,13 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
 
-            // add more liquidity
-            await addOrder(fixture, maker, 0, 2000, 22000, 24000)
+            // Due to current tick hits the MAX_TICK-1, that means the mark price will be super large.
+            // Can not add more liquidity since it will be failed by price spread checking.
+            // Can only open opposite positions
+            await closePosition(fixture, taker, 0, baseToken.address)
 
             // taker2 can keep on swapping
-            await b2qExactOutput(fixture, taker2, 1)
+            await q2bExactInput(fixture, taker2, 100)
         })
     })
 })

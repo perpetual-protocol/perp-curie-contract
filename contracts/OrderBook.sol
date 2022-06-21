@@ -527,7 +527,7 @@ contract OrderBook is
             UniswapV3Broker.removeLiquidity(
                 UniswapV3Broker.RemoveLiquidityParams(
                     params.pool,
-                    _exchange,
+                    _clearingHouse,
                     params.lowerTick,
                     params.upperTick,
                     params.liquidity
