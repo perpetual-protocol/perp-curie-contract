@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [1.3.0] - TBD
+## [1.3.0] - 2022-06-20
 ### Added
 - Add `BaseToken.cacheTwap` to offer the flexibility of updating index prices by either users or ourselves.
 
