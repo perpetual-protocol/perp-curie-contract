@@ -79,3 +79,9 @@ Projects, ideas and events that benefit Perpetual Protocol and its ecosystem are
 - [perp-oracle-contract](https://github.com/perpetual-protocol/perp-oracle-contract)
 - [perp-curie-periphery-contract](https://github.com/perpetual-protocol/perp-curie-periphery-contract)
 - [perp-curie-subgraph](https://github.com/perpetual-protocol/perp-curie-subgraph)
+
+
+---
+
+> If any features/functionalities described in the Perpetual Protocol documentation, code comments, marketing, community discussion or announcements, pre-production or testing code, or other non-production-code sources, vary or differ from the code used in production, in case of any dispute, the code used in production shall prevail.
+
