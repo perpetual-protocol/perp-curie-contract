@@ -12,7 +12,6 @@ import {
     InsuranceFund,
     MarketRegistry,
     OrderBook,
-    QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -21,10 +20,11 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forward } from "../shared/time"
+import { forwardBothTimestamps } from "../shared/time"
 import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
+// WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
 describe.skip("ClearingHouse accounting", () => {
     const [admin, maker, taker1, taker2, taker3] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
@@ -38,7 +38,6 @@ describe.skip("ClearingHouse accounting", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let tickSpacing: number
     let mockedBaseAggregator: MockContract
@@ -58,7 +57,7 @@ describe.skip("ClearingHouse accounting", () => {
     let totalTakerFees: BigNumber
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(false, 3000))
+        fixture = await loadFixture(createClearingHouseFixture(undefined, 3000))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         accountBalance = fixture.accountBalance
@@ -68,7 +67,6 @@ describe.skip("ClearingHouse accounting", () => {
         marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
@@ -195,7 +193,7 @@ describe.skip("ClearingHouse accounting", () => {
             totalTakerRealizedPnl = totalTakerRealizedPnl.add(realizedPnl)
             totalTakerFees = totalTakerFees.add(fee)
 
-            await forward(300)
+            await forwardBothTimestamps(clearingHouse, 300)
         }
     })
 

@@ -19,7 +19,7 @@ import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeOrder } fr
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardTimestamp } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -45,7 +45,7 @@ describe("ClearingHouse badDebt", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         insuranceFund = fixture.insuranceFund
@@ -81,6 +81,9 @@ describe("ClearingHouse badDebt", () => {
         lowerTick = getMinTick(tickSpacing)
         upperTick = getMaxTick(tickSpacing)
 
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
+
         // prepare collateral for alice
         const decimals = await collateral.decimals()
         await collateral.mint(alice.address, parseUnits("100000", decimals))
@@ -113,7 +116,7 @@ describe("ClearingHouse badDebt", () => {
                 expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414000000000000")
 
                 // to avoid over maxTickCrossedPerBlock
-                await forwardTimestamp(clearingHouse)
+                await forwardBothTimestamps(clearingHouse, 100)
             })
 
             it("cannot close position when user has bad debt", async () => {
@@ -209,11 +212,11 @@ describe("ClearingHouse badDebt", () => {
                 const bobFreeCollateral = await vault.getFreeCollateral(bob.address)
                 expect(bobFreeCollateral).to.eq(0)
 
-                // alice's pnl = 784.4035329255
-                // account value = 100,784.403532
+                // alice's pnl = 784.404287
+                // account value = 100,784.404287
                 // margin requirement = 0, since she has already closed position and withdrawn liquidity
                 const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
-                expect(aliceFreeCollateral).to.be.eq(parseUnits("100784.403532", await collateral.decimals()))
+                expect(aliceFreeCollateral).to.be.eq(parseUnits("100784.404287", await collateral.decimals()))
                 // IF gets (800 + 46247 + 6.51035726807423 + 45500) * 0.0001 = 9.255379 as fees
                 const ifBalance = await vault.getFreeCollateral(insuranceFund.address)
                 expect(ifBalance).to.be.eq(parseUnits("9.255379", await collateral.decimals()))
@@ -222,7 +225,7 @@ describe("ClearingHouse badDebt", () => {
                 // 100000(alice's deposited collateral) + 100(bob's deposited collateral) + 693.49(bob's bad debt) + 0.162(liquidation fee)
                 // = 100793.65
                 const totalFreeCollateral = aliceFreeCollateral.add(ifBalance)
-                expect(totalFreeCollateral).to.be.eq(parseUnits("100793.658911", await collateral.decimals()))
+                expect(totalFreeCollateral).to.be.eq(parseUnits("100793.659666", await collateral.decimals()))
                 // total free collateral > total deposits, meaning that there is bad debt
                 expect(totalFreeCollateral).to.be.gt(parseUnits("100100", await collateral.decimals()))
             })

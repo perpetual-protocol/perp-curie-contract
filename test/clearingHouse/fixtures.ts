@@ -7,6 +7,7 @@ import {
     ClearingHouse,
     ClearingHouseConfig,
     CollateralManager,
+    DelegateApproval,
     Exchange,
     InsuranceFund,
     MarketRegistry,
@@ -14,6 +15,7 @@ import {
     TestClearingHouse,
     TestERC20,
     TestExchange,
+    TestLimitOrderBook,
     TestUniswapV3Broker,
     UniswapV3Factory,
     UniswapV3Pool,
@@ -50,6 +52,17 @@ export interface ClearingHouseFixture {
     pool2: UniswapV3Pool
 }
 
+export interface ClearingHouseWithDelegateApprovalFixture extends ClearingHouseFixture {
+    delegateApproval: DelegateApproval
+    clearingHouseOpenPositionAction: number
+    clearingHouseAddLiquidityAction: number
+    clearingHouseRemoveLiquidityAction: number
+    notExistedAction: number
+    notExistedAction2: number
+    limitOrderBook: TestLimitOrderBook
+    limitOrderBook2: TestLimitOrderBook
+}
+
 interface UniswapV3BrokerFixture {
     uniswapV3Broker: TestUniswapV3Broker
 }
@@ -59,7 +72,9 @@ export enum BaseQuoteOrdering {
     BASE_1_QUOTE_0,
 }
 
-// caller of this function should ensure that (base, quote) = (token0, token1) is always true
+// 1. caller of this function should ensure that (base, quote) = (token0, token1) is always true
+// 2. ideally there should be no test using `canMockTime` as false as it can result in flaky test results (usually related to funding calculation)
+//    but keeping this param and the comment here for notifying this issue; can see time.ts for more info
 export function createClearingHouseFixture(
     canMockTime: boolean = true,
     uniFeeTier = 10000, // 1%
@@ -404,5 +419,34 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedInsuranceFund,
         mockedAccountBalance,
         mockedMarketRegistry,
+    }
+}
+
+export function createClearingHouseWithDelegateApprovalFixture(): () => Promise<ClearingHouseWithDelegateApprovalFixture> {
+    return async (): Promise<ClearingHouseWithDelegateApprovalFixture> => {
+        const clearingHouseFixture = await createClearingHouseFixture()()
+        const clearingHouse = clearingHouseFixture.clearingHouse as TestClearingHouse
+
+        const delegateApprovalFactory = await ethers.getContractFactory("DelegateApproval")
+        const delegateApproval = await delegateApprovalFactory.deploy()
+        await delegateApproval.initialize()
+
+        const testLimitOrderBookFactory = await ethers.getContractFactory("TestLimitOrderBook")
+        const testLimitOrderBook = await testLimitOrderBookFactory.deploy(clearingHouse.address)
+        const testLimitOrderBook2 = await testLimitOrderBookFactory.deploy(clearingHouse.address)
+
+        await clearingHouse.setDelegateApproval(delegateApproval.address)
+
+        return {
+            ...clearingHouseFixture,
+            delegateApproval,
+            clearingHouseOpenPositionAction: await delegateApproval.getClearingHouseOpenPositionAction(),
+            clearingHouseAddLiquidityAction: await delegateApproval.getClearingHouseAddLiquidityAction(),
+            clearingHouseRemoveLiquidityAction: await delegateApproval.getClearingHouseRemoveLiquidityAction(),
+            notExistedAction: 64,
+            notExistedAction2: 128,
+            limitOrderBook: testLimitOrderBook,
+            limitOrderBook2: testLimitOrderBook2,
+        }
     }
 }

@@ -20,3 +20,7 @@ abstract contract ClearingHouseStorageV1 {
     address internal _accountBalance;
     address internal _insuranceFund;
 }
+
+abstract contract ClearingHouseStorageV2 is ClearingHouseStorageV1 {
+    address internal _delegateApproval;
+}

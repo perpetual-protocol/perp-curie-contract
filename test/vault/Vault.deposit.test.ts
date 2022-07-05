@@ -2,22 +2,8 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    ClearingHouse,
-    ClearingHouseConfig,
-    CollateralManager,
-    Exchange,
-    InsuranceFund,
-    MarketRegistry,
-    TestAccountBalance,
-    TestERC20,
-    TestWETH9,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
-import { createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { ClearingHouseConfig, CollateralManager, TestERC20, TestWETH9, UniswapV3Pool, Vault } from "../../typechain"
+import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 
 describe("Vault deposit test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -27,39 +13,23 @@ describe("Vault deposit test", () => {
     let weth: TestERC20
     let wbtc: TestERC20
     let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
-    let clearingHouse: ClearingHouse
     let clearingHouseConfig: ClearingHouseConfig
-    let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
-    let baseToken: BaseToken
-    let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
     let usdcDecimals: number
-    let fixture
+    let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createClearingHouseFixture(false))
-        vault = _fixture.vault
-        usdc = _fixture.USDC
-        weth = _fixture.WETH
-        wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeed
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
-        clearingHouse = _fixture.clearingHouse
-        clearingHouseConfig = _fixture.clearingHouseConfig
-        insuranceFund = _fixture.insuranceFund
-        accountBalance = _fixture.accountBalance
-        exchange = _fixture.exchange
-        collateralManager = _fixture.collateralManager
-        pool = _fixture.pool
-        baseToken = _fixture.baseToken
-        marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
-        fixture = _fixture
+        fixture = await loadFixture(createClearingHouseFixture())
+        vault = fixture.vault
+        usdc = fixture.USDC
+        weth = fixture.WETH
+        wbtc = fixture.WBTC
+        wethPriceFeed = fixture.mockedWethPriceFeed
+        clearingHouseConfig = fixture.clearingHouseConfig
+        collateralManager = fixture.collateralManager
+        pool = fixture.pool
+        fixture = fixture
 
         usdcDecimals = await usdc.decimals()
         const amount = parseUnits("1000", usdcDecimals)
@@ -140,10 +110,10 @@ describe("Vault deposit test", () => {
         it("force error, not enough balance", async () => {
             const amount = parseUnits("1100", await usdc.decimals())
             await expect(vault.connect(alice).deposit(usdc.address, amount)).to.be.revertedWith(
-                "revert ERC20: transfer amount exceeds balance",
+                "ERC20: transfer amount exceeds balance",
             )
             await expect(vault.connect(alice).depositFor(bob.address, usdc.address, amount)).to.be.revertedWith(
-                "revert ERC20: transfer amount exceeds balance",
+                "ERC20: transfer amount exceeds balance",
             )
         })
 

@@ -8,8 +8,6 @@ import {
     BaseToken,
     ClearingHouse,
     CollateralManager,
-    Exchange,
-    InsuranceFund,
     MarketRegistry,
     TestAccountBalance,
     TestERC20,
@@ -34,9 +32,7 @@ describe("Vault withdraw test", () => {
     let wbtcPriceFeed: MockContract
     let wethPriceFeed: MockContract
     let clearingHouse: ClearingHouse
-    let insuranceFund: InsuranceFund
     let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
     let baseToken: BaseToken
@@ -65,7 +61,7 @@ describe("Vault withdraw test", () => {
     }
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true))
+        fixture = await loadFixture(createClearingHouseFixture())
         vault = fixture.vault
         usdc = fixture.USDC
         weth = fixture.WETH
@@ -73,9 +69,7 @@ describe("Vault withdraw test", () => {
         wethPriceFeed = fixture.mockedWethPriceFeed
         wbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse
-        insuranceFund = fixture.insuranceFund
         accountBalance = fixture.accountBalance
-        exchange = fixture.exchange
         collateralManager = fixture.collateralManager
         pool = fixture.pool
         baseToken = fixture.baseToken

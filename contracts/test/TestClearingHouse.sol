@@ -49,6 +49,11 @@ contract TestClearingHouse is ClearingHouse {
         return _testBlockTimestamp;
     }
 
+    function setDelegateApprovalUnsafe(address delegateApprovalArg) external onlyOwner {
+        _delegateApproval = delegateApprovalArg;
+        emit DelegateApprovalChanged(delegateApprovalArg);
+    }
+
     //
     // BELOW WERE LEGACY EXTERNAL FUNCTION, MOVE TO HERE FOR THE TESTING, CAN BE REMOVE LATER ONCE WE CLEAN THE TESTS
     //

@@ -2,37 +2,23 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    Exchange,
-    MarketRegistry,
-    OrderBook,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
-import { QuoteToken } from "../../typechain/QuoteToken"
+import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { forwardBothTimestamps } from "../shared/time"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
-import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse.getTotalPositionValue", () => {
+describe("AccountBalance.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
-    let orderBook: OrderBook
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
     let mockedBaseAggregator: MockContract
@@ -40,14 +26,10 @@ describe("ClearingHouse.getTotalPositionValue", () => {
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        orderBook = fixture.orderBook
-        exchange = fixture.exchange
-        accountBalance = fixture.accountBalance
-        marketRegistry = fixture.marketRegistry
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
         mockedBaseAggregator = fixture.mockedBaseAggregator
@@ -64,12 +46,6 @@ describe("ClearingHouse.getTotalPositionValue", () => {
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
     })
-
-    async function forward(seconds: number) {
-        const lastTimestamp = (await waffle.provider.getBlock("latest")).timestamp
-        await waffle.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + seconds])
-        await waffle.provider.send("evm_mine", [])
-    }
 
     describe("initialized price = 151.3733069", () => {
         beforeEach(async () => {
@@ -144,7 +120,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
             // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
 
             // default timeInterval is 15 minutes = 900 seconds
-            await forward(900)
+            await forwardBothTimestamps(clearingHouse, 900)
 
             // (969864706335398656864177991756 / 2^96) ^ 2 = 149.8522069973
             // 149.8522069973 != 149.863446, the reason is:
@@ -201,7 +177,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
             })
             // mark price should be 150.6155385 (tick = 50149.8122)
 
-            await forward(300)
+            await forwardBothTimestamps(clearingHouse, 300)
 
             // bob shorts 0.2042052103
             await clearingHouse.connect(bob).openPosition({
@@ -221,7 +197,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
 
             // which makes the mark price become 149.863446 (tick = 50099.75001)
 
-            await forward(600)
+            await forwardBothTimestamps(clearingHouse, 600)
 
             // (970640869716903962852171321230 / 2^96) ^ 2 = 150.0921504352
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
@@ -316,7 +292,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
         await clearingHouse.connect(bob).openPosition(swapParams1)
         // mark price should be 151.3733069 (tick = 50200)
 
-        await forward(400)
+        await forwardBothTimestamps(clearingHouse, 400)
 
         // second swap: 99.9150479293 quote to 0.6482449586 base
         const swapParams2 = {
@@ -332,7 +308,7 @@ describe("ClearingHouse.getTotalPositionValue", () => {
         await clearingHouse.connect(bob).openPosition(swapParams2)
         // mark price should be 153.8170921 (tick = 50360.15967)
 
-        await forward(500)
+        await forwardBothTimestamps(clearingHouse, 500)
 
         // (979072907636267862275708019389 / 2^96) ^ 2 = 152.7112031757
         // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288

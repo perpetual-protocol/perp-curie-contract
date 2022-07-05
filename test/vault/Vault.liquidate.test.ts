@@ -3,15 +3,14 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
     CollateralManager,
-    Exchange,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
     TestAccountBalance,
     TestERC20,
+    TestExchange,
     TestVault,
     UniswapV3Pool,
 } from "../../typechain"
@@ -25,10 +24,11 @@ import {
     syncIndexToMarketPrice,
 } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("Vault test", () => {
+describe("Vault liquidate test", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: TestVault
@@ -38,8 +38,8 @@ describe("Vault test", () => {
     let wethPriceFeed: MockContract
     let wbtcPriceFeed: MockContract
     let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
+    let accountBalance: TestAccountBalance
+    let exchange: TestExchange
     let orderBook: OrderBook
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
@@ -51,7 +51,7 @@ describe("Vault test", () => {
     let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createClearingHouseFixture(true))
+        const _fixture = await loadFixture(createClearingHouseFixture())
         vault = _fixture.vault as TestVault
         usdc = _fixture.USDC
         weth = _fixture.WETH
@@ -59,8 +59,8 @@ describe("Vault test", () => {
         wethPriceFeed = _fixture.mockedWethPriceFeed
         wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
         insuranceFund = _fixture.insuranceFund
-        accountBalance = _fixture.accountBalance
-        exchange = _fixture.exchange
+        accountBalance = _fixture.accountBalance as TestAccountBalance
+        exchange = _fixture.exchange as TestExchange
         orderBook = _fixture.orderBook
         collateralManager = _fixture.collateralManager
         pool = _fixture.pool
@@ -78,11 +78,9 @@ describe("Vault test", () => {
             baseToken.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             10000,
-            1000,
+            getMaxTickRange(),
         )
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-        // set a higher price limit for large orders
-        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "100000")
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
@@ -302,14 +300,16 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("0", 6), 0, 0, 0]
             })
+
             await expect(
                 vault
                     .connect(david)
                     .liquidateCollateral(alice.address, weth.address, parseUnits("1", usdcDecimals), true),
-            ).to.be.revertedWith("revert ERC20: transfer amount exceeds balance")
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance")
+
             await expect(
                 vault.connect(david).liquidateCollateral(alice.address, weth.address, parseEther("0.01"), false),
-            ).to.be.revertedWith("revert ERC20: transfer amount exceeds balance")
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance")
         })
 
         describe("# liquidateCollateral by settlement token", async () => {

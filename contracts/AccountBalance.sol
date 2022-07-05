@@ -98,21 +98,21 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function settleBalanceAndDeregister(
-        address maker,
+        address trader,
         address baseToken,
         int256 takerBase,
         int256 takerQuote,
         int256 realizedPnl,
-        int256 fee
+        int256 makerFee
     ) external override {
         _requireOnlyClearingHouse();
-        _modifyTakerBalance(maker, baseToken, takerBase, takerQuote);
-        _modifyOwedRealizedPnl(maker, fee);
+        _modifyTakerBalance(trader, baseToken, takerBase, takerQuote);
+        _modifyOwedRealizedPnl(trader, makerFee);
 
         // @audit should merge _addOwedRealizedPnl and settleQuoteToOwedRealizedPnl in some way.
         // PnlRealized will be emitted three times when removing trader's liquidity
-        _settleQuoteToOwedRealizedPnl(maker, baseToken, realizedPnl);
-        _deregisterBaseToken(maker, baseToken);
+        _settleQuoteToOwedRealizedPnl(trader, baseToken, realizedPnl);
+        _deregisterBaseToken(trader, baseToken);
     }
 
     /// @inheritdoc IAccountBalance
@@ -388,9 +388,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 amount
     ) internal {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.sub(amount);
-        _modifyOwedRealizedPnl(trader, amount);
+        if (amount != 0) {
+            AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+            accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.sub(amount);
+            _modifyOwedRealizedPnl(trader, amount);
+        }
     }
 
     /// @dev this function is expensive

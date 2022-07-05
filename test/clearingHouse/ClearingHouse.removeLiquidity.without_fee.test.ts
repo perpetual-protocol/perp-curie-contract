@@ -7,13 +7,11 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     Exchange,
-    MarketRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
-    Vault,
 } from "../../typechain"
 import { addOrder, removeOrder } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
@@ -27,34 +25,26 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
     let collateral: TestERC20
-    let vault: Vault
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
-    let baseAmount: BigNumber
-    let quoteAmount: BigNumber
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         exchange = fixture.exchange
-        marketRegistry = fixture.marketRegistry
-        vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
-        baseAmount = parseUnits("100", await baseToken.decimals())
-        quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
         collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
@@ -67,6 +57,74 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         // prepare collateral for carol
         await mintAndDeposit(fixture, carol, 1000)
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
+    })
+
+    it("remove zero liquidity; no swap no fee", async () => {
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
+        // assume imRatio = 0.1
+        // alice collateral = 10000, freeCollateral = 100,000, mint 10 base and 1000 quote
+        // will mint x base and y quote and transfer to pool
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100"),
+            quote: parseUnits("10000"),
+            lowerTick: 50000,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+        const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
+
+        // will receive no tokens from pool (no fees)
+        await expect(
+            clearingHouse.connect(alice).removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50400,
+                liquidity: 0,
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            }),
+        )
+            .to.emit(clearingHouse, "LiquidityChanged")
+            .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
+
+        // verify account states
+        // alice should have 100 - 33.9381545695 = 66.0618454305 debt
+        const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
+        expect(baseBalance).to.deep.eq(parseUnits("-66.061845430469484023"))
+        expect(quoteBalance).to.deep.eq(parseUnits("-10000"))
+
+        expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
+            keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
+        ])
+        const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
+        expect(openOrder).to.deep.eq([
+            liquidity,
+            50000, // lowerTick
+            50400, // upperTick
+            parseUnits("0"), // lastFeeGrowthInsideX128
+            openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
+            openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
+            openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
+            parseUnits("66.061845430469484023"),
+            parseUnits("10000"),
+        ])
     })
 
     // simulation results:
@@ -74,9 +132,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     describe("remove non-zero liquidity", () => {
         // @SAMPLE - removeLiquidity
         it("above current price", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -131,7 +186,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
             expect(baseBalance).to.deep.eq(BigNumber.from(0))
-            expect(quoteBalance).to.deep.eq(parseUnits("0", await quoteToken.decimals()))
+            expect(quoteBalance).to.deep.eq(parseUnits("0"))
 
             expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
             const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
@@ -139,7 +194,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 BigNumber.from(0), // liquidity
                 0, // lowerTick
                 0, // upperTick
-                parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
+                parseUnits("0"), // lastFeeGrowthInsideX128
                 openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                 openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                 openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -165,9 +220,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("151", 6), 0, 0, 0]
-                })
                 await initAndAddPool(
                     fixture,
                     pool,
@@ -186,7 +238,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
-                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    quote: parseUnits("10000"),
                     lowerTick: 50000,
                     upperTick: 50200,
                     minBase: 0,
@@ -228,7 +280,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     alice.address,
                     baseToken.address,
                 )
-                expect(baseBalance).to.deep.eq(parseUnits("0", await baseToken.decimals()))
+                expect(baseBalance).to.deep.eq(parseUnits("0"))
                 expect(quoteBalance).to.deep.eq(BigNumber.from("0"))
 
                 expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
@@ -237,7 +289,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
+                    parseUnits("0"), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -252,8 +304,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100", await baseToken.decimals()),
-                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    base: parseUnits("100"),
+                    quote: parseUnits("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -284,7 +336,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         quoteToken.address,
                         50000,
                         50400,
-                        parseUnits("-66.061845430469484022", await baseToken.decimals()),
+                        parseUnits("-66.061845430469484022"),
                         "-9999999999999999999999",
                         "-81689571696303801018159",
                         0,
@@ -303,7 +355,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
+                    parseUnits("0"), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -318,8 +370,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100", await baseToken.decimals()),
-                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    base: parseUnits("100"),
+                    quote: parseUnits("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -371,7 +423,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                     BigNumber.from(0), // liquidity
                     0, // lowerTick
                     0, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
+                    parseUnits("0"), // lastFeeGrowthInsideX128
                     openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
                     openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
                     openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
@@ -385,8 +437,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100", await baseToken.decimals()),
-                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    base: parseUnits("100"),
+                    quote: parseUnits("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -415,8 +467,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100", await baseToken.decimals()),
-                    quote: parseUnits("10000", await quoteToken.decimals()),
+                    base: parseUnits("100"),
+                    quote: parseUnits("10000"),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -438,73 +490,6 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 ).to.be.reverted
             })
         })
-    })
-
-    it("remove zero liquidity; no swap no fee", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-        // assume imRatio = 0.1
-        // alice collateral = 10000, freeCollateral = 100,000, mint 10 base and 1000 quote
-        // will mint x base and y quote and transfer to pool
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: parseUnits("100", await baseToken.decimals()),
-            quote: parseUnits("10000", await quoteToken.decimals()),
-            lowerTick: 50000,
-            upperTick: 50400,
-            minBase: 0,
-            minQuote: 0,
-            useTakerBalance: false,
-            deadline: ethers.constants.MaxUint256,
-        })
-        const liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
-
-        // will receive no tokens from pool (no fees)
-        await expect(
-            clearingHouse.connect(alice).removeLiquidity({
-                baseToken: baseToken.address,
-                lowerTick: 50000,
-                upperTick: 50400,
-                liquidity: 0,
-                minBase: 0,
-                minQuote: 0,
-                deadline: ethers.constants.MaxUint256,
-            }),
-        )
-            .to.emit(clearingHouse, "LiquidityChanged")
-            .withArgs(alice.address, baseToken.address, quoteToken.address, 50000, 50400, 0, 0, 0, 0)
-
-        // verify account states
-        // alice should have 100 - 33.9381545695 = 66.0618454305 debt
-        const [baseBalance, quoteBalance] = await clearingHouse.getTokenBalance(alice.address, baseToken.address)
-        expect(baseBalance).to.deep.eq(parseUnits("-66.061845430469484023", await baseToken.decimals()))
-        expect(quoteBalance).to.deep.eq(parseUnits("-10000", await quoteToken.decimals()))
-
-        expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.deep.eq([
-            keccak256(["address", "address", "int24", "int24"], [alice.address, baseToken.address, 50000, 50400]),
-        ])
-        const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-        expect(openOrder).to.deep.eq([
-            liquidity,
-            50000, // lowerTick
-            50400, // upperTick
-            parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-            openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-            openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-            openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-            parseUnits("66.061845430469484023", await baseToken.decimals()),
-            parseUnits("10000", await quoteToken.decimals()),
-        ])
     })
 
     describe("baseToken and quoteToken are only transferred between uniswap pool and clearingHouse", async () => {

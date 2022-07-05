@@ -4,7 +4,6 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    MarketRegistry,
     OrderBook,
     TestAccountBalance,
     TestClearingHouse,
@@ -17,7 +16,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helpe
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardTimestamp } from "../shared/time"
+import { forwardBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -26,7 +25,6 @@ describe("ClearingHouse closePosition", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let orderBook: OrderBook
     let accountBalance: TestAccountBalance
     let exchange: TestExchange
@@ -39,12 +37,11 @@ describe("ClearingHouse closePosition", () => {
     let upperTick = "50200" // 151.3733068587
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true))
+        fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         orderBook = fixture.orderBook
         accountBalance = fixture.accountBalance as TestAccountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
@@ -787,7 +784,7 @@ describe("ClearingHouse closePosition", () => {
             )
 
             // alice partial close position, forward timestamp to bypass over price limit timestamp check
-            await forwardTimestamp(clearingHouse, 3000)
+            await forwardBothTimestamps(clearingHouse, 3000)
 
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)

@@ -39,9 +39,11 @@ const config: HardhatUserConfig = {
         ],
     },
     contractSizer: {
+        // max bytecode size is 24.576 KB
         alphaSort: true,
         runOnCompile: true,
-        disambiguatePaths: false,
+        disambiguatePaths: true,
+        except: ["@openzeppelin/", "@uniswap/", "@perp/perp-oracle-contract/", "test/"],
     },
     gasReporter: {
         excludeContracts: ["test"],

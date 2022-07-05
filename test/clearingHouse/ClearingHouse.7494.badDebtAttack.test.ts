@@ -5,35 +5,28 @@ import { waffle } from "hardhat"
 import {
     AccountBalance,
     BaseToken,
-    Exchange,
-    InsuranceFund,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
+import { initMarket } from "../helper/marketHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, formatSqrtPriceX96ToPrice } from "../shared/utilities"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { formatSqrtPriceX96ToPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse 7494 bad debt attack", () => {
     const [admin, maker, account1, account2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
-    let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
-    let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let tickSpacing: number
     let mockedBaseAggregator: MockContract
@@ -47,18 +40,14 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
+        const ifFeeRatio = 100000 // 10%
 
-        fixture = await loadFixture(createClearingHouseFixture(false, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        orderBook = fixture.orderBook
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
-        insuranceFund = fixture.insuranceFund
-        exchange = fixture.exchange
-        marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
@@ -68,17 +57,13 @@ describe("ClearingHouse 7494 bad debt attack", () => {
             return [0, parseUnits(indexPrice.toString(), 6), 0, 0, 0]
         })
 
+        // tick = 2623 (1.0001^2623 = 1.29989941), simulating SAND POOL
+        await initMarket(fixture, "1.3", exFeeRatio, ifFeeRatio, 250, baseToken.address)
+
         // tick space: 10
         tickSpacing = await pool.tickSpacing()
         minTick = getMinTick(tickSpacing)
         maxTick = getMaxTick(tickSpacing)
-        await pool.initialize(encodePriceSqrt("13", "10")) // tick = 2623 (1.0001^2623 = 1.29989941), simulating SAND POOL
-        await pool.increaseObservationCardinalityNext(500)
-
-        await marketRegistry.addPool(baseToken.address, uniFeeRatio)
-        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
-        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "250")
 
         // prepare collateral for makers
         const makerAmount = parseUnits("500000", collateralDecimals)
@@ -86,7 +71,9 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await deposit(maker, vault, 500000, collateral)
         // add a full range liquidity
         await addOrder(fixture, maker, 1500000, 500000, minTick, maxTick)
-        const ids = await orderBook.getOpenOrderIds(maker.address, baseToken.address)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
 
     function getLatestTickBelowPrice(price: number, curTick: number) {
@@ -100,7 +87,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     }
 
     async function manipulatePrice(endPrice: number) {
-        console.log("===================================== test end price:", endPrice)
+        // console.log("===================================== test end price:", endPrice)
         const account1Margin = parseUnits("220000", collateralDecimals)
         await collateral.mint(account1.address, account1Margin)
         await deposit(account1, vault, 220000, collateral)
@@ -114,16 +101,19 @@ describe("ClearingHouse 7494 bad debt attack", () => {
             if (price >= endPrice) break
 
             await q2bExactInput(fixture, account1, 6300)
+
+            // forward timestamp to avoid _isOverPriceLimitWithTick
+            await forwardBothTimestamps(clearingHouse)
             count++
         }
 
-        console.log(`txs count: ${count}`)
+        // console.log(`txs count: ${count}`)
         const freeCollateralAfterOpenLong = await vault.getFreeCollateral(account1.address)
         const account1MinimalMargin = formatUnits(
             account1Margin.sub(freeCollateralAfterOpenLong).toString(),
             collateralDecimals,
         )
-        console.log(`minimal margin for account1: ${account1MinimalMargin.toString()}`)
+        // console.log(`minimal margin for account1: ${account1MinimalMargin.toString()}`)
     }
 
     async function testBlockBadDebtAttack() {
@@ -134,11 +124,11 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         const slot0 = await pool.slot0()
         const price = Number(formatSqrtPriceX96ToPrice(slot0.sqrtPriceX96))
         const tick = slot0.tick
-        console.log("===================================== test mark price:", price)
+        // console.log("===================================== test mark price:", price)
 
         // account2 deposit margin with amount same to the account1's position notional
         const account2Margin = Math.round(Number(positionSize) * price) / 10 + 10
-        console.log(`minimal margin for account2: ${account2Margin}`)
+        // console.log(`minimal margin for account2: ${account2Margin}`)
         const accoun2MarginInWei = parseUnits(account2Margin.toString(), collateralDecimals)
         await collateral.mint(account2.address, accoun2MarginInWei)
         await deposit(account2, vault, account2Margin, collateral)
@@ -158,11 +148,11 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         const slot0 = await pool.slot0()
         const price = Number(formatSqrtPriceX96ToPrice(slot0.sqrtPriceX96))
         const tick = slot0.tick
-        console.log("===================================== test mark price:", price)
+        // console.log("===================================== test mark price:", price)
 
         // account2 deposit margin with amount same to the account1's position notional
         const account2Margin = Math.round(Number(positionSize) * price) / 10 + 10
-        console.log(`minimal margin for account2: ${account2Margin}`)
+        // console.log(`minimal margin for account2: ${account2Margin}`)
         const accoun2MarginInWei = parseUnits(account2Margin.toString(), collateralDecimals)
         await collateral.mint(account2.address, accoun2MarginInWei)
         await deposit(account2, vault, account2Margin, collateral)
@@ -189,7 +179,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         const account1Margin = await vault.getBalance(account1.address)
         const profit = account1FreeCollateral.sub(account1Margin.add(accoun2MarginInWei))
         expect(profit).to.be.lt("0")
-        console.log(`profit: ${formatUnits(profit, collateralDecimals)}`)
+        // console.log(`profit: ${formatUnits(profit, collateralDecimals)}`)
     }
 
     it("end price $1.43 (spread 10%)", async () => {

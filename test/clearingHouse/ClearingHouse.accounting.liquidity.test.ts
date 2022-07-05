@@ -1,42 +1,23 @@
 import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
+import { ContractTransaction } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    Exchange,
-    InsuranceFund,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
+import { BaseToken, MarketRegistry, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { addOrder, findLiquidityChangedEvents, removeAllOrders } from "../helper/clearingHouseHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
-import { addOrder, removeAllOrders, findLiquidityChangedEvents } from "../helper/clearingHouseHelper"
-import { ContractTransaction } from "ethers"
 
 describe("ClearingHouse accounting (liquidity)", () => {
     const [admin, maker1, maker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
-    let exchange: Exchange
-    let orderBook: OrderBook
-    let accountBalance: AccountBalance
     let vault: Vault
-    let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let tickSpacing: number
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
@@ -54,17 +35,11 @@ describe("ClearingHouse accounting (liquidity)", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        fixture = await loadFixture(createClearingHouseFixture(false, uniFeeRatio))
-        clearingHouse = fixture.clearingHouse as TestClearingHouse
-        orderBook = fixture.orderBook
-        accountBalance = fixture.accountBalance
+        fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         vault = fixture.vault
-        insuranceFund = fixture.insuranceFund
-        exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
@@ -73,7 +48,6 @@ describe("ClearingHouse accounting (liquidity)", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        tickSpacing = await pool.tickSpacing()
         await pool.initialize(encodePriceSqrt("100", "1")) // tick = 46000 (1.0001^46000 = 99.4614384055)
         await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
 

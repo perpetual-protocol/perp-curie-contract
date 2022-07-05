@@ -29,7 +29,7 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { forward, forwardTimestamp } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -62,7 +62,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
 
-        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
@@ -147,6 +147,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         // prepare collateral for taker2
         await collateral.mint(taker3.address, takerCollateral)
         await deposit(taker3, vault, 100, collateral)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
 
     function takerLongExactInput(amount): Promise<ContractTransaction> {
@@ -535,7 +538,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         it("funding payment arbitrage", async () => {
             // taker open
             await q2bExactInput(fixture, taker, 20.1234)
-            await forward(300)
+            await forwardBothTimestamps(clearingHouse, 300)
 
             // index price change and funding rate reversed
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -544,7 +547,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker open reverse
             await b2qExactOutput(fixture, taker, 30)
-            await forward(300)
+            await forwardBothTimestamps(clearingHouse, 300)
 
             // taker close
             await closePosition(fixture, taker)
@@ -592,7 +595,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker pays funding
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
-                await forwardTimestamp(clearingHouse, 3000)
+                await forwardBothTimestamps(clearingHouse, 3000)
 
                 await clearingHouse.connect(taker).settleAllFunding(taker.address)
             }
@@ -662,7 +665,6 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await mintAndDeposit(fixture, taker, 1000)
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
             await q2bExactInput(fixture, taker, 2000)
-            console.log(`current tick ${(await pool.slot0()).tick}`)
 
             // failed to swap again
             await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
@@ -681,13 +683,12 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             ).fee
             expect(fee).to.be.gt("0")
 
-            // funding are all correct
-            await forwardTimestamp(clearingHouse, 200)
+            await forwardBothTimestamps(clearingHouse, 200)
+            expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
 
             await clearingHouse.connect(taker).settleAllFunding(taker.address)
 
-            await forwardTimestamp(clearingHouse, 200)
-
+            await forwardBothTimestamps(clearingHouse, 200)
             expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
 
             // Due to current tick hits the MAX_TICK-1, that means the mark price will be super large.

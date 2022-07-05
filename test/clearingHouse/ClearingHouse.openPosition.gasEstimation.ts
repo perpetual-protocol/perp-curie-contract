@@ -3,13 +3,10 @@ import { parseEther } from "@ethersproject/units"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
-    ClearingHouse,
-    Exchange,
-    MarketRegistry,
     OrderBook,
-    QuoteToken,
+    TestAccountBalance,
+    TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
     Vault,
@@ -17,22 +14,20 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forward } from "../shared/time"
+import { forwardBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
+// WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
 describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
+    let clearingHouse: TestClearingHouse
     let orderBook: OrderBook
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
     let lowerTick: number
@@ -40,16 +35,13 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture(false))
-        clearingHouse = _clearingHouseFixture.clearingHouse as ClearingHouse
+        const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
-        accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
+        accountBalance = _clearingHouseFixture.accountBalance as TestAccountBalance
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
@@ -118,7 +110,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            await forward(3600)
+            await forwardBothTimestamps(clearingHouse, 3600)
         }
 
         // maker remove liquidity position

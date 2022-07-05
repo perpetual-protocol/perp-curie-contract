@@ -40,7 +40,7 @@ describe("ClearingHouse verify accounting", () => {
     let balanceBefore: BigNumberish
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
+        fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         vault = fixture.vault
         decimals = await fixture.USDC.decimals()
         insuranceFund = fixture.insuranceFund
