@@ -152,7 +152,7 @@ export function createClearingHouseFixture(
 
         // deploy exchange
         await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
-        exchange.setAccountBalance(accountBalance.address)
+        await exchange.setAccountBalance(accountBalance.address)
 
         await orderBook.setExchange(exchange.address)
 
