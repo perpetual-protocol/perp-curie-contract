@@ -190,17 +190,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
             expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
             const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
-            expect(openOrder).to.deep.eq([
-                BigNumber.from(0), // liquidity
-                0, // lowerTick
-                0, // upperTick
-                parseUnits("0"), // lastFeeGrowthInsideX128
-                openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                BigNumber.from("0"),
-                BigNumber.from("0"),
-            ])
+            expect(openOrder.liquidity).be.eq(BigNumber.from("0"))
+            expect(openOrder.lowerTick).be.eq(0)
+            expect(openOrder.upperTick).be.eq(0)
+            expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+            expect(openOrder.baseDebt).be.eq(BigNumber.from("0"))
+            expect(openOrder.quoteDebt).be.eq(BigNumber.from("0"))
         })
 
         it("force error, pool does not exist", async () => {
@@ -285,17 +280,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
                 expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
-                expect(openOrder).to.deep.eq([
-                    BigNumber.from(0), // liquidity
-                    0, // lowerTick
-                    0, // upperTick
-                    parseUnits("0"), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    BigNumber.from("0"),
-                    BigNumber.from("0"),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("0"))
+                expect(openOrder.lowerTick).be.eq(0)
+                expect(openOrder.upperTick).be.eq(0)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(BigNumber.from("0"))
+                expect(openOrder.quoteDebt).be.eq(BigNumber.from("0"))
             })
 
             it("at current price", async () => {
@@ -351,17 +341,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
                 expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder).to.deep.eq([
-                    BigNumber.from(0), // liquidity
-                    0, // lowerTick
-                    0, // upperTick
-                    parseUnits("0"), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    BigNumber.from("0"),
-                    BigNumber.from("0"),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("0"))
+                expect(openOrder.lowerTick).be.eq(0)
+                expect(openOrder.upperTick).be.eq(0)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(BigNumber.from("0"))
+                expect(openOrder.quoteDebt).be.eq(BigNumber.from("0"))
             })
 
             it("twice", async () => {
@@ -419,17 +404,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
                 expect(await orderBook.getOpenOrderIds(alice.address, baseToken.address)).to.be.empty
                 const openOrder2 = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder2).to.deep.eq([
-                    BigNumber.from(0), // liquidity
-                    0, // lowerTick
-                    0, // upperTick
-                    parseUnits("0"), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    BigNumber.from("0"),
-                    BigNumber.from("0"),
-                ])
+                expect(openOrder2.liquidity).be.eq(BigNumber.from("0"))
+                expect(openOrder2.lowerTick).be.eq(0)
+                expect(openOrder2.upperTick).be.eq(0)
+                expect(openOrder2.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder2.baseDebt).be.eq(BigNumber.from("0"))
+                expect(openOrder2.quoteDebt).be.eq(BigNumber.from("0"))
             })
 
             it("force error, remove too much liquidity", async () => {
