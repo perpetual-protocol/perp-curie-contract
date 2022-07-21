@@ -4,34 +4,33 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
-    ClearingHouse,
     ClearingHouseConfig,
-    Exchange,
-    MarketRegistry,
     OrderBook,
+    TestAccountBalance,
+    TestClearingHouse,
     TestERC20,
+    TestExchange,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forward } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let clearingHouseConfig: ClearingHouseConfig
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
+    let exchange: TestExchange
     let orderBook: OrderBook
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -42,13 +41,12 @@ describe("ClearingHouse funding", () => {
     let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(false))
-        clearingHouse = fixture.clearingHouse as ClearingHouse
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
         clearingHouseConfig = fixture.clearingHouseConfig
         orderBook = fixture.orderBook
-        exchange = fixture.exchange
-        accountBalance = fixture.accountBalance
-        marketRegistry = fixture.marketRegistry
+        exchange = fixture.exchange as TestExchange
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
@@ -57,13 +55,17 @@ describe("ClearingHouse funding", () => {
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("154", 6), 0, 0, 0]
+        })
+
         await initAndAddPool(
             fixture,
             pool,
             baseToken.address,
             encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
             10000,
-            1000,
+            getMaxTickRange(),
         )
 
         // alice add long limit order
@@ -75,6 +77,9 @@ describe("ClearingHouse funding", () => {
 
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("# getPendingFundingPayment", () => {
@@ -183,6 +188,8 @@ describe("ClearingHouse funding", () => {
             })
 
             it("trader short, no funding payment for the maker providing the order above current price", async () => {
+                await forwardBothTimestamps(clearingHouse)
+
                 // bob short
                 await expect(
                     clearingHouse.connect(bob).openPosition({
@@ -202,7 +209,7 @@ describe("ClearingHouse funding", () => {
                 // fundingGrowthGlobal.twPremium: 3.4779721 + 3.4779721 * 1(sec) = 6.9559442
                 // fundingGrowthGlobal.twPremiumDivBySqrtPrice: 0.27987152667 + (3.4779721 / sqrt(154.431096099999999999)) = 0.55974305334
 
-                forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
 
                 // carol should get zero funding payment:
                 // currentFundingGrowthGlobal:
@@ -289,7 +296,7 @@ describe("ClearingHouse funding", () => {
             })
 
             // placing this test here as it will be executed first due to the structure
-            // twap is introduced by not always setting forward() with values > twapInterval = 900 (default)
+            // twap is introduced by not always setting await forwardBothTimestamps(clearingHouse, ) with values > twapInterval = 900 (default)
             // can notice that markTwaps in this case are different from those in "two takers; first positive then negative funding"
             it("with twap; two takers; positive, negative then positive funding", async () => {
                 // set index price for a positive funding
@@ -308,7 +315,7 @@ describe("ClearingHouse funding", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                await forward(300)
+                await forwardBothTimestamps(clearingHouse, 300)
 
                 // bob's funding payment = -0.099 * (153.9531248192 - 150.953124) * 300 / 86400 = -0.001031250282
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -328,13 +335,12 @@ describe("ClearingHouse funding", () => {
                 })
 
                 // alice's funding payment shouldn't change after carol swaps
-                // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                // -(-0.099 * (153.9531248192 - 150.953124) * 301 / 86400) = 0.001034687783
+                // -(-0.099 * (153.9531248192 - 150.953124) * 300 / 86400) = -0.001031250282
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                    parseEther("0.001034687782538044"),
+                    parseEther("0.001031250281599379"),
                 )
 
-                await forward(450)
+                await forwardBothTimestamps(clearingHouse, 450)
 
                 // set index price for a negative funding
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -342,21 +348,20 @@ describe("ClearingHouse funding", () => {
                 })
 
                 // notice that markTwap here is not 154.3847760162 as in "two takers; first positive then negative funding", though having the same amount swapped
-                // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 450) / 86400 = 0.0003850801641
+                // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 300 + (154.1996346489 - 156.953124) * 450) / 86400 = 0.0003885176651
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                    parseEther("0.000385080164122650"),
+                    parseEther("0.000388517665061314"),
                 )
                 // carol's funding payment = 0.09 * (154.1996346489 - 156.953124) * 450 / 86400 = -0.001290698133
                 expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
                     parseEther("-0.001290698133327903"),
                 )
-                // alice's funding payment = -(sum of takers' funding payments) = -(0.0003850801641 + -0.001290698133) = 0.0009056179689
+                // alice's funding payment = -(sum of takers' funding payments) = -(0.000388517665061314 + -0.001290698133327903) = 0.0009021804683
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                    parseEther("0.000905617969205253"),
+                    parseEther("0.000902180468266589"),
                 )
 
                 // bob swaps to trigger funding update & funding-related prices emission
-                // -0.099 * ((153.9531248192 - 150.953124) * 301 + (154.1996346489 - 156.953124) * 451) / 86400 = 0.000388235204
                 const tx = await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
@@ -370,36 +375,36 @@ describe("ClearingHouse funding", () => {
 
                 await expect(tx)
                     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    .withArgs(bob.address, baseToken.address, parseEther("0.000388235204004118"))
+                    .withArgs(bob.address, baseToken.address, parseEther("0.000388517665061314"))
                 await expect(tx)
                     .to.emit(exchange, "FundingUpdated")
                     .withArgs(baseToken.address, parseEther("154.199634648900471640"), parseEther("156.953124"))
 
                 // note that bob will settle his pending funding payment here
-                await forward(250)
+                await forwardBothTimestamps(clearingHouse, 250)
 
                 // set index price for a positive funding
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("152.953124", 6), 0, 0, 0]
                 })
 
-                // bob's funding payment = -0.099 * (154.2767498877 - 152.953124) * 250 / 86400 = -0.0003791636657
+                // bob's funding payment = -0.0990000001 * (154.2767498877 - 152.953124) * 250 / 86400 = -0.0003791636661
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
                     parseEther("-0.000379163666139115"),
                 )
-                // carol's funding payment = 0.09 * ((154.1996346489 - 156.953124) * 451 + (154.2767498877 - 152.953124) * 250) / 86400 = -0.0009488721098
+                // carol's funding payment = 0.09 * ((154.1996346489 - 156.953124) * 450 + (154.2767498877 - 152.953124) * 250) / 86400 = -0.0009460038917
                 expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
-                    parseEther("-0.000948872109805491"),
+                    parseEther("-0.000946003891731429"),
                 )
-                // alice's funding payment = -(sum of takers' funding payments) = 0.0009056179689 + -(-0.0003791636657 + 0.09 * (154.2767498877 - 152.953124) * 250 / 86400) = 0.000940087393
-                // there is minor imprecision thx to hardhat and choose to ignore it in this case
+                // alice's funding payment = -(sum of takers' funding payments) = 0.0009021804683 + -(-0.0003791636657 + 0.09 * (154.2767498877 - 152.953124) * 250 / 86400) = 0.0009366498924
+                // there is minor imprecision in this case
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                    parseEther("0.000939800571940488"),
+                    parseEther("0.000936649892809230"),
                 )
             })
 
             describe("without twap/ prices are consistent in the twapInterval", () => {
-                // Basic example
+                // basic examples
                 it("one taker swaps once; positive funding", async () => {
                     // set index price for a positive funding
                     mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -417,7 +422,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // bob's funding payment = -0.099 * (153.9531248192 - 150.953124) * 3600 / 86400 = -0.01237500338
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -428,7 +433,7 @@ describe("ClearingHouse funding", () => {
                         parseEther("0.012375003379192556"),
                     )
 
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // bob's funding payment = -0.099 * (153.9531248192 - 150.953124) * 7200 / 86400 = -0.02475000676
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -442,8 +447,6 @@ describe("ClearingHouse funding", () => {
                     const [owedRealizedPnlBefore] = await accountBalance.getPnlAndPendingFee(bob.address)
 
                     // swaps arbitrary amount to trigger funding settlement & funding-related prices emission
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.099 * (153.9531248192 - 150.953124) * 7201 / 86400 = -0.02475344426
                     const tx = await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
@@ -456,14 +459,14 @@ describe("ClearingHouse funding", () => {
                     })
                     await expect(tx)
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("-0.024753444259323776"))
+                        .withArgs(bob.address, baseToken.address, parseEther("-0.024750006758385112"))
                     await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("150.953124"))
 
                     // verify owedRealizedPnl
                     const [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.024753444259323776"))
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.024750006758385112"))
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(0)
                 })
 
@@ -485,26 +488,7 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     })
 
-                    // the following check tends to fail the test due to unknown reason, thus commenting out for now
-                    // await expect(
-                    //     clearingHouse.connect(alice).addLiquidity({
-                    //         baseToken: baseToken.address,
-                    //         base: parseEther("2"),
-                    //         quote: parseEther("100"),
-                    //         lowerTick: 50200,
-                    //         upperTick: 50400,
-                    //         minBase: 0,
-                    //         minQuote: 0,
-                    //         useTakerBalance: false,
-                    //         deadline: ethers.constants.MaxUint256,
-                    //     }),
-                    // )
-                    //     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    //     .withArgs(alice.address, baseToken.address, parseEther("-0.000003426947962258"))
-
-                    // alice add arbitrarily more liquidity. This should not impact alice's position size
-                    // note that as the twapInterval/time span here is merely 1 second, markTwap is substituted by mark price
-                    // 0.099 * (153.9623330511 - 156.953124) * 1 / 86400 = -0.000003426947962
+                    // alice adds more liquidity
                     await clearingHouse.connect(alice).addLiquidity({
                         baseToken: baseToken.address,
                         base: parseEther("2"),
@@ -517,11 +501,11 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                     })
 
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
-                    // bob's funding payment = -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3600) / 86400 = 0.01237842357
+                    // bob's funding payment = -0.099 * (153.9531248192 - 156.953124) * 3600 / 86400 = 0.01237499662
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                        parseEther("0.012378423568769702"),
+                        parseEther("0.012374996620807443"),
                     )
                     // alice's funding payment = 0.099 * (153.9531248192 - 156.953124) * 3600 / 86400 = -0.01237499662
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
@@ -529,8 +513,6 @@ describe("ClearingHouse funding", () => {
                     )
 
                     // bob's position -0.099 -> -0.2
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.099 * ((153.9623330511 - 156.953124) * 1 + (153.9531248192 - 156.953124) * 3601) / 86400 = 0.01238186107
                     const tx = await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: true,
@@ -544,22 +526,21 @@ describe("ClearingHouse funding", () => {
 
                     await expect(tx)
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("0.012381861067831037"))
+                        .withArgs(bob.address, baseToken.address, parseEther("0.012374996620807443"))
                     await expect(tx)
                         .to.emit(exchange, "FundingUpdated")
                         .withArgs(baseToken.address, parseEther("153.953124819198195396"), parseEther("156.953124"))
 
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // bob's funding payment = -0.2 * (153.7377520091 - 156.953124) * 3600 / 86400 = 0.02679476659
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
                         parseEther("0.026794766591206201"),
                     )
-                    // alice's pending funding payment =
-                    //    -(bob's settled funding payment + bob's pending funding payment - alice's settled funding payment)
-                    // -(0.01238187162 + 0.02679476659) - -0.000003437499061 = -0.03917320071
+                    // alice's pending funding payment = -(bob's settled funding payment + bob's pending funding payment)
+                    // -(0.012374996620807443 + 0.02679476659) = -0.03916976321
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("-0.039173200711074980"),
+                        parseEther("-0.039169763212013645"),
                     )
                 })
 
@@ -580,7 +561,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // carol's position 0 -> 0.09
                     await clearingHouse.connect(carol).openPosition({
@@ -595,38 +576,35 @@ describe("ClearingHouse funding", () => {
                     })
 
                     // alice's funding payment shouldn't change after carol swaps
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -(-0.099 * (153.9531248192 - 150.953124) * 3601 / 86400) = 0.01237844088
+                    // -(-0.099 * (153.9531248192 - 150.953124) * 3600 / 86400) = 0.01237500338
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("0.012378440880131220"),
+                        parseEther("0.012375003379192556"),
                     )
 
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // set index price for a negative funding
                     mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                         return [0, parseUnits("156.953124", 6), 0, 0, 0]
                     })
 
-                    // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 3601 + (154.3847760162 - 156.953124) * 3600) / 86400 = -0.001784005447
+                    // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 3600 + (154.3847760162 - 156.953124) * 3600) / 86400 = -0.001780567946
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
-                        parseEther("-0.001784005446830714"),
+                        parseEther("-0.001780567945892049"),
                     )
                     // carol's funding payment = 0.09 * (154.3847760162 - 156.953124) * 3600 / 86400 = -0.009631304939
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
                         parseEther("-0.009631304939364096"),
                     )
-                    // alice's funding payment = -(sum of takers' funding payments) = -(-0.001784005447 + -0.009631304939) = 0.01141531039
+                    // alice's funding payment = -(sum of takers' funding payments) = -(-0.001780567946 + -0.009631304939) = 0.01141187289
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("0.011415310386194810"),
+                        parseEther("0.011411872885256146"),
                     )
 
                     // settle bob's funding
                     let [owedRealizedPnlBefore] = await accountBalance.getPnlAndPendingFee(bob.address)
 
                     // swaps arbitrary amount to trigger funding settlement
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.099 * ((153.9531248192 - 150.953124) * 3601 + (154.3847760162 - 156.953124) * 3601) / 86400 = -0.001781062548
                     await expect(
                         clearingHouse.connect(bob).openPosition({
                             baseToken: baseToken.address,
@@ -640,50 +618,34 @@ describe("ClearingHouse funding", () => {
                         }),
                     )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(bob.address, baseToken.address, parseEther("-0.001781062548099241"))
+                        .withArgs(bob.address, baseToken.address, parseEther("-0.001780567945892049"))
 
                     // verify owedRealizedPnl
                     let [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.001781062548099241"))
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.001780567945892049"))
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(0)
 
-                    // ----------------------
-                    // settle carol's funding
+                    // settle carol's funding & verify owedRealizedPnl
                     ;[owedRealizedPnlBefore] = await accountBalance.getPnlAndPendingFee(carol.address)
 
-                    // the following check tends to fail the test due to unknown reason, thus commenting out for now
-                    // await expect(
-                    //     clearingHouse.connect(carol).openPosition({
-                    //         baseToken: baseToken.address,
-                    //         isBaseToQuote: false,
-                    //         isExactInput: false,
-                    //         oppositeAmountBound: ethers.constants.MaxUint256,
-                    //         amount: parseEther("0.0000000001"),
-                    //         sqrtPriceLimitX96: 0,
-                    //         deadline: ethers.constants.MaxUint256,
-                    //         referralCode: ethers.constants.HashZero,
-                    //     }),
-                    // )
-                    //     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    //     .withArgs(carol.address, baseToken.address, parseEther("-0.009636655664330410"))
-
                     // swaps arbitrary amount to trigger funding settlement
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // 0.09 * (154.3847760162 - 156.953124) * 3602 / 86400 = -0.009636655664
-                    await clearingHouse.connect(carol).openPosition({
-                        baseToken: baseToken.address,
-                        isBaseToQuote: false,
-                        isExactInput: false,
-                        oppositeAmountBound: ethers.constants.MaxUint256,
-                        amount: parseEther("0.0000000001"),
-                        sqrtPriceLimitX96: 0,
-                        deadline: ethers.constants.MaxUint256,
-                        referralCode: ethers.constants.HashZero,
-                    })
-
-                    // verify owedRealizedPnl
+                    // 0.09 * (154.3847760162 - 156.953124) * 3600 / 86400 = -0.009631304939
+                    await expect(
+                        clearingHouse.connect(carol).openPosition({
+                            baseToken: baseToken.address,
+                            isBaseToQuote: false,
+                            isExactInput: false,
+                            oppositeAmountBound: ethers.constants.MaxUint256,
+                            amount: parseEther("0.0000000001"),
+                            sqrtPriceLimitX96: 0,
+                            deadline: ethers.constants.MaxUint256,
+                            referralCode: ethers.constants.HashZero,
+                        }),
+                    )
+                        .to.emit(clearingHouse, "FundingPaymentSettled")
+                        .withArgs(carol.address, baseToken.address, parseEther("-0.009631304939364096"))
                     ;[owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(carol.address)
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.009636655664330410"))
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.009631304939364096"))
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
                 })
             })
@@ -746,7 +708,7 @@ describe("ClearingHouse funding", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                await forward(3600)
+                await forwardBothTimestamps(clearingHouse, 3600)
 
                 // bob's funding payment = -1.2 * (149.3884076058 - 150.953124) * 3600 / 86400 = 0.07823581971
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -761,8 +723,6 @@ describe("ClearingHouse funding", () => {
                 let liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove half of the liquidity of the order (50000, 50400); all pending funding payment should be settled
-                // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                // 1.2 * (149.3884076058 - 150.953124) * 3601 / 86400 = -0.07825755188
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
                         baseToken: baseToken.address,
@@ -787,16 +747,16 @@ describe("ClearingHouse funding", () => {
                         parseEther("0.829279386920164902"),
                     )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
+                    .withArgs(alice.address, baseToken.address, parseEther("-0.078235819711065467"))
 
                 // verify owedRealizedPnl
                 let collectedFee = parseEther("0.829279386920164902")
-                let fundingPayment = parseEther("-0.078257551883207429")
+                let fundingPayment = parseEther("-0.078235819711065467")
                 let [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
 
-                await forward(3600)
+                await forwardBothTimestamps(clearingHouse, 3600)
 
                 // 1.2 * (149.3884076058 - 150.953124) * 3600 / 86400 = -0.07823581971
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
@@ -806,8 +766,6 @@ describe("ClearingHouse funding", () => {
                 liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)).liquidity
 
                 // remove all the remaining liquidity of the order (50000, 50400)
-                // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                // 1.2 * (149.3884076058 - 150.953124) * 3601 / 86400 = -0.07825755188
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
                         baseToken: baseToken.address,
@@ -832,14 +790,14 @@ describe("ClearingHouse funding", () => {
                         "0",
                     )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
+                    .withArgs(alice.address, baseToken.address, parseEther("-0.078235819711065467"))
 
                 // verify owedRealizedPnl
                 ;[owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(alice.address)
-                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.078257551883207429"))
+                expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.078235819711065467"))
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
 
-                await forward(3600)
+                await forwardBothTimestamps(clearingHouse, 3600)
 
                 // 1.2 * (149.3884076058 - 150.953124) * 3600 / 86400 = -0.07823581971
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
@@ -849,8 +807,6 @@ describe("ClearingHouse funding", () => {
                 liquidity = (await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)).liquidity
 
                 // remove all liquidity of the order (50200, 50400)
-                // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                // 1.2 * (149.3884076058 - 150.953124) * 3601 / 86400 = -0.07825755188
                 await expect(
                     clearingHouse.connect(alice).removeLiquidity({
                         baseToken: baseToken.address,
@@ -875,11 +831,11 @@ describe("ClearingHouse funding", () => {
                         parseEther("1"),
                     )
                     .to.emit(clearingHouse, "FundingPaymentSettled")
-                    .withArgs(alice.address, baseToken.address, parseEther("-0.078257551883207429"))
+                    .withArgs(alice.address, baseToken.address, parseEther("-0.078235819711065467"))
 
                 // verify owedRealizedPnl
                 collectedFee = parseEther("1")
-                fundingPayment = parseEther("0.078257551883207429")
+                fundingPayment = parseEther("0.078235819711065467")
                 ;[owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(alice.address)
                 expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.add(fundingPayment))
                 expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(0)
@@ -926,7 +882,7 @@ describe("ClearingHouse funding", () => {
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
                     })
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // bob's funding payment = -1.2 * (149.3884076058 - 150.953124) * 3600 / 86400 = 0.07823581971
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -948,8 +904,6 @@ describe("ClearingHouse funding", () => {
                         .liquidity
 
                     // carol removes half of her liquidity; all pending funding payment should be settled
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // 0.5459544821 * (149.3884076058 - 150.953124) * 3601 / 86400 = -0.03560421767
                     await expect(
                         clearingHouse.connect(carol).removeLiquidity({
                             baseToken: baseToken.address,
@@ -974,19 +928,18 @@ describe("ClearingHouse funding", () => {
                             parseEther("0.829279386920164902"),
                         )
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(carol.address, baseToken.address, parseEther("-0.035604217676821184"))
+                        .withArgs(carol.address, baseToken.address, parseEther("-0.035594330362831508"))
 
                     // verify owedRealizedPnl
                     let collectedFee = parseEther("0.829279386920164902")
-                    let fundingPayment = parseEther("-0.035604217676821184")
+                    let fundingPayment = parseEther("-0.035594330362831508")
                     let [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(carol.address)
                     expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(collectedFee.sub(fundingPayment))
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
 
                     // alice's funding payment shouldn't be affected by carol's liquidity removal
-                    // however, the timestamp is 1 second ahead thx to hardhat: 0.6540455179 * (149.3884076058 - 150.953124) * 3601 / 86400 = -0.04265333421
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("-0.042653334206386245"),
+                        parseEther("-0.042641489348233958"),
                     )
 
                     // bob's position -1.2 -> -0.8
@@ -1001,24 +954,23 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     })
                     // note that bob will settle his pending funding payment here
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // bob's funding payment = -0.8 * (151.9343974175 - 150.953124) * 3600 / 86400 = -0.03270911392
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
                         parseEther("-0.032709113916506038"),
                     )
-                    // note that the swap timestamp is 2 second ahead due to hardhat's default block timestamp increment
-                    // alice's previous funding payment = 0.6540455179 * (149.3884076058 - 150.953124) * 3602 / 86400 = -0.04266517907
+                    // alice's previous funding payment = 0.6540455179 * (149.3884076058 - 150.953124) * 3600 / 86400 = -0.04264148935
                     // alice's funding payment = previous funding payment + -(bob's funding payment) * liquidity share
-                    //                         = -0.04266517907 +  -(-0.03270911392 * 0.532445975136213017 / 0.8) = -0.020895384
-                    //                         = -0.04266517907 + 0.532445975136213017 * (151.9343974175 - 150.953124) * 3600 / 86400 = -0.020895384
+                    //                         = -0.04264148935 +  -(-0.03270911392 * 0.532445975136213017 / 0.8) = -0.02087169428
+                    //                         = -0.04264148935 + 0.532445975136213017 * (151.9343974175 - 150.953124) * 3600 / 86400 = -0.02087169428
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("-0.020895383995644115"),
+                        parseEther("-0.020871694279339541"),
                     )
                     // carol's funding payment = -(bob's funding payment) * liquidity share = -(-0.03270911392 * 0.267554024863786981 / 0.8) = 0.01093931885
                     //                         = 0.267554024863786981 * (151.9343974175 - 150.953124) * 3600 / 86400 = 0.01093931885
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
-                        parseEther("0.010929431533621946"),
+                        parseEther("0.010939318847611621"),
                     )
                 })
 
@@ -1058,7 +1010,7 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     })
                     // price: 153.4862960887
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // carol's funding payment = -0.2 * (153.4766329005 - 150.953124) * 3600 / 86400 = -0.02102924084
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
@@ -1081,7 +1033,7 @@ describe("ClearingHouse funding", () => {
                         referralCode: ethers.constants.HashZero,
                     })
                     // price: 148.9142832775
-                    await forward(3600)
+                    await forwardBothTimestamps(clearingHouse, 3600)
 
                     // carol's funding payment = -0.654045517856872802 * (148.9111525791 - 150.953124) * 3600 / 86400 = 0.05564759398
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(
@@ -1094,10 +1046,10 @@ describe("ClearingHouse funding", () => {
                     // alice's position size/base amount when price goes below the range:
                     // 808.767873126541797029 * (1 / sqrt(151.3733068587) - 1 / sqrt(154.4310960807)) = 0.6540455179 ~= -(carol's position size) = -0.654045517856872802
 
-                    // alice's previous funding payment = -(-0.2 * (153.4766329005 - 150.953124) * 3601 / 86400) = 0.02103508229
-                    // hence, alice's funding payment in total = previous funding payment + -(carol's funding payment) = 0.02103508229 - 0.05564759398 = -0.03461251169
+                    // alice's previous funding payment = 0.02102924084
+                    // hence, alice's funding payment in total = previous funding payment + -(carol's funding payment) = 0.02102924084 - 0.05564759398 = -0.03461835314
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("-0.034612511683713238"),
+                        parseEther("-0.034618353139501439"),
                     )
 
                     const [owedRealizedPnlBefore] = await accountBalance.getPnlAndPendingFee(carol.address)
@@ -1108,9 +1060,6 @@ describe("ClearingHouse funding", () => {
                     // takerQuoteBalance: 180.149240114722163229
 
                     // carol removes all her liquidity; all pending funding payment should be settled
-                    // note that the swap timestamp is 1 second ahead due to hardhat's default block timestamp increment
-                    // -0.654045517856872802 * (148.9111525791 - 150.953124) * 3601 / 86400 = 0.05566305164
-
                     const tx = await clearingHouse.connect(carol).removeLiquidity({
                         baseToken: baseToken.address,
                         lowerTick: 50000,
@@ -1123,7 +1072,7 @@ describe("ClearingHouse funding", () => {
 
                     await expect(tx)
                         .to.emit(clearingHouse, "FundingPaymentSettled")
-                        .withArgs(carol.address, baseToken.address, parseEther("0.055663051642020131"))
+                        .withArgs(carol.address, baseToken.address, parseEther("0.055647593977026512"))
                     await expect(tx)
                         .to.emit(clearingHouse, "LiquidityChanged")
                         .withArgs(
@@ -1152,22 +1101,19 @@ describe("ClearingHouse funding", () => {
                     // reducedOpenNotional = 0.4549620685 * 180.149240114722163229 = 81.961070912759179239
                     // deltaQuote = 18.031070591189734109(quote removed from pool) - 100 (originally added) = -81.968929408810265891
                     // realized pnl: 81.961070912759179239 + -81.968929408810265891 = -0.007858496051
+                    // collected fee: 0.819689294088102658
+                    // funding payment: -0.055647593977026512
 
-                    let collectedFee = parseEther("0.819689294088102658")
-                    let fundingPayment = parseEther("0.055663051642020131")
                     // verify owedRealizedPnl
                     const [owedRealizedPnlAfter] = await accountBalance.getPnlAndPendingFee(carol.address)
-                    // -0.055663051642020131(fundingPayment) + 0.819689294088102658(fee) + (-0.007858496051(realizedPnl)) = 0.756167746394995875
-                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.756167746394995875"))
+                    // -0.055647593977026512 + 0.819689294088102658 + (-0.007858496051) = 0.7561832041
+                    expect(owedRealizedPnlAfter.sub(owedRealizedPnlBefore)).to.eq(parseEther("0.756183204059989494"))
                     expect(await exchange.getPendingFundingPayment(carol.address, baseToken.address)).to.eq(0)
 
                     // alice's funding payment shouldn't be affected by carol's liquidity removal
-                    // 0.02103508229 - 0.055663051642020131 = -0.03462796935
                     expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.eq(
-                        parseEther("-0.034627969348706857"),
+                        parseEther("-0.034618353139501439"),
                     )
-
-                    // TODO: missing the second time addLiquidity()?
                 })
             })
         })
@@ -1208,7 +1154,7 @@ describe("ClearingHouse funding", () => {
                     return [0, parseUnits("50", 6), 0, 0, 0]
                 })
 
-                await forward(100)
+                await forwardBothTimestamps(clearingHouse, 100)
 
                 // diff: 156.844502 - 50 > 50 * 10%
                 // bob's funding payment = 0.1 * 50 * 10% * 100 / 86400 = 0.0005787037037
@@ -1232,7 +1178,7 @@ describe("ClearingHouse funding", () => {
                     return [0, parseUnits("200", 6), 0, 0, 0]
                 })
 
-                await forward(100)
+                await forwardBothTimestamps(clearingHouse, 100)
 
                 // diff: 200 - 152.072967341735143415 > 200 * 10%
                 // bob's funding payment = 0.1 * 200 * 10% * 100 / 86400 = 0.002314814815

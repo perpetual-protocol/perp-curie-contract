@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.4.0] - 2022-07-05
+### Added
+- Add `DelegateApproval`
+    - Currently only allow delegating `ClearingHouseOpenPosition`
+- Add `ClearingHouse.openPositionFor()`
+- Add `ClearingHouse.getDelegateApproval()`
+
+## [1.3.0] - 2022-06-20
+### Added
+- Add `BaseToken.cacheTwap` to offer the flexibility of updating index prices by either users or ourselves.
+
 ## [1.2.0] - 2022-04-28
 ### Changed
 - `ClearingHouse.getAccountValue()` function now calls `Vault.getAccountValue()`

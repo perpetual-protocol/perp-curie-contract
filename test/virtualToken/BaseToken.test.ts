@@ -2,24 +2,23 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
-import { ethers, waffle } from "hardhat"
+import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeed } from "../../typechain/perp-oracle"
-import { setNextBlockTimestamp } from "../shared/time"
+import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
+import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
 describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
-    let chainlinkPriceFeed: ChainlinkPriceFeed
-    let mockedAggregator: MockContract // used by ChainlinkPriceFeed
+    let chainlinkPriceFeed: ChainlinkPriceFeedV2
+    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
     let bandPriceFeed: BandPriceFeed
     let mockedStdReference: MockContract // used by BandPriceFeed
     let currentTime: number
     let chainlinkRoundData: any[]
     let bandReferenceData: any[]
-    const twapInterval = 30
     const closedPrice = parseEther("200")
 
     async function updateBandPrice(): Promise<void> {
@@ -29,11 +28,19 @@ describe("BaseToken", async () => {
         await bandPriceFeed.update()
     }
 
+    async function updateChainlinkPrice(): Promise<void> {
+        mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return chainlinkRoundData[chainlinkRoundData.length - 1]
+        })
+        await chainlinkPriceFeed.update()
+    }
+
     beforeEach(async () => {
         const _fixture = await loadFixture(baseTokenFixture)
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
         bandPriceFeed = _fixture.bandPriceFeed
+        chainlinkPriceFeed = _fixture.chainlinkPriceFeed
         mockedStdReference = _fixture.mockedStdReference
 
         // `base` = now - _interval
@@ -45,8 +52,7 @@ describe("BaseToken", async () => {
         //
         //  --+------+-----+-----+-----+-----+-----+
         //          base                          now
-        const latestTimestamp = (await waffle.provider.getBlock("latest")).timestamp
-        currentTime = latestTimestamp
+        currentTime = await getRealTimestamp()
 
         chainlinkRoundData = [
             // [roundId, answer, startedAt, updatedAt, answeredInRound]
@@ -55,33 +61,31 @@ describe("BaseToken", async () => {
             // [rate, lastUpdatedBase, lastUpdatedQuote]
         ]
 
-        currentTime += 0
         chainlinkRoundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
         bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
         await updateBandPrice()
+        await updateChainlinkPrice()
 
         currentTime += 15
-        await setNextBlockTimestamp(currentTime)
+        await setRealTimestamp(currentTime)
         chainlinkRoundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
         bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
         await updateBandPrice()
+        await updateChainlinkPrice()
 
         currentTime += 15
-        await setNextBlockTimestamp(currentTime)
+        await setRealTimestamp(currentTime)
         chainlinkRoundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
         bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
         await updateBandPrice()
-
-        mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return chainlinkRoundData[chainlinkRoundData.length - 1]
-        })
+        await updateChainlinkPrice()
 
         mockedAggregator.smocked.getRoundData.will.return.with((round: BigNumber) => {
             return chainlinkRoundData[round.toNumber()]
         })
 
         currentTime += 15
-        await setNextBlockTimestamp(currentTime)
+        await setRealTimestamp(currentTime)
     })
 
     describe("twap", () => {
@@ -102,8 +106,7 @@ describe("BaseToken", async () => {
 
         it("given variant price period", async () => {
             chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
-            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
-            await ethers.provider.send("evm_mine", [])
+            await forwardRealTimestamp(50)
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
             const price = await baseToken.getIndexPrice(95)
@@ -111,8 +114,7 @@ describe("BaseToken", async () => {
         })
 
         it("latest price update time is earlier than the request, return the latest price", async () => {
-            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 100])
-            await ethers.provider.send("evm_mine", [])
+            await forwardRealTimestamp(100)
 
             // latest update time is base + 30, but now is base + 145 and asking for (now - 45)
             // should return the latest price directly
@@ -120,6 +122,7 @@ describe("BaseToken", async () => {
             expect(price).to.eq(parseEther("410"))
         })
 
+        // WARNING: this test can fail for unknown reason for the function baseToken.getIndexPrice(), while it won't in other cases
         it("if current price < 0, ignore the current price", async () => {
             chainlinkRoundData.push([3, parseUnits("-10", 6), 250, 250, 3])
             const price = await baseToken.getIndexPrice(45)
@@ -129,8 +132,7 @@ describe("BaseToken", async () => {
         it("if there is a negative price in the middle, ignore that price", async () => {
             chainlinkRoundData.push([3, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 3])
             chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
-            await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 50])
-            await ethers.provider.send("evm_mine", [])
+            await forwardRealTimestamp(50)
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
             const price = await baseToken.getIndexPrice(95)
@@ -169,7 +171,7 @@ describe("BaseToken", async () => {
             expect(spotPriceFromBand).to.eq(parseEther("415"))
 
             currentTime += 15
-            await setNextBlockTimestamp(currentTime)
+            await setRealTimestamp(currentTime)
 
             // ob0 (ts, priceCumulative) = (t0,0)
             // ob1 (ts, priceCumulative) = (t0+15,6000)
@@ -218,8 +220,6 @@ describe("BaseToken", async () => {
 
         describe("paused status", async () => {
             it("should return pausedIndexPrice as index price in paused status", async () => {
-                await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
-
                 // paused index price (410*16+405*15+400*15)/46 = 405.108695
                 await baseToken.pause()
 
@@ -235,7 +235,6 @@ describe("BaseToken", async () => {
             })
 
             it("should return the paused timestamp", async () => {
-                await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
                 await baseToken.pause()
 
                 expect(await baseToken.isPaused()).to.be.eq(true)
@@ -245,8 +244,6 @@ describe("BaseToken", async () => {
 
         describe("closed status", async () => {
             beforeEach(async () => {
-                await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 1])
-
                 // paused index price (410*16+405*15+400*15)/46 = 405.108695
                 await baseToken.pause()
             })
@@ -280,8 +277,7 @@ describe("BaseToken", async () => {
             })
 
             it("close by user", async () => {
-                await ethers.provider.send("evm_setNextBlockTimestamp", [currentTime + 86400 * 7 + 1])
-                await ethers.provider.send("evm_mine", [])
+                await forwardRealTimestamp(86400 * 7)
 
                 await baseToken.connect(user)["close()"]()
 

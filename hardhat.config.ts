@@ -33,15 +33,17 @@ const config: HardhatUserConfig = {
         paths: [
             "@uniswap/v3-core/contracts/UniswapV3Factory.sol",
             "@uniswap/v3-core/contracts/UniswapV3Pool.sol",
-            "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeed.sol",
+            "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeedV2.sol",
             "@perp/perp-oracle-contract/contracts/BandPriceFeed.sol",
             "@perp/perp-oracle-contract/contracts/EmergencyPriceFeed.sol",
         ],
     },
     contractSizer: {
+        // max bytecode size is 24.576 KB
         alphaSort: true,
         runOnCompile: true,
-        disambiguatePaths: false,
+        disambiguatePaths: true,
+        except: ["@openzeppelin/", "@uniswap/", "@perp/perp-oracle-contract/", "test/"],
     },
     gasReporter: {
         excludeContracts: ["test"],

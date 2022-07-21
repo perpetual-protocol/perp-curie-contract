@@ -170,6 +170,10 @@ interface IClearingHouse {
     /// @param forwarder The trusted forwarder address
     event TrustedForwarderChanged(address indexed forwarder);
 
+    /// @notice Emitted when DelegateApproval address changed
+    /// @param delegateApproval The address of DelegateApproval
+    event DelegateApprovalChanged(address indexed delegateApproval);
+
     /// @notice Maker can call `addLiquidity` to provide liquidity on Uniswap V3 pool
     /// @dev Tx will fail if adding `base == 0 && quote == 0` / `liquidity == 0`
     /// @dev - `AddLiquidityParams.useTakerBalance` is only accept `false` now
@@ -209,6 +213,19 @@ interface IClearingHouse {
     /// @return base The amount of baseToken the taker got or spent
     /// @return quote The amount of quoteToken the taker got or spent
     function openPosition(OpenPositionParams memory params) external returns (uint256 base, uint256 quote);
+
+    /// @param trader The address of trader
+    /// @param params OpenPositionParams struct is the same as `openPosition()`
+    /// @return base The amount of baseToken the taker got or spent
+    /// @return quote The amount of quoteToken the taker got or spent
+    /// @return fee The trading fee
+    function openPositionFor(address trader, OpenPositionParams memory params)
+        external
+        returns (
+            uint256 base,
+            uint256 quote,
+            uint256 fee
+        );
 
     /// @notice Close trader's position
     /// @param params ClosePositionParams struct
@@ -304,4 +321,8 @@ interface IClearingHouse {
     /// @notice Get `InsuranceFund` address
     /// @return insuranceFund `InsuranceFund` address
     function getInsuranceFund() external view returns (address insuranceFund);
+
+    /// @notice Get `DelegateApproval` address
+    /// @return delegateApproval `DelegateApproval` address
+    function getDelegateApproval() external view returns (address delegateApproval);
 }

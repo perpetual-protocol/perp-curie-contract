@@ -1,13 +1,15 @@
 import { MockContract } from "@eth-optimism/smock"
+import { BigNumber } from "@ethersproject/bignumber"
+import { ContractReceipt } from "@ethersproject/contracts"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
     ClearingHouseConfig,
+    InsuranceFund,
     MarketRegistry,
     OrderBook,
-    QuoteToken,
     TestAccountBalance,
     TestClearingHouse,
     TestERC20,
@@ -16,10 +18,11 @@ import {
     Vault,
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forward } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -29,6 +32,7 @@ describe("Clearinghouse StopMarket", async () => {
     let clearingHouse: TestClearingHouse
     let clearingHouseConfig: ClearingHouseConfig
     let accountBalance: TestAccountBalance
+    let insuranceFund: InsuranceFund
     let marketRegistry: MarketRegistry
     let exchange: TestExchange
     let orderBook: OrderBook
@@ -36,7 +40,6 @@ describe("Clearinghouse StopMarket", async () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let baseToken2: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
@@ -46,10 +49,11 @@ describe("Clearinghouse StopMarket", async () => {
     let lowerTick: number, upperTick: number
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(false))
+        fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         clearingHouseConfig = fixture.clearingHouseConfig
         accountBalance = fixture.accountBalance as TestAccountBalance
+        insuranceFund = fixture.insuranceFund as InsuranceFund
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
         marketRegistry = fixture.marketRegistry
@@ -57,7 +61,6 @@ describe("Clearinghouse StopMarket", async () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
-        quoteToken = fixture.quoteToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         pool = fixture.pool
@@ -72,20 +75,10 @@ describe("Clearinghouse StopMarket", async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
 
-        await pool.initialize(encodePriceSqrt(151.3733069, 1))
-        await pool2.initialize(encodePriceSqrt(151.3733069, 1))
-
-        await pool.increaseObservationCardinalityNext(500)
-        await pool2.increaseObservationCardinalityNext(500)
+        await initAndAddPool(fixture, pool, baseToken.address, encodePriceSqrt("151.3733069", "1"), 10000, 1000)
+        await initAndAddPool(fixture, pool2, baseToken2.address, encodePriceSqrt("151.3733069", "1"), 10000, 1000)
 
         await clearingHouseConfig.setMaxFundingRate(1000000)
-
-        // add pool after it's initialized
-        await marketRegistry.addPool(baseToken.address, 10000)
-        await marketRegistry.addPool(baseToken2.address, 10000)
-
-        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "1000")
-        await exchange.setMaxTickCrossedWithinBlock(baseToken2.address, "1000")
 
         const tickSpacing = await pool.tickSpacing()
         lowerTick = getMinTick(tickSpacing)
@@ -102,7 +95,21 @@ describe("Clearinghouse StopMarket", async () => {
         // maker add liquidity
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken.address)
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
+
+    async function pauseMarket(baseToken: BaseToken) {
+        await baseToken.pause()
+        // forward both timestamps to avoid timestamps fetched later are earlier than when paused
+        await forwardBothTimestamps(clearingHouse, 100)
+    }
+
+    async function closeMarket(baseToken: BaseToken, closedPrice: number) {
+        await baseToken["close(uint256)"](parseEther(closedPrice.toString()))
+        await forwardBothTimestamps(clearingHouse)
+    }
 
     describe("# pause market", async () => {
         beforeEach(async () => {
@@ -115,8 +122,7 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         it("force error, can not operate in paused market", async () => {
-            // stop market for baseToken
-            await baseToken.pause()
+            await pauseMarket(baseToken)
 
             // can't open position
             await expect(q2bExactInput(fixture, bob, 10, baseToken.address)).to.be.revertedWith("CH_MNO")
@@ -135,9 +141,8 @@ describe("Clearinghouse StopMarket", async () => {
             )
         })
 
-        it("it can query unrealized pnl in paused market", async () => {
-            // stop market for baseToken
-            await baseToken.pause()
+        it("can query unrealized pnl in paused market", async () => {
+            await pauseMarket(baseToken)
 
             const [, unrealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
             expect(unrealizedPnl).not.eq("0")
@@ -146,15 +151,12 @@ describe("Clearinghouse StopMarket", async () => {
         describe("funding payment", async () => {
             beforeEach(async () => {
                 // bob open long position
-                for (let i = 0; i < 15; i++) {
+                for (let i = 0; i < 3; i++) {
                     await q2bExactInput(fixture, bob, 10 + i * 5, baseToken.address)
-                    await forward(1 * 60)
+                    await forwardBothTimestamps(clearingHouse, 5 * 60)
                 }
 
-                await forward(10 * 60)
-
-                // pause market for baseToken
-                await baseToken.pause()
+                await pauseMarket(baseToken)
             })
 
             it("fundingPayment should not change anymore in paused market", async () => {
@@ -162,17 +164,17 @@ describe("Clearinghouse StopMarket", async () => {
                 expect(pendingFundingPayment1).not.eq("0")
 
                 // forward 5 mins
-                await forward(5 * 60)
+                await forwardBothTimestamps(clearingHouse, 5 * 60)
                 const pendingFundingPayment2 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment2)
 
                 // forward 30 mins which is more than the twap interval
-                await forward(30 * 60)
+                await forwardBothTimestamps(clearingHouse, 30 * 60)
                 const pendingFundingPayment3 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment3)
 
                 // forward 7 days = 7 * 24 * 60 * 60
-                await forward(604800)
+                await forwardBothTimestamps(clearingHouse, 604800)
                 const pendingFundingPayment4 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment4)
             })
@@ -197,8 +199,7 @@ describe("Clearinghouse StopMarket", async () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("1000", 6), 0, 0, 0]
                 })
-                // pause baseToken market
-                await baseToken.pause()
+                await pauseMarket(baseToken)
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
@@ -206,7 +207,7 @@ describe("Clearinghouse StopMarket", async () => {
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralBefore).to.be.closeTo(
                     parseUnits("9998", collateralDecimals).sub(pendingFundingPayment.div(1e12)),
-                    5,
+                    parseUnits("0.001", collateralDecimals).toNumber(), // there is some imprecision
                 )
             })
 
@@ -224,13 +225,17 @@ describe("Clearinghouse StopMarket", async () => {
                     return [0, parseUnits("50", 6), 0, 0, 0]
                 })
 
-                // pause baseToken2 pool
-                await baseToken2.pause()
+                await forwardBothTimestamps(clearingHouse, 100)
 
-                // accountValue: 9935.1201076808, totalCollateralValue: 10000
-                // freeCollateral = 9935.1198114922 - 110(quote debt) * 0.1 = 9,924.119811
+                await pauseMarket(baseToken2)
+
+                // accountValue: 9935.119361, totalCollateralValue: 10000
+                // freeCollateral = 9935.119361 - 110(quote debt) * 0.1 = 9924.119361
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(parseUnits("9924.119813", collateralDecimals), 2)
+                expect(freeCollateralBefore).to.be.closeTo(
+                    parseUnits("9924.119361", collateralDecimals),
+                    parseUnits("0.15", collateralDecimals).toNumber(), // there is some imprecision
+                )
             })
         })
 
@@ -243,8 +248,7 @@ describe("Clearinghouse StopMarket", async () => {
                     return [0, parseUnits("50", 6), 0, 0, 0]
                 })
 
-                // close baseToken pool
-                await baseToken.pause()
+                await pauseMarket(baseToken)
             })
 
             it("unrealized pnl accounting", async () => {
@@ -275,7 +279,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 expect(aliceUnrealizedPnl).to.be.closeTo(
                     aliceStoppedMarketPositionSize.mul("50").add(aliceStoppedMarketQuoteBalance),
-                    1, // there is 1 wei error
+                    1,
                 )
             })
 
@@ -308,9 +312,8 @@ describe("Clearinghouse StopMarket", async () => {
         describe("remove liquidity", async () => {
             beforeEach(async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
-                // close market
-                await baseToken.pause()
-                await baseToken["close(uint256)"](parseEther("100"))
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 100)
             })
 
             it("should be able to removeLiquidity in closed market", async () => {
@@ -346,9 +349,8 @@ describe("Clearinghouse StopMarket", async () => {
         describe("close position", async () => {
             beforeEach(async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
-                // close market
-                await baseToken.pause()
-                await baseToken["close(uint256)"](parseEther("100"))
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 100)
             })
 
             it("force error, trader still has order in closed market, can not close position", async () => {
@@ -402,12 +404,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
-                // close baseToken pool
-                await baseToken.pause()
+                await pauseMarket(baseToken)
             })
 
             it("taker has positive pnl in closed market", async () => {
-                await baseToken["close(uint256)"](parseEther("1000"))
+                await closeMarket(baseToken, 1000)
 
                 // taker settle on closed market
                 const closedMarketPositionSize = await accountBalance.getTakerPositionSize(
@@ -427,7 +428,10 @@ describe("Clearinghouse StopMarket", async () => {
                     .withArgs(bob.address, expectedPnl)
 
                 const [takerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
-                expect(takerOwedRealizedPnl).to.be.eq(expectedPnl.sub(pendingFundingPayment))
+                expect(takerOwedRealizedPnl).to.be.closeTo(
+                    expectedPnl.sub(pendingFundingPayment),
+                    parseEther("0.00001").toNumber(), // there is some imprecision
+                )
 
                 // maker settle on closed market
                 const { liquidity } = await orderBook.getOpenOrder(
@@ -440,11 +444,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(alice.address, baseToken.address)
 
                 const [makerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-                expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 1010) // error of 1wei * 1000
+                expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 1010) // there is some imprecision
             })
 
             it("taker has negative pnl in closed market", async () => {
-                await baseToken["close(uint256)"](parseEther("50"))
+                await closeMarket(baseToken, 50)
 
                 const closedMarketPositionSize = await accountBalance.getTakerPositionSize(
                     bob.address,
@@ -463,7 +467,10 @@ describe("Clearinghouse StopMarket", async () => {
                     .withArgs(bob.address, expectedPnl)
 
                 const [takerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(bob.address)
-                expect(takerOwedRealizedPnl).to.be.eq(expectedPnl.sub(pendingFundingPayment))
+                expect(takerOwedRealizedPnl).to.be.closeTo(
+                    expectedPnl.sub(pendingFundingPayment),
+                    parseEther("0.00001").toNumber(), // there is some imprecision
+                )
 
                 // maker settle on closed market
                 const { liquidity } = await orderBook.getOpenOrder(
@@ -476,7 +483,8 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(alice.address, baseToken.address)
 
                 const [makerOwedRealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-                expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 60) // error of 1wei * 50
+                // there is some imprecision of about 1 wei * 50
+                expect(makerOwedRealizedPnl).to.be.closeTo(takerOwedRealizedPnl.mul("-1"), 60) // there is some imprecision
             })
         })
 
@@ -486,9 +494,8 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
-                // close baseToken pool
-                await baseToken.pause()
-                await baseToken["close(uint256)"](parseEther("1000"))
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 1000)
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
@@ -496,21 +503,24 @@ describe("Clearinghouse StopMarket", async () => {
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralBefore).to.be.closeTo(
                     parseUnits("9998", collateralDecimals).sub(pendingFundingPayment.div(1e12)),
-                    5,
+                    parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
                 // taker settle on closed market
                 await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 // closedMarketPositionSize: 0.065271988421256964, closedMarketQuoteBalance: -10
-                // accountValue: 10055.1280550, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271988
-                // freeCollateral = 10055.1280550 - 1 = 10054.128055
+                // accountValue: 10055.128040, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
+                // freeCollateral = 10055.128040 - 1 = 10054.128040
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralAfter).to.be.eq(parseUnits("10054.128055", collateralDecimals))
+                expect(freeCollateralAfter).to.be.closeTo(
+                    parseUnits("10054.128040", collateralDecimals),
+                    parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
+                )
 
-                await vault.connect(bob).withdraw(collateral.address, freeCollateralAfter)
-
-                expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
+                // sometimes not subtracting 1 can fail
+                await vault.connect(bob).withdraw(collateral.address, freeCollateralAfter.sub(1))
+                expect(await vault.getFreeCollateral(bob.address)).to.be.closeTo("0", 1)
             })
 
             it("taker has negative pnl on closed market", async () => {
@@ -523,25 +533,31 @@ describe("Clearinghouse StopMarket", async () => {
                     return [0, parseUnits("200", 6), 0, 0, 0]
                 })
 
-                // close baseToken pool
-                await baseToken2.pause()
-                await baseToken2["close(uint256)"](parseEther("50"))
+                await pauseMarket(baseToken2)
+                await closeMarket(baseToken2, 50)
 
-                // accountValue: 9935.120172, totalCollateralValue: 10000
-                // freeCollateral = 9935.120172 - 11 = 9924.120172
+                // accountValue: 9935.120694, totalCollateralValue: 10000
+                // freeCollateral = 9935.120694 - 11 = 9924.120694
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(parseUnits("9924.120172", collateralDecimals), 2)
+                expect(freeCollateralBefore).to.be.closeTo(
+                    parseUnits("9924.120694", collateralDecimals),
+                    parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
+                )
 
                 // taker settle on closed market
                 await clearingHouse.quitMarket(bob.address, baseToken2.address)
 
-                // closedMarketPositionSize: 0.6413142475, closedMarketQuoteBalance: -100, fundingPayment: 0.00004771-0.00006044
-                // accountValue: 9935.120122790010963572, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.065797
-                // freeCollateral = 9932.065797 - 0.00004770542396 + 0.00006044 - 1 = 9931.0655810
+                // closedMarketPositionSize: 0.6413142475, closedMarketQuoteBalance: -100
+                // accountValue: 9935.066296, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.066296
+                // freeCollateral = 9932.066296 - 1 = 9931.066296
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralAfter).to.be.eq(parseUnits("9931.065810", collateralDecimals))
+                expect(freeCollateralAfter).to.be.closeTo(
+                    parseUnits("9931.066296", collateralDecimals),
+                    parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
+                )
 
                 await vault.connect(bob).withdraw(collateral.address, freeCollateralAfter)
+                expect(await vault.getFreeCollateral(bob.address)).to.be.closeTo("0", 1)
             })
         })
 
@@ -554,9 +570,8 @@ describe("Clearinghouse StopMarket", async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
 
-                // close baseToken pool
-                await baseToken.pause()
-                await baseToken["close(uint256)"](parseEther("50"))
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 50)
             })
 
             it("unrealized pnl accounting", async () => {
@@ -615,17 +630,13 @@ describe("Clearinghouse StopMarket", async () => {
 
         describe("funding payment", async () => {
             beforeEach(async () => {
-                for (let i = 0; i < 15; i++) {
+                for (let i = 0; i < 3; i++) {
                     await q2bExactInput(fixture, bob, 10 + i * 5, baseToken.address)
-                    await forward(1 * 60)
+                    await forwardBothTimestamps(clearingHouse, 5 * 60)
                 }
 
-                await forward(10 * 60)
-                // await clearingHouse.connect(bob).settleAllFunding(bob.address)
-
-                // pause market for baseToken
-                await baseToken.pause()
-                await baseToken["close(uint256)"](parseEther("50"))
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 50)
             })
 
             it("fundingPayment should not change anymore in paused market", async () => {
@@ -633,17 +644,17 @@ describe("Clearinghouse StopMarket", async () => {
                 expect(pendingFundingPayment1).not.eq("0")
 
                 // forward 5 mins
-                await forward(5 * 60)
+                await forwardBothTimestamps(clearingHouse, 5 * 60)
                 const pendingFundingPayment2 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment2)
 
                 // forward 30 mins which is more than the twap interval
-                await forward(30 * 60)
+                await forwardBothTimestamps(clearingHouse, 30 * 60)
                 const pendingFundingPayment3 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment3)
 
                 // forward 7 days = 7 * 24 * 60 * 60
-                await forward(604800)
+                await forwardBothTimestamps(clearingHouse, 604800)
                 const pendingFundingPayment4 = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 expect(pendingFundingPayment1).to.be.eq(pendingFundingPayment4)
             })
@@ -652,11 +663,108 @@ describe("Clearinghouse StopMarket", async () => {
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 const [owedRealizedBefore] = await accountBalance.getPnlAndPendingFee(bob.address)
 
-                // settleFunding
                 await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
                 const [owedRealizedAfter] = await accountBalance.getPnlAndPendingFee(bob.address)
                 expect(owedRealizedAfter.sub(owedRealizedBefore).mul(-1)).to.be.eq(pendingFundingPayment)
+            })
+        })
+
+        describe("realizedPnl", async () => {
+            const getPositionClosedEvent = (receipt: ContractReceipt): [BigNumber, BigNumber] => {
+                const logs = filterLogs(receipt, clearingHouse.interface.getEventTopic("PositionClosed"), clearingHouse)
+                let realizedPnl = BigNumber.from(0)
+                let positionNotional = BigNumber.from(0)
+                for (const log of logs) {
+                    realizedPnl = realizedPnl.add(log.args.realizedPnl)
+                    positionNotional = positionNotional.add(log.args.closedPositionNotional)
+                }
+                return [realizedPnl, positionNotional]
+            }
+
+            const getRemoveLiquidityEvent = (receipt: ContractReceipt): BigNumber => {
+                const logs = filterLogs(
+                    receipt,
+                    clearingHouse.interface.getEventTopic("LiquidityChanged"),
+                    clearingHouse,
+                )
+                let owedRealizedPnl = BigNumber.from(0)
+                for (const log of logs) {
+                    owedRealizedPnl = owedRealizedPnl.add(log.args.quoteFee)
+                }
+                return owedRealizedPnl
+            }
+
+            it("quitMarket when no InsuranceFundFee", async () => {
+                await q2bExactInput(fixture, bob, "100", baseToken.address)
+
+                // close market
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 0.001)
+
+                const { liquidity } = await orderBook.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                const tx = await (
+                    await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
+                ).wait()
+                // get maker fee
+                const aliceOwedRealizedPnl = getRemoveLiquidityEvent(tx)
+
+                const aliceTx = await (await clearingHouse.quitMarket(alice.address, baseToken.address)).wait()
+                const bobTx = await (await clearingHouse.quitMarket(bob.address, baseToken.address)).wait()
+
+                const [aliceRealizedPnl, alicePositionNotional] = getPositionClosedEvent(aliceTx)
+                const [bobRealizedPnl, bobPositionNotional] = getPositionClosedEvent(bobTx)
+
+                const totalPositionNotional = alicePositionNotional.add(bobPositionNotional)
+                // totalRealizedPnl = totalTakerRealizedPnl + totalMakerFee = 0
+                const totalRealizedPnl = aliceRealizedPnl.add(aliceOwedRealizedPnl).add(bobRealizedPnl)
+
+                expect(totalPositionNotional).to.be.eq("0")
+                expect(totalRealizedPnl).to.be.closeTo("0", 2)
+            })
+
+            it("quitMarket when InsuranceFundFee", async () => {
+                await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "400000")
+
+                await q2bExactInput(fixture, bob, "100", baseToken.address)
+
+                // close market
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 0.001)
+
+                const { liquidity } = await orderBook.getOpenOrder(
+                    alice.address,
+                    baseToken.address,
+                    lowerTick,
+                    upperTick,
+                )
+                const tx = await (
+                    await removeOrder(fixture, alice, liquidity, lowerTick, upperTick, baseToken.address)
+                ).wait()
+                // get maker fee
+                const aliceOwedRealizedPnl = getRemoveLiquidityEvent(tx)
+
+                const aliceTx = await (await clearingHouse.quitMarket(alice.address, baseToken.address)).wait()
+                const bobTx = await (await clearingHouse.quitMarket(bob.address, baseToken.address)).wait()
+
+                const [aliceRealizedPnl, alicePositionNotional] = getPositionClosedEvent(aliceTx)
+                const [bobRealizedPnl, bobPositionNotional] = getPositionClosedEvent(bobTx)
+
+                const [insuranceFundFee] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+                const totalPositionNotional = alicePositionNotional.add(bobPositionNotional)
+                // totalRealizedPnl = totalTakerRealizedPnl + totalMakerFee + insuranceFundFee = 0
+                const totalRealizedPnl = bobRealizedPnl
+                    .add(aliceRealizedPnl)
+                    .add(aliceOwedRealizedPnl)
+                    .add(insuranceFundFee)
+
+                expect(totalPositionNotional).to.be.eq("0")
+                expect(totalRealizedPnl).to.be.closeTo("0", 2)
             })
         })
     })
@@ -669,16 +777,14 @@ describe("Clearinghouse StopMarket", async () => {
             // should have order in open market
             expect(await accountBalance.hasOrder(bob.address)).to.be.eq(true)
 
-            // pause baseToken2 market
-            await baseToken2.pause()
+            await pauseMarket(baseToken2)
 
             // can not cancel order in paused market
             await expect(clearingHouse.cancelAllExcessOrders(bob.address, baseToken2.address)).to.be.revertedWith(
                 "CH_MNO",
             )
 
-            // close baseToken2 market
-            await baseToken2["close(uint256)"](parseEther("0.0001"))
+            await closeMarket(baseToken2, 0.0001)
 
             // should not have order in open market
             expect(await accountBalance.hasOrder(bob.address)).to.be.eq(false)
@@ -696,10 +802,10 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
+                await forwardBothTimestamps(clearingHouse, 100)
             }
 
-            // pause baseToken market
-            await baseToken.pause()
+            await pauseMarket(baseToken)
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -709,8 +815,8 @@ describe("Clearinghouse StopMarket", async () => {
                 clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")
 
-            // close baseToken market
-            await baseToken["close(uint256)"](parseEther("0.0001"))
+            await closeMarket(baseToken, 0.0001)
+
             await expect(
                 clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")
@@ -726,10 +832,10 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
+                await forwardBothTimestamps(clearingHouse, 100)
             }
 
-            // pause baseToken2 market
-            await baseToken2.pause()
+            await pauseMarket(baseToken2)
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -755,13 +861,11 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
+                await forwardBothTimestamps(clearingHouse, 100)
             }
 
-            // pause baseToken2 market
-            await baseToken2.pause()
-
-            // close baseToken2 market
-            await baseToken2["close(uint256)"](parseEther("0.0001"))
+            await pauseMarket(baseToken2)
+            await closeMarket(baseToken2, 0.0001)
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

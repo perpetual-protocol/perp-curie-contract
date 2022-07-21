@@ -8,8 +8,6 @@ import {
     BaseToken,
     ClearingHouse,
     CollateralManager,
-    Exchange,
-    InsuranceFund,
     MarketRegistry,
     TestAccountBalance,
     TestERC20,
@@ -20,7 +18,7 @@ import {
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { getMaxTickRange, IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
@@ -34,9 +32,7 @@ describe("Vault withdraw test", () => {
     let wbtcPriceFeed: MockContract
     let wethPriceFeed: MockContract
     let clearingHouse: ClearingHouse
-    let insuranceFund: InsuranceFund
     let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
     let baseToken: BaseToken
@@ -45,7 +41,7 @@ describe("Vault withdraw test", () => {
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
-    const check = async (user: Wallet, hasAccountValue: boolean) => {
+    const check = async (user: Wallet, hasAccountValue: boolean, accountValueDust: number = 0) => {
         let freeCollateral: BigNumber
         let accountValue: BigNumber
 
@@ -59,13 +55,13 @@ describe("Vault withdraw test", () => {
         accountValue = await clearingHouse.getAccountValue(user.address)
         expect(freeCollateral).to.be.eq(0)
         if (!hasAccountValue) {
-            expect(accountValue).to.be.eq(0)
+            expect(accountValue).to.be.closeTo(parseEther("0"), accountValueDust)
         }
         await expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
     }
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true))
+        fixture = await loadFixture(createClearingHouseFixture())
         vault = fixture.vault
         usdc = fixture.USDC
         weth = fixture.WETH
@@ -73,9 +69,7 @@ describe("Vault withdraw test", () => {
         wethPriceFeed = fixture.mockedWethPriceFeed
         wbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse
-        insuranceFund = fixture.insuranceFund
         accountBalance = fixture.accountBalance
-        exchange = fixture.exchange
         collateralManager = fixture.collateralManager
         pool = fixture.pool
         baseToken = fixture.baseToken
@@ -132,7 +126,8 @@ describe("Vault withdraw test", () => {
             // bob remove liquidity & close position
             await removeAllOrders(fixture, bob)
 
-            await check(bob, false)
+            // bob might have dust position
+            await check(bob, false, IGNORABLE_DUST)
             await check(alice, false)
         })
 

@@ -7,6 +7,7 @@ import {
     ClearingHouse,
     ClearingHouseConfig,
     CollateralManager,
+    DelegateApproval,
     Exchange,
     InsuranceFund,
     MarketRegistry,
@@ -14,12 +15,13 @@ import {
     TestClearingHouse,
     TestERC20,
     TestExchange,
+    TestLimitOrderBook,
     TestUniswapV3Broker,
     UniswapV3Factory,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
@@ -50,6 +52,17 @@ export interface ClearingHouseFixture {
     pool2: UniswapV3Pool
 }
 
+export interface ClearingHouseWithDelegateApprovalFixture extends ClearingHouseFixture {
+    delegateApproval: DelegateApproval
+    clearingHouseOpenPositionAction: number
+    clearingHouseAddLiquidityAction: number
+    clearingHouseRemoveLiquidityAction: number
+    notExistedAction: number
+    notExistedAction2: number
+    limitOrderBook: TestLimitOrderBook
+    limitOrderBook2: TestLimitOrderBook
+}
+
 interface UniswapV3BrokerFixture {
     uniswapV3Broker: TestUniswapV3Broker
 }
@@ -59,7 +72,9 @@ export enum BaseQuoteOrdering {
     BASE_1_QUOTE_0,
 }
 
-// caller of this function should ensure that (base, quote) = (token0, token1) is always true
+// 1. caller of this function should ensure that (base, quote) = (token0, token1) is always true
+// 2. ideally there should be no test using `canMockTime` as false as it can result in flaky test results (usually related to funding calculation)
+//    but keeping this param and the comment here for notifying this issue; can see time.ts for more info
 export function createClearingHouseFixture(
     canMockTime: boolean = true,
     uniFeeTier = 10000, // 1%
@@ -82,10 +97,10 @@ export function createClearingHouseFixture(
         // price feed for weth and wbtc
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        const wethPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        const wethPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         const mockedWethPriceFeed = await smockit(wethPriceFeed)
-        const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         const mockedWbtcPriceFeed = await smockit(wbtcPriceFeed)
         mockedWethPriceFeed.smocked.decimals.will.return.with(18)
         mockedWbtcPriceFeed.smocked.decimals.will.return.with(18)
@@ -137,7 +152,7 @@ export function createClearingHouseFixture(
 
         // deploy exchange
         await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
-        exchange.setAccountBalance(accountBalance.address)
+        await exchange.setAccountBalance(accountBalance.address)
 
         await orderBook.setExchange(exchange.address)
 
@@ -308,10 +323,12 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const aggregator = await aggregatorFactory.deploy()
         const mockedAggregator = await smockit(aggregator)
 
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        const cacheTwapInterval = 15 * 60
         const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
             mockedAggregator.address,
-        )) as ChainlinkPriceFeed
+            cacheTwapInterval,
+        )) as ChainlinkPriceFeedV2
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const token = (await baseTokenFactory.deploy()) as BaseToken
@@ -402,5 +419,34 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
         mockedInsuranceFund,
         mockedAccountBalance,
         mockedMarketRegistry,
+    }
+}
+
+export function createClearingHouseWithDelegateApprovalFixture(): () => Promise<ClearingHouseWithDelegateApprovalFixture> {
+    return async (): Promise<ClearingHouseWithDelegateApprovalFixture> => {
+        const clearingHouseFixture = await createClearingHouseFixture()()
+        const clearingHouse = clearingHouseFixture.clearingHouse as TestClearingHouse
+
+        const delegateApprovalFactory = await ethers.getContractFactory("DelegateApproval")
+        const delegateApproval = await delegateApprovalFactory.deploy()
+        await delegateApproval.initialize()
+
+        const testLimitOrderBookFactory = await ethers.getContractFactory("TestLimitOrderBook")
+        const testLimitOrderBook = await testLimitOrderBookFactory.deploy(clearingHouse.address)
+        const testLimitOrderBook2 = await testLimitOrderBookFactory.deploy(clearingHouse.address)
+
+        await clearingHouse.setDelegateApproval(delegateApproval.address)
+
+        return {
+            ...clearingHouseFixture,
+            delegateApproval,
+            clearingHouseOpenPositionAction: await delegateApproval.getClearingHouseOpenPositionAction(),
+            clearingHouseAddLiquidityAction: await delegateApproval.getClearingHouseAddLiquidityAction(),
+            clearingHouseRemoveLiquidityAction: await delegateApproval.getClearingHouseRemoveLiquidityAction(),
+            notExistedAction: 64,
+            notExistedAction2: 128,
+            limitOrderBook: testLimitOrderBook,
+            limitOrderBook2: testLimitOrderBook2,
+        }
     }
 }

@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { defaultAbiCoder } from "@ethersproject/abi"
 import { keccak256 } from "@ethersproject/solidity"
 import { expect } from "chai"
@@ -41,6 +42,8 @@ describe("ClearingHouse addLiquidity", () => {
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
+    let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -56,6 +59,8 @@ describe("ClearingHouse addLiquidity", () => {
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         pool2 = fixture.pool2
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
@@ -69,6 +74,13 @@ describe("ClearingHouse addLiquidity", () => {
         await deposit(alice, vault, 10000, collateral)
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
+        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
     })
 
     // simulation results:
@@ -158,17 +170,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("81689571696303801037492"), // liquidity
-                    50000, // lowerTick
-                    50200, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("0", await baseToken.decimals()),
-                    parseUnits("10000", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("81689571696303801037492"))
+                expect(openOrder.lowerTick).be.eq(50000)
+                expect(openOrder.upperTick).be.eq(50200)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("10000", await quoteToken.decimals()))
             })
 
             it("add liquidity below price with both tokens but expecting only quote token to be added", async () => {
@@ -215,17 +222,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50200)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("81689571696303801037492"), // liquidity
-                    50000, // lowerTick
-                    50200, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("0", await baseToken.decimals()),
-                    parseUnits("10000", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("81689571696303801037492"))
+                expect(openOrder.lowerTick).be.eq(50000)
+                expect(openOrder.upperTick).be.eq(50200)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("10000", await quoteToken.decimals()))
             })
 
             it("add liquidity with both tokens, over commit base", async () => {
@@ -288,17 +290,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("81689571696303801018159"), // liquidity
-                    50000, // lowerTick
-                    50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("66.061845430469484023", await baseToken.decimals()),
-                    parseUnits("10000", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("81689571696303801018159"))
+                expect(openOrder.lowerTick).be.eq(50000)
+                expect(openOrder.upperTick).be.eq(50400)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("66.061845430469484023", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("10000", await quoteToken.decimals()))
             })
 
             it("add liquidity with both tokens, over commit quote", async () => {
@@ -345,17 +342,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("61828103017711334685748"), // liquidity
-                    50000, // lowerTick
-                    50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("50", await baseToken.decimals()),
-                    BigNumber.from("7568665342936161336147"),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("61828103017711334685748"))
+                expect(openOrder.lowerTick).be.eq(50000)
+                expect(openOrder.upperTick).be.eq(50400)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("50", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(BigNumber.from("7568665342936161336147"))
             })
 
             it("add liquidity twice", async () => {
@@ -400,17 +392,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50000, 50400)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("81689571696303801018158"), // liquidity
-                    50000, // lowerTick
-                    50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("66.061845430469484024", await baseToken.decimals()),
-                    parseUnits("10000", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("81689571696303801018158"))
+                expect(openOrder.lowerTick).be.eq(50000)
+                expect(openOrder.upperTick).be.eq(50400)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("66.061845430469484024", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("10000", await quoteToken.decimals()))
             })
 
             it("force error, add nothing", async () => {
@@ -671,17 +658,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("123656206035422669342231"), // liquidity
-                    50200, // lowerTick
-                    50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("100", await baseToken.decimals()),
-                    parseUnits("0", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("123656206035422669342231"))
+                expect(openOrder.lowerTick).be.eq(50200)
+                expect(openOrder.upperTick).be.eq(50400)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("100", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("0", await quoteToken.decimals()))
             })
 
             it("add liquidity above price with both tokens but expecting only base token to be added", async () => {
@@ -728,17 +710,12 @@ describe("ClearingHouse addLiquidity", () => {
                     ),
                 ])
                 const openOrder = await orderBook.getOpenOrder(alice.address, baseToken.address, 50200, 50400)
-                expect(openOrder).be.deep.eq([
-                    BigNumber.from("123656206035422669342231"), // liquidity
-                    50200, // lowerTick
-                    50400, // upperTick
-                    parseUnits("0", await baseToken.decimals()), // lastFeeGrowthInsideX128
-                    openOrder.lastTwPremiumGrowthInsideX96, // we don't verify the number here
-                    openOrder.lastTwPremiumGrowthBelowX96, // we don't verify the number here
-                    openOrder.lastTwPremiumDivBySqrtPriceGrowthInsideX96, // we don't verify the number here
-                    parseUnits("100", await baseToken.decimals()),
-                    parseUnits("0", await quoteToken.decimals()),
-                ])
+                expect(openOrder.liquidity).be.eq(BigNumber.from("123656206035422669342231"))
+                expect(openOrder.lowerTick).be.eq(50200)
+                expect(openOrder.upperTick).be.eq(50400)
+                expect(openOrder.lastFeeGrowthInsideX128).be.eq(parseUnits("0", await baseToken.decimals()))
+                expect(openOrder.baseDebt).be.eq(parseUnits("100", await baseToken.decimals()))
+                expect(openOrder.quoteDebt).be.eq(parseUnits("0", await quoteToken.decimals()))
             })
         })
     })

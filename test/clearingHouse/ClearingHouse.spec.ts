@@ -123,9 +123,9 @@ describe("ClearingHouse Spec", () => {
             await expect(exchange.setMaxTickCrossedWithinBlock(wallet.address, 1)).to.be.revertedWith("EX_BNC")
         })
 
-        it("force error, invalid trustedForwarder address when setTrustedForwarder", async () => {
-            await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_TFNC")
-        })
+        // it("force error, invalid trustedForwarder address when setTrustedForwarder", async () => {
+        //     await expect(clearingHouse.setTrustedForwarder(wallet.address)).to.be.revertedWith("CH_TFNC")
+        // })
     })
 
     describe("# getRequiredCollateral", () => {})

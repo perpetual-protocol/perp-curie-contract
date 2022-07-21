@@ -19,7 +19,7 @@ import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHous
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
@@ -63,6 +63,10 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
+        })
+
+        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("50000", 6), 0, 0, 0]
         })
 
         // mint
@@ -257,11 +261,11 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
     describe("realize Pnl after cancel orders", () => {
         beforeEach(async () => {
-            const amount = parseUnits("20", await collateral.decimals())
+            const amount = parseUnits("2000", await collateral.decimals())
             await collateral.transfer(bob.address, amount)
-            await deposit(bob, vault, 20, collateral)
+            await deposit(bob, vault, 2000, collateral)
 
-            await collateral.transfer(carol.address, amount)
+            await collateral.transfer(carol.address, parseUnits("20", await collateral.decimals()))
             await deposit(carol, vault, 20, collateral)
         })
 
@@ -282,7 +286,15 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await removeAllOrders(fixture, alice, baseToken.address)
 
             // 3. bob add liquidity
+            // sync index price to market price to pass price spread checking
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, bob, 1, 0, 92400, 92800, false, baseToken.address)
+
+            // 4. set index price lower to withdraw bob's collateral
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100", 6), 0, 0, 0]
+            })
+            await vault.connect(bob).withdraw(collateral.address, parseUnits("1980", await collateral.decimals()))
 
             // 4. carol opens a long position and bob incurs a short position
             // carol position size: 0 -> 0.000961493924477756

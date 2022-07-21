@@ -10,6 +10,10 @@ interface IBaseToken {
 
     function close() external;
 
+    /// @notice Update the cached index price of the token.
+    /// @param interval The twap interval.
+    function cacheTwap(uint256 interval) external;
+
     /// @notice Get the price feed address
     /// @return priceFeed the current price feed
     function getPriceFeed() external view returns (address priceFeed);

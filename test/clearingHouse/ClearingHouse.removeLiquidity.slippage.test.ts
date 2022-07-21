@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber, BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
@@ -32,6 +33,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
 
@@ -46,6 +48,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
@@ -61,6 +64,9 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     describe("# removeLiquidity failed at tick 50199", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -73,7 +79,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
-                base: parseUnits("100", await baseToken.decimals()),
+                base: parseUnits("1", await baseToken.decimals()),
                 quote: 0,
                 lowerTick: 50200,
                 upperTick: 50400,
@@ -123,6 +129,9 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     describe("# removeLiquidity failed at tick 50200", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,

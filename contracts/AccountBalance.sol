@@ -98,33 +98,21 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function settleBalanceAndDeregister(
-        address maker,
+        address trader,
         address baseToken,
         int256 takerBase,
         int256 takerQuote,
         int256 realizedPnl,
-        int256 fee
+        int256 makerFee
     ) external override {
         _requireOnlyClearingHouse();
-        _modifyTakerBalance(maker, baseToken, takerBase, takerQuote);
-        _modifyOwedRealizedPnl(maker, fee);
-
-        // to avoid dust, let realizedPnl = getQuote() when there's no order
-        if (
-            getTakerPositionSize(maker, baseToken) == 0 &&
-            IOrderBook(_orderBook).getOpenOrderIds(maker, baseToken).length == 0
-        ) {
-            // only need to take care of taker's accounting when there's no order
-            int256 takerOpenNotional = _accountMarketMap[maker][baseToken].takerOpenNotional;
-            // AB_IQBAR: inconsistent quote balance and realizedPnl
-            require(realizedPnl.abs() <= takerOpenNotional.abs(), "AB_IQBAR");
-            realizedPnl = takerOpenNotional;
-        }
+        _modifyTakerBalance(trader, baseToken, takerBase, takerQuote);
+        _modifyOwedRealizedPnl(trader, makerFee);
 
         // @audit should merge _addOwedRealizedPnl and settleQuoteToOwedRealizedPnl in some way.
         // PnlRealized will be emitted three times when removing trader's liquidity
-        _settleQuoteToOwedRealizedPnl(maker, baseToken, realizedPnl);
-        _deregisterBaseToken(maker, baseToken);
+        _settleQuoteToOwedRealizedPnl(trader, baseToken, realizedPnl);
+        _deregisterBaseToken(trader, baseToken);
     }
 
     /// @inheritdoc IAccountBalance
@@ -400,9 +388,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address baseToken,
         int256 amount
     ) internal {
-        AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
-        accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.sub(amount);
-        _modifyOwedRealizedPnl(trader, amount);
+        if (amount != 0) {
+            AccountMarket.Info storage accountInfo = _accountMarketMap[trader][baseToken];
+            accountInfo.takerOpenNotional = accountInfo.takerOpenNotional.sub(amount);
+            _modifyOwedRealizedPnl(trader, amount);
+        }
     }
 
     /// @dev this function is expensive

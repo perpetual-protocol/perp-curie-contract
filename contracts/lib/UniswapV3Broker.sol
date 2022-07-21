@@ -221,6 +221,10 @@ library UniswapV3Broker {
         (sqrtMarkPrice, , , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
+    function getLiquidity(address pool) internal view returns (uint128 liquidity) {
+        return IUniswapV3Pool(pool).liquidity();
+    }
+
     /// @dev if twapInterval < 10 (should be less than 1 block), return mark price without twap directly,
     ///      as twapInterval is too short and makes getting twap over such a short period meaningless
     function getSqrtMarkTwapX96(address pool, uint32 twapInterval) internal view returns (uint160) {

@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
@@ -32,6 +33,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let baseAmount: BigNumber
     let quoteAmount: BigNumber
 
@@ -46,6 +48,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         baseAmount = parseUnits("100", await baseToken.decimals())
         quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
@@ -56,6 +59,10 @@ describe("ClearingHouse addLiquidity slippage", () => {
         const amount = parseUnits("1000", await collateral.decimals())
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
+
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("151", 6), 0, 0, 0]
+        })
     })
 
     describe("# addLiquidity failed at tick 50199", () => {

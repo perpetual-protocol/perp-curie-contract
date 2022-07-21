@@ -1,3 +1,4 @@
+import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
@@ -34,6 +35,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -48,6 +50,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
         // alice
@@ -67,6 +70,9 @@ describe("ClearingHouse.getTotalPositionSize", () => {
 
     describe("initialized price = 151.3733069", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -195,6 +201,9 @@ describe("ClearingHouse.getTotalPositionSize", () => {
 
     // see "out of maker's range; alice receives more fee as the price goes beyond carol's range" in ClearingHouse.removeLiquidity.test.ts
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("148", 6), 0, 0, 0]
+        })
         await initAndAddPool(
             fixture,
             pool,

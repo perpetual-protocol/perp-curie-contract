@@ -6,11 +6,8 @@ import {
     AccountBalance,
     BaseToken,
     ClearingHouse,
-    Exchange,
     InsuranceFund,
     MarketRegistry,
-    OrderBook,
-    QuoteToken,
     TestERC20,
     UniswapV3Pool,
     Vault,
@@ -26,14 +23,11 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
     let marketRegistry: MarketRegistry
-    let exchange: Exchange
-    let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
@@ -41,15 +35,12 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     beforeEach(async () => {
         const _clearingHouseFixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = _clearingHouseFixture.clearingHouse
-        orderBook = _clearingHouseFixture.orderBook
-        exchange = _clearingHouseFixture.exchange
         accountBalance = _clearingHouseFixture.accountBalance
         marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         insuranceFund = _clearingHouseFixture.insuranceFund
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
-        quoteToken = _clearingHouseFixture.quoteToken
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         pool = _clearingHouseFixture.pool
         collateralDecimals = await collateral.decimals()
@@ -108,48 +99,114 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     })
 
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=523274954
-    it("quote to base: 0.001633641682q => 0.244829292B, maker get fee", async () => {
-        await clearingHouse.connect(taker1).openPosition({
-            baseToken: baseToken.address,
-            isBaseToQuote: false,
-            isExactInput: true,
-            oppositeAmountBound: 0,
-            amount: parseEther("0.001633641682"),
-            sqrtPriceLimitX96: 0,
-            deadline: ethers.constants.MaxUint256,
-            referralCode: ethers.constants.HashZero,
+    describe("swap within the same range", () => {
+        beforeEach(async () => {
+            await clearingHouse.connect(taker1).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.001633641682"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
         })
 
-        // check maker & insurance fund's fee
-        const resp1 = await clearingHouse.connect(maker1).callStatic.removeLiquidity({
-            baseToken: baseToken.address,
-            lowerTick: 50000,
-            upperTick: 50200,
-            liquidity: "0",
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
-        // 0.001633641682 * 1% * 60% * 100% = 0.000009801850092
-        expect(resp1.fee).eq(parseEther("0.000009801850091999"))
+        it("taker swaps once; one maker and IF get fees", async () => {
+            // check maker & insurance fund's fee
+            const resp1 = await clearingHouse.connect(maker1).callStatic.removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50200,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            // 0.001633641682 * 1% * 60% * 100% = 0.000009801850092
+            expect(resp1.fee).eq(parseEther("0.000009801850091999"))
 
-        const resp2 = await clearingHouse.connect(maker2).callStatic.removeLiquidity({
-            baseToken: baseToken.address,
-            lowerTick: 50200,
-            upperTick: 50400,
-            liquidity: "0",
-            minBase: 0,
-            minQuote: 0,
-            deadline: ethers.constants.MaxUint256,
-        })
-        expect(resp2.fee).eq(0)
+            const resp2 = await clearingHouse.connect(maker2).callStatic.removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50200,
+                upperTick: 50400,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            expect(resp2.fee).eq(0)
 
-        const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
-        // 0.001633641682 * 1% * 40% ~= 0.8
-        expect(owedRealizedPnl).eq(parseEther("0.000006534566728"))
+            const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+            // 0.001633641682 * 1% * 40% = 0.000006534566728
+            expect(owedRealizedPnl).eq(parseEther("0.000006534566728"))
+        })
+
+        it("taker swaps three times; two after insuranceFundFeeRatio is increased", async () => {
+            await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "600000") // 60%
+
+            await clearingHouse.connect(taker1).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.001633641682"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // check maker & insurance fund's fee
+            const resp1 = await clearingHouse.connect(maker1).callStatic.removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50200,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            // 0.000009801850092 + 0.001633641682 * 1% * 40% * 100% = 0.00001633641682
+            expect(resp1.fee).eq(parseEther("0.000016336416819999"))
+
+            const [owedRealizedPnl1] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+            // 0.000006534566728 + 0.001633641682 * 1% * 60% = 0.00001633641682
+            expect(owedRealizedPnl1).eq(parseEther("0.000016336416820000"))
+
+            await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "500000") // 50%
+
+            await clearingHouse.connect(taker1).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.001633641682"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // check maker & insurance fund's fee
+            const resp2 = await clearingHouse.connect(maker1).callStatic.removeLiquidity({
+                baseToken: baseToken.address,
+                lowerTick: 50000,
+                upperTick: 50200,
+                liquidity: "0",
+                minBase: 0,
+                minQuote: 0,
+                deadline: ethers.constants.MaxUint256,
+            })
+            // 0.000009801850092 + 0.001633641682 * 1% * 40% * 100% + 0.001633641682 * 1% * 50% * 100% = 0.00002450462523
+            expect(resp2.fee).eq(parseEther("0.000024504625229999"))
+
+            const [owedRealizedPnl2] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+            // 0.000006534566728 + 0.001633641682 * 1% * 60% + 0.001633641682 * 1% * 50% * 100% = 0.00002450462523
+            expect(owedRealizedPnl2).eq(parseEther("0.000024504625230000"))
+        })
     })
 
-    it("cross multiple ticks", async () => {
+    it("take swaps three times crossing multiple ticks; one after insuranceFundFeeRatio is decreased", async () => {
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,
@@ -198,8 +255,51 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         // 0.1236448718/0.99 * 1% * 60% * 100% ~= 0.0007493628594
         expect(resp2.fee).eq(parseEther("0.000749362859479297"))
 
-        const [owedRealizedPnl] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+        const [owedRealizedPnl1] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
         // ((0.122414646 / 0.99) + (0.1236448718 / 0.99)) * 1% * 40% ~= 0.0009941798699
-        expect(owedRealizedPnl).eq(parseEther("0.000994179869898991"))
+        expect(owedRealizedPnl1).eq(parseEther("0.000994179869898991"))
+
+        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, "200000") // 20%
+
+        await clearingHouse.connect(taker1).openPosition({
+            baseToken: baseToken.address,
+            isBaseToQuote: true,
+            isExactInput: false,
+            oppositeAmountBound: 0,
+            // this amount will only be swapped within the range of maker2
+            amount: parseEther("0.1"),
+            sqrtPriceLimitX96: 0,
+            deadline: ethers.constants.MaxUint256,
+            referralCode: ethers.constants.HashZero,
+        })
+
+        // check maker & insurance fund's fee
+        const resp3 = await clearingHouse.connect(maker1).callStatic.removeLiquidity({
+            baseToken: baseToken.address,
+            lowerTick: 50000,
+            upperTick: 50200,
+            liquidity: "0",
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
+        })
+        // maker1's liquidity isn't used in this tx and thus maker1's fees won't change
+        expect(resp3.fee).eq(parseEther("0.000741906945369186"))
+
+        const resp4 = await clearingHouse.connect(maker2).callStatic.removeLiquidity({
+            baseToken: baseToken.address,
+            lowerTick: 50200,
+            upperTick: 50400,
+            liquidity: "0",
+            minBase: 0,
+            minQuote: 0,
+            deadline: ethers.constants.MaxUint256,
+        })
+        // 0.1236448718/0.99 * 1% * 60% * 100% + 0.1/0.99 * 1% * 80% * 100% = 0.001557443667
+        expect(resp4.fee).eq(parseEther("0.001557443667560105"))
+
+        const [owedRealizedPnl2] = await accountBalance.getPnlAndPendingFee(insuranceFund.address)
+        // ((0.122414646 / 0.99) + (0.1236448718 / 0.99)) * 1% * 40% + (0.1 / 0.99) * 1% * 20% = 0.001196200072
+        expect(owedRealizedPnl2).eq(parseEther("0.001196200071919194"))
     })
 })

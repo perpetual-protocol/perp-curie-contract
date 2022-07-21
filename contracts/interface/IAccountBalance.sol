@@ -53,17 +53,19 @@ interface IAccountBalance {
 
     /// @notice Settle account balance and deregister base token
     /// @dev Only used by `ClearingHouse` contract
-    /// @param maker The address of the maker
+    /// @param trader The address of the trader
     /// @param baseToken The address of the baseToken
+    /// @param takerBase Modified amount of taker base
+    /// @param takerQuote Modified amount of taker quote
     /// @param realizedPnl Amount of pnl realized
-    /// @param fee Amount of fee collected from pool
+    /// @param makerFee Amount of maker fee collected from pool
     function settleBalanceAndDeregister(
-        address maker,
+        address trader,
         address baseToken,
         int256 takerBase,
         int256 takerQuote,
         int256 realizedPnl,
-        int256 fee
+        int256 makerFee
     ) external;
 
     /// @notice Every time a trader's position value is checked, the base token list of this trader will be traversed;

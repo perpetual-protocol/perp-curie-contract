@@ -1,9 +1,9 @@
+import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    MarketRegistry,
     OrderBook,
     TestAccountBalance,
     TestClearingHouse,
@@ -16,7 +16,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helpe
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardTimestamp } from "../shared/time"
+import { forwardBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -25,7 +25,6 @@ describe("ClearingHouse closePosition", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let orderBook: OrderBook
     let accountBalance: TestAccountBalance
     let exchange: TestExchange
@@ -33,20 +32,21 @@ describe("ClearingHouse closePosition", () => {
     let vault: Vault
     let baseToken: BaseToken
     let pool: UniswapV3Pool
+    let mockedBaseAggregator: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(true))
+        fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
         orderBook = fixture.orderBook
         accountBalance = fixture.accountBalance as TestAccountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
+        mockedBaseAggregator = fixture.mockedBaseAggregator
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -71,6 +71,9 @@ describe("ClearingHouse closePosition", () => {
 
     describe("one maker; initialized price = 151.373306858723226652", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -257,6 +260,9 @@ describe("ClearingHouse closePosition", () => {
     // different range
     describe("two makers; initialized price = 148.3760629", () => {
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("148", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -637,6 +643,9 @@ describe("ClearingHouse closePosition", () => {
     describe("dust test for UniswapV3Broker.swap()", () => {
         // this test will fail if the _DUST constant in UniswapV3Broker is set to 1 (no dust allowed)
         it("a trader swaps base to quote and then closes; one maker", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await initAndAddPool(
                 fixture,
                 pool,
@@ -693,6 +702,9 @@ describe("ClearingHouse closePosition", () => {
     describe("close position when user is maker and taker", async () => {
         let lowerTick: number, upperTick: number
         beforeEach(async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             const tickSpacing = await pool.tickSpacing()
             await initAndAddPool(
                 fixture,
@@ -772,7 +784,7 @@ describe("ClearingHouse closePosition", () => {
             )
 
             // alice partial close position, forward timestamp to bypass over price limit timestamp check
-            await forwardTimestamp(clearingHouse, 3000)
+            await forwardBothTimestamps(clearingHouse, 3000)
 
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)

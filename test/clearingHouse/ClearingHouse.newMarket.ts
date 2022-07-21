@@ -2,21 +2,12 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import {
-    BaseToken,
-    ClearingHouse,
-    Exchange,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestERC20,
-    Vault,
-} from "../../typechain"
+import { BaseToken, OrderBook, QuoteToken, TestClearingHouse, TestERC20, TestExchange, Vault } from "../../typechain"
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
-import { forward } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { getMarketTwap } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
@@ -24,9 +15,8 @@ describe("ClearingHouse new market listing", () => {
     const [admin, alice, bob, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
-    let clearingHouse: ClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
+    let clearingHouse: TestClearingHouse
+    let exchange: TestExchange
     let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
@@ -42,11 +32,10 @@ describe("ClearingHouse new market listing", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture(false))
-        clearingHouse = fixture.clearingHouse
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
-        exchange = fixture.exchange
-        marketRegistry = fixture.marketRegistry
+        exchange = fixture.exchange as TestExchange
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
@@ -70,7 +59,7 @@ describe("ClearingHouse new market listing", () => {
         await baseToken3.addWhitelist(clearingHouse.address)
 
         // initial baseToken market
-        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 0, baseToken.address, mockedBaseAggregator)
+        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 1000, baseToken.address, mockedBaseAggregator)
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
@@ -85,6 +74,9 @@ describe("ClearingHouse new market listing", () => {
 
         lowerTick = minTick
         upperTick = maxTick
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
 
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
@@ -135,12 +127,15 @@ describe("ClearingHouse new market listing", () => {
             // pause market
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
         })
+
         it("force error when close position", async () => {
             await expect(closePosition(fixture, bob, 0, baseToken3.address)).to.be.revertedWith("EX_MIP")
         })
+
         it("force error when open position", async () => {
             await expect(q2bExactInput(fixture, bob, 10, baseToken3.address)).to.be.revertedWith("EX_MIP")
         })
+
         it("can add/remove liquidity", async () => {
             const orderLowerTick = lowerTick + 6000
             const orderUpperTick = upperTick - 6000
@@ -156,15 +151,16 @@ describe("ClearingHouse new market listing", () => {
 
             expect(await orderBook.hasOrder(alice.address, [baseToken3.address])).eq(false)
         })
+
         it("funding will cumulate", async () => {
             await clearingHouse.connect(bob).settleAllFunding(bob.address)
             await clearingHouse.connect(davis).settleAllFunding(davis.address)
 
-            await forward(100)
+            await forwardBothTimestamps(clearingHouse, 100)
             const bobPendingFundingBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
             const davisPendingFundingBefore = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
 
-            await forward(100)
+            await forwardBothTimestamps(clearingHouse, 100)
             const bobPendingFundingAfter = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
             const davisPendingFundingAfter = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
 
@@ -173,7 +169,7 @@ describe("ClearingHouse new market listing", () => {
         })
 
         it("Stop to cumulate funding after change to emergency oracle", async () => {
-            await forward(100)
+            await forwardBothTimestamps(clearingHouse, 100)
             // Random to update global funding
             await clearingHouse.connect(bob).settleAllFunding(bob.address)
 
@@ -196,8 +192,8 @@ describe("ClearingHouse new market listing", () => {
             const markTwap = parseEther(await getMarketTwap(exchange, baseToken, interval))
             expect(indexTwap).to.be.closeTo(markTwap, 1)
 
-            // Should not cumulate funding after forward timestamp
-            await forward(100)
+            // Should not cumulate funding after forwarding timestamp
+            await forwardBothTimestamps(clearingHouse, 100)
             const bobAfter100 = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
             expect(bobAfter100).to.be.eq(0)
             const davisAfter100 = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
@@ -205,11 +201,12 @@ describe("ClearingHouse new market listing", () => {
 
             // Davis should get zero pending funding after funding settlement
             await clearingHouse.connect(davis).settleAllFunding(davis.address)
-            await forward(100)
+            await forwardBothTimestamps(clearingHouse, 100)
             const davisAfterSettle = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
             expect(davisAfterSettle).to.be.eq(0)
         })
     })
+
     describe("liquidate when trader has order in paused market", () => {
         beforeEach(async () => {
             // alice add liquidity to baseToken, baseToken3 market
@@ -241,6 +238,7 @@ describe("ClearingHouse new market listing", () => {
                 return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
         })
+
         it("liquidate process", async () => {
             // can cancelAllExcessOrders from baseToken, baseToken3 market
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)

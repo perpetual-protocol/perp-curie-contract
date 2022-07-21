@@ -3,7 +3,7 @@ import { BigNumberish } from "ethers/lib/ethers"
 import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouseConfig, CollateralManager, TestERC20, Vault } from "../../typechain"
-import { ChainlinkPriceFeed } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 
 describe("CollateralManager spec", () => {
@@ -15,7 +15,7 @@ describe("CollateralManager spec", () => {
     let USDT: TestERC20
     let WETH: TestERC20
     let WBTC: TestERC20
-    let priceFeed: ChainlinkPriceFeed
+    let priceFeed: ChainlinkPriceFeedV2
     let clearingHouseConfig: ClearingHouseConfig
     let vault: Vault
     let skipInitializeCollateralManagerInBeforeEach = false
@@ -67,8 +67,8 @@ describe("CollateralManager spec", () => {
 
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-        priceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        priceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouseConfig = fixture.clearingHouseConfig
         vault = fixture.vault
@@ -416,8 +416,8 @@ describe("CollateralManager spec", () => {
         it("update USDT price feed", async () => {
             const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
             const aggregator = await aggregatorFactory.deploy()
-            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
-            const newPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address)) as ChainlinkPriceFeed
+            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+            const newPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
 
             await expect(collateralManager.setPriceFeed(USDT.address, newPriceFeed.address)).to.emit(
                 collateralManager,

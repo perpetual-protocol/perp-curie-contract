@@ -17,7 +17,7 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardTimestamp } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 import { createClearingHouseFixture } from "./fixtures"
 
@@ -103,6 +103,9 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await deposit(carol, vault, 1000, collateral)
 
         await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
 
     // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159
@@ -125,7 +128,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // move to next block to simplify test case
             // otherwise we need to bring another trader to move the price further away
 
-            await forwardTimestamp(clearingHouse)
+            await forwardBothTimestamps(clearingHouse)
 
             // price delta for every tick is 0.01%
             // if we want to limit price impact to 1%, and 1% / 0.01% = 100
@@ -215,7 +218,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // move to next block to simplify test case
             // otherwise we need to bring another trader to move the price further away
 
-            await forwardTimestamp(clearingHouse)
+            await forwardBothTimestamps(clearingHouse)
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
         })
 
@@ -257,7 +260,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
             // liquidation can't happen in the same block because it's based on the index price
-            await forwardTimestamp(clearingHouse)
+            await forwardBothTimestamps(clearingHouse)
             await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
 
             // set liquidator as backstop liquidity provider
@@ -308,7 +311,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
             // set fee ratio to 0.1%, it's easier to produce the attack
             await marketRegistry.setFeeRatio(baseToken.address, 1000)
             // move to next block to have finalTickLastBlock
-            await forwardTimestamp(clearingHouse)
+            await forwardBothTimestamps(clearingHouse)
         })
 
         it("position closed partially, carol opens a short and alice open a large long which makes carol has bad debt", async () => {

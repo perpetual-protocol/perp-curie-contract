@@ -2,27 +2,15 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    ClearingHouse,
-    ClearingHouseConfig,
-    Exchange,
-    InsuranceFund,
-    MarketRegistry,
-    OrderBook,
-    TestAccountBalance,
-    TestERC20,
-    TestVault,
-    UniswapV3Pool,
-} from "../../typechain"
+import { BaseToken, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("Vault test", () => {
+describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: TestVault
@@ -31,36 +19,22 @@ describe("Vault test", () => {
     let wbtc: TestERC20
     let wethPriceFeed: MockContract
     let wbtcPriceFeed: MockContract
-    let clearingHouse: ClearingHouse
-    let clearingHouseConfig: ClearingHouseConfig
-    let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
-    let orderBook: OrderBook
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let marketRegistry: MarketRegistry
     let mockedBaseAggregator: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createClearingHouseFixture(true))
+        const _fixture = await loadFixture(createClearingHouseFixture())
         vault = _fixture.vault as TestVault
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
         wethPriceFeed = _fixture.mockedWethPriceFeed
         wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
-        clearingHouse = _fixture.clearingHouse
-        clearingHouseConfig = _fixture.clearingHouseConfig
-        insuranceFund = _fixture.insuranceFund
-        accountBalance = _fixture.accountBalance
-        exchange = _fixture.exchange
-        orderBook = _fixture.orderBook
         pool = _fixture.pool
         baseToken = _fixture.baseToken
-        marketRegistry = _fixture.marketRegistry
         mockedBaseAggregator = _fixture.mockedBaseAggregator
         fixture = _fixture
 
@@ -72,11 +46,9 @@ describe("Vault test", () => {
             baseToken.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             10000,
-            1000,
+            getMaxTickRange(),
         )
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-        // set a higher price limit for large orders
-        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "100000")
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)

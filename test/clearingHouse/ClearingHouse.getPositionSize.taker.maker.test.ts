@@ -1,9 +1,10 @@
+import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
 import { parseEther } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook } from "../../typechain"
+import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook, UniswapV3Pool } from "../../typechain"
 import {
     addOrder,
     b2qExactInput,
@@ -16,6 +17,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 //docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1507179977
@@ -30,6 +32,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     let orderBook: OrderBook
     let exchange: Exchange
     let baseToken: BaseToken
+    let mockedBaseAggregator: MockContract
+    let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
 
@@ -59,6 +63,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
         exchange = fixture.exchange
         orderBook = fixture.orderBook
         baseToken = fixture.baseToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
 
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, 10, 0, 0, getMaxTickRange())
@@ -80,6 +86,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
             // alice double the liquidity
             // pool: 80/1250 => 160/2500
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, alice, 80, 1250, lowerTick, upperTick)
             orderIdsBefore = await getOrderIds(fixture, alice)
             orderBefore = await orderBook.getOpenOrderById(orderIdsBefore[0])
@@ -137,6 +144,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)
@@ -231,6 +239,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)

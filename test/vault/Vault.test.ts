@@ -3,20 +3,16 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
     BaseToken,
-    ClearingHouse,
-    ClearingHouseConfig,
-    Exchange,
     InsuranceFund,
-    MarketRegistry,
-    OrderBook,
     TestAccountBalance,
+    TestClearingHouse,
     TestERC20,
+    TestExchange,
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import {
     addOrder,
     b2qExactOutput,
@@ -25,51 +21,45 @@ import {
     syncIndexToMarketPrice,
 } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
+import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forward } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 
 describe("Vault test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let fixture: ClearingHouseFixture
     let vault: Vault
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
     let wethPriceFeed: MockContract
     let wbtcPriceFeed: MockContract
-    let clearingHouse: ClearingHouse
-    let clearingHouseConfig: ClearingHouseConfig
+    let clearingHouse: TestClearingHouse
     let insuranceFund: InsuranceFund
-    let accountBalance: AccountBalance | TestAccountBalance
-    let exchange: Exchange
-    let orderBook: OrderBook
+    let accountBalance: TestAccountBalance
+    let exchange: TestExchange
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let marketRegistry: MarketRegistry
     let mockedBaseAggregator: MockContract
     let usdcDecimals: number
-    let fixture
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(createClearingHouseFixture(false))
-        vault = _fixture.vault
-        usdc = _fixture.USDC
-        weth = _fixture.WETH
-        wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeed
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
-        clearingHouse = _fixture.clearingHouse
-        clearingHouseConfig = _fixture.clearingHouseConfig
-        insuranceFund = _fixture.insuranceFund
-        accountBalance = _fixture.accountBalance
-        exchange = _fixture.exchange
-        orderBook = _fixture.orderBook
-        pool = _fixture.pool
-        baseToken = _fixture.baseToken
-        marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
-        fixture = _fixture
+        fixture = await loadFixture(createClearingHouseFixture())
+        vault = fixture.vault
+        usdc = fixture.USDC
+        weth = fixture.WETH
+        wbtc = fixture.WBTC
+        wethPriceFeed = fixture.mockedWethPriceFeed
+        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        insuranceFund = fixture.insuranceFund
+        accountBalance = fixture.accountBalance as TestAccountBalance
+        exchange = fixture.exchange as TestExchange
+        pool = fixture.pool
+        baseToken = fixture.baseToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
 
         usdcDecimals = await usdc.decimals()
 
@@ -79,7 +69,7 @@ describe("Vault test", () => {
             baseToken.address,
             encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
             10000,
-            1000,
+            getMaxTickRange(),
         )
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
@@ -99,9 +89,12 @@ describe("Vault test", () => {
         await usdc.mint(bob.address, parseUnits("1000000", usdcDecimals))
         await deposit(bob, vault, 1000000, usdc)
         await addOrder(fixture, bob, 500, 1000000, 0, 150000)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
     })
 
-    describe("# getBalanceByToken", async () => {
+    describe("# getBalanceByToken", () => {
         it("returns correct collateral token balance", async () => {
             await deposit(alice, vault, 10, weth)
             await deposit(alice, vault, 3, wbtc)
@@ -130,7 +123,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("200", 6), 0, 0, 0]
             })
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
 
             expect(await vault.getBalanceByToken(alice.address, usdc.address)).to.be.eq(
                 parseUnits("1000", usdcDecimals),
@@ -139,7 +132,7 @@ describe("Vault test", () => {
         })
     })
 
-    describe("# getCollateralTokens", async () => {
+    describe("# getCollateralTokens", () => {
         it("returns correct collateral tokens when having collaterals", async () => {
             await deposit(alice, vault, 1, weth)
             await deposit(alice, vault, 1, wbtc)
@@ -148,7 +141,7 @@ describe("Vault test", () => {
         })
     })
 
-    describe("withdraw non-settlement token", async () => {
+    describe("withdraw non-settlement token", () => {
         let amount: ReturnType<typeof parseUnits>
         beforeEach(async () => {
             amount = parseEther("10")
@@ -207,13 +200,13 @@ describe("Vault test", () => {
             await expect(vault.connect(alice).withdraw(weth.address, amount))
                 .to.emit(vault, "Withdrawn")
                 .withArgs(weth.address, alice.address, amount)
-            // can only withdraw up to the amount originally deposited
+            // can withdraw up to the amount originally deposited
             expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")
             expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq("0")
         })
     })
 
-    describe("withdraw settlement token", async () => {
+    describe("withdraw settlement token", () => {
         let amount: ReturnType<typeof parseUnits>
         beforeEach(async () => {
             amount = parseUnits("100", usdcDecimals)
@@ -281,8 +274,8 @@ describe("Vault test", () => {
                 .to.emit(vault, "Withdrawn")
                 .withArgs(usdc.address, alice.address, parseUnits("5", usdcDecimals))
 
-            // balance after withdrawal: 100 - 5 + 9.41552997 = 104.41552997
-            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("104.415529", usdcDecimals))
+            // balance after withdrawal: 100 - 5 + 9.415764 = 104.415764
+            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("104.415764", usdcDecimals))
             const realizedPnLAfterWithdrawal = (await accountBalance.getPnlAndPendingFee(alice.address))[0]
             // realized PnL is settled after withdrawal
             expect(realizedPnLAfterWithdrawal).to.be.eq("0")
@@ -300,8 +293,8 @@ describe("Vault test", () => {
                 .to.emit(vault, "Withdrawn")
                 .withArgs(usdc.address, alice.address, parseUnits("30", usdcDecimals))
 
-            // balance after withdrawal: 100 - 30 - 21.26518413 = 48.73481587
-            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("48.734816", usdcDecimals))
+            // balance after withdrawal: 100 - 30 - 21.26531 = 48.73469
+            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("48.73469", usdcDecimals))
             const realizedPnLAfterWithdrawal = (await accountBalance.getPnlAndPendingFee(alice.address))[0]
             // realized PnL is settled after withdrawal
             expect(realizedPnLAfterWithdrawal).to.be.eq("0")
@@ -314,22 +307,22 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("200", 6), 0, 0, 0]
             })
-            await forward(360)
-            // pending funding payment: -0.16286831
+            await forwardBothTimestamps(clearingHouse, 360)
+            // pending funding payment: -0.16422554
 
             await expect(vault.connect(alice).withdraw(usdc.address, parseUnits("10", usdcDecimals)))
                 .to.emit(vault, "Withdrawn")
                 .withArgs(usdc.address, alice.address, parseUnits("10", usdcDecimals))
 
-            // funding payment: -0.162868310833308102 / 360 * 361 = -0.163320723
-            // check getBalance = 100 - 10 + 0.163320723 = 90.16332072
-            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("90.163320", usdcDecimals))
+            // owedRealizedPnl (realized funding payment): -0.162868
+            // check getBalance = 100 - 10 - (-0.162868) = 90.162868
+            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("90.162868", usdcDecimals))
             expect(await exchange.getPendingFundingPayment(alice.address, baseToken.address)).to.be.eq("0")
             expect((await accountBalance.getPnlAndPendingFee(alice.address))[2]).to.be.eq("0")
         })
     })
 
-    describe("# getSettlementTokenValue", async () => {
+    describe("# getSettlementTokenValue", () => {
         describe("trader has usdc balance", async () => {
             beforeEach(async () => {
                 await deposit(alice, vault, 1000, usdc)
@@ -342,10 +335,10 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
-                // funding payment: 0.78684899
-                // settlement token value: 1000 - 0.78684899 - 1111.562421 = -112.34926999
+                // funding payment: 0.786847
+                // settlement token value: 1000 - 0.786847 - 1111.562421 = -112.349268
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-112.349268", usdcDecimals),
                 )
@@ -355,12 +348,12 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150", 6), 0, 0, 0]
                 })
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 150 * 18.88437579 - 3000 = -167.3436315
-                // funding payment: 1.05365786
-                // settlement token value: 1000 - 1.05365786 - 167.3436315 = 831.60271064
+                // funding payment: 1.0395235
+                // settlement token value: 1000 - 1.0395235 - 167.3436315 = 831.616845
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("831.602712", usdcDecimals),
+                    parseUnits("831.616845", usdcDecimals),
                 )
             })
 
@@ -368,12 +361,12 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
-                // funding payment: -1.30688912
-                // settlement token value: 1000 + 1.30688912 + 399.1876422 = 1400.49453132
+                // funding payment: -1.3210218
+                // settlement token value: 1000 - (-1.3210218) + 399.1876422 = 1400.508664
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("1400.494531", usdcDecimals),
+                    parseUnits("1400.508664", usdcDecimals),
                 )
             })
 
@@ -387,17 +380,18 @@ describe("Vault test", () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
 
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
 
                 // total position size: 18.52739798
                 // total quote balance in order: 60.47455739
-                // realized PnL(funding payment): -0.00262918
-                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.40619379
+                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
                 // pending maker fee: 0.61085412
-                // pending funding payment: -0.34065972
-                // settlement token value: 1000 - 0.00262918 + 395.40619379 + 0.61085412 + 0.34065972 = 1396.35507845
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("1396.355077", usdcDecimals),
+                // pending funding payment: -0.37171688
+                // settlement token value: 1000 + 0.61085412 - (-0.37171688) + 395.406193 = 1396.388764
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
+                    parseUnits("1396.388764", usdcDecimals),
+                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                    parseUnits("0.5", usdcDecimals).toNumber(),
                 )
             })
 
@@ -409,14 +403,16 @@ describe("Vault test", () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
 
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
 
                 await closePosition(fixture, alice)
 
-                // realized PnL(including funding payment): 13.86105719
-                // settlement token value: 1000 + 13.86105719 = 1013.86105719
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("1013.861057", usdcDecimals),
+                // realized PnL (including funding payment): 13.875441
+                // settlement token value: 1000 + 13.875441 = 1013.875441
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
+                    parseUnits("1013.875441", usdcDecimals),
+                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                    parseUnits("0.5", usdcDecimals).toNumber(),
                 )
             })
 
@@ -428,14 +424,14 @@ describe("Vault test", () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
 
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
 
                 await closePosition(fixture, alice)
 
-                // realized PnL(including funding payment): -131.45498835
-                // settlement token value: 1000 - 131.45498835 = 868.54501165
+                // realized PnL (including funding payment): -131.456293
+                // settlement token value: 1000 - 131.456293 = 868.543707
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("868.545012", usdcDecimals),
+                    parseUnits("868.543707", usdcDecimals),
                 )
             })
         })
@@ -451,10 +447,10 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
-                // funding payment: 0.78684899
-                // settlement token value: -0.78684899 - 1111.562421 = -1112.34926999
+                // funding payment: -0.786847
+                // settlement token value: -0.786847 - 1111.562421 = -1112.349268
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-1112.349268", usdcDecimals),
                 )
@@ -464,12 +460,12 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
-                // funding payment: -1.30688912
-                // settlement token value: 1.30688912 + 399.1876422 = 400.49453132
+                // funding payment: -1.3158838
+                // settlement token value: 1.3158838 + 399.1876422 = 400.503526
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("400.494531", usdcDecimals),
+                    parseUnits("400.503526", usdcDecimals),
                 )
             })
 
@@ -483,23 +479,24 @@ describe("Vault test", () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
 
-                await forward(360)
+                await forwardBothTimestamps(clearingHouse, 360)
 
                 // total position size: 18.52739798
                 // total quote balance in order: 60.47455739
-                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.40619379
-                // realized PnL(funding payment): -0.00262918
+                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
                 // pending maker fee: 0.61085412
-                // pending funding payment: -0.34065972
-                // settlement token value: -0.00262918 + 395.40619379 + 0.61085412 + 0.34065972 = 396.35507845
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("396.355077", usdcDecimals),
+                // pending funding payment: -0.36089388
+                // settlement token value: 0.61085412 - (-0.36089388) + 395.406193 = 396.377941
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
+                    parseUnits("396.377941", usdcDecimals),
+                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                    parseUnits("0.15", usdcDecimals).toNumber(),
                 )
             })
         })
     })
 
-    describe("# getAccountValue", async () => {
+    describe("# getAccountValue", () => {
         beforeEach(async () => {
             await deposit(alice, vault, 500, usdc)
             await deposit(alice, vault, 0.1, weth)
@@ -512,22 +509,30 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100", 6), 0, 0, 0]
             })
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
-            // funding payment: 0.78684899
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 0.78684899 - 1111.562421 = -122.34926999
-            expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("-122.349268", usdcDecimals))
+            // funding payment: 0.80214883
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 0.80214883 - 1111.562421 = -122.364569
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("-122.364568", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.05", usdcDecimals).toNumber(),
+            )
         })
 
         it("trader has positive unrealized pnl", async () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
-            // funding payment: -1.30688912
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 1.30688912 + 399.1876422 = 1390.49453132
-            expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("1390.494531", usdcDecimals))
+            // funding payment: -1.35194469
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - (-1.35194469) + 399.1876422 = 1390.53958689
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("1390.539586", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.5", usdcDecimals).toNumber(),
+            )
         })
 
         it("trader is both maker & taker", async () => {
@@ -540,16 +545,19 @@ describe("Vault test", () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
 
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
 
             // total position size: 18.52739798
             // total quote balance in order: 60.47455739
-            // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.40619379
-            // realized PnL(funding payment): -0.00262918
+            // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
             // pending maker fee: 0.61085412
-            // pending funding payment: -0.34065972
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 0.00262918 + 395.40619379 + 0.61085412 + 0.34065972 = 1386.35507845
-            expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("1386.355077", usdcDecimals))
+            // pending funding payment: -0.39209485
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 0.61085412 - (-0.39209485) + 395.406193 = 1386.40914197
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("1386.409141", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.5", usdcDecimals).toNumber(),
+            )
         })
 
         it("trader has positive realized PnL", async () => {
@@ -560,13 +568,17 @@ describe("Vault test", () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
 
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
 
             await closePosition(fixture, alice)
 
-            // realized PnL(including funding): 13.86105719
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 13.86105719 = 1003.86105719
-            expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("1003.861057", usdcDecimals))
+            // realized PnL(including funding): 13.905703
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 13.905703 = 1003.905703
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("1003.905703", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.4", usdcDecimals).toNumber(),
+            )
         })
 
         it("trader has negative realized PnL", async () => {
@@ -577,13 +589,17 @@ describe("Vault test", () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
 
-            await forward(360)
+            await forwardBothTimestamps(clearingHouse, 360)
 
             await closePosition(fixture, alice)
 
-            // realized PnL(including funding): -131.45498835
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 131.45498835 = 858.54501165
-            expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("858.545012", usdcDecimals))
+            // realized PnL(including funding): -131.424819
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 131.424819 = 858.575181
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("858.575181", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.4", usdcDecimals).toNumber(),
+            )
         })
     })
 })

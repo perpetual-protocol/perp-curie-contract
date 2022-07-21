@@ -19,7 +19,7 @@ import {
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, filterLogs } from "../shared/utilities"
+import { encodePriceSqrt, filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -427,6 +427,7 @@ describe("ClearingHouse liquidate maker", () => {
                 await pool2.initialize(encodePriceSqrt("10", "1"))
                 await marketRegistry.addPool(baseToken2.address, "10000")
                 await exchange.setMaxTickCrossedWithinBlock(baseToken2.address, getMaxTickRange())
+                await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
                 // alice add v2 style liquidity in pool2
                 await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -704,6 +705,7 @@ describe("ClearingHouse liquidate maker", () => {
                 // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
                 getMaxTickRange(),
             )
+            await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
             // alice add v2 style liquidity on pool2
             await collateral.mint(alice.address, parseUnits("200", collateralDecimals))

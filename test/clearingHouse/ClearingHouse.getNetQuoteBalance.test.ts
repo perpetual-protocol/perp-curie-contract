@@ -59,7 +59,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
         )
 
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits("154", 6), 0, 0, 0]
         })
 
         // prepare collateral for alice

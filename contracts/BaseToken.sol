@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
-import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { IPriceFeedV2 } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedV2.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { BaseTokenStorageV2 } from "./storage/BaseTokenStorage.sol";
@@ -18,8 +18,8 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     // CONSTANT
     //
 
-    uint256 constant TWAP_INTERVAL_FOR_PAUSE = 15 * 60; // 15 minutes
-    uint256 constant MAX_WAITING_PERIOD = 5 days;
+    uint256 internal constant _TWAP_INTERVAL_FOR_PAUSE = 15 * 60; // 15 minutes
+    uint256 internal constant _MAX_WAITING_PERIOD = 5 days;
 
     //
     // EXTERNAL NON-VIEW
@@ -32,7 +32,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     ) external initializer {
         __VirtualToken_init(nameArg, symbolArg);
 
-        uint8 priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        uint8 priceFeedDecimals = IPriceFeedV2(priceFeedArg).decimals();
 
         // invalid price feed decimals
         require(priceFeedDecimals <= decimals(), "BT_IPFD");
@@ -44,7 +44,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     function pause() external onlyOwner {
         // BT_NO: Not open
         require(_status == IBaseToken.Status.Open, "BT_NO");
-        _pausedIndexPrice = getIndexPrice(TWAP_INTERVAL_FOR_PAUSE);
+        _pausedIndexPrice = getIndexPrice(_TWAP_INTERVAL_FOR_PAUSE);
         _status = IBaseToken.Status.Paused;
         _pausedTimestamp = _blockTimestamp();
         emit StatusUpdated(_status);
@@ -60,14 +60,14 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         // BT_NP: Not paused
         require(_status == IBaseToken.Status.Paused, "BT_NP");
         // BT_WPNE: Waiting period not expired
-        require(_blockTimestamp() > _pausedTimestamp + MAX_WAITING_PERIOD, "BT_WPNE");
+        require(_blockTimestamp() > _pausedTimestamp + _MAX_WAITING_PERIOD, "BT_WPNE");
         _close(_pausedIndexPrice);
     }
 
     function setPriceFeed(address priceFeedArg) external onlyOwner {
         // ChainlinkPriceFeed uses 8 decimals
         // BandPriceFeed uses 18 decimals
-        uint8 priceFeedDecimals = IPriceFeed(priceFeedArg).decimals();
+        uint8 priceFeedDecimals = IPriceFeedV2(priceFeedArg).decimals();
         // BT_IPFD: Invalid price feed decimals
         require(priceFeedDecimals <= decimals(), "BT_IPFD");
 
@@ -75,6 +75,10 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         _priceFeedDecimals = priceFeedDecimals;
 
         emit PriceFeedChanged(_priceFeed);
+    }
+
+    function cacheTwap(uint256 interval) external override {
+        IPriceFeedV2(_priceFeed).cacheTwap(interval);
     }
 
     //
@@ -133,7 +137,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     ///      2. Paused or Closed: the price is twap when the token was paused
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
         if (_status == IBaseToken.Status.Open) {
-            return _formatDecimals(IPriceFeed(_priceFeed).getPrice(interval));
+            return _formatDecimals(IPriceFeedV2(_priceFeed).getPrice(interval));
         }
 
         return _pausedIndexPrice;

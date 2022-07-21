@@ -92,6 +92,7 @@ describe("ClearingHouse liquidate", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
+        setPool1IndexPrice("151")
 
         // initialize BTC pool
         await initAndAddPool(
@@ -103,6 +104,7 @@ describe("ClearingHouse liquidate", () => {
             // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
             getMaxTickRange(),
         )
+        setPool2IndexPrice("151")
 
         // mint
         collateral.mint(alice.address, hundred)

@@ -1,7 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken, QuoteToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } from "../../typechain"
-import { ChainlinkPriceFeed, EmergencyPriceFeed } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2, EmergencyPriceFeed } from "../../typechain/perp-oracle"
 import { isAscendingTokenOrder } from "./utilities"
 
 interface TokensFixture {
@@ -42,10 +42,12 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
             return 6
         })
 
-        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeed")
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        const cacheTwapInterval = 15 * 60
         const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
             mockedAggregator.address,
-        )) as ChainlinkPriceFeed
+            cacheTwapInterval,
+        )) as ChainlinkPriceFeedV2
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const baseToken = (await baseTokenFactory.deploy()) as BaseToken

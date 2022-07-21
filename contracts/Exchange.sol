@@ -84,6 +84,7 @@ contract Exchange is
 
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
+    uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.2e6; // 20% in decimal 6
 
     //
     // EXTERNAL NON-VIEW
@@ -246,6 +247,8 @@ contract Exchange is
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
+        // if updating TWAP fails, this call will be reverted and thus using try-catch
+        try IBaseToken(baseToken).cacheTwap(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()) {} catch {}
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
@@ -339,6 +342,15 @@ contract Exchange is
             pendingFundingPayment = pendingFundingPayment.add(getPendingFundingPayment(trader, baseTokens[i]));
         }
         return pendingFundingPayment;
+    }
+
+    /// @inheritdoc IExchange
+    function isOverPriceSpread(address baseToken) external view override returns (bool) {
+        uint256 markPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 indexTwap =
+            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        uint256 spread = markPrice > indexTwap ? markPrice.sub(indexTwap) : indexTwap.sub(markPrice);
+        return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
     }
 
     //

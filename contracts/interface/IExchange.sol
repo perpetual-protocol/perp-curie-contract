@@ -88,6 +88,11 @@ interface IExchange {
     /// Positive value means the trader pays funding, negative value means the trader receives funding.
     function getAllPendingFundingPayment(address trader) external view returns (int256 pendingFundingPayment);
 
+    /// @notice Check if current price spread between market price and index twap is over maximum price spread.
+    /// @param baseToken Address of the base token
+    /// @return true if over the maximum price spread
+    function isOverPriceSpread(address baseToken) external view returns (bool);
+
     /// @notice Get the pending funding payment for a trader in a given market
     /// @dev this is the view version of _updateFundingGrowth()
     /// @return pendingFundingPayment The pending funding payment of a trader in one market,
