@@ -43,8 +43,15 @@
     "flatten": "ts-node --files scripts/flatten.ts",
     "slither": "ts-node --files scripts/slither.ts"
   },
-  "devDependencies": {
+  "dependencies": {
     "@chainlink/contracts": "0.1.7",
+    "@openzeppelin/contracts": "3.4.0",
+    "@openzeppelin/contracts-upgradeable": "3.4.2",
+    "@perp/perp-oracle-contract": "0.4.1",
+    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/v1.0.0",
+    "@uniswap/v3-periphery": "1.0.1"
+  },
+  "devDependencies": {
     "@eth-optimism/smock": "1.1.4",
     "@ethereumjs/block": "3.3.0",
     "@ethereumjs/blockchain": "5.3.0",
@@ -54,10 +61,7 @@
     "@nomiclabs/ethereumjs-vm": "4.2.2",
     "@nomiclabs/hardhat-ethers": "2.0.2",
     "@nomiclabs/hardhat-waffle": "2.0.1",
-    "@openzeppelin/contracts": "3.4.0",
-    "@openzeppelin/contracts-upgradeable": "3.4.2",
     "@openzeppelin/hardhat-upgrades": "1.10.0",
-    "@perp/perp-oracle-contract": "0.4.1",
     "@typechain/ethers-v5": "7.0.0",
     "@typechain/hardhat": "2.0.1",
     "@types/chai": "4.2.18",
@@ -65,8 +69,6 @@
     "@types/lodash": "4.14.170",
     "@types/mocha": "9.0.0",
     "@types/node": "15.6.1",
-    "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/v1.0.0",
-    "@uniswap/v3-periphery": "1.0.1",
     "bignumber.js": "9.0.1",
     "chai": "4.3.4",
     "eslint-config-prettier": "8.5.0",
