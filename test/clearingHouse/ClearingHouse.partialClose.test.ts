@@ -243,60 +243,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
     })
 
-    // https://docs.google.com/spreadsheets/d/1cVd-sM9HCeEczgmyGtdm1DH3vyoYEN7ArKfXx7DztEk/edit#gid=577678159
-    describe("partial liquidate", () => {
-        beforeEach(async () => {
-            // carol first shorts 25 eth
-            await clearingHouse.connect(carol).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: true,
-                oppositeAmountBound: 0,
-                amount: parseEther("25"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
-
-            // liquidation can't happen in the same block because it's based on the index price
-            await forwardBothTimestamps(clearingHouse)
-            await exchange.connect(admin).setMaxTickCrossedWithinBlock(baseToken.address, 100)
-
-            // set liquidator as backstop liquidity provider
-            await clearingHouseConfig.setBackstopLiquidityProvider(liquidator.address, true)
-        })
-
-        it("taker's position is partially liquidated", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-
-            // should be partially liquidated
-            // remaining position size = -25 - (-25 * 1/4) = -18.75
-            await clearingHouse
-                .connect(liquidator)
-                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
-            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-18.75"))
-        })
-
-        // values are the same as the above one
-        it("force error, partial liquidation/isOverPriceLimit can only happen once", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10000000", 6), 0, 0, 0]
-            })
-            await clearingHouse
-                .connect(liquidator)
-                ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0)
-
-            await expect(
-                clearingHouse
-                    .connect(liquidator)
-                    ["liquidate(address,address,uint256)"](carol.address, baseToken.address, 0),
-            ).to.be.revertedWith("EX_AOPLO")
-        })
-    })
-
     // solution for bad debt attack
     // https://www.notion.so/perp/isOverPriceLimit-974202d798d746e69a3bbd0ee866926b?d=f9557a7434aa4c0a9a9fe92c4efee682#da5dee7be5e4465dbde04ce522b6711a
     // only check the price before swap here

@@ -26,7 +26,7 @@ import { encodePriceSqrt, filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
-    const [admin, alice, bob, carol] = waffle.provider.getWallets()
+    const [admin, alice, bob, carol, liquidator] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
@@ -88,9 +88,11 @@ describe("Clearinghouse StopMarket", async () => {
         collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
         collateral.mint(bob.address, parseUnits("10000", collateralDecimals))
         collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
+        collateral.mint(liquidator.address, parseUnits("10000", collateralDecimals))
         await deposit(alice, vault, 10000, collateral)
         await deposit(bob, vault, 10000, collateral)
         await deposit(carol, vault, 10000, collateral)
+        await deposit(liquidator, vault, 10000, collateral)
 
         // maker add liquidity
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken.address)
@@ -812,13 +814,13 @@ describe("Clearinghouse StopMarket", async () => {
                 return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
             await expect(
-                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                clearingHouse["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")
 
             await closeMarket(baseToken, 0.0001)
 
             await expect(
-                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                clearingHouse["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")
         })
 
@@ -847,7 +849,9 @@ describe("Clearinghouse StopMarket", async () => {
 
             // liquidate bob on baseToken market
             await expect(
-                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                clearingHouse
+                    .connect(liquidator)
+                    ["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.emit(clearingHouse, "PositionLiquidated")
         })
 
@@ -877,7 +881,9 @@ describe("Clearinghouse StopMarket", async () => {
 
             // liquidate bob on baseToken market
             await expect(
-                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
+                clearingHouse
+                    .connect(liquidator)
+                    ["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.emit(clearingHouse, "PositionLiquidated")
         })
     })

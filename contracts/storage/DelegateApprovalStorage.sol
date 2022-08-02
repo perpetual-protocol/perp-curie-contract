@@ -5,5 +5,6 @@ pragma solidity 0.7.6;
 /// contract which implements DelegateApprovalStorageV1 and following the naming convention
 /// DelegateApprovalStorageVX.
 abstract contract DelegateApprovalStorageV1 {
+    // key: approvalKey, hash(delegator, delegatee)
     mapping(bytes32 => uint8) internal _approvalMap;
 }

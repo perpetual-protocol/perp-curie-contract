@@ -27,6 +27,24 @@ export function formatSqrtPriceX96ToPrice(value: BigNumber, decimals: number = 1
     return bigNumberToBig(value, 0).div(new bn(2).pow(96)).pow(2).dp(decimals).toString()
 }
 
+export function getMarginRatio(accountValue: BigNumber, totalAbsPositionValue: BigNumber): bn {
+    return new bn(accountValue.toString()).div(totalAbsPositionValue.toString())
+}
+
+export function calculateLiquidatePositionSize(
+    positionSize: BigNumber,
+    totalAbsPositionValue: BigNumber,
+    absPositionValue: BigNumber,
+): BigNumber {
+    // max liquidate ratio = MIN(1, 0.5 * totalAbsPositionValue / liquidatePositionValue)
+    let liquidateRatio = new bn(totalAbsPositionValue.toString())
+        .div(2)
+        .div(new bn(absPositionValue.toString()))
+        .decimalPlaces(6, 1)
+    liquidateRatio = bn.min(new bn(1), liquidateRatio)
+    return BigNumber.from(new bn(positionSize.toString()).multipliedBy(liquidateRatio).integerValue(1).toString())
+}
+
 export function sortedTokens(
     tokenA: VirtualToken,
     tokenB: VirtualToken,

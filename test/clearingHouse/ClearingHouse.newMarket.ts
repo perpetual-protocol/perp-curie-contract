@@ -5,7 +5,7 @@ import { waffle } from "hardhat"
 import { BaseToken, OrderBook, QuoteToken, TestClearingHouse, TestERC20, TestExchange, Vault } from "../../typechain"
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { deposit } from "../helper/token"
+import { deposit, mintAndDeposit } from "../helper/token"
 import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { getMarketTwap } from "../shared/utilities"
@@ -237,6 +237,8 @@ describe("ClearingHouse new market listing", () => {
             mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("0.000001", 6), 0, 0, 0]
             })
+
+            await mintAndDeposit(fixture, davis, 10000)
         })
 
         it("liquidate process", async () => {
@@ -244,13 +246,12 @@ describe("ClearingHouse new market listing", () => {
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken3.address)
 
-            // can't liquidate position in baseToken3(paused market)
-            await expect(
-                clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken3.address, 0),
-            ).to.be.revertedWith("EX_MIP")
+            // can liquidate position in baseToken3(paused market),
+            // due to liquidator takes over the position from trader instead of selling the position in market.
+            await clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken3.address)
 
             // can liquidate position in baseToken market
-            await clearingHouse["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0)
+            await clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address)
         })
     })
 })

@@ -221,4 +221,15 @@ interface IAccountBalance {
     /// @param trader The address of trader
     /// @return totalAbsPositionValue Sum up positions value of every market
     function getTotalAbsPositionValue(address trader) external view returns (uint256 totalAbsPositionValue);
+
+    /// @notice Get liquidatable position size of trader's baseToken market
+    /// @param trader The address of trader
+    /// @param baseToken The address of baseToken
+    /// @param accountValue The account value of trader
+    /// @return liquidatablePositionSize The liquidatable position size of trader's baseToken market
+    function getLiquidatablePositionSize(
+        address trader,
+        address baseToken,
+        int256 accountValue
+    ) external view returns (int256);
 }
