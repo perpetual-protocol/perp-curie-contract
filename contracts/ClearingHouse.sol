@@ -804,6 +804,12 @@ contract ClearingHouse is
         for (uint256 i = 0; i < length; i++) {
             OpenOrder.Info memory order = IOrderBook(_orderBook).getOpenOrderById(orderIds[i]);
 
+            // CH_ONBM: order is not belongs to this maker
+            require(
+                OpenOrder.calcOrderKey(maker, baseToken, order.lowerTick, order.upperTick) == orderIds[i],
+                "CH_ONBM"
+            );
+
             IOrderBook.RemoveLiquidityResponse memory response =
                 _removeLiquidity(
                     IOrderBook.RemoveLiquidityParams({
