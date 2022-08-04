@@ -43,4 +43,8 @@ contract TestPerpMath {
     function testMulRatio(uint256 value, uint24 ratio) external pure returns (uint256) {
         return value.mulRatio(ratio);
     }
+
+    function testMulRatio(int256 value, uint24 ratio) external pure returns (int256) {
+        return value.mulRatio(ratio);
+    }
 }
