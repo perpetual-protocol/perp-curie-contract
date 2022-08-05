@@ -554,6 +554,36 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return (maxRepaidSettlementX10_S, maxLiquidatableCollateral);
     }
 
+    /// @inheritdoc IVault
+    /// @dev will only settle the bad debt when trader didn't have position and non-settlement collateral
+    function settleBadDebt(address trader) public override {
+        // trader has position or trader has non-settlement collateral
+        if (
+            IAccountBalance(_accountBalance).getBaseTokens(trader).length != 0 ||
+            _collateralTokensMap[trader].length != 0
+        ) {
+            return;
+        }
+
+        // assume trader has no position and no non-settlement collateral
+        // so accountValue = settlement token balance
+        (int256 accountValueX10_18, ) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
+        int256 accountValueX10_S = accountValueX10_18.formatSettlementToken(_decimals);
+
+        if (accountValueX10_S >= 0) {
+            return;
+        }
+
+        // settle bad debt for trader
+        int256 badDebt = accountValueX10_S.neg256();
+        address settlementToken = _settlementToken; // SLOAD gas saving
+        _modifyBalance(_insuranceFund, settlementToken, accountValueX10_S);
+        _modifyBalance(trader, settlementToken, badDebt);
+
+        uint256 absBadDebt = badDebt.toUint256();
+        emit BadDebtSettled(trader, absBadDebt);
+    }
+
     //
     // INTERNAL NON-VIEW
     //
@@ -642,14 +672,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         int256 deltaBalance = amount.toInt256().neg256();
         if (token == _settlementToken) {
-            // borrow settlement token from insurance fund if the token balance in Vault is not enough
-            uint256 vaultBalanceX10_S = IERC20Metadata(token).balanceOf(address(this));
-            if (vaultBalanceX10_S < amount) {
-                uint256 borrowedAmountX10_S = amount - vaultBalanceX10_S;
-                IInsuranceFund(_insuranceFund).borrow(borrowedAmountX10_S);
-                _totalDebt += borrowedAmountX10_S;
-            }
-
             // settle both the withdrawn amount and owedRealizedPnl to collateral
             int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
             deltaBalance = deltaBalance.add(owedRealizedPnlX10_18.formatSettlementToken(_decimals));
@@ -760,6 +782,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             insuranceFundFeeX10_S,
             discountRatio
         );
+
+        settleBadDebt(trader);
     }
 
     //

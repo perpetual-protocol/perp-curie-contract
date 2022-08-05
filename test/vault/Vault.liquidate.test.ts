@@ -4,6 +4,8 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
+    ClearingHouse,
+    ClearingHouseConfig,
     CollateralManager,
     InsuranceFund,
     MarketRegistry,
@@ -28,9 +30,11 @@ import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 
-describe("Vault liquidate test", () => {
+describe("Vault LiquidateCollateral", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
+    let clearingHouse: ClearingHouse
+    let clearingHouseConfig: ClearingHouseConfig
     let vault: TestVault
     let usdc: TestERC20
     let weth: TestERC20
@@ -52,6 +56,8 @@ describe("Vault liquidate test", () => {
 
     beforeEach(async () => {
         const _fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = _fixture.clearingHouse
+        clearingHouseConfig = _fixture.clearingHouseConfig
         vault = _fixture.vault as TestVault
         usdc = _fixture.USDC
         weth = _fixture.WETH
@@ -99,6 +105,7 @@ describe("Vault liquidate test", () => {
         await addOrder(fixture, bob, 500, 1000000, 0, 150000)
 
         // Carol will liquidate Alice's position
+        await clearingHouseConfig.setBackstopLiquidityProvider(carol.address, true)
         const usdcAmount = parseUnits("10000", usdcDecimals)
         await usdc.mint(carol.address, usdcAmount)
         await usdc.connect(carol).approve(vault.address, usdcAmount)
@@ -864,6 +871,114 @@ describe("Vault liquidate test", () => {
                 )
 
                 expect(await vault.getCollateralTokens(alice.address)).to.be.deep.eq([weth.address, wbtc.address])
+            })
+        })
+
+        describe("# settle bad debt", async () => {
+            beforeEach(async () => {
+                // set a large debt dust for convenience
+                await collateralManager.setCollateralValueDust(parseUnits("100000", usdcDecimals))
+
+                // alice continue to open long position
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await q2bExactInput(fixture, alice, 10000)
+
+                // bob short to make alice has bad debt
+                await b2qExactOutput(fixture, bob, 80000)
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            })
+
+            it("do not settle bad debt if user still has position after liquidation", async () => {
+                // liquidate collaterals
+                await expect(
+                    vault.connect(carol).liquidateCollateral(alice.address, weth.address, parseEther("1"), false),
+                ).not.emit(vault, "BadDebtSettled")
+                await expect(
+                    vault
+                        .connect(carol)
+                        .liquidateCollateral(alice.address, xxx.address, parseUnits("1.1237", xxxDecimals), false),
+                ).not.emit(vault, "BadDebtSettled")
+                await expect(
+                    vault
+                        .connect(carol)
+                        .liquidateCollateral(
+                            alice.address,
+                            wbtc.address,
+                            parseUnits("0.02355323", wbtcDecimals),
+                            false,
+                        ),
+                ).not.emit(vault, "BadDebtSettled")
+
+                // alice still has bad debt after collateral liquidations
+                expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
+                expect(await vault.getAccountValue(insuranceFund.address)).to.be.gt("0")
+            })
+
+            it("do not settle bad debt if user still has non-settlement collateral after liquidation", async () => {
+                // deposit 5000 to liquidate position, and remaining 5000 is for liquidate collateral
+                await vault.connect(carol).deposit(usdc.address, parseUnits("5000", 6))
+
+                // liquidate alice's position
+                await expect(
+                    clearingHouse.connect(carol)["liquidate(address,address)"](alice.address, baseToken.address),
+                ).not.emit(vault, "BadDebtSettled")
+                expect((await accountBalance.getBaseTokens(alice.address)).length).to.be.eq(0)
+
+                // liquidate collateral weth
+                await expect(
+                    vault.connect(carol).liquidateCollateral(alice.address, weth.address, parseEther("1"), false),
+                ).not.emit(vault, "BadDebtSettled")
+                const IFFee = parseUnits("81", usdcDecimals) // 3000 * 0.9 * 0.03 = 81
+
+                // alice still has bad debt
+                expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
+                expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq(IFFee)
+            })
+
+            it("settle bad debt after last liquidation", async () => {
+                // deposit 5000 to liquidate position, and remaining 5000 is for liquidate collateral
+                await vault.connect(carol).deposit(usdc.address, parseUnits("5000", 6))
+
+                // liquidate alice's position
+                await expect(
+                    clearingHouse.connect(carol)["liquidate(address,address)"](alice.address, baseToken.address),
+                ).not.emit(vault, "BadDebtSettled")
+                expect((await accountBalance.getBaseTokens(alice.address)).length).to.be.eq(0)
+
+                // liquidate collaterals
+                await expect(
+                    vault.connect(carol).liquidateCollateral(alice.address, weth.address, parseEther("1"), false),
+                ).not.emit(vault, "BadDebtSettled")
+                await expect(
+                    vault
+                        .connect(carol)
+                        .liquidateCollateral(alice.address, xxx.address, parseUnits("1.1237", xxxDecimals), false),
+                ).not.emit(vault, "BadDebtSettled")
+
+                const IFBalanceBefore = await vault.getAccountValue(insuranceFund.address)
+
+                // in last liquidation, settle bad debt
+                const badDebt = parseUnits("11269.339945", usdcDecimals)
+                const IFFee = parseUnits("24.536583", usdcDecimals) // 817.886106 * 0.03 = 24.536583
+                await expect(
+                    vault
+                        .connect(carol)
+                        .liquidateCollateral(
+                            alice.address,
+                            wbtc.address,
+                            parseUnits("0.02355323", wbtcDecimals),
+                            false,
+                        ),
+                )
+                    .emit(vault, "BadDebtSettled")
+                    .withArgs(alice.address, badDebt)
+
+                // alice's account value should be zero now
+                expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
+                // IF's account value decreased
+                expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq(
+                    badDebt.mul("-1").add(IFBalanceBefore).add(IFFee),
+                )
             })
         })
     })

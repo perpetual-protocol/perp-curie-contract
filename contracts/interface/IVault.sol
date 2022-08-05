@@ -51,6 +51,11 @@ interface IVault {
     /// @param WETH9 The address of WETH9
     event WETH9Changed(address indexed WETH9);
 
+    /// @notice Emitted when bad debt realized and settled
+    /// @param trader Address of the trader
+    /// @param amount Absolute amount of bad debt
+    event BadDebtSettled(address indexed trader, uint256 amount);
+
     /// @notice Deposit collateral into vault
     /// @param token The address of the token to deposit
     /// @param amount The amount of the token to deposit
@@ -106,6 +111,10 @@ interface IVault {
         uint256 amount,
         bool isDenominatedInSettlementToken
     ) external returns (uint256 returnAmount);
+
+    /// @notice Settle trader's bad debt
+    /// @param trader The address of trader that will be settled
+    function settleBadDebt(address trader) external;
 
     /// @notice Get the specified trader's settlement token balance, without pending fee, funding payment
     ///         and owed realized PnL

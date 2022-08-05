@@ -726,6 +726,8 @@ contract ClearingHouse is
             liquidationPenalty,
             liquidator
         );
+
+        IVault(_vault).settleBadDebt(trader);
     }
 
     /// @dev Calculate how much profit/loss we should realize,

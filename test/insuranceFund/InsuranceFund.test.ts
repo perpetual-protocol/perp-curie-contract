@@ -1,42 +1,55 @@
-// TODO feature is not implemented yet.
-describe.skip("InsuranceFund integration", () => {
-    describe("collect = min(usdcCollateral, (vault.balance(IF) - insuranceRatioThreshold / insuranceRatio * openInterestNotional))", () => {
-        describe("collectableBalance > 0", () => {
-            it("decrease vault.getBalance(IF)")
-            it("increase USDC.balanceOf(treasury)")
+import { loadFixture } from "@ethereum-waffle/provider"
+import { expect } from "chai"
+import { parseEther, parseUnits } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
+import { InsuranceFund, TestAccountBalance, TestERC20, Vault } from "../../typechain"
+import { createClearingHouseFixture } from "../clearingHouse/fixtures"
 
-            // TODO discuss
-            it("can not collect again in x period")
+describe("InsuranceFund Test", () => {
+    const [admin] = waffle.provider.getWallets()
+    let vault: Vault
+    let usdc: TestERC20
+    let usdcDecimals: number
+    let insuranceFund: InsuranceFund
+    let accountBalance: TestAccountBalance
 
-            // TODO discuss
-            it("called by keeper or admin")
+    beforeEach(async () => {
+        const _fixture = await loadFixture(createClearingHouseFixture(true))
+        vault = _fixture.vault
+        accountBalance = _fixture.accountBalance as TestAccountBalance
+        usdc = _fixture.USDC
+        usdcDecimals = await usdc.decimals()
+        insuranceFund = _fixture.insuranceFund
+
+        await usdc.mint(admin.address, parseUnits("200000", usdcDecimals))
+        await usdc.connect(admin).approve(vault.address, ethers.constants.MaxUint256)
+    })
+
+    describe("# repay()", () => {
+        it("force error when IF account value is gt 0", async () => {
+            await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("100"))
+            const accountValue = await vault.getAccountValue(insuranceFund.address)
+            expect(accountValue).to.be.gt("0")
+
+            await expect(insuranceFund.repay()).to.be.revertedWith("IF_RWN")
         })
-        it("force error, collectableBalance is 0")
-        it("force error, invalid collector")
-    })
 
-    describe("borrow", () => {
-        it("force error, invalid borrower (only vault)")
+        it("repay when IF balance less than accountValue.abs()", async () => {
+            await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-100"))
+            await usdc.mint(insuranceFund.address, parseUnits("50", usdcDecimals))
 
-        // TODO: TBC
-        it.skip("provide fund from slash or liquidate staking")
-    })
-})
+            await expect(insuranceFund.repay())
+                .to.be.emit(insuranceFund, "Repaid")
+                .withArgs(parseUnits("50", usdcDecimals), parseUnits("0", usdcDecimals))
+        })
 
-// TODO feature is not implemented yet.
-describe("ClearingHouse integrates with InsuranceFund", () => {
-    // TODO when to settle IF's vQuote to vault? it's doable if vault can call ch.settle(IF)
-    // harder to impl if CH settle itself bcs it's triggered when vault has not enough collateral
-})
+        it("repay when IF balance greater than accountValue.abs()", async () => {
+            await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-100"))
+            await usdc.mint(insuranceFund.address, parseUnits("110", usdcDecimals))
 
-// TODO feature is not implemented yet.
-describe.skip("Vault integrates with InsuranceFund", () => {
-    describe("the collateral is not enough for withdrawal their profit", () => {
-        it("increase insuranceFund.balance, repay in the future")
-    })
-
-    describe("cover bad debt", () => {
-        it("borrower from insurance fund, never repay")
-        it("vault.getBalance(InsuranceFund) remains the same")
+            await expect(insuranceFund.repay())
+                .to.be.emit(insuranceFund, "Repaid")
+                .withArgs(parseUnits("100", usdcDecimals), parseUnits("10", usdcDecimals))
+        })
     })
 })
