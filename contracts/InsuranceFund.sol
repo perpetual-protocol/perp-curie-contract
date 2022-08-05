@@ -2,23 +2,35 @@
 pragma solidity 0.7.6;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
+import {
+    SafeERC20Upgradeable,
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
+import { ISurplusBeneficiary } from "@perp/voting-escrow/contracts/interface/ISurplusBeneficiary.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
+import { InsuranceFundStorageV2 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IVault } from "./interface/IVault.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
+contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV2 {
     using AddressUpgradeable for address;
     using SignedSafeMathUpgradeable for int256;
     using PerpMath for int256;
+    using PerpSafeCast for int256;
     using PerpSafeCast for uint256;
+
+    //
+    // MODIFIER
+    //
 
     function initialize(address tokenArg) external initializer {
         // token address is not contract
@@ -35,6 +47,22 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         require(borrowerArg.isContract(), "IF_BNC");
         _borrower = borrowerArg;
         emit BorrowerChanged(borrowerArg);
+    }
+
+    function setThreshold(uint256 threshold) external onlyOwner {
+        _threshold = threshold;
+        emit ThresholdChanged(threshold);
+    }
+
+    function setSurplusBeneficiary(address surplusBeneficiary) external onlyOwner {
+        // IF_SNC: surplusBeneficiary is not a contract
+        require(surplusBeneficiary.isContract(), "IF_SNC");
+
+        // IF_TNM: token is not match
+        require(ISurplusBeneficiary(surplusBeneficiary).getToken() == _token, "IF_TNM");
+
+        _surplusBeneficiary = surplusBeneficiary;
+        emit SurplusBeneficiaryChanged(surplusBeneficiary);
     }
 
     /// @inheritdoc IInsuranceFund
@@ -65,6 +93,48 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     //
 
     /// @inheritdoc IInsuranceFund
+    function distributeFee() external override nonReentrant whenNotPaused {
+        address vault = _borrower;
+        address token = _token;
+        address surplusBeneficiary = _surplusBeneficiary;
+        int256 threshold = _threshold.toInt256();
+
+        // IF_SNS: surplusBeneficiary not yet set
+        require(surplusBeneficiary != address(0), "IF_SNS");
+
+        // IF_TEZ: threshold is equal to zero
+        require(threshold > 0, "IF_TEZ");
+
+        // This assumes `token` is always Insurance Fund's sole collateral.
+        // Normally it won't happen, but in theory other users could send any collateral to
+        // Insurance Fund through `depositFor()` and they will be ignored.
+        int256 insuranceFundFreeCollateral = IVault(vault).getFreeCollateralByToken(address(this), token).toInt256();
+
+        int256 insuranceFundWalletBalance = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
+        int256 insuranceFundTotalBalance = insuranceFundWalletBalance.add(insuranceFundFreeCollateral);
+
+        int256 overThreshold = PerpMath.max(insuranceFundTotalBalance.sub(threshold), 0);
+        uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
+
+        // IF_NSP: no surplus
+        require(surplus > 0, "IF_NSP");
+
+        // this should always work since surplus <= insuranceFundFreeCollateral
+        IVault(vault).withdraw(token, surplus);
+        // this should always work since IF would have at least `surplus` USDC by now
+        SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(token), surplusBeneficiary, surplus);
+
+        ISurplusBeneficiary(surplusBeneficiary).dispatch();
+
+        emit FeeDistributed(
+            surplus,
+            insuranceFundWalletBalance.toUint256(),
+            insuranceFundFreeCollateral.toUint256(),
+            threshold.toUint256()
+        );
+    }
+
+    /// @inheritdoc IInsuranceFund
     function getToken() external view override returns (address) {
         return _token;
     }
@@ -72,6 +142,16 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     /// @inheritdoc IInsuranceFund
     function getBorrower() external view override returns (address) {
         return _borrower;
+    }
+
+    /// @inheritdoc IInsuranceFund
+    function getThreshold() external view override returns (uint256) {
+        return _threshold;
+    }
+
+    /// @inheritdoc IInsuranceFund
+    function getSurplusBeneficiary() external view override returns (address) {
+        return _surplusBeneficiary;
     }
 
     //
