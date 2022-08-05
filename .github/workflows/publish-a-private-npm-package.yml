@@ -8,19 +8,12 @@ on:
         default: '0.0.1-alpha.1'
         description: will be put in 'version' field of package.json. Should not duplicate with existing version. e.g.'0.0.1-alpha.1'
 jobs:
-  publish-npm-package:
+  publish-private-npm-package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           persist-credentials: false
-
-      # fix SSH error: git@github.com: Permission denied (publickey).
-      # copy from https://github.com/actions/setup-node/issues/214#issuecomment-810829250
-      - name: Reconfigure git to use HTTP authentication
-        run: >
-          git config --global url."https://github.com/".insteadOf
-          ssh://git@github.com/
 
       - name: Get npm cache directory
         id: npm-cache
@@ -62,3 +55,10 @@ jobs:
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: "npm package @perpetual-protocol/lushan@${{ github.event.inputs.version }} ${{github.ref}} released on github package"
