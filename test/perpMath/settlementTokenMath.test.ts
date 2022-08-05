@@ -283,10 +283,16 @@ describe("SettlementTokenMath test", async () => {
             ).to.be.eq(parseUnits("-1000", 8))
         })
 
-        it("format with precision loss to 8 decimals", async () => {
+        it("format with rounding down on positive number", async () => {
             expect(
                 await settlementTokenMath["testFormatSettlementToken(int256,uint8)"]("100123456789123456789", 8),
             ).to.be.eq("10012345678")
+        })
+
+        it("format with rounding down on negative number", async () => {
+            expect(
+                await settlementTokenMath["testFormatSettlementToken(int256,uint8)"]("-100123456789123456789", 8),
+            ).to.be.eq("-10012345679")
         })
     })
 
@@ -323,7 +329,7 @@ describe("SettlementTokenMath test", async () => {
             ).to.be.eq(parseEther("-1000"))
         })
 
-        it("convert with precision loss from 18 to 8 decimals", async () => {
+        it("convert with rounding down on positive number from 18 to 8 decimals", async () => {
             expect(
                 await settlementTokenMath["testConvertTokenDecimals(int256,uint8,uint8)"](
                     "100123456789123456789",
@@ -331,6 +337,16 @@ describe("SettlementTokenMath test", async () => {
                     8,
                 ),
             ).to.be.eq("10012345678")
+        })
+
+        it("convert with rounding down on negative number from 18 to 8 decimals", async () => {
+            expect(
+                await settlementTokenMath["testConvertTokenDecimals(int256,uint8,uint8)"](
+                    "-100123456789123456789",
+                    18,
+                    8,
+                ),
+            ).to.be.eq("-10012345679")
         })
     })
 })

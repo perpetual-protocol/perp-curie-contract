@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+
+## [2.1.0] - TBD
+### Added 
+- Add `Vault.withdrawAll()` to withdraw all free collateral(specified) from vault
+- Add `Vault.withdrawAllEther()` to withdraw all ETH from vault
+
+### Changed 
+- Update return parameter names in NatSpec
+
+### Fixed
+- Fix rounding issue when liquidating collaterals in full
+- Fix collateral value precision and underlying rounding issues
+
 ## [2.0.0] - TBD
 ### Changed
 - `liquidate()` becomes position transfer instead of market selling. **So liquidators now require collaterals to do liquidation.**

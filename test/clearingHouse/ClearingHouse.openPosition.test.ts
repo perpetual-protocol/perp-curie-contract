@@ -693,7 +693,7 @@ describe("ClearingHouse openPosition", () => {
             // free collateral will be less than original number bcs of fees
             // 1000 - 0.039800000000000043 = 999.9602
             const freeCollateral = await vault.getFreeCollateral(taker.address)
-            expect(freeCollateral).deep.eq(parseUnits("999.960200", 6))
+            expect(freeCollateral).deep.eq(parseUnits("999.960199", 6))
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
             expect(await accountBalance.getTakerPositionSize(taker.address, baseToken.address)).to.be.eq("0")
@@ -837,7 +837,7 @@ describe("ClearingHouse openPosition", () => {
 
             // collateral will be less than original number bcs of fees
             const freeCollateral = await vault.getFreeCollateral(taker.address)
-            expect(freeCollateral).deep.eq(parseUnits("999.613355", collateralDecimals))
+            expect(freeCollateral).deep.eq(parseUnits("999.613354", collateralDecimals))
 
             expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).to.eq("0")
         })
@@ -1382,7 +1382,7 @@ describe("ClearingHouse openPosition", () => {
                 //                 = 100 + 0.0101010101 - (2.0155940262004575) * 0.1
                 //                 = 99.80854160747995
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.808542", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.808541", collateralDecimals))
             })
 
             it("add other market liquidity below the current tick", async () => {
@@ -1425,7 +1425,7 @@ describe("ClearingHouse openPosition", () => {
                 //                 = 100.0101010101 - (2.0155940262) * 0.1
                 //                 = 99.8085416075
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.808542", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.808541", collateralDecimals))
             })
         })
     })
