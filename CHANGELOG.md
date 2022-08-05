@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.2.0] - TBD
+### Added
 - Add `Vault.settleBadDebt()`
 - Add `InsuranceFund.repay()`
 - Add new event `Repaid`, `BadDebtSettled`
+### Removed
 - Remove `InsuranceFund.borrow()`
 
 ## [2.1.0] - TBD
