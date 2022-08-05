@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.3.0] - TBD
+### Added
+- Add `Insurance.distributeFee()`
+- Add `Insurance.getThreshold()`
+- Add `Insurance.getSurplusBeneficiary()`
+- Add new event `ThresholdChanged`, `SurplusBeneficiaryChanged`, `FeeDistributed` to `InsuranceFund`
+
 ## [2.2.1] - TBD
 - Add `InsuranceFund.getInsuranceFundCapacity()`
 
