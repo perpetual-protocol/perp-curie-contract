@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+- Add `Insurance.distributeFee()`
+- Add `Insurance.getThreshold()`
+- Add `Insurance.getSurplusBeneficiary()`
+- Add new event `ThresholdChanged`, `SurplusBeneficiaryChanged`, `FeeDistributed` to `InsuranceFund`
+
+## [x.x.x] - TBD
 - Add `Vault.settleBadDebt()`
 - Add `InsuranceFund.repay()`
 - Add new event `Repaid`, `BadDebtSettled`
