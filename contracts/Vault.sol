@@ -557,6 +557,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     /// @inheritdoc IVault
     /// @dev will only settle the bad debt when trader didn't have position and non-settlement collateral
     function settleBadDebt(address trader) public override {
+        // V_CSI: can't settle insuranceFund
+        require(trader != _insuranceFund, "V_CSI");
+
         // trader has position or trader has non-settlement collateral
         if (
             IAccountBalance(_accountBalance).getBaseTokens(trader).length != 0 ||
