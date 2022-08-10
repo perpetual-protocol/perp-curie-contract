@@ -485,4 +485,51 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await expect(tx2).to.emit(clearingHouse, "LiquidityChanged")
         })
     })
+
+    it("can't liquidate others order", async () => {
+        const aliceOrderId = (await orderBook.getOpenOrderIds(alice.address, baseToken.address))[0]
+
+        // prepare collateral for bob, bob adds liquidity
+        const amount = parseUnits("10", await collateral.decimals())
+        await collateral.transfer(bob.address, amount)
+        await deposit(bob, vault, 10, collateral)
+        baseAmount = parseUnits("1", await baseToken.decimals())
+        await clearingHouse.connect(bob).addLiquidity({
+            baseToken: baseToken.address,
+            base: baseAmount,
+            quote: 0,
+            lowerTick: 92000,
+            upperTick: 92400,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+        const bobOrderId = (await orderBook.getOpenOrderIds(bob.address, baseToken.address))[0]
+
+        // alice add another range same as bob
+        await collateral.transfer(alice.address, amount)
+        await deposit(alice, vault, 10, collateral)
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: baseAmount,
+            quote: 0,
+            lowerTick: 92000,
+            upperTick: 92400,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+        expect(aliceOrderId).not.eq(bobOrderId)
+
+        // move the price to make alice's position liquidatable
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("100000", 6), 0, 0, 0]
+        })
+
+        await expect(
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address, [aliceOrderId, bobOrderId]),
+        ).be.revertedWith("CH_ONBM")
+    })
 })

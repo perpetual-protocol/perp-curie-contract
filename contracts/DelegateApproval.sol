@@ -121,12 +121,21 @@ contract DelegateApproval is IDelegateApproval, BlockContext, SafeOwnable, Deleg
         return _hasApprovalFor(trader, delegate, _CLEARINGHOUSE_OPENPOSITION);
     }
 
+    /// @inheritdoc IDelegateApproval
+    function canAddLiquidityFor(address trader, address delegate) external view override returns (bool) {
+        return _hasApprovalFor(trader, delegate, _CLEARINGHOUSE_ADDLIQUIDITY);
+    }
+
+    /// @inheritdoc IDelegateApproval
+    function canRemoveLiquidityFor(address trader, address delegate) external view override returns (bool) {
+        return _hasApprovalFor(trader, delegate, _CLEARINGHOUSE_REMOVELIQUIDITY);
+    }
+
     //
     // INTERNAL VIEW
     //
 
     function _getApprovalKey(address trader, address delegate) internal pure returns (bytes32) {
-        // hash `trader-delegate` as key
         return keccak256(abi.encode(trader, delegate));
     }
 
