@@ -74,6 +74,10 @@ library PerpMath {
         return FullMath.mulDiv(value, ratio, 1e6);
     }
 
+    function mulRatio(int256 value, uint24 ratio) internal pure returns (int256) {
+        return mulDiv(value, int256(ratio), 1e6);
+    }
+
     function divRatio(uint256 value, uint24 ratio) internal pure returns (uint256) {
         return FullMath.mulDiv(value, 1e6, ratio);
     }

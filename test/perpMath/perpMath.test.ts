@@ -10,6 +10,7 @@ describe("PerpMath test", async () => {
     const maxUint160 = BigNumber.from(2).pow(160).sub(1)
     const maxInt256 = BigNumber.from(2).pow(255).sub(1)
     const minInt256 = BigNumber.from(2).pow(255).mul(-1)
+    const maxUint24 = BigNumber.from(2).pow(24).sub(1)
 
     let perpMath
 
@@ -60,10 +61,38 @@ describe("PerpMath test", async () => {
         expect(await perpMath["testDivBy10_18(uint256)"](maxUint256)).to.be.deep.eq(maxUint256.div(x10_18))
     })
 
-    it("mulRatio", async () => {
-        // per on FullMath.mulDiv() specs, max input without overflow
-        const value = BigNumber.from(2).pow(256).sub(1).div(2)
-        const ratio = x10_6.mul(2)
-        expect(await perpMath.testMulRatio(value, ratio)).to.be.deep.eq(value.mul(ratio).div(x10_6))
+    describe("mulRatio", () => {
+        it("equals to uint256.mul().div(1e6)", async () => {
+            // per on FullMath.mulDiv() specs, max input without overflow
+            const value = BigNumber.from(2).pow(256).sub(1).div(2)
+            const ratio = x10_6.mul(2)
+            expect(await perpMath["testMulRatio(uint256,uint24)"](value, ratio)).to.be.deep.eq(
+                value.mul(ratio).div(x10_6),
+            )
+        })
+
+        it("equals to int256.mul().div(1e6)", async () => {
+            // per on FullMath.mulDiv() specs, max input without overflow
+            const value = BigNumber.from(2).pow(255).sub(1).div(2)
+            const ratio = x10_6.mul(2)
+            expect(await perpMath["testMulRatio(int256,uint24)"](value, ratio)).to.be.deep.eq(
+                value.mul(ratio).div(x10_6),
+            )
+        })
+
+        it("equals to 0 if any of the input is 0", async () => {
+            expect(await perpMath["testMulRatio(uint256,uint24)"](1, 0)).to.be.eq(0)
+            expect(await perpMath["testMulRatio(uint256,uint24)"](0, 1)).to.be.eq(0)
+            expect(await perpMath["testMulRatio(int256,uint24)"](1, 0)).to.be.eq(0)
+            expect(await perpMath["testMulRatio(int256,uint24)"](0, 1)).to.be.eq(0)
+        })
+
+        it("throw error when overflow", async () => {
+            await expect(perpMath["testMulRatio(uint256,uint24)"](maxUint256, maxUint24)).to.be.reverted
+        })
+
+        it("throw error when underflow", async () => {
+            await expect(perpMath["testMulRatio(int256,uint24)"](minInt256, maxUint24)).to.be.reverted
+        })
     })
 })

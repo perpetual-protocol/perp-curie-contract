@@ -15,7 +15,7 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeOrder } from "../helper/clearingHouseHelper"
+import { addOrder, b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initAndAddPool } from "../helper/marketHelper"
 import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -124,7 +124,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 6.510
                 // realized PnL: 6.510 - 800 = -793.490
                 // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
             })
 
             it("cannot reduce position when user has bad debt", async () => {
@@ -132,7 +132,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 1.655
                 // realized PnL: 1.655 - 2/7.866 * 800 = -201.7520684
                 // account value: 100 + 5.866 * 103.222 - 800 + 1.65 = -92.850 (bad debt)
-                await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_BD")
+                await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEMRM")
             })
 
             it("cannot reduce when not resulting bad debt but with not enough collateral", async () => {
@@ -156,80 +156,6 @@ describe("ClearingHouse badDebt", () => {
                 )
             })
 
-            it("cannot liquidate bad debt position by non backstop liquidity provider", async () => {
-                // sync index price to market price so that bob can be liquidated
-                // current index price: 0.829
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
-
-                // close bob's position by liquidation
-                // exchanged notional: 6.510
-                // realized PnL: 6.510 - 800 = -793.490
-                // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
-                await expect(
-                    clearingHouse
-                        .connect(alice)
-                        ["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
-                ).to.be.revertedWith("CH_BD")
-            })
-
-            it("can liquidate bad debt position by backstop liquidity provider", async () => {
-                // add alice to backstop liquidity provider
-                await clearingHouseConfig.setBackstopLiquidityProvider(alice.address, true)
-
-                // sync index price to market price so that bob can be liquidated
-                // current index price: 0.829
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
-
-                // close bob's position by liquidation
-                // exchanged notional: 6.510
-                // realized PnL: 6.510 - 800 = -793.490
-                // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
-                // liquidation fee: 0.162
-                await expect(
-                    clearingHouse
-                        .connect(alice)
-                        ["liquidate(address,address,uint256)"](bob.address, baseToken.address, 0),
-                ).to.emit(clearingHouse, "PositionLiquidated")
-
-                // now every one close position and withdraw their balances
-                await closePosition(fixture, alice)
-
-                // remove alice's liquidity
-                const aliceLiquidity = (
-                    await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
-                ).liquidity
-                await removeOrder(fixture, alice, aliceLiquidity, lowerTick, upperTick, baseToken.address)
-                expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo(
-                    "0",
-                    100,
-                )
-
-                // all user's withdrawable amount
-                const bobFreeCollateral = await vault.getFreeCollateral(bob.address)
-                expect(bobFreeCollateral).to.eq(0)
-
-                // alice's pnl = 784.404287
-                // account value = 100,784.404287
-                // margin requirement = 0, since she has already closed position and withdrawn liquidity
-                const aliceFreeCollateral = await vault.getFreeCollateral(alice.address)
-                expect(aliceFreeCollateral).to.be.eq(parseUnits("100784.404287", await collateral.decimals()))
-                // IF gets (800 + 46247 + 6.51035726807423 + 45500) * 0.0001 = 9.255379 as fees
-                const ifBalance = await vault.getFreeCollateral(insuranceFund.address)
-                expect(ifBalance).to.be.eq(parseUnits("9.255379", await collateral.decimals()))
-
-                // total free collateral =
-                // 100000(alice's deposited collateral) + 100(bob's deposited collateral) + 693.49(bob's bad debt) + 0.162(liquidation fee)
-                // = 100793.65
-                const totalFreeCollateral = aliceFreeCollateral.add(ifBalance)
-                expect(totalFreeCollateral).to.be.eq(parseUnits("100793.659666", await collateral.decimals()))
-                // total free collateral > total deposits, meaning that there is bad debt
-                expect(totalFreeCollateral).to.be.gt(parseUnits("100100", await collateral.decimals()))
-            })
-
             it("cannot close position with partial close when trader has bad debt", async () => {
                 // set max price impact to 0.1% to trigger partial close
                 await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 10)
@@ -238,7 +164,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 1.629
                 // realized PnL: 1.629 - 800 * 0.25 = -198.371
                 // account value: 100 + 7.866 * 75% * 103.222 - 800 + 1.629 = -89.413 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_BD")
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
             })
         })
 
@@ -266,7 +192,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 103.013
                 // realized PnL: 103.013 - 1/7.866 * 800 = 1.20991652
                 // account value: 100 + 6.866 * 10 - 800 + 103.013 = -528.327 (bad debt)
-                await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_BD")
+                await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_NEMRM")
             })
         })
     })
