@@ -49,4 +49,14 @@ interface IDelegateApproval {
     /// @param delegate The address of delegate
     /// @return true if delegate can open position for trader, otherwise false
     function canOpenPositionFor(address trader, address delegate) external view returns (bool);
+
+    /// @param trader The address of trader
+    /// @param delegate The address of delegate
+    /// @return true if delegate can add liquidity for trader, otherwise false
+    function canAddLiquidityFor(address trader, address delegate) external view returns (bool);
+
+    /// @param trader The address of trader
+    /// @param delegate The address of delegate
+    /// @return true if delegate can remove liquidity for trader, otherwise false
+    function canRemoveLiquidityFor(address trader, address delegate) external view returns (bool);
 }

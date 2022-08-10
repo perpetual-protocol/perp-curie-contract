@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
-## [2.0.0] - TBD
+
+## [2.0.1] - 2022-08-10
+### Added
+- Add `DelegateApproval.canAddLiquidityFor` to check if can add liquidity for another maker.
+- Add `DelegateApproval.canRemoveLiquidityFor` to check if can remove liquidity belonging to another maker.
+
+## [2.0.0] - 2022-08-10
 ### Changed
 - `liquidate()` becomes position transfer instead of market selling. **So liquidators now require collaterals to do liquidation.**
 
