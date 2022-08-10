@@ -107,6 +107,10 @@ describe("Vault settleBadDebt", () => {
     })
 
     describe("settle bad debt", async () => {
+        it("forced error when settle insuranceFund badDebt", async () => {
+            await expect(vault.settleBadDebt(insuranceFund.address)).to.be.revertedWith("V_CSI")
+        })
+
         it("do not settle unrealized bad debt when user has position", async () => {
             // alice open a long position with 500 USD
             await deposit(alice, vault, 100, usdc)
