@@ -690,6 +690,12 @@ contract ClearingHouse is
         uint256 liquidationPenalty = liquidatedPositionNotional.abs().mulRatio(_getLiquidationPenaltyRatio());
         _modifyOwedRealizedPnl(trader, liquidationPenalty.neg256());
 
+        // TODO soft-circuit breaker test
+        // assume there is no longer any unsettled bad debt in the system
+        // (so that true IF capacity = accountValue(IF) + USDC.balanceOf(IF))
+        // if trader's account value becomes negative, the amount is the bad debt IF must have enough capacity to cover
+        //        require();
+
         // if there is bad debt, liquidation fees all go to liquidator; otherwise, split between liquidator & IF
         uint256 liquidationFeeToLiquidator = liquidationPenalty.div(2);
         uint256 liquidationFeeToIF;
