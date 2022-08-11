@@ -52,4 +52,19 @@ describe("InsuranceFund Test", () => {
                 .withArgs(parseUnits("100", usdcDecimals), parseUnits("10", usdcDecimals))
         })
     })
+
+    describe("# getInsuranceFundCapacity()", () => {
+        it("capacity is positive", async () => {
+            await usdc.mint(insuranceFund.address, parseUnits("100", 6))
+            await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("100"))
+            const insuranceCapacity = await insuranceFund.getInsuranceFundCapacity()
+            expect(insuranceCapacity).to.be.eq(parseUnits("200", 6))
+        })
+
+        it("capacity is negative", async () => {
+            await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-20"))
+            const insuranceCapacity = await insuranceFund.getInsuranceFundCapacity()
+            expect(insuranceCapacity).to.be.eq(parseUnits("-20", 6))
+        })
+    })
 })
