@@ -27,7 +27,7 @@ import {
 } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse softCircuitBreak", () => {
+describe("ClearingHouse softCircuitBreak", () => {
     const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
