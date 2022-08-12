@@ -83,7 +83,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
         int256 insuranceFundAccountValueX10_S = IVault(vault).getAccountValue(address(this));
         int256 insuranceFundWalletBalanceX10_S = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
-        int256 insuranceFundCapacityX10_S = insuranceFundAccountValueX10_S.add(insuranceFundAccountValueX10_S);
+        int256 insuranceFundCapacityX10_S = insuranceFundAccountValueX10_S.add(insuranceFundWalletBalanceX10_S);
 
         return insuranceFundCapacityX10_S;
     }

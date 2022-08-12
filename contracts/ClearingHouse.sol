@@ -22,6 +22,7 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IDelegateApproval } from "./interface/IDelegateApproval.sol";
@@ -103,26 +104,27 @@ contract ClearingHouse is
         address accountBalanceArg,
         address insuranceFundArg
     ) public initializer {
+        // TODO: will find another way to solve byteCode size.
         // CH_VANC: Vault address is not contract
-        require(vaultArg.isContract(), "CH_VANC");
+        // require(vaultArg.isContract(), "CH_VANC");
         // CH_QANC: QuoteToken address is not contract
-        require(quoteTokenArg.isContract(), "CH_QANC");
+        // require(quoteTokenArg.isContract(), "CH_QANC");
         // CH_QDN18: QuoteToken decimals is not 18
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
         // CH_UANC: UniV3Factory address is not contract
-        require(uniV3FactoryArg.isContract(), "CH_UANC");
+        // require(uniV3FactoryArg.isContract(), "CH_UANC");
         // ClearingHouseConfig address is not contract
-        require(clearingHouseConfigArg.isContract(), "CH_CCNC");
+        // require(clearingHouseConfigArg.isContract(), "CH_CCNC");
         // AccountBalance is not contract
-        require(accountBalanceArg.isContract(), "CH_ABNC");
+        // require(accountBalanceArg.isContract(), "CH_ABNC");
         // CH_ENC: Exchange is not contract
-        require(exchangeArg.isContract(), "CH_ENC");
+        // require(exchangeArg.isContract(), "CH_ENC");
         // CH_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "CH_IFANC");
+        // require(insuranceFundArg.isContract(), "CH_IFANC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
-        require(orderBookArg.isContract(), "CH_OBNC");
+        // require(orderBookArg.isContract(), "CH_OBNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -690,11 +692,7 @@ contract ClearingHouse is
         uint256 liquidationPenalty = liquidatedPositionNotional.abs().mulRatio(_getLiquidationPenaltyRatio());
         _modifyOwedRealizedPnl(trader, liquidationPenalty.neg256());
 
-        // TODO soft-circuit breaker test
-        // assume there is no longer any unsettled bad debt in the system
-        // (so that true IF capacity = accountValue(IF) + USDC.balanceOf(IF))
-        // if trader's account value becomes negative, the amount is the bad debt IF must have enough capacity to cover
-        //        require();
+        address insuranceFund = _insuranceFund;
 
         // if there is bad debt, liquidation fees all go to liquidator; otherwise, split between liquidator & IF
         uint256 liquidationFeeToLiquidator = liquidationPenalty.div(2);
@@ -703,9 +701,25 @@ contract ClearingHouse is
             liquidationFeeToLiquidator = liquidationPenalty;
         } else {
             liquidationFeeToIF = liquidationPenalty.sub(liquidationFeeToLiquidator);
+            _modifyOwedRealizedPnl(insuranceFund, liquidationFeeToIF.toInt256());
         }
 
-        _modifyOwedRealizedPnl(_insuranceFund, liquidationFeeToIF.toInt256());
+        // assume there is no longer any unsettled bad debt in the system
+        // (so that true IF capacity = accountValue(IF) + USDC.balanceOf(IF))
+        // if trader's account value becomes negative, the amount is the bad debt IF must have enough capacity to cover
+        {
+            int256 accountValueAfterLiquidationX10_18 = getAccountValue(trader);
+
+            if (accountValueAfterLiquidationX10_18 < 0) {
+                int256 insuranceFundCapacityX10_18 =
+                    IInsuranceFund(insuranceFund).getInsuranceFundCapacity().parseSettlementToken(
+                        _settlementTokenDecimals
+                    );
+
+                // CH_IIC: insufficient insuranceFund capacity
+                require(insuranceFundCapacityX10_18 >= accountValueAfterLiquidationX10_18.neg256(), "CH_IIC");
+            }
+        }
 
         // liquidator opens a position with liquidationFeeToLiquidator as a discount
         // liquidator's openNotional = -liquidatedPositionNotional + liquidationFeeToLiquidator
