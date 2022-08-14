@@ -150,6 +150,9 @@ describe("ClearingHouse liquidate", () => {
 
         // set blockTimestamp
         await clearingHouse.setBlockTimestamp(blockTimeStamp)
+
+        // increase insuranceFund capacity
+        await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     describe("settle bad debt", () => {

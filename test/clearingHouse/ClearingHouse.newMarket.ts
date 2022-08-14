@@ -2,7 +2,16 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { BaseToken, OrderBook, QuoteToken, TestClearingHouse, TestERC20, TestExchange, Vault } from "../../typechain"
+import {
+    BaseToken,
+    InsuranceFund,
+    OrderBook,
+    QuoteToken,
+    TestClearingHouse,
+    TestERC20,
+    TestExchange,
+    Vault,
+} from "../../typechain"
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
@@ -18,6 +27,7 @@ describe("ClearingHouse new market listing", () => {
     let clearingHouse: TestClearingHouse
     let exchange: TestExchange
     let orderBook: OrderBook
+    let insuranceFund: InsuranceFund
     let vault: Vault
     let collateral: TestERC20
     let quoteToken: QuoteToken
@@ -36,6 +46,7 @@ describe("ClearingHouse new market listing", () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
+        insuranceFund = fixture.insuranceFund as InsuranceFund
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
@@ -89,6 +100,9 @@ describe("ClearingHouse new market listing", () => {
         await deposit(bob, vault, 1000, collateral)
         await collateral.transfer(davis.address, amount)
         await deposit(davis, vault, 1000, collateral)
+
+        // increase insuranceFund capacity
+        await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     describe("list new market but not enable to trade", () => {
