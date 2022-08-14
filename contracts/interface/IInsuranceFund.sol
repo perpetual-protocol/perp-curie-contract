@@ -20,12 +20,12 @@ interface IInsuranceFund {
     event SurplusBeneficiaryChanged(address surplusBeneficiary);
 
     /// @param surplus The amount of distribution
-    /// @param insuranceFundWalletBalance The usdc balance of `insuranceFund` contract
+    /// @param insuranceFundCapacity The capacity of `insuranceFund` contract
     /// @param insuranceFundFreeCollateral The free collateral(usdc) of `insuranceFund` contract in vault
     /// @param threshold The threshold amount
     event FeeDistributed(
         uint256 surplus,
-        uint256 insuranceFundWalletBalance,
+        uint256 insuranceFundCapacity,
         uint256 insuranceFundFreeCollateral,
         uint256 threshold
     );

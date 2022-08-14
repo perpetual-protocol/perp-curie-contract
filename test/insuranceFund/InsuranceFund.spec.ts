@@ -1,7 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { loadFixture } from "@ethereum-waffle/provider"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { InsuranceFund, TestAccountBalance, TestERC20, Vault } from "../../typechain"
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
@@ -118,6 +118,7 @@ describe("InsuranceFund Spec", () => {
 
             // case #1
             it("force error when surplus is zero due to threshold not met", async () => {
+                // insuranceFund capacity: 1000
                 // 1000 < 100000(threshold)
                 await usdc.mint(insuranceFund.address, parseUnits("1000", usdcDecimals))
 
@@ -131,8 +132,29 @@ describe("InsuranceFund Spec", () => {
 
             // case #2
             it("force error when surplus is zero due to zero revenue", async () => {
+                // insuranceFund capacity: 200000
                 // 200000 > 100000(threshold) but freeCollateral is zero
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
+
+                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+            })
+
+            // case #2-1
+            it("force error when surplus is zero due to negative accountValue", async () => {
+                // insuranceFund capacity: 200000 - 50000
+                // 150000 > 100000(threshold) but freeCollateral is zero
+                await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
+                await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-50000"))
+
+                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+            })
+
+            // case #2-2
+            it("force error when capacity is negative due to negative accountValue", async () => {
+                // insuranceFund capacity: 200000 - 500000
+                // 150000 > 100000(threshold) but freeCollateral is zero
+                await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
+                await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-500000"))
 
                 await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
             })
@@ -141,11 +163,12 @@ describe("InsuranceFund Spec", () => {
             it("distributeFee when insuranceFund earned fees, has no balance in wallet, surplus is dictated by threshold", async () => {
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
-                // overThreshold = max(200000 + 0(usdc balance) - 100000, 0) = 100000
+                // insuranceFund capacity: 200000 + 0(usdc balance)
+                // overThreshold = max(200000 - 100000, 0) = 100000
                 // surplus = min(100000, 200000) = 100000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("100000", usdcDecimals), // surplus
-                    parseUnits("0", usdcDecimals), // insuranceFundWalletBalance
+                    parseUnits("200000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
                     parseUnits("100000", usdcDecimals), // threshold
                 )
@@ -159,11 +182,12 @@ describe("InsuranceFund Spec", () => {
                 await usdc.mint(insuranceFund.address, parseUnits("50000", usdcDecimals))
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
-                // overThreshold = max(200000 + 50000(usdc balance) - 100000, 0) = 150000
+                // insuranceFund capacity: 200000 + 50000(usdc balance)
+                // overThreshold = max(250000 - 100000, 0) = 150000
                 // surplus = min(150000, 200000) = 150000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("150000", usdcDecimals), // surplus
-                    parseUnits("50000", usdcDecimals), // insuranceFundWalletBalance
+                    parseUnits("250000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
                     parseUnits("100000", usdcDecimals), // threshold
                 )
@@ -177,11 +201,12 @@ describe("InsuranceFund Spec", () => {
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
-                // overThreshold = max(200000 + 200000(usdc balance) - 100000, 0) = 300000
+                // insuranceFund capacity: 200000 + 200000(usdc balance)
+                // overThreshold = max(400000 - 100000, 0) = 300000
                 // surplus = min(300000, 200000) = 200000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("200000", usdcDecimals), // surplus
-                    parseUnits("200000", usdcDecimals), // insuranceFundWalletBalance
+                    parseUnits("400000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
                     parseUnits("100000", usdcDecimals), // threshold
                 )

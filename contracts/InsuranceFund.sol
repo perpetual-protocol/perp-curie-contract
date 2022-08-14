@@ -110,10 +110,9 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         // Insurance Fund through `depositFor()` and they will be ignored.
         int256 insuranceFundFreeCollateral = IVault(vault).getFreeCollateralByToken(address(this), token).toInt256();
 
-        int256 insuranceFundWalletBalance = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
-        int256 insuranceFundTotalBalance = insuranceFundWalletBalance.add(insuranceFundFreeCollateral);
+        int256 insuranceFundCapacity = getInsuranceFundCapacity();
 
-        int256 overThreshold = PerpMath.max(insuranceFundTotalBalance.sub(threshold), 0);
+        int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
         uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
 
         // IF_NSP: no surplus
@@ -128,7 +127,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
         emit FeeDistributed(
             surplus,
-            insuranceFundWalletBalance.toUint256(),
+            insuranceFundCapacity.toUint256(),
             insuranceFundFreeCollateral.toUint256(),
             threshold.toUint256()
         );
