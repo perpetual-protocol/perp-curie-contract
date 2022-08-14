@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.2.1] - TBD
+- Add `InsuranceFund.getInsuranceFundCapacity()`
+
 ## [2.2.0] - TBD
 ### Added
 - Add `Vault.settleBadDebt()`
