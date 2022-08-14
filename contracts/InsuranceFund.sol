@@ -82,6 +82,10 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         emit Repaid(repaidAmount, tokenBalanceAfterRepaid);
     }
 
+    //
+    // EXTERNAL VIEW
+    //
+
     /// @inheritdoc IInsuranceFund
     function distributeFee() external override nonReentrant whenNotPaused {
         address vault = _borrower;
@@ -100,10 +104,9 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         // Insurance Fund through `depositFor()` and they will be ignored.
         int256 insuranceFundFreeCollateral = IVault(vault).getFreeCollateralByToken(address(this), token).toInt256();
 
-        int256 insuranceFundWalletBalance = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
-        int256 insuranceFundTotalBalance = insuranceFundWalletBalance.add(insuranceFundFreeCollateral);
+        int256 insuranceFundCapacity = getInsuranceFundCapacity();
 
-        int256 overThreshold = PerpMath.max(insuranceFundTotalBalance.sub(threshold), 0);
+        int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
         uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
 
         // IF_NSP: no surplus
@@ -118,7 +121,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
         emit FeeDistributed(
             surplus,
-            insuranceFundWalletBalance.toUint256(),
+            insuranceFundCapacity.toUint256(),
             insuranceFundFreeCollateral.toUint256(),
             threshold.toUint256()
         );
@@ -142,5 +145,21 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     /// @inheritdoc IInsuranceFund
     function getSurplusBeneficiary() external view override returns (address) {
         return _surplusBeneficiary;
+    }
+
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @inheritdoc IInsuranceFund
+    function getInsuranceFundCapacity() public view override returns (int256) {
+        address vault = _borrower;
+        address token = _token;
+
+        int256 insuranceFundAccountValueX10_S = IVault(vault).getAccountValue(address(this));
+        int256 insuranceFundWalletBalanceX10_S = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
+        int256 insuranceFundCapacityX10_S = insuranceFundAccountValueX10_S.add(insuranceFundWalletBalanceX10_S);
+
+        return insuranceFundCapacityX10_S;
     }
 }

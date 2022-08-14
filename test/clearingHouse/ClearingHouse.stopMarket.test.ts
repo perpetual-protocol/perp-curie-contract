@@ -100,6 +100,9 @@ describe("Clearinghouse StopMarket", async () => {
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
         await initiateBothTimestamps(clearingHouse)
+
+        // increase insuranceFund capacity
+        await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     async function pauseMarket(baseToken: BaseToken) {
@@ -557,8 +560,7 @@ describe("Clearinghouse StopMarket", async () => {
                     parseUnits("9931.066296", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
-
-                await vault.connect(bob).withdraw(collateral.address, freeCollateralAfter)
+                await vault.connect(bob).withdrawAll(collateral.address)
                 expect(await vault.getFreeCollateral(bob.address)).to.be.closeTo("0", 1)
             })
         })

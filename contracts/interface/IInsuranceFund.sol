@@ -20,12 +20,12 @@ interface IInsuranceFund {
     event SurplusBeneficiaryChanged(address surplusBeneficiary);
 
     /// @param surplus The amount of distribution
-    /// @param insuranceFundWalletBalance The usdc balance of `insuranceFund` contract
+    /// @param insuranceFundCapacity The capacity of `insuranceFund` contract
     /// @param insuranceFundFreeCollateral The free collateral(usdc) of `insuranceFund` contract in vault
     /// @param threshold The threshold amount
     event FeeDistributed(
         uint256 surplus,
-        uint256 insuranceFundWalletBalance,
+        uint256 insuranceFundCapacity,
         uint256 insuranceFundFreeCollateral,
         uint256 threshold
     );
@@ -49,6 +49,10 @@ interface IInsuranceFund {
     /// @notice Get borrower(`Vault`) address
     /// @return vault The address of `Vault`
     function getBorrower() external view returns (address vault);
+
+    /// @notice Get `InsuranceFund` capacity
+    /// @return capacityX10_S The capacity value (accountValue + walletBalance) in settlement token's decimals
+    function getInsuranceFundCapacity() external view returns (int256 capacityX10_S);
 
     /// @notice Get insurance threshold
     /// @return threshold The threshold number
