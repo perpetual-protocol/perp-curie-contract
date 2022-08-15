@@ -105,13 +105,14 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         // IF_TEZ: threshold is equal to zero
         require(threshold > 0, "IF_TEZ");
 
-        // This assumes `token` is always Insurance Fund's sole collateral.
-        // Normally it won't happen, but in theory other users could send any collateral to
-        // Insurance Fund through `depositFor()` and they will be ignored.
         int256 insuranceFundFreeCollateral = IVault(vault).getFreeCollateralByToken(address(this), token).toInt256();
 
         int256 insuranceFundCapacity = getInsuranceFundCapacity();
 
+        // We check IF's capacity against the threshold, which means if someone sends
+        // non-settlement collaterals to IF, it will increase IF's capacity and might help it meet the threshold.
+        // However, since only settlement collateral can be counted as surplus, in certain circumstances you may find
+        // that IF cannot distribute fee because it has zero surplus even though its capacity has met the threshold.
         int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
         uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
 
