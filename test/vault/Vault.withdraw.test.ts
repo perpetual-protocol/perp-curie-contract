@@ -47,17 +47,17 @@ describe("Vault withdraw test", () => {
 
         // check user
         freeCollateral = await vault.getFreeCollateral(user.address)
-        await expect(vault.connect(user).withdraw(usdc.address, freeCollateral))
+        await expect(vault.connect(user).withdrawAll(usdc.address))
             .to.emit(vault, "Withdrawn")
             .withArgs(usdc.address, user.address, freeCollateral)
 
         freeCollateral = await vault.getFreeCollateral(user.address)
         accountValue = await clearingHouse.getAccountValue(user.address)
-        expect(freeCollateral).to.be.eq(0)
+        expect(freeCollateral).to.be.eq("0")
         if (!hasAccountValue) {
             expect(accountValue).to.be.closeTo(parseEther("0"), accountValueDust)
         }
-        await expect(vault.connect(user).withdraw(usdc.address, 1)).to.be.revertedWith("V_NEFC")
+        await expect(vault.connect(user).withdraw(usdc.address, "1")).to.be.revertedWith("V_NEFC")
     }
 
     beforeEach(async () => {
@@ -246,10 +246,35 @@ describe("Vault withdraw test", () => {
             expect(await vault.getCollateralTokens(alice.address)).to.be.deep.eq([])
         })
 
+        it("withdraw all non-settlement token", async () => {
+            const balanceBefore = await wbtc.balanceOf(alice.address)
+
+            await expect(vault.connect(alice).withdrawAll(wbtc.address))
+                .to.emit(vault, "Withdrawn")
+                .withArgs(wbtc.address, alice.address, amount)
+
+            // decrease vault's token balance
+            expect(await wbtc.balanceOf(vault.address)).to.eq("0")
+
+            const balanceAfter = await wbtc.balanceOf(alice.address)
+            // sender's token balance increased
+            expect(balanceAfter.sub(balanceBefore)).to.eq(amount)
+
+            // update sender's balance in vault
+            expect(await vault.getBalance(alice.address)).to.eq("0")
+
+            expect(await vault.getCollateralTokens(alice.address)).to.be.deep.eq([])
+        })
+
         it("force error, freeCollateral is not enough", async () => {
             await expect(
                 vault.connect(alice).withdraw(wbtc.address, parseUnits("150", await wbtc.decimals())),
             ).to.be.revertedWith("V_NEFC")
+        })
+
+        it("force error, token is not valid non-settlement token", async () => {
+            await expect(vault.connect(alice).withdraw(vault.address, "1")).to.be.revertedWith("V_OSCT")
+            await expect(vault.connect(alice).withdrawAll(vault.address)).to.be.revertedWith("V_OSCT")
         })
     })
 
@@ -308,6 +333,26 @@ describe("Vault withdraw test", () => {
             expect(await vault.getCollateralTokens(alice.address)).to.be.deep.eq([])
         })
 
+        it("withdraw all", async () => {
+            const balanceBefore = await ethers.provider.getBalance(alice.address)
+
+            const tx = await vault.connect(alice).withdrawAllEther()
+            await expect(tx).to.emit(vault, "Withdrawn").withArgs(weth9.address, alice.address, amount)
+
+            // decrease vault's token balance
+            expect(await weth9.balanceOf(vault.address)).to.be.eq("0")
+            expect(await ethers.provider.getBalance(vault.address)).to.be.eq("0")
+
+            const balanceAfter = await ethers.provider.getBalance(alice.address)
+            const txReceipt = await tx.wait()
+            const gasUsed = tx.gasPrice.mul(txReceipt.gasUsed)
+            // sender's token balance increased
+            expect(balanceAfter.sub(balanceBefore)).to.be.eq(amount.sub(gasUsed))
+
+            // update sender's balance in vault
+            expect(await vault.getBalance(alice.address)).to.be.eq("0")
+        })
+
         it("force error, freeCollateral is not enough", async () => {
             await expect(vault.connect(alice).withdrawEther(parseEther("350"))).to.be.revertedWith("V_NEFC")
         })
@@ -316,6 +361,7 @@ describe("Vault withdraw test", () => {
             await vault.setWETH9(pool.address)
 
             await expect(vault.connect(alice).withdrawEther(parseEther("10"))).to.be.revertedWith("V_WINAC")
+            await expect(vault.connect(alice).withdrawAllEther()).to.be.revertedWith("V_WINAC")
         })
     })
 })

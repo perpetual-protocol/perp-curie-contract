@@ -125,7 +125,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             )
 
             totalUnrealizedPnl = "-0.085955826385873143"
-            totalUnrealizedPnlInCollateralDecimals = "-0.085955"
+            totalUnrealizedPnlInCollateralDecimals = "-0.085956"
             const [, takerUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
@@ -196,7 +196,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             const [, takerUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
-            totalUnrealizedPnlInCollateralDecimals = "-0.085955"
+            totalUnrealizedPnlInCollateralDecimals = "-0.085956"
             const takerCollateralX18 = parseUnits(takerCollateral.toString(), 18 - collateralDecimals)
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.closeTo(
                 takerCollateralX18.add(parseEther(totalUnrealizedPnlInCollateralDecimals)),
@@ -228,7 +228,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             const [, takerAfterUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerAfterUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
-            totalUnrealizedPnlInCollateralDecimals = "-3.744939"
+            totalUnrealizedPnlInCollateralDecimals = "-3.744940"
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.closeTo(
                 takerCollateralX18.add(parseEther(totalUnrealizedPnlInCollateralDecimals)),
                 1,
@@ -262,7 +262,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             const [, takerUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
-            totalUnrealizedPnlInCollateralDecimals = "-0.067396"
+            totalUnrealizedPnlInCollateralDecimals = "-0.067397"
             const takerCollateralX18 = parseUnits(takerCollateral.toString(), 18 - collateralDecimals)
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.closeTo(
                 takerCollateralX18.add(parseEther(totalUnrealizedPnlInCollateralDecimals)),
@@ -293,7 +293,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             const [, takerAfterUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerAfterUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
-            totalUnrealizedPnlInCollateralDecimals = "-1.922555"
+            totalUnrealizedPnlInCollateralDecimals = "-1.922556"
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.closeTo(
                 takerCollateralX18.add(parseEther(totalUnrealizedPnlInCollateralDecimals)),
                 1,
@@ -327,7 +327,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             const [, takerUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(taker.address)
             expect(takerUnrealizedPnl).to.eq(parseEther(totalUnrealizedPnl))
 
-            totalUnrealizedPnlInCollateralDecimals = "-0.067396"
+            totalUnrealizedPnlInCollateralDecimals = "-0.067397"
             const takerCollateralX18 = parseUnits(takerCollateral.toString(), 18 - collateralDecimals)
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.closeTo(
                 takerCollateralX18.add(parseEther(totalUnrealizedPnlInCollateralDecimals)),

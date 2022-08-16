@@ -102,8 +102,8 @@ export function createClearingHouseFixture(
         const mockedWethPriceFeed = await smockit(wethPriceFeed)
         const wbtcPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         const mockedWbtcPriceFeed = await smockit(wbtcPriceFeed)
-        mockedWethPriceFeed.smocked.decimals.will.return.with(18)
-        mockedWbtcPriceFeed.smocked.decimals.will.return.with(18)
+        mockedWethPriceFeed.smocked.decimals.will.return.with(8)
+        mockedWbtcPriceFeed.smocked.decimals.will.return.with(8)
 
         // we assume (base, quote) == (token0, token1)
         baseToken = token0

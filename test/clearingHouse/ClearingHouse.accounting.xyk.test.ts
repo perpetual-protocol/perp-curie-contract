@@ -242,7 +242,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         await vault.connect(taker).withdraw(collateral.address, freeCollateral.toString())
 
         // 100 - 0.199900000000000024 ~= 99.800100
-        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800100", 6))
+        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800099", 6))
     })
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
@@ -384,7 +384,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // rounding error in 6 decimals with 1wei
             expect(totalAccountValue.div(1e12).add(insuranceFreeCollateral)).to.be.closeTo(
                 totalCollateralDeposited.sub(totalCollateralWithdrawn),
-                3,
+                4,
             )
         })
 

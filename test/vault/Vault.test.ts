@@ -74,13 +74,16 @@ describe("Vault test", () => {
 
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
+        // set a higher price limit for large orders
+        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "100000")
+
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
+        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("5", await wbtc.decimals()))
@@ -176,8 +179,6 @@ describe("Vault test", () => {
 
         it("withdrawable weth amount is reducing after trader open position", async () => {
             await q2bExactInput(fixture, alice, 1000, baseToken.address)
-            // sync index price to market price so there's no funding payment
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
             // (weth * wethPrice * collateralRatio - usdcSpent * imRatio) / wethPrice / collateralRatio
             // free collateral of weth: (10 * 3000 * 0.7 - 1000 * 10%) / 3000 / 0.7 = 9.95238095
@@ -267,7 +268,7 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, alice, 300, baseToken.address)
             // bob long so alice has negative realized PnL after closing position
             await q2bExactInput(fixture, bob, 2000, baseToken.address)
-            // realized PnL after closing: 9.41552997
+            // realized PnL after closing:9.41576439
             await closePosition(fixture, alice)
 
             await expect(vault.connect(alice).withdraw(usdc.address, parseUnits("5", usdcDecimals)))
@@ -286,7 +287,7 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, alice, 300, baseToken.address)
             // bob long so alice has negative realized PnL after closing position
             await b2qExactOutput(fixture, bob, 2000, baseToken.address)
-            // realized PnL: -21.26518413
+            // realized PnL: -21.26531049
             await closePosition(fixture, alice)
 
             await expect(vault.connect(alice).withdraw(usdc.address, parseUnits("30", usdcDecimals)))
@@ -294,7 +295,7 @@ describe("Vault test", () => {
                 .withArgs(usdc.address, alice.address, parseUnits("30", usdcDecimals))
 
             // balance after withdrawal: 100 - 30 - 21.26531 = 48.73469
-            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("48.73469", usdcDecimals))
+            expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("48.734689", usdcDecimals))
             const realizedPnLAfterWithdrawal = (await accountBalance.getPnlAndPendingFee(alice.address))[0]
             // realized PnL is settled after withdrawal
             expect(realizedPnLAfterWithdrawal).to.be.eq("0")
@@ -340,7 +341,7 @@ describe("Vault test", () => {
                 // funding payment: 0.786847
                 // settlement token value: 1000 - 0.786847 - 1111.562421 = -112.349268
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-112.349268", usdcDecimals),
+                    parseUnits("-112.349270", usdcDecimals),
                 )
             })
 
@@ -353,7 +354,7 @@ describe("Vault test", () => {
                 // funding payment: 1.0395235
                 // settlement token value: 1000 - 1.0395235 - 167.3436315 = 831.616845
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("831.616845", usdcDecimals),
+                    parseUnits("831.616844", usdcDecimals),
                 )
             })
 
@@ -431,7 +432,7 @@ describe("Vault test", () => {
                 // realized PnL (including funding payment): -131.456293
                 // settlement token value: 1000 - 131.456293 = 868.543707
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("868.543707", usdcDecimals),
+                    parseUnits("868.543706", usdcDecimals),
                 )
             })
         })
@@ -452,7 +453,7 @@ describe("Vault test", () => {
                 // funding payment: -0.786847
                 // settlement token value: -0.786847 - 1111.562421 = -1112.349268
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-1112.349268", usdcDecimals),
+                    parseUnits("-1112.349270", usdcDecimals),
                 )
             })
 
@@ -465,7 +466,7 @@ describe("Vault test", () => {
                 // funding payment: -1.3158838
                 // settlement token value: 1.3158838 + 399.1876422 = 400.503526
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("400.503526", usdcDecimals),
+                    parseUnits("400.503527", usdcDecimals),
                 )
             })
 

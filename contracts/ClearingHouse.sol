@@ -12,8 +12,8 @@ import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { Funding } from "./lib/Funding.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
+import { Funding } from "./lib/Funding.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
@@ -53,7 +53,6 @@ contract ClearingHouse is
     using PerpMath for uint160;
     using PerpMath for uint128;
     using PerpMath for int256;
-    using SettlementTokenMath for uint256;
     using SettlementTokenMath for int256;
 
     //
