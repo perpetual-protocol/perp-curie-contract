@@ -25,3 +25,8 @@ abstract contract CollateralManagerStorageV1 {
 
     uint256 internal _collateralValueDust;
 }
+
+abstract contract CollateralManagerStorageV2 is CollateralManagerStorageV1 {
+    // key: trader address, value: whitelisted debt threshold
+    mapping(address => uint256) internal _whitelistedDebtThresholdMap;
+}

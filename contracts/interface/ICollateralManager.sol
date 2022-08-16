@@ -77,6 +77,11 @@ interface ICollateralManager {
     /// @param debtThreshold debt threshold
     event DebtThresholdChanged(uint256 debtThreshold);
 
+    /// @notice Emitted when owner init or update the whitelisted debt threshold,
+    ///		 	maximum debt allowed before an account’s collateral is liquidatable.
+    /// @param whitelistedDebtThreshold whitelisted debt threshold
+    event WhitelistedDebtThresholdChanged(address trader, uint256 whitelistedDebtThreshold);
+
     /// @notice Emitted when owner init or update the collateral value dust,
     ///			if a trader’s debt value falls below this dust threshold,
     /// 		the liquidator will ignore the liquidationRatio.
@@ -137,6 +142,12 @@ interface ICollateralManager {
     /// @dev 6 decimals
     /// @return Debt threshold
     function getDebtThreshold() external view returns (uint256);
+
+    /// @notice Get the maximum whitelisted debt (denominated in settlement token) allowed
+    ///			before an account’s collateral is liquidatable.
+    /// @dev 6 decimals
+    /// @return Debt threshold
+    function getDebtThresholdByTrader(address trader) external view returns (uint256);
 
     /// @notice Get the threshold of the minium repaid.
     ///  		If a trader’s collateral value (denominated in settlement token) falls below the threshold,
