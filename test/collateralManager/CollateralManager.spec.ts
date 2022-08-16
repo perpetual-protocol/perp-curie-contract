@@ -296,6 +296,17 @@ describe("CollateralManager spec", () => {
         })
     })
 
+    describe("# setWhitelistedDebtThreshold", () => {
+        it("update whitelisted debt threshold", async () => {
+            await expect(collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("2000"))).to.emit(
+                collateralManager,
+                "WhitelistedDebtThresholdChanged",
+            )
+
+            expect(await collateralManager.getDebtThresholdByTrader(alice.address)).to.be.eq(parseEther("2000"))
+        })
+    })
+
     describe("# setCollateralValueDust", () => {
         it("update collateral value dust", async () => {
             await expect(collateralManager.setCollateralValueDust("100000")).to.emit(
