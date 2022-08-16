@@ -329,41 +329,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
     })
 
-    it("force fail, alice has enough free collateral so shouldn't be canceled", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("160", 6), 0, 0, 0]
-        })
-
-        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore.length == 1).to.be.true
-
-        // bob as a keeper
-        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith(
-            "CH_NEXO",
-        )
-
-        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
-    })
-
-    it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
-        })
-
-        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore.length == 1).to.be.true
-
-        // _getOrderId() with baseToken2 would generate a non-existent orderId
-        await expect(
-            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
-        ).to.be.reverted
-
-        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
-        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
-    })
-
-    describe("cancel excess orders when account is liquidable", () => {
+    describe("cancel excess orders when account is liquidatable", () => {
         beforeEach(async () => {
             // mock eth index price = 100
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -486,50 +452,135 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
     })
 
-    it("can't liquidate others order", async () => {
-        const aliceOrderId = (await orderBook.getOpenOrderIds(alice.address, baseToken.address))[0]
+    // related to the bounty 9206
+    describe("force fail, only orders belong to the liquidatable maker can be canceled", () => {
+        beforeEach(async () => {
+            // prepare collateral for alice & bob to add liquidity
+            const quoteAmount = 10
+            const parsedQuoteAmount = parseUnits(quoteAmount.toString(), await collateral.decimals())
 
-        // prepare collateral for bob, bob adds liquidity
-        const amount = parseUnits("10", await collateral.decimals())
-        await collateral.transfer(bob.address, amount)
-        await deposit(bob, vault, 10, collateral)
-        baseAmount = parseUnits("1", await baseToken.decimals())
-        await clearingHouse.connect(bob).addLiquidity({
-            baseToken: baseToken.address,
-            base: baseAmount,
-            quote: 0,
-            lowerTick: 92000,
-            upperTick: 92400,
-            minBase: 0,
-            minQuote: 0,
-            useTakerBalance: false,
-            deadline: ethers.constants.MaxUint256,
+            await collateral.transfer(alice.address, parsedQuoteAmount)
+            await deposit(alice, vault, quoteAmount, collateral)
+            await collateral.transfer(bob.address, parsedQuoteAmount)
+            await deposit(bob, vault, quoteAmount, collateral)
+
+            baseAmount = parseUnits("1", await baseToken.decimals())
         })
-        const bobOrderId = (await orderBook.getOpenOrderIds(bob.address, baseToken.address))[0]
 
-        // alice add another range same as bob
-        await collateral.transfer(alice.address, amount)
-        await deposit(alice, vault, 10, collateral)
-        await clearingHouse.connect(alice).addLiquidity({
-            baseToken: baseToken.address,
-            base: baseAmount,
-            quote: 0,
-            lowerTick: 92000,
-            upperTick: 92400,
-            minBase: 0,
-            minQuote: 0,
-            useTakerBalance: false,
-            deadline: ethers.constants.MaxUint256,
+        it("cannot liquidate other's order; ranges are different", async () => {
+            await clearingHouse.connect(bob).addLiquidity({
+                baseToken: baseToken.address,
+                base: baseAmount.div(2),
+                quote: 0,
+                lowerTick: 92000,
+                upperTick: 94000,
+                minBase: 0,
+                minQuote: 0,
+                useTakerBalance: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+            const bobOrderId = (await orderBook.getOpenOrderIds(bob.address, baseToken.address))[0]
+
+            // alice add an order whose range isn't the same as bob's
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: baseAmount,
+                quote: 0,
+                lowerTick: 90000,
+                upperTick: 94000,
+                minBase: 0,
+                minQuote: 0,
+                useTakerBalance: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            // move the price to make alice's position liquidatable
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100000", 6), 0, 0, 0]
+            })
+
+            await expect(
+                clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address, [bobOrderId]),
+            ).to.be.revertedWith("CH_ONBM")
         })
-        expect(aliceOrderId).not.eq(bobOrderId)
 
-        // move the price to make alice's position liquidatable
+        // before fixing 9206, this test can pass
+        it("cannot liquidate other's order even if ranges are the same", async () => {
+            const lowerTick = 92000
+            const upperTick = 94000
+
+            await clearingHouse.connect(bob).addLiquidity({
+                baseToken: baseToken.address,
+                base: baseAmount.div(2),
+                quote: 0,
+                lowerTick: lowerTick,
+                upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                useTakerBalance: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+            const bobOrderId = (await orderBook.getOpenOrderIds(bob.address, baseToken.address))[0]
+
+            // alice add an order whose range is the same as bob's
+            await clearingHouse.connect(alice).addLiquidity({
+                baseToken: baseToken.address,
+                base: baseAmount,
+                quote: 0,
+                lowerTick: lowerTick,
+                upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                useTakerBalance: false,
+                deadline: ethers.constants.MaxUint256,
+            })
+
+            const aliceOrderId = (await orderBook.getOpenOrderIds(alice.address, baseToken.address))[0]
+            expect(aliceOrderId).not.eq(bobOrderId)
+
+            // move the price to make alice's position liquidatable
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("100000", 6), 0, 0, 0]
+            })
+
+            // bob cannot liquidate alice's partial liquidity
+            await expect(
+                clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address, [bobOrderId]),
+            ).to.be.revertedWith("CH_ONBM")
+        })
+    })
+
+    it("force fail, alice has enough free collateral so shouldn't be canceled", async () => {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits("160", 6), 0, 0, 0]
+        })
+
+        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 1).to.be.true
+
+        // bob as a keeper
+        await expect(clearingHouse.cancelAllExcessOrders(alice.address, baseToken.address)).to.be.revertedWith(
+            "CH_NEXO",
+        )
+
+        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
+    })
+
+    it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("100000", 6), 0, 0, 0]
         })
 
+        const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore.length == 1).to.be.true
+
+        // _getOrderId() with baseToken2 would generate a non-existent orderId
         await expect(
-            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address, [aliceOrderId, bobOrderId]),
-        ).be.revertedWith("CH_ONBM")
+            clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken2.address, openOrderIdsBefore),
+        ).to.be.reverted
+
+        const openOrderIdsAfter = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
+        expect(openOrderIdsBefore).be.deep.eq(openOrderIdsAfter)
     })
 })
