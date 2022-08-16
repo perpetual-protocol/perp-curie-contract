@@ -233,7 +233,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
                     base: 0,
-                    quote: parseUnits("10000"),
+                    quote: parseUnits("9999.999999999999999999", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50200,
                     minBase: 0,
@@ -265,8 +265,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         50000,
                         50200,
                         0,
-                        "-9999999999999999999999", // ~= -10,000
-                        "-81689571696303801037492",
+                        "-9999999999999999999998", // ~= -10,000
+                        "-81689571696303801037484",
                         0,
                     )
 
@@ -294,8 +294,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100"),
-                    quote: parseUnits("10000"),
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("9999.999999999999999999", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -326,9 +326,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                         quoteToken.address,
                         50000,
                         50400,
-                        parseUnits("-66.061845430469484022"),
-                        "-9999999999999999999999",
-                        "-81689571696303801018159",
+                        parseUnits("-66.061845430469484022", await baseToken.decimals()),
+                        "-9999999999999999999998",
+                        "-81689571696303801018150",
                         0,
                     )
 
@@ -355,8 +355,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // will mint x base and y quote and transfer to pool
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100"),
-                    quote: parseUnits("10000"),
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("9999.999999999999999999", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -417,8 +417,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100"),
-                    quote: parseUnits("10000"),
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("9999.999999999999999999", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -447,8 +447,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
                 // alice collateral = 10000, freeCollateral = 100,000, mint 100 base and 10000 quote
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseUnits("100"),
-                    quote: parseUnits("10000"),
+                    base: parseUnits("100", await baseToken.decimals()),
+                    quote: parseUnits("9999.999999999999999999", await quoteToken.decimals()),
                     lowerTick: 50000,
                     upperTick: 50400,
                     minBase: 0,
@@ -497,7 +497,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
             expect(await quoteToken.balanceOf(exchange.address)).to.be.eq(0)
 
             // will mint x base and y quote and transfer to pool
-            await addOrder(fixture, alice, 100, 10000, 50000, 50400, false, baseToken.address)
+            await addOrder(fixture, alice, 100, "9999.999999999999999999", 50000, 50400, false, baseToken.address)
 
             baseTokenBalanceAddLiq = await baseToken.balanceOf(clearingHouse.address)
             quoteTokenBalanceAddLiq = await quoteToken.balanceOf(clearingHouse.address)

@@ -160,7 +160,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         const upperTick = getLatestTickBelowPrice(price, tick)
         // account2 add single side liquidity just below the end price
 
-        await addOrder(fixture, account2, 0, account2Margin * 10, upperTick - 10, upperTick)
+        await addOrder(fixture, account2, 0, account2Margin * 10 - 1, upperTick - 10, upperTick)
         // account1 close position at end price
         await closePosition(fixture, account1)
 

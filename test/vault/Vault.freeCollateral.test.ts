@@ -73,8 +73,8 @@ describe("Vault getFreeCollateral", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
+        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
         await initiateBothTimestamps(clearingHouse)
@@ -186,23 +186,27 @@ describe("Vault getFreeCollateral", () => {
                 // free collateral: balance + owedRealizedPnl + pendingFee + pendingFunding + unrealizedPnl - totalMarginRequirement
                 // 1000000 + 0 + 50 (fee) + 0 + -15.9536614113 - 68004.62178852765944318 * 10% = 993,233.584159735
                 const bobCollateral = await vault.getFreeCollateral(bob.address)
-                expect(bobCollateral).to.be.deep.eq(parseUnits("993233.584160", usdcDecimals))
+                expect(bobCollateral).to.be.deep.eq(parseUnits("993233.584159", usdcDecimals))
             })
         })
     })
 
     describe("# getFreeCollateralByToken", async () => {
         describe("without position", async () => {
-            it("free collateral equals trader's balance", async () => {
-                await deposit(alice, vault, 10, weth)
-                await deposit(alice, vault, 1, wbtc)
-                await deposit(alice, vault, 1000, usdc)
-                expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.eq(parseEther("10"))
-                expect(await vault.getFreeCollateralByToken(alice.address, wbtc.address)).to.eq(
-                    parseUnits("1", await wbtc.decimals()),
-                )
+            beforeEach(async () => {
+                wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3031.39326836", 8))
+                wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40275.56504427", 8))
+            })
+
+            it("weth free collateral equals trader's balance", async () => {
+                await deposit(alice, vault, 0.5, weth)
+                expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.eq(parseEther("0.5"))
+            })
+
+            it("usdc free collateral equals trader's balance", async () => {
+                await deposit(alice, vault, 100, usdc)
                 expect(await vault.getFreeCollateralByToken(alice.address, usdc.address)).to.eq(
-                    parseUnits("1000", usdcDecimals),
+                    parseUnits("100", usdcDecimals),
                 )
             })
         })
@@ -265,7 +269,7 @@ describe("Vault getFreeCollateral", () => {
                     )
 
                     // weth price drops to 1
-                    wethPriceFeed.smocked.getPrice.will.return.with(parseEther("1"))
+                    wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("1", 8))
 
                     // free collateral of weth: max(((10 * 1 * 0.7) - (100 * 10%)) / 1 / 0.7, 0) = 0
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")

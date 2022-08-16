@@ -82,13 +82,22 @@ interface IVault {
     /// @param amount The amount of the ETH to withdraw
     function withdrawEther(uint256 amount) external;
 
+    /// @notice Withdraw all free collateral from vault
+    /// @param token The address of the token to withdraw
+    /// @return amount The amount of the token withdrawn
+    function withdrawAll(address token) external returns (uint256 amount);
+
+    /// @notice Withdraw all free collateral of ETH from vault
+    /// @return amount The amount of ETH withdrawn
+    function withdrawAllEther() external returns (uint256 amount);
+
     /// @notice Liquidate trader's collateral by given settlement token amount or non settlement token amount
     /// @param trader The address of trader that will be liquidated
     /// @param token The address of non settlement collateral token that the trader will be liquidated
     /// @param amount The amount of settlement token that the liquidator will repay for trader or
     ///               the amount of non-settlement collateral token that the liquidator will charge from trader
     /// @param isDenominatedInSettlementToken Whether the amount is denominated in settlement token or not
-    /// @return amount The amount of a non-settlement token (in its native decimals) that is liquidated
+    /// @return returnAmount The amount of a non-settlement token (in its native decimals) that is liquidated
     ///         when `isDenominatedInSettlementToken` is true or the amount of settlement token that is repaid
     ///         when `isDenominatedInSettlementToken` is false
     function liquidateCollateral(
@@ -96,7 +105,7 @@ interface IVault {
         address token,
         uint256 amount,
         bool isDenominatedInSettlementToken
-    ) external returns (uint256);
+    ) external returns (uint256 returnAmount);
 
     /// @notice Get the specified trader's settlement token balance, without pending fee, funding payment
     ///         and owed realized PnL
@@ -118,10 +127,10 @@ interface IVault {
     /// @return collateralTokens array of collateral token addresses
     function getCollateralTokens(address trader) external view returns (address[] memory collateralTokens);
 
-    /// @notice Get account value (denominated in settlement token) of the specified trader
+    /// @notice Get account value of the specified trader
     /// @param trader The address of the trader
-    /// @return accountValue account value (in settlement token's decimals)
-    function getAccountValue(address trader) external view returns (int256);
+    /// @return accountValueX10_S account value (in settlement token's decimals)
+    function getAccountValue(address trader) external view returns (int256 accountValueX10_S);
 
     /// @notice Get the free collateral value denominated in the settlement token of the specified trader
     /// @param trader The address of the trader
@@ -156,7 +165,7 @@ interface IVault {
     ///      In practical applications, we use `getSettlementTokenValue()` to get the trader's debt (if < 0)
     /// @param trader The address of the trader
     /// @return balance The balance amount (in settlement token's decimals)
-    function getSettlementTokenValue(address trader) external view returns (int256);
+    function getSettlementTokenValue(address trader) external view returns (int256 balance);
 
     /// @notice Get the settlement token address
     /// @dev We assume the settlement token should match the denominator of the price oracle.
@@ -170,18 +179,21 @@ interface IVault {
     ///         3. USDC debt > debtThreshold (ex: $10000)
     //          USDC debt = USDC balance + Total Unrealized PnL
     /// @param trader The address of the trader
-    /// @return true If the trader can be liquidated
-    function isLiquidatable(address trader) external view returns (bool);
+    /// @return isLiquidatable If the trader can be liquidated
+    function isLiquidatable(address trader) external view returns (bool isLiquidatable);
 
     /// @notice get the margin requirement for collateral liquidation of a trader
     /// @dev this value is compared with `ClearingHouse.getAccountValue()` (int)
     /// @param trader The address of the trader
-    /// @return margin requirement (in 18 decimals)
-    function getMarginRequirementForCollateralLiquidation(address trader) external view returns (int256);
+    /// @return marginRequirement margin requirement (in 18 decimals)
+    function getMarginRequirementForCollateralLiquidation(address trader)
+        external
+        view
+        returns (int256 marginRequirement);
 
     /// @notice Get the maintenance margin ratio for collateral liquidation
     /// @return collateralMmRatio The maintenance margin ratio for collateral liquidation
-    function getCollateralMmRatio() external view returns (uint24);
+    function getCollateralMmRatio() external view returns (uint24 collateralMmRatio);
 
     /// @notice Get a trader's liquidatable collateral amount by a given settlement amount
     /// @param token The address of the token of the trader's collateral
@@ -216,7 +228,7 @@ interface IVault {
     /// @notice Get settlement token decimals
     /// @dev cached the settlement token's decimal for gas optimization
     /// @return decimals The decimals of settlement token
-    function decimals() external view returns (uint8);
+    function decimals() external view returns (uint8 decimals);
 
     /// @notice Get the borrowed settlement token amount from insurance fund
     /// @return debtAmount The debt amount (in settlement token's decimals)
@@ -232,21 +244,21 @@ interface IVault {
 
     /// @notice Get `InsuranceFund` contract address
     /// @return insuranceFund The address of `InsuranceFund` contract
-    function getInsuranceFund() external view returns (address);
+    function getInsuranceFund() external view returns (address insuranceFund);
 
     /// @notice Get `Exchange` contract address
     /// @return exchange The address of `Exchange` contract
-    function getExchange() external view returns (address);
+    function getExchange() external view returns (address exchange);
 
     /// @notice Get `ClearingHouse` contract address
     /// @return clearingHouse The address of `ClearingHouse` contract
-    function getClearingHouse() external view returns (address);
+    function getClearingHouse() external view returns (address clearingHouse);
 
     /// @notice Get `CollateralManager` contract address
     /// @return clearingHouse The address of `CollateralManager` contract
-    function getCollateralManager() external view returns (address);
+    function getCollateralManager() external view returns (address clearingHouse);
 
     /// @notice Get `WETH9` contract address
     /// @return clearingHouse The address of `WETH9` contract
-    function getWETH9() external view returns (address);
+    function getWETH9() external view returns (address clearingHouse);
 }

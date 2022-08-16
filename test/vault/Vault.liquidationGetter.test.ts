@@ -55,8 +55,8 @@ describe("Vault liquidationGetter test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
+        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -104,7 +104,7 @@ describe("Vault liquidationGetter test", () => {
             // maxLiquidatableCollateral = min(515.463917 / 2700, 1) = 0.1909125619
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, weth.address)
             expect(result.maxRepaidSettlementX10_S).to.be.eq(parseUnits("515.463917", usdcDecimals))
-            expect(result.maxLiquidatableCollateral).to.be.eq(parseEther("0.190912561851851852"))
+            expect(result.maxLiquidatableCollateral).to.be.eq(parseEther("0.190912562046582666"))
         })
 
         // debt = 500, eth = 1, liquidation ratio = 0.5,
@@ -116,10 +116,10 @@ describe("Vault liquidationGetter test", () => {
                 return [0, parseUnits("0", 6), 0, 0, 0]
             })
             // maxRepaidSettlementX10_S = 500 / 0.97 = 515.463917
-            // maxLiquidatableCollateral = min(515.463917 / 36000, 1) = 0.01431844 -> 0.01431845 rounding up
+            // maxLiquidatableCollateral = min(515.463917 / 36000, 1) = 0.01431844
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, wbtc.address)
             expect(result.maxRepaidSettlementX10_S).to.be.eq(parseUnits("515.463917", usdcDecimals))
-            expect(result.maxLiquidatableCollateral).to.be.eq(parseUnits("0.01431845", await wbtc.decimals()))
+            expect(result.maxLiquidatableCollateral).to.be.eq(parseUnits("0.01431844", await wbtc.decimals()))
         })
     })
 
@@ -170,9 +170,9 @@ describe("Vault liquidationGetter test", () => {
         // dust = 500
         describe("settlementTokenValue greater than 0", async () => {
             it("max debt less than collateral value dust", async () => {
-                // 400 (< collateralValueDust = 500) / 0.97 = 412.371134
+                // 400 (< collateralValueDust = 500) / 0.97 = 412.37113402
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
-                    parseUnits("412.371134", usdcDecimals),
+                    parseEther("412.371134020618556701"),
                 )
             })
 
@@ -181,7 +181,7 @@ describe("Vault liquidationGetter test", () => {
                 // totalMarginRequirement = (4000 + 2000) * 10% = 600
                 // 600 * 0.5 (> collateralValueDust = 500) / 0.97 = 309.27835052
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
-                    parseUnits("309.278350", usdcDecimals),
+                    parseEther("309.278350515463917525"),
                 )
             })
         })
@@ -194,7 +194,7 @@ describe("Vault liquidationGetter test", () => {
                 })
                 // 1500 / 0.97 = 1546.39175258
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
-                    parseUnits("1546.391752", usdcDecimals),
+                    parseEther("1546.391752577319587628"),
                 )
             })
 
@@ -205,7 +205,7 @@ describe("Vault liquidationGetter test", () => {
                 })
                 // 400 / 0.97 = 412.371134
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
-                    parseUnits("412.371134", usdcDecimals),
+                    parseEther("412.371134020618556701"),
                 )
             })
         })
