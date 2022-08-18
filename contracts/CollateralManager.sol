@@ -10,9 +10,11 @@ import { Collateral } from "./lib/Collateral.sol";
 import { ICollateralManager } from "./interface/ICollateralManager.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IVault } from "./interface/IVault.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 
 contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManagerStorageV2 {
     using AddressUpgradeable for address;
+    using SafeMathUpgradeable for uint256;
 
     uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
 
@@ -170,7 +172,12 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
     }
 
     function setWhitelistedDebtThreshold(address trader, uint256 whitelistedDebtThreshold) external onlyOwner {
+        uint256 whitelistedDebtThresholdBefore = _whitelistedDebtThresholdMap[trader];
         _whitelistedDebtThresholdMap[trader] = whitelistedDebtThreshold;
+        _totalWhitelistedDebtThreshold = whitelistedDebtThresholdBefore > whitelistedDebtThreshold
+            ? _totalWhitelistedDebtThreshold.add(whitelistedDebtThresholdBefore - whitelistedDebtThreshold)
+            : _totalWhitelistedDebtThreshold.add(whitelistedDebtThreshold - whitelistedDebtThresholdBefore);
+
         emit WhitelistedDebtThresholdChanged(trader, whitelistedDebtThreshold);
     }
 
@@ -243,6 +250,11 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
     /// @inheritdoc ICollateralManager
     function getDebtThresholdByTrader(address trader) external view override returns (uint256) {
         return _whitelistedDebtThresholdMap[trader] == 0 ? _debtThreshold : _whitelistedDebtThresholdMap[trader];
+    }
+
+    /// @inheritdoc ICollateralManager
+    function getTotalWhitelistedDebtThreshold() external view override returns (uint256) {
+        return _totalWhitelistedDebtThreshold;
     }
 
     /// @inheritdoc ICollateralManager
