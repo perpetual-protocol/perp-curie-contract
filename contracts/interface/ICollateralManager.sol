@@ -137,17 +137,22 @@ interface ICollateralManager {
     /// @return insurance fund fee ratio
     function getCLInsuranceFundFeeRatio() external view returns (uint24);
 
-    /// @notice Get the maximum debt (denominated in settlement token) allowed
+    /// @notice Get the default maximum debt (denominated in settlement token) allowed
     ///			before an account’s collateral is liquidatable.
     /// @dev 6 decimals
-    /// @return Debt threshold
+    /// @return debtThreshold
     function getDebtThreshold() external view returns (uint256);
 
     /// @notice Get the maximum whitelisted debt (denominated in settlement token) allowed
     ///			before an account’s collateral is liquidatable.
     /// @dev 6 decimals
-    /// @return Debt threshold
+    /// @return debtThreshold
     function getDebtThresholdByTrader(address trader) external view returns (uint256);
+
+    /// @notice Get the total whitelisted debt (denominated in settlement token) allowed
+    /// @dev 6 decimals
+    /// @return totalDebtThreshold
+    function getTotalWhitelistedDebtThreshold() external view returns (uint256);
 
     /// @notice Get the threshold of the minium repaid.
     ///  		If a trader’s collateral value (denominated in settlement token) falls below the threshold,
