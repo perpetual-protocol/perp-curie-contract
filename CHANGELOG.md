@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.4.0] - TBD
+- Add `CollateralManager.getDebtThresholdByTrader()`
+- Add `CollateralManager.getCollateralThresholdByTrader()`
+
 ## [2.3.0] - TBD
 ### Added
 - Add `Insurance.distributeFee()`
