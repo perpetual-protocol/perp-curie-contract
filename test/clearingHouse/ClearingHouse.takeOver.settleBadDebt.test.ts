@@ -36,7 +36,9 @@ describe("ClearingHouse liquidate", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let weth: TestERC20
+    let wbtc: TestERC20
     let wethPriceFeed: MockContract
+    let wbtcPriceFeed: MockContract
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
@@ -71,7 +73,9 @@ describe("ClearingHouse liquidate", () => {
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         weth = fixture.WETH
+        wbtc = fixture.WBTC
         wethPriceFeed = fixture.mockedWethPriceFeed
+        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
@@ -110,6 +114,7 @@ describe("ClearingHouse liquidate", () => {
 
         // set weth as collateral
         wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
 
         // mint
         collateral.mint(alice.address, hundred)
@@ -117,6 +122,8 @@ describe("ClearingHouse liquidate", () => {
         collateral.mint(carol.address, million)
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
+        await wbtc.mint(alice.address, parseEther("1"))
+        await wbtc.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
 
         await deposit(alice, vault, 10, collateral)
         await deposit(bob, vault, 1000000, collateral)
@@ -214,6 +221,50 @@ describe("ClearingHouse liquidate", () => {
             expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
             expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("-69235")
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1081016")
+        })
+
+        it("settle bad debt after liquidate collateral)", async () => {
+            // mint usdc to liquidator
+            await collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
+            await collateral.connect(admin).approve(vault.address, parseUnits("10000", collateralDecimals))
+
+            // alice deposit 0.0001 BTC collateral (1 BTC = 100 U)
+            const wbtcDecimal = await wbtc.decimals()
+            await vault.connect(alice).deposit(wbtc.address, parseUnits("0.0001", wbtcDecimal))
+
+            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+            // not emit event because alice still has wbtc collateral
+            await expect(
+                clearingHouse.connect(admin)["liquidate(address,address)"](alice.address, baseToken.address),
+            ).to.not.emit(vault, "BadDebtSettled")
+
+            console.log(`${await clearingHouse.getAccountValue(alice.address)}`)
+
+            // will emit event when liquidate collateral
+            await expect(
+                vault
+                    .connect(admin)
+                    .liquidateCollateral(alice.address, wbtc.address, parseUnits("0.0001", wbtcDecimal), false),
+            )
+                .to.emit(vault, "BadDebtSettled")
+                .withArgs(alice.address, "1072286")
+
+            // liquidatePositionSize: 588407511354640018 = 0.58840751135464
+            // indexPrice: 137562058000000010000 = 137.562058
+            // exchangedPositionNotional = liquidatePositionSize * indexPrice / 1e18 = 80942548204602648725 = 80.94254820460266
+            // liquidationPenalty = exchangedPositionNotional * 0.025 = 2023563705115066218 = 2.023563705115066
+            // alice original takeOpenNotional = -90
+            // alice original deposit = 10
+            // alice collateral value = 0.0001 * 100 * 0.7 = 0.007
+            // alice after takerOpenNotional = -90 + 80.94254820460266 = -9.057451795397341
+            // alice after accountValue = 10 - 9.057451795397341 - 2.023563705115066(fee) + 0.007 (collateral value) = -1.074016
+            // insuranceFund liquidate collateral fee = 9000 * 0.03 = 270
+            // insuranceFund owedRealizedPnl = liquidationPenalty * 0.5 = 1011781852557533000 = 1.011781852557533
+            // insuranceFund accountValue = 1011781852557533000 / 1e12 - 1072286 + 270 (liquidate collateral fee) = -60234.147442467 => -60235 (round down) = 0.060235
+            expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
+            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("-60235")
+            expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1072016")
         })
     })
 })
