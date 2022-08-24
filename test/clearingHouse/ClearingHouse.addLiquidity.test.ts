@@ -83,6 +83,64 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
+    it("# TVL is token balances", async () => {
+        await initAndAddPool(
+            fixture,
+            pool,
+            baseToken.address,
+            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
+            10000,
+            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
+            getMaxTickRange(),
+        )
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100", await baseToken.decimals()),
+            quote: 0,
+            lowerTick: 50400,
+            upperTick: 50600,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        expect(await baseToken.balanceOf(pool.address)).to.eq(parseUnits("100", await baseToken.decimals()))
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: 0,
+            quote: parseUnits("1000", await quoteToken.decimals()),
+            lowerTick: 49000,
+            upperTick: 49800,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        expect(await quoteToken.balanceOf(pool.address)).to.eq(parseUnits("1000", await quoteToken.decimals()))
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100", await quoteToken.decimals()),
+            quote: parseUnits("1000", await quoteToken.decimals()),
+            lowerTick: 50000,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        // 1000 / 151.373306858723226652 = 6.606184543
+        expect(await baseToken.balanceOf(pool.address)).to.eq(
+            parseUnits("106.606184543046948403", await baseToken.decimals()),
+        )
+        expect(await quoteToken.balanceOf(pool.address)).to.eq(parseUnits("2000", await quoteToken.decimals()))
+    })
+
     // simulation results:
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity without using taker's position", () => {
