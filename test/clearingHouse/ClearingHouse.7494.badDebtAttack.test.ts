@@ -35,8 +35,6 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     let minTick: number
     let maxTick: number
 
-    const indexPrice = 1.3
-
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
@@ -52,13 +50,12 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
-        // set oracle price to 1.3, simulating SAND POOL
+        // simulating SAND pool
+        const initPrice = 1.3
+        await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(indexPrice.toString(), 6), 0, 0, 0]
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
         })
-
-        // tick = 2623 (1.0001^2623 = 1.29989941), simulating SAND POOL
-        await initMarket(fixture, "1.3", exFeeRatio, ifFeeRatio, 250, baseToken.address)
 
         // tick space: 10
         tickSpacing = await pool.tickSpacing()

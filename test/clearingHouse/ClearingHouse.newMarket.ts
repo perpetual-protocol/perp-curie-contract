@@ -58,19 +58,18 @@ describe("ClearingHouse new market listing", () => {
         await baseToken3.mintMaximumTo(clearingHouse.address)
         await baseToken3.addWhitelist(clearingHouse.address)
 
+        const initPrice = 148
         // initial baseToken market
-        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 1000, baseToken.address, mockedBaseAggregator)
+        await initMarket(fixture, initPrice, uniFeeTier, ifFeeRatio, 1000, baseToken.address)
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
 
         // initial baseToken3 market
-        const { minTick, maxTick } = await initMarket(
-            fixture,
-            148,
-            uniFeeTier,
-            ifFeeRatio,
-            0,
-            baseToken3.address,
-            mockedBaseAggregator3,
-        )
+        const { minTick, maxTick } = await initMarket(fixture, initPrice, uniFeeTier, ifFeeRatio, 0, baseToken3.address)
+        mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
 
         lowerTick = minTick
         upperTick = maxTick

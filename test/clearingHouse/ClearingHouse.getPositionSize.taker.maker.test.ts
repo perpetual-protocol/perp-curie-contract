@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
-import { parseEther } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook, UniswapV3Pool } from "../../typechain"
 import {
@@ -15,7 +15,6 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -66,8 +65,13 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
         mockedBaseAggregator = fixture.mockedBaseAggregator
         pool = fixture.pool
 
+        const initPrice = 10
         // prepare market
-        const { minTick, maxTick } = await initMarket(fixture, 10, 0, 0, getMaxTickRange())
+        const { minTick, maxTick } = await initMarket(fixture, initPrice, 0, 0)
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
+
         lowerTick = minTick
         upperTick = maxTick
     })
