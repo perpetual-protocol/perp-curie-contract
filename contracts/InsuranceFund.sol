@@ -93,7 +93,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     //
 
     /// @inheritdoc IInsuranceFund
-    function distributeFee() external override nonReentrant whenNotPaused {
+    function distributeFee() external override nonReentrant whenNotPaused returns (uint256) {
         address vault = _borrower;
         address token = _token;
         address surplusBeneficiary = _surplusBeneficiary;
@@ -116,22 +116,22 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
         uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
 
-        // IF_NSP: no surplus
-        require(surplus > 0, "IF_NSP");
+        if (surplus > 0) {
+            // this should always work since surplus <= insuranceFundFreeCollateral
+            IVault(vault).withdraw(token, surplus);
+            // this should always work since IF would have at least `surplus` USDC by now
+            SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(token), surplusBeneficiary, surplus);
 
-        // this should always work since surplus <= insuranceFundFreeCollateral
-        IVault(vault).withdraw(token, surplus);
-        // this should always work since IF would have at least `surplus` USDC by now
-        SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(token), surplusBeneficiary, surplus);
+            ISurplusBeneficiary(surplusBeneficiary).dispatch();
 
-        ISurplusBeneficiary(surplusBeneficiary).dispatch();
-
-        emit FeeDistributed(
-            surplus,
-            insuranceFundCapacity.toUint256(),
-            insuranceFundFreeCollateral.toUint256(),
-            threshold.toUint256()
-        );
+            emit FeeDistributed(
+                surplus,
+                insuranceFundCapacity.toUint256(),
+                insuranceFundFreeCollateral.toUint256(),
+                threshold.toUint256()
+            );
+        }
+        return surplus;
     }
 
     /// @inheritdoc IInsuranceFund
