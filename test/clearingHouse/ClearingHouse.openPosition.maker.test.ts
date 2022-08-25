@@ -3,22 +3,9 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    Exchange,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { AccountBalance, BaseToken, OrderBook, TestClearingHouse, TestERC20, Vault } from "../../typechain"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse maker close position", () => {
@@ -26,19 +13,14 @@ describe("ClearingHouse maker close position", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
     let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
-    let quoteToken: QuoteToken
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
-    let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let mockedBaseAggregator2: MockContract
-    let pool2: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
     let collateralDecimals: number
@@ -47,37 +29,23 @@ describe("ClearingHouse maker close position", () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
-        exchange = fixture.exchange
         accountBalance = fixture.accountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
-        quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
-        pool = fixture.pool
         baseToken2 = fixture.baseToken2
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
-        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "10"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("10", 6), 0, 0, 0]
+            return [0, parseUnits(initPrice, 6), 0, 0, 0]
         })
 
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
-
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("10", "1"),
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        lowerTick = minTick
+        upperTick = maxTick
 
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
@@ -276,19 +244,11 @@ describe("ClearingHouse maker close position", () => {
     describe("maker for more than 1 market", () => {
         beforeEach(async () => {
             // init BTC pool
+            const initPrice = "10"
+            await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
             mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10", 6), 0, 0, 0]
+                return [0, parseUnits(initPrice, 6), 0, 0, 0]
             })
-
-            await initAndAddPool(
-                fixture,
-                pool2,
-                baseToken2.address,
-                encodePriceSqrt("10", "1"),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))

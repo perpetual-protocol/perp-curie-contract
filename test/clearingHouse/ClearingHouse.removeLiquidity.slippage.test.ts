@@ -1,23 +1,11 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber, BigNumberish } from "ethers"
+import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    BaseToken,
-    Exchange,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { BaseToken, OrderBook, TestClearingHouse, TestERC20, Vault } from "../../typechain"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity slippage", () => {
@@ -25,32 +13,20 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
-    let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
-    let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
-    let baseAmount: BigNumber
-    let quoteAmount: BigNumber
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
-        exchange = fixture.exchange
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
-        pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
-        baseAmount = parseUnits("100", await baseToken.decimals())
-        quoteAmount = parseUnits("10000", await quoteToken.decimals())
 
         // mint
         collateral.mint(admin.address, parseEther("10000"))
@@ -64,18 +40,11 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     describe("# removeLiquidity failed at tick 50199", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
+            const initPrice = "151.373306858723226651"
+            await initMarket(fixture, initPrice)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50199 (1.0001^50199 = 151.373306858723226651)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -129,18 +98,11 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     describe("# removeLiquidity failed at tick 50200", () => {
         let liquidity: BigNumberish
         beforeEach(async () => {
+            const initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,

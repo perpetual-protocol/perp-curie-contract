@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook, UniswapV3Pool } from "../../typechain"
+import { AccountBalance, BaseToken, OrderBook, UniswapV3Pool } from "../../typechain"
 import {
     addOrder,
     b2qExactInput,
@@ -26,10 +26,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     const [admin, maker, alice, bob] = wallets
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
-    let clearingHouse: ClearingHouse
     let accountBalance: AccountBalance
     let orderBook: OrderBook
-    let exchange: Exchange
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
@@ -57,15 +55,13 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = fixture.clearingHouse
         accountBalance = fixture.accountBalance
-        exchange = fixture.exchange
         orderBook = fixture.orderBook
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
         pool = fixture.pool
 
-        const initPrice = 10
+        const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, 0, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

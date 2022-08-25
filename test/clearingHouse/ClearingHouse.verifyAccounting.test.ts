@@ -15,7 +15,6 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -53,9 +52,9 @@ describe("ClearingHouse verify accounting", () => {
         }
         balanceBefore = parseUnits("1000", decimals).mul(wallets.length)
 
-        const initPrice = 10
+        const initPrice = "10"
         // prepare market
-        const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, getMaxTickRange())
+        const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
         })
@@ -125,12 +124,12 @@ describe("ClearingHouse verify accounting", () => {
 
     describe("two markets", async () => {
         beforeEach(async () => {
-            const initPrice = 10
+            const initPrice = "10"
+            await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined, fixture.baseToken2.address)
             fixture.mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
             })
 
-            await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, getMaxTickRange(), fixture.baseToken2.address)
             await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, false, fixture.baseToken2.address)
             baseTokenList.push(fixture.baseToken2.address)
         })

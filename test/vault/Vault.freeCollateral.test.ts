@@ -13,11 +13,9 @@ import {
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
 
 describe("Vault getFreeCollateral", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -55,15 +53,8 @@ describe("Vault getFreeCollateral", () => {
 
         usdcDecimals = await usdc.decimals()
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            getMaxTickRange(),
-        )
-
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })

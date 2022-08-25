@@ -13,7 +13,6 @@ import {
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { formatSqrtPriceX96ToPrice } from "../shared/utilities"
@@ -28,12 +27,9 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let tickSpacing: number
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
-    let minTick: number
-    let maxTick: number
 
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
@@ -51,16 +47,11 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         collateralDecimals = await collateral.decimals()
 
         // simulating SAND pool
-        const initPrice = 1.3
-        await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
+        const initPrice = "1.3"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
         })
-
-        // tick space: 10
-        tickSpacing = await pool.tickSpacing()
-        minTick = getMinTick(tickSpacing)
-        maxTick = getMaxTick(tickSpacing)
 
         // prepare collateral for makers
         const makerAmount = parseUnits("500000", collateralDecimals)

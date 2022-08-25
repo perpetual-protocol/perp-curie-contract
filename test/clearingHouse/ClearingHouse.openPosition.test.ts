@@ -17,8 +17,7 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -26,7 +25,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 describe("ClearingHouse openPosition", () => {
     const [admin, maker, maker2, taker, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouseFixture: ClearingHouseFixture
+    let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
@@ -39,7 +38,6 @@ describe("ClearingHouse openPosition", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
@@ -47,52 +45,33 @@ describe("ClearingHouse openPosition", () => {
     const upperTick: number = 100000
 
     beforeEach(async () => {
-        clearingHouseFixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = clearingHouseFixture.clearingHouse as TestClearingHouse
-        orderBook = clearingHouseFixture.orderBook
-        accountBalance = clearingHouseFixture.accountBalance as TestAccountBalance
-        clearingHouseConfig = clearingHouseFixture.clearingHouseConfig
-        vault = clearingHouseFixture.vault
-        exchange = clearingHouseFixture.exchange
-        marketRegistry = clearingHouseFixture.marketRegistry
-        collateral = clearingHouseFixture.USDC
-        baseToken = clearingHouseFixture.baseToken
-        baseToken2 = clearingHouseFixture.baseToken2
-        quoteToken = clearingHouseFixture.quoteToken
-        mockedBaseAggregator = clearingHouseFixture.mockedBaseAggregator
-        mockedBaseAggregator2 = clearingHouseFixture.mockedBaseAggregator2
-        pool = clearingHouseFixture.pool
-        pool2 = clearingHouseFixture.pool2
+        fixture = await loadFixture(createClearingHouseFixture())
+        clearingHouse = fixture.clearingHouse as TestClearingHouse
+        orderBook = fixture.orderBook
+        accountBalance = fixture.accountBalance as TestAccountBalance
+        clearingHouseConfig = fixture.clearingHouseConfig
+        vault = fixture.vault
+        exchange = fixture.exchange
+        marketRegistry = fixture.marketRegistry
+        collateral = fixture.USDC
+        baseToken = fixture.baseToken
+        baseToken2 = fixture.baseToken2
+        quoteToken = fixture.quoteToken
+        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
-        await initAndAddPool(
-            clearingHouseFixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
 
+        await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
         mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
-        await initAndAddPool(
-            clearingHouseFixture,
-            pool2,
-            baseToken2.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-
-        await marketRegistry.setFeeRatio(baseToken.address, 10000)
-        await marketRegistry.setFeeRatio(baseToken2.address, 10000)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -1482,7 +1461,7 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("open long position, clearingHouse transfer quoteToken to pool and receive baseToken", async () => {
-            await q2bExactInput(clearingHouseFixture, taker, 250, baseToken.address)
+            await q2bExactInput(fixture, taker, 250, baseToken.address)
             // Should not transfer any token to clearingHouse
             const baseTokenBalance = await baseToken.balanceOf(clearingHouse.address)
             const quoteTokenBalance = await quoteToken.balanceOf(clearingHouse.address)
@@ -1498,7 +1477,7 @@ describe("ClearingHouse openPosition", () => {
 
         it("open short position, cleaningHouse transfer baseToken to pool and receive quoteToken", async () => {
             // short  0.673541846948735088 base token with 100 quote token
-            await b2qExactOutput(clearingHouseFixture, taker, 100, baseToken.address)
+            await b2qExactOutput(fixture, taker, 100, baseToken.address)
             // Should not transfer any token to clearingHouse
             const baseTokenBalance = await baseToken.balanceOf(clearingHouse.address)
             const quoteTokenBalance = await quoteToken.balanceOf(clearingHouse.address)
