@@ -40,7 +40,8 @@ interface IInsuranceFund {
     ///      Insurance Fund and help it reach `threshold` sooner, but once `surplus` exceeds
     ///      the revenues earned on the platform (`insuranceFundFreeCollateral`), sending more funds
     ///      won’t increase `surplus` further
-    function distributeFee() external;
+    /// @return surplus The surplus of distribution
+    function distributeFee() external returns (uint256 surplus);
 
     /// @notice Get settlement token address
     /// @return token The address of settlement token
