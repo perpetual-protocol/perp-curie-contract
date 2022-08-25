@@ -117,46 +117,51 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #1a
-            it("force error when threshold is not met (positive capacity)", async () => {
+            it("will not emit event when threshold is not met (positive capacity)", async () => {
                 // insuranceFund capacity: 1000
                 // 1000 < 100000(threshold)
                 await usdc.mint(insuranceFund.address, parseUnits("1000", usdcDecimals))
 
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+                // will not emit FeeDistributed event because surplus is zero
+                await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
 
                 // 1000 + 100 < 100000(threshold)
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("100", usdcDecimals))
 
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+                // will not emit FeeDistributed event because surplus is zero
+                await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
             })
 
             // case #1b
-            it("force error when threshold is not met (negative capacity)", async () => {
+            it("will not emit event when threshold is not met (negative capacity)", async () => {
                 // insuranceFund capacity: 200000 - 500000
                 // -300000 < 100000(threshold)
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
                 await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-500000"))
 
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+                // will not emit FeeDistributed event because surplus is zero
+                await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
             })
 
             // case #2a
-            it("force error when threshold is met but surplus is zero", async () => {
+            it("will not emit event when threshold is met but surplus is zero", async () => {
                 // insuranceFund capacity: 200000
                 // 200000 > 100000(threshold) but freeCollateral is zero
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
 
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+                // will not emit FeeDistributed event because surplus is zero
+                await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
             })
 
             // case #2b
-            it("force error when threshold is met (negative account value) but surplus is zero", async () => {
+            it("will not emit event when threshold is met (negative account value) but surplus is zero", async () => {
                 // insuranceFund capacity: 200000 - 50000
                 // 150000 > 100000(threshold) but freeCollateral is zero
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
                 await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-50000"))
 
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_NSP")
+                // will not emit FeeDistributed event because surplus is zero
+                await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
             })
 
             // case #3
