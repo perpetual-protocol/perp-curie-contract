@@ -175,7 +175,7 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
         uint256 whitelistedDebtThresholdBefore = _whitelistedDebtThresholdMap[trader];
         _whitelistedDebtThresholdMap[trader] = whitelistedDebtThreshold;
         _totalWhitelistedDebtThreshold = whitelistedDebtThresholdBefore > whitelistedDebtThreshold
-            ? _totalWhitelistedDebtThreshold.add(whitelistedDebtThresholdBefore - whitelistedDebtThreshold)
+            ? _totalWhitelistedDebtThreshold.sub(whitelistedDebtThresholdBefore - whitelistedDebtThreshold)
             : _totalWhitelistedDebtThreshold.add(whitelistedDebtThreshold - whitelistedDebtThresholdBefore);
 
         emit WhitelistedDebtThresholdChanged(trader, whitelistedDebtThreshold);
