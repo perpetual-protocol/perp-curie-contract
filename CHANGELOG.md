@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 - Add `CollateralManager.getDebtThresholdByTrader()`
-- Add `CollateralManager.getCollateralThresholdByTrader()`
+- Add `CollateralManager.getTotalWhitelistedDebtThreshold()`
 
 ## [2.2.3] - 2022-10-24
 ### Changed
