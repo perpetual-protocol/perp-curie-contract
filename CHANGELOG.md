@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Remove `InsuranceFund.borrow()`
 
-## [2.1.0] - TBD
+## [2.1.0] - 2022-08-16
 ### Added 
 - Add `Vault.withdrawAll()` to withdraw all free collateral(specified) from vault
 - Add `Vault.withdrawAllEther()` to withdraw all ETH from vault
@@ -27,7 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix rounding issue when liquidating collaterals in full
 - Fix collateral value precision and underlying rounding issues
 
-## [2.0.0] - TBD
+## [2.0.1] - 2022-08-10
+### Added
+- Add `DelegateApproval.canAddLiquidityFor` to check if can add liquidity for another maker.
+- Add `DelegateApproval.canRemoveLiquidityFor` to check if can remove liquidity belonging to another maker.
+
+## [2.0.0] - 2022-08-10
 ### Changed
 - `liquidate()` becomes position transfer instead of market selling. **So liquidators now require collaterals to do liquidation.**
 
