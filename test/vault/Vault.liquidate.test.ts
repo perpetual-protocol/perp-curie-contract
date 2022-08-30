@@ -87,8 +87,8 @@ describe("Vault liquidate test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("38583.342533243141353154"))
+        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("38583.34253324", 8))
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -123,7 +123,7 @@ describe("Vault liquidate test", () => {
                         return [0, parseUnits("116", 6), 0, 0, 0]
                     })
                     // account value: 1000 + (18.88437579 * 116 - 3000) = 190.58759164
-                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("190.587592", usdcDecimals))
+                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("190.587591", usdcDecimals))
                     // margin ratio: 190.58759164 / 3000 = 0.0635292
                     expect(await vault.isLiquidatable(alice.address)).to.be.false
                 })
@@ -135,10 +135,10 @@ describe("Vault liquidate test", () => {
                     })
                     // usdc value: 1000 + (18.88437579 * 110 - 3000) = 77.2813369 > 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                        parseUnits("77.281337", usdcDecimals),
+                        parseUnits("77.281336", usdcDecimals),
                     )
                     // account value: 1000 + 0.01 * 3000 * 0.7 + (18.88437579 * 110 - 3000) = 98.2813369
-                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("98.281337", usdcDecimals))
+                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("98.281336", usdcDecimals))
                     // 6.45% collateral margin requirement: 18.88437579 * 110 * 0.0645 = 133.98464623
                     // margin ratio: 98.2813369 / 3000 = 0.03276045
                     expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -151,10 +151,10 @@ describe("Vault liquidate test", () => {
                     })
                     // usdc value: 1000 + (18.88437579 * 65 - 3000) = -772.51557365 < 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                        parseUnits("-772.515573", usdcDecimals),
+                        parseUnits("-772.515574", usdcDecimals),
                     )
                     // account value: 1000 + 0.4 * 3000 * 0.7 + -1,772.515573 (18.88437579 * 65 - 3000) = 67.484427
-                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("67.484427", usdcDecimals))
+                    expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("67.484426", usdcDecimals))
                     // 6.45% collateral margin requirement: 18.88437579 * 65 * 0.0645 = 79.1727455
                     // margin ratio: 67.48442635 / 3000 = 0.02249481
                     expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -195,7 +195,7 @@ describe("Vault liquidate test", () => {
 
                 // usdc debt < non-settlement token value * 0.75: 18411.460175 < 42000 * 0.75
                 const settlementTokenDebt = await vault.getSettlementTokenValue(alice.address)
-                expect(settlementTokenDebt).to.be.eq(parseUnits("-18411.460174", usdcDecimals))
+                expect(settlementTokenDebt).to.be.eq(parseUnits("-18411.460175", usdcDecimals))
                 expect(settlementTokenDebt.abs()).to.be.lt(parseUnits("42000", usdcDecimals).mul(75).div(100))
 
                 // usdc debt > debt threshold: 18411.460175 > 10000, thus still liquidatable
@@ -220,8 +220,8 @@ describe("Vault liquidate test", () => {
                 await closePosition(fixture, alice)
                 expect(await vault.isLiquidatable(alice.address)).to.be.false
 
-                wethPriceFeed.smocked.getPrice.will.return.with(parseEther("200"))
-                wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("2000"))
+                wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("200", 8))
+                wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("2000", 8))
                 // non-settlement token value: (1 * 200 * 0.7) + (0.1 * 2000 * 0.7) = 280
                 // debt > non-settlement token value * 0.75: 276.55275771 > 280 * 0.75
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -312,9 +312,46 @@ describe("Vault liquidate test", () => {
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance")
         })
 
+        it("usdc debt hits the collateralValueDust, fully liquidation", async () => {
+            // david deposit 0.2weth as collateral, worth 600 usd
+            // david open a position with open notional 400usd
+            await weth.mint(david.address, parseEther("0.2"))
+            await weth.connect(david).approve(vault.address, ethers.constants.MaxUint256)
+            await deposit(david, vault, 0.2, weth)
+            await q2bExactInput(fixture, david, 400)
+
+            // david has 400 usdc debt
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("0", 6), 0, 0, 0]
+            })
+
+            // liquidate david's weth with maximum amount
+            const maxRepaidSettlement = (
+                await vault.getMaxRepaidSettlementAndLiquidatableCollateral(david.address, weth.address)
+            ).maxRepaidSettlementX10_S
+
+            await expect(
+                vault.connect(carol).liquidateCollateral(david.address, weth.address, maxRepaidSettlement, true),
+            )
+                .emit(vault, "CollateralLiquidated")
+                .withArgs(
+                    david.address,
+                    weth.address,
+                    carol.address,
+                    parseEther("0.152730049637266133"),
+                    parseUnits("400", usdcDecimals),
+                    parseUnits("12.371134", usdcDecimals),
+                    100000,
+                )
+
+            // after liquidation, david should have no more usdc debt
+            const usdcValue = await vault.getSettlementTokenValue(david.address)
+            expect(usdcValue).to.be.gte("0")
+        })
+
         describe("# liquidateCollateral by settlement token", async () => {
             beforeEach(async () => {
-                // usdc debt: 5000
+                // usdc debt: 5000.000001
                 // max liquidatable value: 2577.319587
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("0", 6), 0, 0, 0]
@@ -345,8 +382,8 @@ describe("Vault liquidate test", () => {
                     weth.address,
                     carol.address,
                     liquidatedAmount,
-                    parseUnits("970", usdcDecimals), // repaid amount: 1000 * (1 - 0.03) = 970
-                    parseUnits("30", usdcDecimals), // collateral liquidation insurance fund fee: 1000 - 970 = 30
+                    parseUnits("970", usdcDecimals), // repaid amount: 1000 - 30(insuranceFundFee) = 970
+                    parseUnits("30", usdcDecimals), // collateral liquidation insurance fund fee: 1000 * 0.03 (round down) = 30
                     100000,
                 )
                 await expect(tx).to.emit(weth, "Transfer").withArgs(vault.address, carol.address, liquidatedAmount)
@@ -359,9 +396,11 @@ describe("Vault liquidate test", () => {
                 // weth amount: 1000 / (3000 * 0.9) = 0.37037037
                 expect(await weth.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
-                // repaid amount: 1000 * (1 - 0.03) = 970
-                // alice's usdc debt = 5000 - 970 = 4030
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(parseUnits("-4030", usdcDecimals))
+                // repaid amount: 1000 - 30(insuranceFundFee) = 970
+                // alice's usdc debt = 5000.000001 - 970 = 4030.000001
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
+                    parseUnits("-4030.000001", usdcDecimals),
+                )
                 // alice's weth balance: 1 - 0.370370370370370371 = 0.62962963
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
                     parseEther("1").sub(liquidatedAmount),
@@ -369,7 +408,7 @@ describe("Vault liquidate test", () => {
                 // alice's usdc balance: 970
                 expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("970", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 1000 * 0.03 = 30
+                // collateral liquidation insurance fund fee: 1000 * 0.03 (round down) = 30
                 expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("30", usdcDecimals))
 
                 // vault's balance
@@ -399,7 +438,7 @@ describe("Vault liquidate test", () => {
                     .liquidateCollateral(alice.address, weth.address, maxRepaidSettlement, true)
 
                 // liquidated collateral: 2577.319587 / (3000 * 0.9) = 0.95456281
-                const liquidatedAmount = parseEther("0.95456281")
+                const liquidatedAmount = parseEther("0.954562810232913326")
 
                 // events checking
                 await expect(tx).to.emit(vault, "CollateralLiquidated").withArgs(
@@ -407,8 +446,8 @@ describe("Vault liquidate test", () => {
                     weth.address,
                     carol.address,
                     liquidatedAmount,
-                    parseUnits("2499.999999", usdcDecimals), // repaid amount: 2577.319587 * (1 - 0.03) = 2499.99999939
-                    parseUnits("77.319588", usdcDecimals), // collateral liquidation insurance fund fee: 2577.319587 - 2499.999999 = 77.319588
+                    parseUnits("2500", usdcDecimals), // repaid amount: 2577.319587 - 77.31958761(insuranceFundFee) = 2500
+                    parseUnits("77.319587", usdcDecimals), // collateral liquidation insurance fund fee: 2577.319587 * 0.03 (round down) = 77.319587
                     100000,
                 )
                 await expect(tx).to.emit(weth, "Transfer").withArgs(vault.address, carol.address, liquidatedAmount)
@@ -420,8 +459,8 @@ describe("Vault liquidate test", () => {
                 expect(await usdc.balanceOf(carol.address)).to.be.eq(parseUnits("7422.680413", usdcDecimals))
                 expect(await weth.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
-                // repaid amount: 2577.319587 * (1 - 0.03) = 2499.99999939
-                // alice's usdc debt = 5000 - 2499.999999 = 2500.000001
+                // repaid amount: 2577.319587 - 77.31958761(insuranceFundFee) = 2500
+                // alice's usdc debt = 5000.000001 - 2500 = 2500.000001
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-2500.000001", usdcDecimals),
                 )
@@ -429,11 +468,11 @@ describe("Vault liquidate test", () => {
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
                     parseEther("1").sub(liquidatedAmount),
                 )
-                // alice's usdc balance: 2499.999999
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("2499.999999", usdcDecimals))
+                // alice's usdc balance: 2500
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("2500", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 2577.319587 * 0.03 = 77.319588
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("77.319588", usdcDecimals))
+                // collateral liquidation insurance fund fee: 2577.319587 * 0.03 (round down) = 77.319587
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("77.319587", usdcDecimals))
 
                 // vault's balance
                 expect(await weth.balanceOf(vault.address)).to.be.eq(vaultWethBalanceBefore.sub(liquidatedAmount))
@@ -470,8 +509,8 @@ describe("Vault liquidate test", () => {
                     wbtc.address,
                     carol.address,
                     liquidatedAmount,
-                    parseUnits("793.349522", usdcDecimals), // repaid amount: 817.886106 * (1 - 0.03) = 793.349522
-                    parseUnits("24.536584", usdcDecimals), // collateral liquidation insurance fund fee: 817.886106 - 793.349522 = 24.536584
+                    parseUnits("793.349523", usdcDecimals), // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
+                    parseUnits("24.536583", usdcDecimals), // collateral liquidation insurance fund fee: 817.886106 * 0.03 (round down) = 24.536583
                     100000,
                 )
                 await expect(tx).to.emit(wbtc, "Transfer").withArgs(vault.address, carol.address, liquidatedAmount)
@@ -484,8 +523,8 @@ describe("Vault liquidate test", () => {
                 // wbtc amount: 817.886106 / (38583.342533 * 0.9) = 0.02355323
                 expect(await wbtc.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
-                // repaid amount: 817.886106 * (1 - 0.03) = 793.349522
-                // alice's usdc debt = 5000 - 793.349522 = 4206.650478
+                // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
+                // alice's usdc debt = 5000.000001 - 793.349523 = 4206.650478
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-4206.650478", usdcDecimals),
                 )
@@ -493,11 +532,11 @@ describe("Vault liquidate test", () => {
                 expect(await vault.getBalanceByToken(alice.address, wbtc.address)).to.be.eq(
                     parseUnits("0", wbtcDecimals),
                 )
-                // alice's usdc balance: 793.349522
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("793.349522", usdcDecimals))
+                // alice's usdc balance: 793.349523
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("793.349523", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 817.886106 * 0.03 = 24.536584
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("24.536584", usdcDecimals))
+                // collateral liquidation insurance fund fee: 817.886106 * 0.03 (round down) = 24.536583
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("24.536583", usdcDecimals))
 
                 // vault's balance
                 expect(await wbtc.balanceOf(vault.address)).to.be.eq(vaultWbtcBalanceBefore.sub(liquidatedAmount))
@@ -531,8 +570,8 @@ describe("Vault liquidate test", () => {
                     xxx.address,
                     carol.address,
                     liquidatedAmount,
-                    parseUnits("99.201109", usdcDecimals), // repaid amount: 102.269185 * (1 - 0.03) = 99.201109
-                    parseUnits("3.068076", usdcDecimals), // collateral liquidation insurance fund fee: 102.269185 - 99.201109 = 3.068076
+                    parseUnits("99.20111", usdcDecimals), // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
+                    parseUnits("3.068075", usdcDecimals), // collateral liquidation insurance fund fee: 102.269185 * 0.03 (round down) = 3.068075
                     100000,
                 )
                 await expect(tx).to.emit(xxx, "Transfer").withArgs(vault.address, carol.address, liquidatedAmount)
@@ -545,18 +584,18 @@ describe("Vault liquidate test", () => {
                 // xxx amount: 102.269185 / (101.123456789012345678 * 0.9) = 1.1237
                 expect(await xxx.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
-                // repaid amount: 102.269185 * (1 - 0.03) = 99.201109
-                // alice's usdc debt = 5000 - 99.201109 = 4900.798891
+                // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
+                // alice's usdc debt = 5000.000001 - 99.20111 = 4900.798891
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-4900.798891", usdcDecimals),
                 )
                 // alice's xxx balance: 1.1237 - 1.1237 = 0
                 expect(await vault.getBalanceByToken(alice.address, xxx.address)).to.be.eq(parseUnits("0", xxxDecimals))
-                // alice's usdc balance: 99.201109
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("99.201109", usdcDecimals))
+                // alice's usdc balance: 99.20111
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("99.20111", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 102.269185 * 0.03 = 3.068076
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("3.068076", usdcDecimals))
+                // collateral liquidation insurance fund fee: 102.269185 * 0.03 (round down) = 3.068075
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("3.068075", usdcDecimals))
 
                 // vault's balance
                 expect(await xxx.balanceOf(vault.address)).to.be.eq(vaultXxxBalanceBefore.sub(liquidatedAmount))
@@ -600,8 +639,8 @@ describe("Vault liquidate test", () => {
                     weth.address,
                     carol.address,
                     liquidatedAmount, // collateral amount
-                    parseUnits("1309.5", usdcDecimals), // repaid amount: 0.5 * 3000 * 0.9 * (1 - 0.03) = 1309.5
-                    parseUnits("40.5", usdcDecimals), // collateral liquidation insurance fund fee: 0.5 * 3000 * 0.9 - 1309.5 = 40.5
+                    parseUnits("1309.5", usdcDecimals), // repaid amount: 0.5 * 3000 * 0.9 - 40.5(insuranceFundFee) = 1309.5
+                    parseUnits("40.5", usdcDecimals), // collateral liquidation insurance fund fee: 0.5 * 3000 * 0.9 * 0.03 (round down) = 40.5
                     100000,
                 )
                 await expect(tx).to.emit(weth, "Transfer").withArgs(vault.address, carol.address, liquidatedAmount)
@@ -613,9 +652,11 @@ describe("Vault liquidate test", () => {
                 expect(await usdc.balanceOf(carol.address)).to.be.eq(parseUnits("8650", usdcDecimals))
                 expect(await weth.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
-                // repaid amount: 1350 * (1 - 0.03) = 1309.5
+                // repaid amount: 1350 - 40.5(insuranceFundFee) = 1309.5
                 // alice's usdc debt = 5000 - 1309.5 = 3690.5
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(parseUnits("-3690.5", usdcDecimals))
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
+                    parseUnits("-3690.500001", usdcDecimals),
+                )
                 // alice's weth balance: 1 - 0.5 = 0.5
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
                     parseEther("1").sub(liquidatedAmount),
@@ -623,7 +664,7 @@ describe("Vault liquidate test", () => {
                 // alice's usdc balance: 1309.5
                 expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("1309.5", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 1350 * 0.03 = 40.5
+                // collateral liquidation insurance fund fee: 1350 * 0.03 (round down) = 40.5
                 expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("40.5", usdcDecimals))
 
                 // vault's balance
@@ -658,15 +699,15 @@ describe("Vault liquidate test", () => {
                     weth.address,
                     carol.address,
                     maxLiquidatableCollateral, // collateral amount
-                    parseUnits("2499.999999", usdcDecimals), // repaid amount: 0.95456281 * 3000 * 0.9 * (1 - 0.03) = 2499.99999939
-                    parseUnits("77.319588", usdcDecimals), // collateral liquidation insurance fund fee: 0.95456281 * 3000 * 0.9 - 2499.99999939 = 77.31958761
+                    parseUnits("2500", usdcDecimals), // repaid amount: 0.95456281 * 3000 * 0.9 - 77.319587(insuranceFundFee) = 2500
+                    parseUnits("77.319587", usdcDecimals), // collateral liquidation insurance fund fee: 0.95456281 * 3000 * 0.9 * 0.03 (round down) = 77.319587
                     100000,
                 )
                 await expect(tx)
                     .to.emit(weth, "Transfer")
                     .withArgs(vault.address, carol.address, maxLiquidatableCollateral)
 
-                // settlement amount: 2499.999999 + 77.319588 = 2577.319587
+                // settlement amount: 2500 + 77.319587 = 2577.319587
                 await expect(tx)
                     .to.emit(usdc, "Transfer")
                     .withArgs(carol.address, vault.address, parseUnits("2577.319587", usdcDecimals))
@@ -675,8 +716,8 @@ describe("Vault liquidate test", () => {
                 expect(await usdc.balanceOf(carol.address)).to.be.eq(parseUnits("7422.680413", usdcDecimals))
                 expect(await weth.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
-                // repaid amount: 2577.319587 * (1 - 0.03) = 2499.99999939
-                // alice's usdc debt = 5000 - 2499.999999 = 2500.000001
+                // repaid amount: 2577.319587 - 77.319587(insuranceFundFee) = 2500
+                // alice's usdc debt = 5000.000001 - 2500 = 2500.000001
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-2500.000001", usdcDecimals),
                 )
@@ -684,11 +725,11 @@ describe("Vault liquidate test", () => {
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
                     parseEther("1").sub(maxLiquidatableCollateral),
                 )
-                // alice's usdc balance: 2499.99999939
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("2499.999999", usdcDecimals))
+                // alice's usdc balance: 2500
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("2500", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 2577.319587 - 2499.999999 = 77.319588
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("77.319588", usdcDecimals))
+                // collateral liquidation insurance fund fee: 2577.319587 * 0.03 (round down) = 77.319587
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("77.319587", usdcDecimals))
 
                 // vault's balance
                 expect(await weth.balanceOf(vault.address)).to.be.eq(
@@ -724,8 +765,8 @@ describe("Vault liquidate test", () => {
                     wbtc.address,
                     carol.address,
                     maxLiquidatableCollateral,
-                    parseUnits("793.349522", usdcDecimals), // repaid amount: 817.886106 * (1 - 0.03) = 793.349522
-                    parseUnits("24.536584", usdcDecimals), // collateral liquidation insurance fund fee: 817.886106 - 793.349522 = 24.536584
+                    parseUnits("793.349523", usdcDecimals), // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
+                    parseUnits("24.536583", usdcDecimals), // collateral liquidation insurance fund fee: 817.886106 * 0.03 (round down) = 24.536583
                     100000,
                 )
                 await expect(tx)
@@ -740,8 +781,8 @@ describe("Vault liquidate test", () => {
                 // wbtc amount: 817.886106 / (38583.342533 * 0.9) = 0.02355323
                 expect(await wbtc.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
-                // repaid amount: 817.886106 * (1 - 0.03) = 793.349522
-                // alice's usdc debt = 5000 - 793.349522 = 4206.650478
+                // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
+                // alice's usdc debt = 5000.000001 - 793.349523 = 4206.650478
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-4206.650478", usdcDecimals),
                 )
@@ -749,11 +790,11 @@ describe("Vault liquidate test", () => {
                 expect(await vault.getBalanceByToken(alice.address, wbtc.address)).to.be.eq(
                     parseUnits("0", wbtcDecimals),
                 )
-                // alice's usdc balance: 793.349522
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("793.349522", usdcDecimals))
+                // alice's usdc balance: 793.349523
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("793.349523", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 817.886106 * 0.03 = 24.536584
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("24.536584", usdcDecimals))
+                // collateral liquidation insurance fund fee: 817.886106 * 0.03 (round down) = 24.536583
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("24.536583", usdcDecimals))
 
                 // vault's balance
                 expect(await wbtc.balanceOf(vault.address)).to.be.eq(
@@ -785,8 +826,8 @@ describe("Vault liquidate test", () => {
                     xxx.address,
                     carol.address,
                     maxLiquidatableCollateral,
-                    parseUnits("99.201109", usdcDecimals), // repaid amount: 102.269185 * (1 - 0.03) = 99.201109
-                    parseUnits("3.068076", usdcDecimals), // collateral liquidation insurance fund fee: 102.269185 - 99.201109 = 3.068076
+                    parseUnits("99.20111", usdcDecimals), // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
+                    parseUnits("3.068075", usdcDecimals), // collateral liquidation insurance fund fee: 102.269185 * 0.03 (round down) = 3.068075
                     100000,
                 )
                 await expect(tx)
@@ -801,18 +842,18 @@ describe("Vault liquidate test", () => {
                 // xxx amount: 102.269185 / (101.123456789012345678 * 0.9) = 1.1237
                 expect(await xxx.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
-                // repaid amount: 102.269185 * (1 - 0.03) = 99.201109
-                // alice's usdc debt = 5000 - 99.201109 = 4900.798891
+                // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
+                // alice's usdc debt = 5000.000001 - 99.20111 = 4900.798891
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                     parseUnits("-4900.798891", usdcDecimals),
                 )
                 // alice's xxx balance: 1.1237 - 1.1237 = 0
                 expect(await vault.getBalanceByToken(alice.address, xxx.address)).to.be.eq(parseUnits("0", xxxDecimals))
-                // alice's usdc balance: 99.201109
-                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("99.201109", usdcDecimals))
+                // alice's usdc balance: 99.20111
+                expect(await vault.getBalance(alice.address)).to.be.eq(parseUnits("99.20111", usdcDecimals))
 
-                // collateral liquidation insurance fund fee: 102.269185 * 0.03 = 3.068076
-                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("3.068076", usdcDecimals))
+                // collateral liquidation insurance fund fee: 102.269185 * 0.03 (round down) = 3.068075
+                expect(await vault.getBalance(insuranceFund.address)).to.be.eq(parseUnits("3.068075", usdcDecimals))
 
                 // vault's balance
                 expect(await xxx.balanceOf(vault.address)).to.be.eq(

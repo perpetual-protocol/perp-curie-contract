@@ -235,27 +235,26 @@ interface IClearingHouse {
 
     /// @notice If trader is underwater, any one can call `liquidate` to liquidate this trader
     /// @dev If trader has open orders, need to call `cancelAllExcessOrders` first
+    /// @dev If positionSize is greater than maxLiquidatePositionSize, liquidate maxLiquidatePositionSize by default
+    /// @dev If margin ratio >= 0.5 * mmRatio,
+    ///         maxLiquidateRatio = MIN((1, 0.5 * totalAbsPositionValue / absPositionValue)
+    /// @dev If margin ratio < 0.5 * mmRatio, maxLiquidateRatio = 1
+    /// @dev maxLiquidatePositionSize = positionSize * maxLiquidateRatio
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
-    /// @param oppositeAmountBound please check OpenPositionParams
-    /// @return base The amount of baseToken the taker got or spent
-    /// @return quote The amount of quoteToken the taker got or spent
-    /// @return isPartialClose when it's over price limit return true and only liquidate 25% of the position
+    /// @param positionSize the position size to be liquidated by liquidator
+    //    and MUST be the same direction as trader's position size
     function liquidate(
         address trader,
         address baseToken,
-        uint256 oppositeAmountBound
-    )
-        external
-        returns (
-            uint256 base,
-            uint256 quote,
-            bool isPartialClose
-        );
+        int256 positionSize
+    ) external;
 
-    /// @notice If trader is underwater, any one can call `liquidate` to liquidate this trader
-    /// @dev This function will be deprecated in the future, recommend to use the function `liquidate()` above
-    /// @dev If trader has open orders, need to call `cancelAllExcessOrders` first
+    /// @notice liquidate trader's position and will liquidate the max possible position size
+    /// @dev If margin ratio >= 0.5 * mmRatio,
+    ///         maxLiquidateRatio = MIN((1, 0.5 * totalAbsPositionValue / absPositionValue)
+    /// @dev If margin ratio < 0.5 * mmRatio, maxLiquidateRatio = 1
+    /// @dev maxLiquidatePositionSize = positionSize * maxLiquidateRatio
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     function liquidate(address trader, address baseToken) external;

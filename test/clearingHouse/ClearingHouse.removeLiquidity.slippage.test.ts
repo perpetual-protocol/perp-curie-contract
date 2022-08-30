@@ -145,7 +145,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: 0,
-                quote: parseUnits("10000", await baseToken.decimals()),
+                quote: parseUnits("9999.999999", await baseToken.decimals()),
                 lowerTick: 50000,
                 upperTick: 50200,
                 minBase: 0,

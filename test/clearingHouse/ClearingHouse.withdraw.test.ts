@@ -125,12 +125,12 @@ describe("ClearingHouse withdraw", () => {
             //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                  = max(min(100, 100+) - max(0.0004084104205 * 100, 0.0004084104205 * 100 + 0) * 0.1, 0)
             //                  = 99.9959158958
-            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("99.995916", collateralDecimals))
-            await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("99.995916", collateralDecimals)))
+            expect(await vault.getFreeCollateral(bob.address)).to.eq(parseUnits("99.995915", collateralDecimals))
+            await expect(vault.connect(bob).withdraw(collateral.address, parseUnits("99.995915", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, bob.address, parseUnits("99.995916", collateralDecimals))
-            expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("99.995916", collateralDecimals))
-            expect(await vault.getBalance(bob.address)).to.eq(parseUnits("0.004084", collateralDecimals))
+                .withArgs(collateral.address, bob.address, parseUnits("99.995915", collateralDecimals))
+            expect(await collateral.balanceOf(bob.address)).to.eq(parseUnits("99.995915", collateralDecimals))
+            expect(await vault.getBalance(bob.address)).to.eq(parseUnits("0.004085", collateralDecimals))
 
             // alice remove liq 0, alice should collect fee
             // B2QFee: expect 1% of quote = 0.0006151334176 ~= 615133417572501 / 10^18
@@ -158,12 +158,12 @@ describe("ClearingHouse withdraw", () => {
             //                  = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                  = max(min(100.0006151334176, 100.0006151334176 - 0.02067229971) - max(0.0004084104205 * 100, 0.122414646) * 0.1, 0)
             //                  = 99.9677005354
-            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967702", collateralDecimals))
+            expect(await vault.getFreeCollateral(alice.address)).to.eq(parseUnits("99.967701", collateralDecimals))
 
             // alice can withdraw free collateral even she has liquidity in pool.
-            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("99.967702", collateralDecimals)))
+            await expect(vault.connect(alice).withdraw(collateral.address, parseUnits("99.967701", collateralDecimals)))
                 .to.emit(vault, "Withdrawn")
-                .withArgs(collateral.address, alice.address, parseUnits("99.967702", collateralDecimals))
+                .withArgs(collateral.address, alice.address, parseUnits("99.967701", collateralDecimals))
         })
 
         it("taker swap and then withdraw maker's fee without removing liquidity", async () => {
@@ -171,7 +171,7 @@ describe("ClearingHouse withdraw", () => {
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
                 base: 0,
-                quote: parseEther((1000 - 0.122414646).toString()),
+                quote: parseEther((1000 - 0.122415).toString()),
                 lowerTick, // 148.3760629
                 upperTick, // 151.3733069
                 minBase: 0,
@@ -291,15 +291,15 @@ describe("ClearingHouse withdraw", () => {
             //                 = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                 = max(min(20000, 20000) - max(0, 330.3092180998 * 100 + 50000) * 0.1, 0)
             //                 = 11696.907819002
-            const amount = parseUnits("11696.907820", collateralDecimals)
+            const amount = parseUnits("11696.907819", collateralDecimals)
             expect(await vault.getFreeCollateral(alice.address)).to.eq(amount)
 
             await expect(vault.connect(alice).withdraw(collateral.address, amount))
                 .to.emit(vault, "Withdrawn")
                 .withArgs(collateral.address, alice.address, amount)
             expect(await collateral.balanceOf(alice.address)).to.eq(amount)
-            // 20000 - 11696.907820 = 8303.092180
-            expect(await vault.getBalance(alice.address)).to.eq(parseUnits("8303.092180", collateralDecimals))
+            // 20000 - 11696.907819 = 8303.092181
+            expect(await vault.getBalance(alice.address)).to.eq(parseUnits("8303.092181", collateralDecimals))
         })
 
         it("taker withdraw exactly freeCollateral when owedRealizedPnl < 0", async () => {

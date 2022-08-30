@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.1.0] - 2022-08-16
+### Added 
+- Add `Vault.withdrawAll()` to withdraw all free collateral(specified) from vault
+- Add `Vault.withdrawAllEther()` to withdraw all ETH from vault
+
+### Changed 
+- Update return parameter names in NatSpec
+
+### Fixed
+- Fix rounding issue when liquidating collaterals in full
+- Fix collateral value precision and underlying rounding issues
+
+## [2.0.1] - 2022-08-10
+### Added
+- Add `DelegateApproval.canAddLiquidityFor` to check if can add liquidity for another maker.
+- Add `DelegateApproval.canRemoveLiquidityFor` to check if can remove liquidity belonging to another maker.
+
+## [2.0.0] - 2022-08-10
+### Changed
+- `liquidate()` becomes position transfer instead of market selling. **So liquidators now require collaterals to do liquidation.**
+
+  - `liquidate()` has new interfaces:
+
+    ```solidity
+    function liquidate(
+        address trader,
+        address baseToken,
+        int256 positionSize
+    ) external;
+
+    // liquidate as much as possible
+    function liquidate(
+        address trader,
+        address baseToken,
+    ) external;
+    ```
+### Added
+- Add `AccountBalance.getLiquidatablePositionSize()` to calculate the liquidatable position size for trader.
+
+### Deprecated
+- `function liquidate(address trader, address baseToken, uint256 oppositeAmountBound)`
+
 ## [1.4.0] - 2022-07-05
 ### Added
 - Add `DelegateApproval`

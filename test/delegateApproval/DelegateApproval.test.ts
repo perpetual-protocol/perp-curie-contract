@@ -35,6 +35,28 @@ describe("DelegateApproval test", async () => {
             )
         })
 
+        it("approve self", async () => {
+            expect(await delegateApproval.canOpenPositionFor(trader.address, trader.address)).to.be.eq(false)
+
+            const actions = fixture.clearingHouseOpenPositionAction
+            await expect(delegateApproval.connect(trader).approve(trader.address, actions))
+                .to.emit(delegateApproval, "DelegationApproved")
+                .withArgs(trader.address, trader.address, actions)
+
+            expect(await delegateApproval.getApprovedActions(trader.address, trader.address)).to.be.eq(
+                parseInt("00000001", 2),
+            )
+            expect(
+                await delegateApproval.hasApprovalFor(
+                    trader.address,
+                    trader.address,
+                    fixture.clearingHouseOpenPositionAction,
+                ),
+            ).to.be.eq(true)
+
+            expect(await delegateApproval.canOpenPositionFor(trader.address, trader.address)).to.be.eq(true)
+        })
+
         it("approve single action", async () => {
             const actions = fixture.clearingHouseOpenPositionAction
             await expect(delegateApproval.connect(trader).approve(limitOrderBook.address, actions))
@@ -213,6 +235,33 @@ describe("DelegateApproval test", async () => {
             await expect(delegateApproval.connect(trader).revoke(limitOrderBook.address, actions2)).to.revertedWith(
                 "DA_IA",
             )
+        })
+
+        it("revoke self", async () => {
+            const actions = fixture.clearingHouseOpenPositionAction
+
+            await expect(delegateApproval.connect(trader).approve(trader.address, actions))
+                .to.emit(delegateApproval, "DelegationApproved")
+                .withArgs(trader.address, trader.address, actions)
+
+            expect(await delegateApproval.canOpenPositionFor(trader.address, trader.address)).to.be.eq(true)
+
+            await expect(delegateApproval.connect(trader).revoke(trader.address, actions))
+                .to.emit(delegateApproval, "DelegationRevoked")
+                .withArgs(trader.address, trader.address, actions)
+
+            expect(await delegateApproval.getApprovedActions(trader.address, trader.address)).to.be.eq(
+                parseInt("00000000", 2),
+            )
+            expect(
+                await delegateApproval.hasApprovalFor(
+                    trader.address,
+                    trader.address,
+                    fixture.clearingHouseOpenPositionAction,
+                ),
+            ).to.be.eq(false)
+
+            expect(await delegateApproval.canOpenPositionFor(trader.address, trader.address)).to.be.eq(false)
         })
 
         it("revoke single action", async () => {

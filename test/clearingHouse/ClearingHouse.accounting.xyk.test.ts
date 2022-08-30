@@ -242,7 +242,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         await vault.connect(taker).withdraw(collateral.address, freeCollateral.toString())
 
         // 100 - 0.199900000000000024 ~= 99.800100
-        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800100", 6))
+        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800099", 6))
     })
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
@@ -384,7 +384,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // rounding error in 6 decimals with 1wei
             expect(totalAccountValue.div(1e12).add(insuranceFreeCollateral)).to.be.closeTo(
                 totalCollateralDeposited.sub(totalCollateralWithdrawn),
-                3,
+                4,
             )
         })
 
@@ -572,8 +572,12 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
                 await clearingHouse
                     .connect(taker2)
-                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
+                    ["liquidate(address,address,int256)"](taker.address, baseToken.address, 0)
             }
+
+            // liquidator takes over the trader's position
+            await closePosition(fixture, taker2)
+            expect(await accountBalance.getTotalPositionSize(taker2.address, baseToken.address)).to.be.deep.eq(0)
 
             expect(await accountBalance.getTotalPositionSize(maker.address, baseToken.address)).to.be.deep.eq(0)
 
@@ -604,7 +608,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
                 await clearingHouse
                     .connect(taker2)
-                    ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
+                    ["liquidate(address,address,int256)"](taker.address, baseToken.address, 0)
             }
         })
 
@@ -621,17 +625,16 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
             // taker cannot close position (quote output: 184.21649272), but can be liquidated
-            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_BD")
+            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEMRM")
 
             // set index price to let taker be liquidated
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("4", 6), 0, 0, 0]
             })
 
-            await clearingHouseConfig.setBackstopLiquidityProvider(taker2.address, true)
             await clearingHouse
                 .connect(taker2)
-                ["liquidate(address,address,uint256)"](taker.address, baseToken.address, 0)
+                ["liquidate(address,address,int256)"](taker.address, baseToken.address, parseEther("26"))
 
             // taker has bad debt
             expect(await clearingHouse.getAccountValue(taker.address)).to.be.lt(0)
