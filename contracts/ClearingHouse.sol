@@ -104,27 +104,26 @@ contract ClearingHouse is
         address accountBalanceArg,
         address insuranceFundArg
     ) public initializer {
-        // TODO: will find another way to solve byteCode size.
         // CH_VANC: Vault address is not contract
-        // require(vaultArg.isContract(), "CH_VANC");
+        _isContract(vaultArg, "CH_VANC");
         // CH_QANC: QuoteToken address is not contract
-        // require(quoteTokenArg.isContract(), "CH_QANC");
+        _isContract(quoteTokenArg, "CH_QANC");
         // CH_QDN18: QuoteToken decimals is not 18
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
         // CH_UANC: UniV3Factory address is not contract
-        // require(uniV3FactoryArg.isContract(), "CH_UANC");
+        _isContract(uniV3FactoryArg, "CH_UANC");
         // ClearingHouseConfig address is not contract
-        // require(clearingHouseConfigArg.isContract(), "CH_CCNC");
+        _isContract(clearingHouseConfigArg, "CH_CCNC");
         // AccountBalance is not contract
-        // require(accountBalanceArg.isContract(), "CH_ABNC");
+        _isContract(accountBalanceArg, "CH_ABNC");
         // CH_ENC: Exchange is not contract
-        // require(exchangeArg.isContract(), "CH_ENC");
+        _isContract(exchangeArg, "CH_ENC");
         // CH_IFANC: InsuranceFund address is not contract
-        // require(insuranceFundArg.isContract(), "CH_IFANC");
+        _isContract(insuranceFundArg, "CH_IFANC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
-        // require(orderBookArg.isContract(), "CH_OBNC");
+        _isContract(orderBookArg, "CH_OBNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -1177,6 +1176,10 @@ contract ClearingHouse is
     function _checkMarketOpen(address baseToken) internal view {
         // CH_BC: Market not opened
         require(IBaseToken(baseToken).isOpen(), "CH_MNO");
+    }
+
+    function _isContract(address contractArg, string memory errorMsg) internal view {
+        require(contractArg.isContract(), errorMsg);
     }
 
     //

@@ -46,7 +46,7 @@ describe("ClearingHouse Spec", () => {
     })
 
     // TODO: we remove isContract check in CH.initialize, will find another way to reduce byte code size
-    describe.skip("# initialize", () => {
+    describe("# initialize", () => {
         it("force error, invalid vault address", async () => {
             const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
             clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse
