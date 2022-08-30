@@ -16,3 +16,12 @@
     - [Audit Report - Retest](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.03.21-tob-retest.pdf)
     - [Audit Report - Final](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.03.22-tob-final.pdf)
     - [Source Code](https://github.com/perpetual-protocol/perp-curie-contract/tree/audit-tob)
+
+- 2022.04.27 - Dedaub
+    - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.04.27-dedaub.pdf)
+
+- 2022.05.30 - HashCloak
+    - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.05.30-hashcloak.pdf)
+
+- 2022.07.25 - HashCloak
+    - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.07.25-hashcloak.pdf)
