@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import bn from "bignumber.js"
 import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
@@ -1125,7 +1125,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         })
     })
 
-    describe("single market: davis liquidates bob's long position at margin ratio between 3.125% and 6.25%, and openNotional < 100 USD -> total liquidation", () => {
+    describe("single market: davis liquidates bob's long position at margin ratio between 3.125% and 6.25%, and openNotional <= 100 USD -> fully liquidation", () => {
         beforeEach(async () => {
             // bob withdraw all collateral and then deposit small money
             await vault.connect(bob).withdrawAll(collateral.address)
@@ -1207,7 +1207,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         })
     })
 
-    describe("single market: davis liquidates bob's short position at margin ratio between 3.125% and 6.25%, and openNotional < 100 USD -> total liquidation", () => {
+    describe("single market: davis liquidates bob's short position at margin ratio between 3.125% and 6.25%, and openNotional <= 100 USD -> fully liquidation", () => {
         beforeEach(async () => {
             // bob withdraw all collateral and then deposit small money
             await vault.connect(bob).withdrawAll(collateral.address)
@@ -1669,6 +1669,159 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             expect(await accountBalance.getTakerOpenNotional(bob.address, baseToken.address)).to.be.eq("0")
 
             expect(await clearingHouse.getAccountValue(bob.address)).to.be.gte("0")
+        })
+    })
+
+    describe("multiple markets: bob has ETH long and BTC short with both openNotional <= 100 USD", () => {
+        beforeEach(async () => {
+            await mintAndDeposit(fixture, davis, 1000)
+            await vault.connect(bob).withdrawAll(collateral.address)
+            await mintAndDeposit(fixture, bob, 25)
+
+            // bob longs ETH at index price = 1,000
+            // quote: -100
+            // base: 0.098999843440953452
+            await q2bExactInput(fixture, bob, 100, baseToken.address)
+
+            // bob shorts BTC at index price = 10,000
+            // quote: 100
+            // base: -0.010101015599550667
+            await b2qExactOutput(fixture, bob, 100, baseToken2.address)
+
+            // increase blockTimestamp
+            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+        })
+
+        describe("davis liquidates bob at margin ratio between 3.125% and 6.25%", () => {
+            beforeEach(async () => {
+                setPool1IndexPrice(850) // ETH (has loss)
+                setPool2IndexPrice(9990) // BTC (has profit)
+            })
+
+            it("davis has no position before liquidating bob's long position on ETH market -> fully liquidation", async () => {
+                // liquidate when
+                // marginRatio 0.044529709074449082342830943456484778783
+                // totalPositionValue =  0.098999843440953452 * 850 + 0.010101015599550667 * 9990 = 185.0590127643
+                // ethPositionValue = 84.1498669248
+                // liquidateRatio 1 (due to eth open notional)
+                // liquidatePositionSize 0.098999843440953452
+
+                // greater than 3.125%
+                expect((await _getMarginRatio(bob)).gte("0.03125")).to.be.true
+                const tx = await (
+                    await clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address)
+                ).wait()
+
+                // trader's pnl:
+                // -100 (openNotional) * 1 (closedRatio) + 0.098999843440953452 * 850(reducedNotional)
+                // = -100 + 84.149866924810434200
+                // = -15.8501330751895658
+
+                // verify events
+                const traderPositionChanged = findEvent(tx, clearingHouse, "PositionChanged", 0)
+                expect(traderPositionChanged.args.trader).to.be.eq(bob.address)
+                expect(traderPositionChanged.args.baseToken).to.be.eq(baseToken.address)
+                expect(traderPositionChanged.args.exchangedPositionSize).to.be.eq("-98999843440953452")
+                expect(traderPositionChanged.args.exchangedPositionNotional).to.be.eq("84149866924810434200") // exchangedPositionSize * indexPrice
+                expect(traderPositionChanged.args.realizedPnl).to.be.eq("-15850133075189565800")
+
+                const liquidatorPositionChanged = findEvent(tx, clearingHouse, "PositionChanged", 1)
+                expect(liquidatorPositionChanged.args.trader).to.be.eq(davis.address)
+                expect(liquidatorPositionChanged.args.baseToken).to.be.eq(baseToken.address)
+                expect(liquidatorPositionChanged.args.exchangedPositionSize).to.be.eq("98999843440953452")
+                expect(liquidatorPositionChanged.args.exchangedPositionNotional).to.be.eq("-83097993588250303773") // trader's exchangedPositionNotional + abs(trader's exchangedPositionNotional) * (2.5%/2)
+                expect(liquidatorPositionChanged.args.realizedPnl).to.be.eq("0")
+
+                const positionLiquidated = findEvent(tx, clearingHouse, "PositionLiquidated")
+                expect(positionLiquidated.args.trader).to.be.eq(bob.address)
+                expect(positionLiquidated.args.baseToken).to.be.eq(baseToken.address)
+                expect(positionLiquidated.args.positionSize).to.be.eq("98999843440953452")
+                expect(positionLiquidated.args.positionNotional).to.be.eq("84149866924810434200")
+                expect(positionLiquidated.args.liquidationFee).to.be.eq("2103746673120260855") // trader's exchangedPositionNotional * 2.5%
+
+                // to pay liquidation penalty
+                const pnlRealizedTrader = findEvent(tx, accountBalance, "PnlRealized", 2)
+                expect(pnlRealizedTrader.args.trader).to.be.eq(bob.address)
+                expect(pnlRealizedTrader.args.amount).to.be.eq("-2103746673120260855")
+
+                // liquidation fee to insurance fund
+                const pnlRealizedIf = findEvent(tx, accountBalance, "PnlRealized", 3)
+                expect(pnlRealizedIf.args.trader).to.be.eq(insuranceFund.address)
+                expect(pnlRealizedIf.args.amount).to.be.eq("1051873336560130428")
+
+                // verify position size
+                expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.eq("0")
+                expect(await accountBalance.getTakerOpenNotional(bob.address, baseToken.address)).to.be.eq("0")
+
+                expect(await accountBalance.getTakerPositionSize(davis.address, baseToken.address)).to.be.eq(
+                    "98999843440953452",
+                )
+                expect(await accountBalance.getTakerOpenNotional(davis.address, baseToken.address)).to.be.eq(
+                    "-83097993588250303773",
+                )
+            })
+
+            it.only("davis has no position before liquidating bob's short position on BTC market -> fully liquidation", async () => {
+                // liquidate when
+                // marginRatio 0.044529709074449082342830943456484778783
+                // totalPositionValue =  0.098999843440953452 * 850 + 0.010101015599550667 * 9990 = 185.0590127643
+                // btcPositionValue = 100.909145839511163330
+                // liquidateRatio 1
+                // liquidatePositionSize 0.010101015599550667
+
+                expect((await _getMarginRatio(bob)).gte("0.03125")).to.be.true
+                const tx = await (
+                    await clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken2.address)
+                ).wait()
+
+                // trader's pnl:
+                // 100 (openNotional) * 1 (closedRatio) - 0.010101015599550667 * 9990 (reducedNotional)
+                // = 100 - 100.90914583951116333
+                // = -0.90914583951116333
+
+                // verify events
+                const traderPositionChanged = findEvent(tx, clearingHouse, "PositionChanged", 0)
+                expect(traderPositionChanged.args.trader).to.be.eq(bob.address)
+                expect(traderPositionChanged.args.baseToken).to.be.eq(baseToken2.address)
+                expect(traderPositionChanged.args.exchangedPositionSize).to.be.eq("10101015599550667")
+                expect(traderPositionChanged.args.exchangedPositionNotional).to.be.eq("-100909145839511163330") // exchangedPositionSize * indexPrice
+                expect(traderPositionChanged.args.realizedPnl).to.be.eq("-909145839511163330")
+
+                const liquidatorPositionChanged = findEvent(tx, clearingHouse, "PositionChanged", 1)
+                expect(liquidatorPositionChanged.args.trader).to.be.eq(davis.address)
+                expect(liquidatorPositionChanged.args.baseToken).to.be.eq(baseToken2.address)
+                expect(liquidatorPositionChanged.args.exchangedPositionSize).to.be.eq("-10101015599550667")
+                expect(liquidatorPositionChanged.args.exchangedPositionNotional).to.be.eq("102170510162505052871") // trader's exchangedPositionNotional + abs(trader's exchangedPositionNotional) * (2.5%/2)
+                expect(liquidatorPositionChanged.args.realizedPnl).to.be.eq("0")
+
+                const positionLiquidated = findEvent(tx, clearingHouse, "PositionLiquidated")
+                expect(positionLiquidated.args.trader).to.be.eq(bob.address)
+                expect(positionLiquidated.args.baseToken).to.be.eq(baseToken2.address)
+                expect(positionLiquidated.args.positionSize).to.be.eq("10101015599550667")
+                expect(positionLiquidated.args.positionNotional).to.be.eq("100909145839511163330")
+                expect(positionLiquidated.args.liquidationFee).to.be.eq("2522728645987779083") // trader's exchangedPositionNotional * 2.5%
+
+                // to pay liquidation penalty
+                const pnlRealizedTrader = findEvent(tx, accountBalance, "PnlRealized", 2)
+                expect(pnlRealizedTrader.args.trader).to.be.eq(bob.address)
+                expect(pnlRealizedTrader.args.amount).to.be.eq("-2522728645987779083")
+
+                // liquidation fee to insurance fund
+                const pnlRealizedIf = findEvent(tx, accountBalance, "PnlRealized", 3)
+                expect(pnlRealizedIf.args.trader).to.be.eq(insuranceFund.address)
+                expect(pnlRealizedIf.args.amount).to.be.eq("1261364322993889542")
+
+                // verify position size
+                expect(await accountBalance.getTakerPositionSize(bob.address, baseToken2.address)).to.be.eq("0")
+                expect(await accountBalance.getTakerOpenNotional(bob.address, baseToken2.address)).to.be.eq("0")
+
+                expect(await accountBalance.getTakerPositionSize(davis.address, baseToken2.address)).to.be.eq(
+                    "-10101015599550667",
+                )
+                expect(await accountBalance.getTakerOpenNotional(davis.address, baseToken2.address)).to.be.eq(
+                    "102170510162505052871",
+                )
+            })
         })
     })
 })
