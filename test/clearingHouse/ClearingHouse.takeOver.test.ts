@@ -1761,7 +1761,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                 )
             })
 
-            it.only("davis has no position before liquidating bob's short position on BTC market -> fully liquidation", async () => {
+            it("davis has no position before liquidating bob's short position on BTC market -> fully liquidation", async () => {
                 // liquidate when
                 // marginRatio 0.044529709074449082342830943456484778783
                 // totalPositionValue =  0.098999843440953452 * 850 + 0.010101015599550667 * 9990 = 185.0590127643
