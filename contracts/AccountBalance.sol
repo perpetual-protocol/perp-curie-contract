@@ -35,6 +35,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
 
     uint256 internal constant _DUST = 10 wei;
+    uint256 internal constant _MIN_LIQUIDATE_OPENNOTIONAL = 100e18 wei; // 100 USD in decimal 18
 
     //
     // EXTERNAL NON-VIEW
@@ -212,15 +213,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken].takerOpenNotional;
     }
 
-    // @inheritdoc IAccountBalance
-    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
-        // quote.pool[baseToken] + quoteBalance[baseToken]
-        (uint256 quoteInPool, ) =
-            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
-        int256 quoteBalance = getQuote(trader, baseToken);
-        return quoteInPool.toInt256().add(quoteBalance);
-    }
-
     /// @inheritdoc IAccountBalance
     function getTotalDebtValue(address trader) external view override returns (uint256) {
         int256 totalQuoteBalance;
@@ -340,6 +332,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
     }
 
+    // @inheritdoc IAccountBalance
+    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
+        // quote.pool[baseToken] + quoteBalance[baseToken]
+        (uint256 quoteInPool, ) =
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
+        int256 quoteBalance = getQuote(trader, baseToken);
+        return quoteInPool.toInt256().add(quoteBalance);
+    }
+
     /// @inheritdoc IAccountBalance
     function getTotalAbsPositionValue(address trader) public view override returns (uint256) {
         address[] memory tokens = _baseTokensMap[trader];
@@ -374,6 +375,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         // No liquidatable position
         if (accountValue >= marginRequirement || positionSize == 0) {
             return 0;
+        }
+
+        int256 openNotional = getTotalOpenNotional(trader, baseToken);
+        if (openNotional.abs() <= _MIN_LIQUIDATE_OPENNOTIONAL) {
+            return positionSize;
         }
 
         // https://www.notion.so/perp/Backstop-LP-Spec-614b42798d4943768c2837bfe659524d#968996cadaec4c00ac60bd1da02ea8bb
