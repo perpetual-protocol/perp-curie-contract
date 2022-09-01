@@ -279,6 +279,48 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return IOrderBook(_orderBook).hasOrder(trader, tokens);
     }
 
+    /// @inheritdoc IAccountBalance
+    function getLiquidatablePositionSize(
+        address trader,
+        address baseToken,
+        int256 accountValue
+    ) external view override returns (int256) {
+        int256 marginRequirement = getMarginRequirementForLiquidation(trader);
+        int256 positionSize = getTotalPositionSize(trader, baseToken);
+
+        // No liquidatable position
+        if (accountValue >= marginRequirement || positionSize == 0) {
+            return 0;
+        }
+
+        int256 openNotional = getTotalOpenNotional(trader, baseToken);
+        if (openNotional.abs() <= _MIN_LIQUIDATE_OPENNOTIONAL) {
+            return positionSize;
+        }
+
+        // https://www.notion.so/perp/Backstop-LP-Spec-614b42798d4943768c2837bfe659524d#968996cadaec4c00ac60bd1da02ea8bb
+        // Liquidator can only take over partial position if margin ratio is  ≥ 3.125% (aka the half of mmRatio).
+        // If margin ratio < 3.125%, liquidator can take over the entire position.
+        //
+        // threshold = mmRatio / 2 = 3.125%
+        // if marginRatio >= threshold, then
+        //    maxLiquidateRatio = MIN(1, 0.5 * totalAbsPositionValue / absPositionValue)
+        // if marginRatio < threshold, then
+        //    maxLiquidateRatio = 1
+        uint24 maxLiquidateRatio = 1e6;
+        if (accountValue >= marginRequirement.div(2)) {
+            // maxLiquidateRatio = getTotalAbsPositionValue / ( getTotalPositionValueInMarket.abs * 2 )
+            maxLiquidateRatio = FullMath
+                .mulDiv(getTotalAbsPositionValue(trader), 1e6, getTotalPositionValue(trader, baseToken).abs().mul(2))
+                .toUint24();
+            if (maxLiquidateRatio > 1e6) {
+                maxLiquidateRatio = 1e6;
+            }
+        }
+
+        return positionSize.mulRatio(maxLiquidateRatio);
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -361,48 +403,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             getTotalAbsPositionValue(trader)
                 .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
                 .toInt256();
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getLiquidatablePositionSize(
-        address trader,
-        address baseToken,
-        int256 accountValue
-    ) external view override returns (int256) {
-        int256 marginRequirement = getMarginRequirementForLiquidation(trader);
-        int256 positionSize = getTotalPositionSize(trader, baseToken);
-
-        // No liquidatable position
-        if (accountValue >= marginRequirement || positionSize == 0) {
-            return 0;
-        }
-
-        int256 openNotional = getTotalOpenNotional(trader, baseToken);
-        if (openNotional.abs() <= _MIN_LIQUIDATE_OPENNOTIONAL) {
-            return positionSize;
-        }
-
-        // https://www.notion.so/perp/Backstop-LP-Spec-614b42798d4943768c2837bfe659524d#968996cadaec4c00ac60bd1da02ea8bb
-        // Liquidator can only take over partial position if margin ratio is  ≥ 3.125% (aka the half of mmRatio).
-        // If margin ratio < 3.125%, liquidator can take over the entire position.
-        //
-        // threshold = mmRatio / 2 = 3.125%
-        // if marginRatio >= threshold, then
-        //    maxLiquidateRatio = MIN(1, 0.5 * totalAbsPositionValue / absPositionValue)
-        // if marginRatio < threshold, then
-        //    maxLiquidateRatio = 1
-        uint24 maxLiquidateRatio = 1e6;
-        if (accountValue >= marginRequirement.div(2)) {
-            // maxLiquidateRatio = getTotalAbsPositionValue / ( getTotalPositionValueInMarket.abs * 2 )
-            maxLiquidateRatio = FullMath
-                .mulDiv(getTotalAbsPositionValue(trader), 1e6, getTotalPositionValue(trader, baseToken).abs().mul(2))
-                .toUint24();
-            if (maxLiquidateRatio > 1e6) {
-                maxLiquidateRatio = 1e6;
-            }
-        }
-
-        return positionSize.mulRatio(maxLiquidateRatio);
     }
 
     //
