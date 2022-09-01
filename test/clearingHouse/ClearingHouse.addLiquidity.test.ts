@@ -124,7 +124,7 @@ describe("ClearingHouse addLiquidity", () => {
 
         await clearingHouse.connect(alice).addLiquidity({
             baseToken: baseToken.address,
-            base: parseUnits("100", await quoteToken.decimals()),
+            base: parseUnits("100", await baseToken.decimals()),
             quote: parseUnits("1000", await quoteToken.decimals()),
             lowerTick: 50000,
             upperTick: 50400,
