@@ -35,7 +35,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
 
     uint256 internal constant _DUST = 10 wei;
-    uint256 internal constant _MIN_LIQUIDATE_OPENNOTIONAL = 100e18 wei; // 100 USD in decimal 18
+    uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
 
     //
     // EXTERNAL NON-VIEW
@@ -293,8 +293,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             return 0;
         }
 
-        int256 openNotional = getTotalOpenNotional(trader, baseToken);
-        if (openNotional.abs() <= _MIN_LIQUIDATE_OPENNOTIONAL) {
+        int256 positionValue = _getPositionValue(baseToken, positionSize);
+        if (positionValue.abs() <= _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE) {
             return positionSize;
         }
 
@@ -365,13 +365,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getTotalPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getTotalPositionSize(trader, baseToken);
-        if (positionSize == 0) return 0;
-
-        uint256 indexTwap = _getReferencePrice(baseToken);
-        // both positionSize & indexTwap are in 10^18 already
-        // overflow inspection:
-        // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
-        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
+        return _getPositionValue(baseToken, positionSize);
     }
 
     // @inheritdoc IAccountBalance
@@ -474,6 +468,16 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     //
     // INTERNAL VIEW
     //
+
+    function _getPositionValue(address baseToken, int256 positionSize) internal view returns (int256) {
+        if (positionSize == 0) return 0;
+
+        uint256 indexTwap = _getReferencePrice(baseToken);
+        // both positionSize & indexTwap are in 10^18 already
+        // overflow inspection:
+        // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
+        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
+    }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
         return
