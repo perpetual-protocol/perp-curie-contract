@@ -114,6 +114,11 @@ jobs:
 
             - name: Install contract package dependencies
               run: npm ci
+              
+            - name: Install Foundry
+              uses: foundry-rs/foundry-toolchain@v1
+              with:
+                version: nightly
 
             - name: Run tests
               run: npm run foundry-test
