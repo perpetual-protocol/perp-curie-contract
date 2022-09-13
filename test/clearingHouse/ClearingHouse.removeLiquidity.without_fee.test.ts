@@ -14,10 +14,8 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { addOrder, removeOrder } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity without fee", () => {
@@ -64,15 +62,9 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     })
 
     it("remove zero liquidity; no swap no fee", async () => {
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice)
+
         // assume imRatio = 0.1
         // alice collateral = 10000, freeCollateral = 100,000, mint 10 base and 1000 quote
         // will mint x base and y quote and transfer to pool
@@ -132,15 +124,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     describe("remove non-zero liquidity", () => {
         // @SAMPLE - removeLiquidity
         it("above current price", async () => {
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226651", "1"),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            const initPrice = "151.373306858723226651"
+            await initMarket(fixture, initPrice)
 
             // assume imRatio = 0.1
             // alice collateral = 10000, freeCollateral = 100,000, mint 100 base
@@ -215,15 +200,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
 
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
-                await initAndAddPool(
-                    fixture,
-                    pool,
-                    baseToken.address,
-                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
+                const initPrice = "151.373306858723226652"
+                await initMarket(fixture, initPrice)
             })
 
             it("below current price", async () => {
@@ -477,18 +455,12 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         let baseTokenBalanceAddLiq, quoteTokenBalanceAddLiq
 
         beforeEach(async () => {
+            const initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+
             baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)
             quoteTokenBalanceInit = await quoteToken.balanceOf(clearingHouse.address)
             expect(await baseTokenBalanceInit).to.be.not.eq(0)

@@ -4,11 +4,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("AccountBalance.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -49,15 +48,8 @@ describe("AccountBalance.getTotalPositionValue", () => {
 
     describe("initialized price = 151.3733069", () => {
         beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.3733069", "1"),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            const initPrice = "151.3733069"
+            await initMarket(fixture, initPrice)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
         })
 
@@ -228,15 +220,8 @@ describe("AccountBalance.getTotalPositionValue", () => {
     })
 
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("148.3760629", "1"), // initial price at 50000 == 148.3760629
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        const initPrice = "148.3760629"
+        await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         const lowerTick = "50000"

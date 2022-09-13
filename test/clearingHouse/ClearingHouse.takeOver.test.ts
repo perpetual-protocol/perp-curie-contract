@@ -6,9 +6,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    Exchange,
     InsuranceFund,
-    QuoteToken,
     TestAccountBalance,
     TestClearingHouse,
     TestERC20,
@@ -23,15 +21,10 @@ import {
     q2bExactOutput,
 } from "../helper/clearingHouseHelper"
 import { findEvent } from "../helper/events"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange, priceToTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
+import { priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
-import {
-    calculateLiquidatePositionSize,
-    encodePriceSqrt,
-    getMarginRatio,
-    syncIndexToMarketPrice,
-} from "../shared/utilities"
+import { calculateLiquidatePositionSize, getMarginRatio, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse takeOver (liquidate)", () => {
@@ -40,19 +33,16 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let exchange: Exchange
     let accountBalance: TestAccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
-    let collateralDecimals: number
     const oracleDecimals = 6
     const blockTimeStamp = 1
 
@@ -95,40 +85,24 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        exchange = fixture.exchange
         accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
         mockedBaseAggregator = fixture.mockedBaseAggregator
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
-        collateralDecimals = await collateral.decimals()
 
-        // initialize ETH pool
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("1000", "1"),
-            uniFeeRatio,
-            getMaxTickRange(), // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-        )
+        let initPrice = "1000"
+        await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
+        initPrice = "10000"
         // initialize BTC pool
-        await initAndAddPool(
-            fixture,
-            pool2,
-            baseToken2.address,
-            encodePriceSqrt("10000", "1"),
-            uniFeeRatio,
-            getMaxTickRange(), // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-        )
+        await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
         await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
         // mint collateral
