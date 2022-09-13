@@ -5,10 +5,8 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -40,14 +38,8 @@ describe("Vault liquidationGetter test", () => {
 
         usdcDecimals = await usdc.decimals()
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            getMaxTickRange(),
-        )
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice, undefined, 0)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // mint and add liquidity

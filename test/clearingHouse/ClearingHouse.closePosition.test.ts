@@ -9,15 +9,12 @@ import {
     TestClearingHouse,
     TestERC20,
     TestExchange,
-    UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse closePosition", () => {
@@ -31,7 +28,6 @@ describe("ClearingHouse closePosition", () => {
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
-    let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
@@ -45,7 +41,6 @@ describe("ClearingHouse closePosition", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
 
         const collateralDecimals = await collateral.decimals()
@@ -71,18 +66,11 @@ describe("ClearingHouse closePosition", () => {
 
     describe("one maker; initialized price = 151.373306858723226652", () => {
         beforeEach(async () => {
+            let initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -260,18 +248,11 @@ describe("ClearingHouse closePosition", () => {
     // different range
     describe("two makers; initialized price = 148.3760629", () => {
         beforeEach(async () => {
+            let initPrice = "148.3760629"
+            await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("148", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(148.3760629, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
         })
 
         it("ranges of makers are the same; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
@@ -643,18 +624,11 @@ describe("ClearingHouse closePosition", () => {
     describe("dust test for UniswapV3Broker.swap()", () => {
         // this test will fail if the _DUST constant in UniswapV3Broker is set to 1 (no dust allowed)
         it("a trader swaps base to quote and then closes; one maker", async () => {
+            let initPrice = "151.3733069"
+            await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(151.3733069, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -702,21 +676,14 @@ describe("ClearingHouse closePosition", () => {
     describe("close position when user is maker and taker", async () => {
         let lowerTick: number, upperTick: number
         beforeEach(async () => {
+            let initPrice = "151.3733069"
+            const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            const tickSpacing = await pool.tickSpacing()
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(151.3733069, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
-            lowerTick = getMinTick(tickSpacing)
-            upperTick = getMaxTick(tickSpacing)
+
+            lowerTick = minTick
+            upperTick = maxTick
         })
 
         it("taker close position only effect taker position size", async () => {

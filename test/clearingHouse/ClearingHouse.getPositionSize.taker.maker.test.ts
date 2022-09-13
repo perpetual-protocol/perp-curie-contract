@@ -2,9 +2,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
-import { parseEther } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { AccountBalance, BaseToken, ClearingHouse, Exchange, OrderBook, UniswapV3Pool } from "../../typechain"
+import { AccountBalance, BaseToken, OrderBook, UniswapV3Pool } from "../../typechain"
 import {
     addOrder,
     b2qExactInput,
@@ -15,7 +15,6 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -27,10 +26,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     const [admin, maker, alice, bob] = wallets
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
-    let clearingHouse: ClearingHouse
     let accountBalance: AccountBalance
     let orderBook: OrderBook
-    let exchange: Exchange
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let pool: UniswapV3Pool
@@ -58,16 +55,19 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = fixture.clearingHouse
         accountBalance = fixture.accountBalance
-        exchange = fixture.exchange
         orderBook = fixture.orderBook
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
         pool = fixture.pool
 
+        const initPrice = "10"
         // prepare market
-        const { minTick, maxTick } = await initMarket(fixture, 10, 0, 0, getMaxTickRange())
+        const { minTick, maxTick } = await initMarket(fixture, initPrice, 0, 0)
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
+
         lowerTick = minTick
         upperTick = maxTick
     })

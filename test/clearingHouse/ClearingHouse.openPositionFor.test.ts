@@ -10,10 +10,10 @@ import {
     TestLimitOrderBook,
     UniswapV3Pool,
 } from "../../typechain"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange, priceToTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
+import { priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseWithDelegateApprovalFixture, createClearingHouseWithDelegateApprovalFixture } from "./fixtures"
 
 describe("ClearingHouse openPositionFor", () => {
@@ -44,16 +44,8 @@ describe("ClearingHouse openPositionFor", () => {
         const pool1LowerTick: number = priceToTick(2900, await pool.tickSpacing())
         const pool1UpperTick: number = priceToTick(3100, await pool.tickSpacing())
 
-        // ETH
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("2960", "1"),
-            10000, // 1%
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        const initPrice = "2960"
+        await initMarket(fixture, initPrice, undefined, 0)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // prepare collateral for maker

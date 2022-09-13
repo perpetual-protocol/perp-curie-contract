@@ -8,7 +8,6 @@ import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
     ClearingHouseConfig,
-    Exchange,
     MarketRegistry,
     OrderBook,
     QuoteToken,
@@ -18,11 +17,9 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { b2qExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { b2qExactInput, b2qExactOutput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
@@ -33,7 +30,6 @@ describe("ClearingHouse addLiquidity", () => {
     let marketRegistry: MarketRegistry
     let clearingHouseConfig: ClearingHouseConfig
     let accountBalance: TestAccountBalance
-    let exchange: Exchange
     let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
@@ -41,7 +37,6 @@ describe("ClearingHouse addLiquidity", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
@@ -58,10 +53,8 @@ describe("ClearingHouse addLiquidity", () => {
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        pool2 = fixture.pool2
         mockedBaseAggregator = fixture.mockedBaseAggregator
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
-        exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
 
@@ -83,30 +76,65 @@ describe("ClearingHouse addLiquidity", () => {
         })
     })
 
+    it("# TVL is token balances", async () => {
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice)
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100", await baseToken.decimals()),
+            quote: 0,
+            lowerTick: 50400,
+            upperTick: 50600,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        expect(await baseToken.balanceOf(pool.address)).to.eq(parseUnits("100", await baseToken.decimals()))
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: 0,
+            quote: parseUnits("1000", await quoteToken.decimals()),
+            lowerTick: 49000,
+            upperTick: 49800,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        expect(await quoteToken.balanceOf(pool.address)).to.eq(parseUnits("1000", await quoteToken.decimals()))
+
+        await clearingHouse.connect(alice).addLiquidity({
+            baseToken: baseToken.address,
+            base: parseUnits("100", await baseToken.decimals()),
+            quote: parseUnits("1000", await quoteToken.decimals()),
+            lowerTick: 50000,
+            upperTick: 50400,
+            minBase: 0,
+            minQuote: 0,
+            useTakerBalance: false,
+            deadline: ethers.constants.MaxUint256,
+        })
+
+        // 1000 / 151.373306858723226652 = 6.606184543
+        expect(await baseToken.balanceOf(pool.address)).to.eq(
+            parseUnits("106.606184543046948403", await baseToken.decimals()),
+        )
+        expect(await quoteToken.balanceOf(pool.address)).to.eq(parseUnits("2000", await quoteToken.decimals()))
+    })
+
     // simulation results:
     // https://docs.google.com/spreadsheets/d/1xcWBBcQYwWuWRdlHtNv64tOjrBCnnvj_t1WEJaQv8EY/edit#gid=1155466937
     describe("# addLiquidity without using taker's position", () => {
         describe("initialized price = 151.373306858723226652", () => {
             beforeEach(async () => {
-                await initAndAddPool(
-                    fixture,
-                    pool,
-                    baseToken.address,
-                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
-
-                await initAndAddPool(
-                    fixture,
-                    pool2,
-                    baseToken2.address,
-                    encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
+                const initPrice = "151.373306858723226652"
+                await initMarket(fixture, initPrice)
+                await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
             })
 
             // @SAMPLE - addLiquidity
@@ -602,15 +630,8 @@ describe("ClearingHouse addLiquidity", () => {
 
         describe("initialized price = 151.373306858723226651", () => {
             beforeEach(async () => {
-                await initAndAddPool(
-                    fixture,
-                    pool,
-                    baseToken.address,
-                    encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
+                const initPrice = "151.373306858723226651"
+                await initMarket(fixture, initPrice)
             })
 
             // @SAMPLE - addLiquidity
@@ -722,23 +743,15 @@ describe("ClearingHouse addLiquidity", () => {
 
     // TODO add this back once we enable the addLiquidity(useTakerBalance)
     describe.skip("# addLiquidity using taker's position", () => {
+        const aliceLowerTick = 50000
+        const aliceUpperTick = 50400
         let bobTakerQuote
         let bobBase
         let bobQuote
 
-        const aliceLowerTick = 50000
-        const aliceUpperTick = 50400
-
-        beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+        it("using taker's quote", async () => {
+            const initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice, undefined, 0)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -752,134 +765,30 @@ describe("ClearingHouse addLiquidity", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            // bob long 1 base token
-            await q2bExactOutput(fixture, bob, 1)
-            bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerOpenNotional
+            // bob short 100 quote token
+            await b2qExactOutput(fixture, bob, 100)
             bobBase = await accountBalance.getBase(bob.address, baseToken.address)
             bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
             // bob's account info:
-            // totalQuote: -152.925362473060470222
-            // totalBase: 1
-            // takerQuote: -152.925362473060470222
-            // takerBase: 1
-        })
+            // totalQuote: 100.000000000000000000
+            // totalBase: -0.6673584387
+            // takerQuote: 100.000000000000000000
+            // takerBase: -0.6673584387
 
-        it("existing position size is enough for adding liquidity", async () => {
-            const lowerTick = 50400
-            const upperTick = 50600
-
-            await expect(
-                clearingHouse.connect(bob).addLiquidity({
-                    baseToken: baseToken.address,
-                    base: parseEther("0.5"),
-                    quote: 0,
-                    lowerTick: lowerTick,
-                    upperTick: upperTick,
-                    minBase: 0,
-                    minQuote: 0,
-                    useTakerBalance: true,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "PositionChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    parseEther("-0.5"), // exchangedPositionSize
-                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
-                    0, // fee
-                    "-76462681236530235111", // openNotional
-                    "0", // realizedPnl
-                    Object, // sqrtPriceAfterX96
-                )
-
-            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
-
-            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-            expect(bobAccountInfo.takerPositionSize).to.eq(parseEther("0.5"))
-            expect(bobAccountInfo.takerOpenNotional).to.eq(bobTakerQuote.div(2))
-            expect(await accountBalance.getBase(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
-            expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
-
-            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
-            expect(netQuoteBalance.add(fee)).to.eq(bobQuote)
-            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
-        })
-
-        it("has the same taker position size after removing liquidity if no one else trade", async () => {
-            const lowerTick = 50400
-            const upperTick = 50600
-
-            await clearingHouse.connect(bob).addLiquidity({
-                baseToken: baseToken.address,
-                base: parseEther("0.5"),
-                quote: 0,
-                lowerTick: lowerTick,
-                upperTick: upperTick,
-                minBase: 0,
-                minQuote: 0,
-                useTakerBalance: true,
-                deadline: ethers.constants.MaxUint256,
-            })
-
-            const liquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
-                .liquidity
-            await expect(
-                clearingHouse.connect(bob).removeLiquidity({
-                    baseToken: baseToken.address,
-                    lowerTick,
-                    upperTick,
-                    liquidity,
-                    minBase: 0,
-                    minQuote: 0,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "PositionChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    parseEther("0.499999999999999999"), // exchangedPositionSize
-                    bobTakerQuote.div(2), // exchangedPositionNotional
-                    0, // fee
-                    "-152925362473060470222", // openNotional
-                    "0", // realizedPnl
-                    Object, // sqrtPriceAfterX96
-                )
-
-            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
-                parseEther("1"),
-                1,
-            )
-
-            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-            expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("1"), 1)
-            expect(bobAccountInfo.takerOpenNotional).to.eq(bobTakerQuote)
-            expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
-            expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
-
-            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
-            expect(netQuoteBalance.add(fee)).to.eq(bobQuote)
-            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
-        })
-
-        it("adding liquidity using taker position and somebody trade", async () => {
-            const lowerTick = 50400
-            const upperTick = 50600
-
-            // remove alice liquidity to maker test easier
+            // remove alice's liquidity to simplify tests
             const aliceLiquidity = (
                 await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
             ).liquidity
             await removeOrder(fixture, alice, aliceLiquidity, aliceLowerTick, aliceUpperTick, baseToken.address)
 
+            const lowerTick = 49800
+            const upperTick = 50000
+
             await expect(
                 clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseEther("0.5"),
-                    quote: 0,
+                    base: 0,
+                    quote: parseEther("100"),
                     lowerTick: lowerTick,
                     upperTick: upperTick,
                     minBase: 0,
@@ -892,18 +801,16 @@ describe("ClearingHouse addLiquidity", () => {
                 .withArgs(
                     bob.address,
                     baseToken.address,
-                    // using 50% taker base to add liquidity
-                    parseEther("-0.5"), // exchangedPositionSize
-                    // move 50% taker quote debt to maker
-                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                    bobBase.mul(-1), // exchangedPositionSize
+                    bobQuote.mul(-1), // exchangedPositionNotional
                     0, // fee
-                    "-76462681236530235111", // openNotional
-                    "0", // realizedPnl
+                    0, // openNotional
+                    0, // realizedPnl
                     Object, // sqrtPriceAfterX96
                 )
 
-            // alice long 0.1 base token
-            await q2bExactOutput(fixture, alice, 0.1)
+            // alice short 50 quote token
+            await b2qExactOutput(fixture, alice, 50)
 
             const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
                 .liquidity
@@ -924,25 +831,24 @@ describe("ClearingHouse addLiquidity", () => {
                 quoteToken.address,
                 lowerTick,
                 upperTick,
-                parseEther("-0.399999999999999999"),
-                parseEther("-15.473901654978787729"), // we don't care about this value. it's from console.log.
+                parseEther("-0.342104538435890588"), // value from console.log
+                parseEther("-49.494949494949494948"), // 100 - 50 = 50
                 bobLiquidity.mul(-1),
-                parseEther("0.156302036918977653"), // we don't care about this value. it's from console.log.
+                parseEther("0.505050505050505050"), // value from console.log; as long as it's > 0, there are fees received
             )
             await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
                 bob.address,
                 baseToken.address,
-                parseEther("0.399999999999999999"), // exchangedPositionSize
-                parseEther("-60.988779581551447382"), // exchangedPositionNotional
+                parseEther("-0.325253900226189730"), // exchangedPositionSize; -0.6673584387 - (-0.342104538435890588)
+                parseEther("49.494949494949494948"), // exchangedPositionNotional
                 "0", // fee
-                "-137451460818081682493", // openNotional
+                parseEther("49.494949494949494948"), // openNotional; value from console.log
                 "0", // realizedPnl
                 Object, // sqrtPriceAfterX96
             )
 
-            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
-                parseEther("0.9"),
-                1,
+            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(
+                parseEther("-0.325253900226189730"),
             )
 
             // totalQuote = totalQuote(before) + quoteRemovedFromPool
@@ -950,194 +856,439 @@ describe("ClearingHouse addLiquidity", () => {
             //            = -137.451460818
 
             // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
-            //            = -152.925362473060470222 /2 + (-60.988779581551447382)
+            //            = -152.925362473060470222 / 2 + (-60.988779581551447382)
             //            = -137.451460818
             const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-            expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("0.9"), 1)
-            expect(bobAccountInfo.takerOpenNotional).to.eq(parseEther("-137.451460818081682493"))
-            expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.9"), 1)
+            expect(bobAccountInfo.takerPositionSize).to.eq(parseEther("-0.325253900226189730"))
+            expect(bobAccountInfo.takerOpenNotional).to.eq(parseEther("49.494949494949494948"))
+            expect(await accountBalance.getBase(bob.address, baseToken.address)).to.eq(
+                parseEther("-0.325253900226189730"),
+            )
             expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(
-                parseEther("-137.451460818081682493"),
+                parseEther("49.494949494949494948"),
             )
 
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
-                parseEther("0.9"),
-                1,
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(
+                parseEther("-0.325253900226189730"),
             )
             const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
-            expect(netQuoteBalance.add(fee)).to.eq(parseEther("-137.451460818081682493"))
+            expect(netQuoteBalance.add(fee)).to.eq(parseEther("49.494949494949494948"))
             expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
-                parseEther("-137.451460818081682493"),
+                parseEther("49.494949494949494948"),
             )
         })
 
-        it("adding liquidity twice, one is using taker position and the second one without using taker position", async () => {
-            const lowerTick = 50400
-            const upperTick = 50600
+        describe("using taker's base", () => {
+            beforeEach(async () => {
+                const initPrice = "151.373306858723226651"
+                await initMarket(fixture, initPrice, undefined, 0)
 
-            // remove alice liquidity to maker test easier
-            const aliceLiquidity = (
-                await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
-            ).liquidity
-            await removeOrder(fixture, alice, aliceLiquidity, aliceLowerTick, aliceUpperTick, baseToken.address)
-
-            await expect(
-                clearingHouse.connect(bob).addLiquidity({
+                await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
-                    base: parseEther("0.5"),
-                    quote: "0",
-                    lowerTick: lowerTick,
-                    upperTick: upperTick,
-                    minBase: 0,
-                    minQuote: 0,
-                    useTakerBalance: true,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            )
-                .to.emit(clearingHouse, "PositionChanged")
-                .withArgs(
-                    bob.address,
-                    baseToken.address,
-                    parseEther("-0.5"), // exchangedPositionSize
-                    bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
-                    0, // fee
-                    "-76462681236530235111", // openNotional
-                    "0", // realizedPnl
-                    Object, // sqrtPriceAfterX96
-                )
-
-            // alice long 0.1 base token
-            await q2bExactOutput(fixture, alice, 0.1)
-
-            // bob add liquidity w/o using taker position
-            await expect(
-                await clearingHouse.connect(bob).addLiquidity({
-                    baseToken: baseToken.address,
-                    base: parseEther("0.5"),
-                    quote: parseEther("19.342377068723484663"),
-                    lowerTick: lowerTick,
-                    upperTick: upperTick,
+                    base: parseEther("100"),
+                    quote: parseEther("10000"),
+                    lowerTick: aliceLowerTick,
+                    upperTick: aliceUpperTick,
                     minBase: 0,
                     minQuote: 0,
                     useTakerBalance: false,
                     deadline: ethers.constants.MaxUint256,
-                }),
-            ).not.to.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
-            // NOTE: Once we call ".not.", it will negate all assertions that follow in the chain.
-            // ALWAYS put ".not" in the end of the chained operation, for instance:
-            // to.emit(contract1, "LiquidityChanged").and.not.to.emit(contract2, "PositionChanged")
+                })
 
-            // alice long 0.1 base token
-            await q2bExactOutput(fixture, alice, 0.1)
+                // bob long 1 base token
+                await q2bExactOutput(fixture, bob, 1)
+                bobTakerQuote = (await accountBalance.getAccountInfo(bob.address, baseToken.address)).takerOpenNotional
+                bobBase = await accountBalance.getBase(bob.address, baseToken.address)
+                bobQuote = await accountBalance.getQuote(bob.address, baseToken.address)
+                // bob's account info:
+                // totalQuote: -152.925362473060470222
+                // totalBase: 1
+                // takerQuote: -152.925362473060470222
+                // takerBase: 1
+            })
 
-            const bobLiquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
-                .liquidity
+            it("existing position size is enough for adding liquidity", async () => {
+                const lowerTick = 50400
+                const upperTick = 50600
 
-            await removeOrder(fixture, bob, bobLiquidity, lowerTick, upperTick, baseToken.address)
+                await expect(
+                    clearingHouse.connect(bob).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: parseEther("0.5"),
+                        quote: 0,
+                        lowerTick: lowerTick,
+                        upperTick: upperTick,
+                        minBase: 0,
+                        minQuote: 0,
+                        useTakerBalance: true,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                )
+                    .to.emit(clearingHouse, "PositionChanged")
+                    .withArgs(
+                        bob.address,
+                        baseToken.address,
+                        parseEther("-0.5"), // exchangedPositionSize
+                        bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                        0, // fee
+                        bobTakerQuote.div(2), // openNotional
+                        "0", // realizedPnl
+                        Object, // sqrtPriceAfterX96
+                    )
 
-            // baseRemovedFromPool: 0.799999999999999999
-            // quoteRemovedFromPool: 50.334785991896479848
+                expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.eq(
+                    parseEther("0.5"),
+                )
 
-            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
-                parseEther("0.8"),
-                1,
-            )
+                const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+                expect(bobAccountInfo.takerPositionSize).to.eq(parseEther("0.5"))
+                expect(bobAccountInfo.takerOpenNotional).to.eq(bobTakerQuote.div(2))
+                expect(await accountBalance.getBase(bob.address, baseToken.address)).to.eq(parseEther("0.5"))
+                expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
 
-            // totalQuote = totalQuote(before) - quoteDebt + quoteRemovedFromPool
-            //            = -152.925362473060470222 - 19.342377068723484663 + 50.334785991896479848
-            //            = -121.93295355
+                expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                    bobBase,
+                    1,
+                )
+                const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+                expect(netQuoteBalance).to.eq(bobQuote)
+                expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            })
 
-            // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
-            //            = takerQuote(before) * ratio to add liquidity + (quoteRemovedFromPool - (quoteDebt from taker + quoteDebt))
-            //            = -152.925362473060470222*0.5 + (50.334785991896479848-(152.925362473060470222*0.5+19.342377068723484663))
-            //            = -121.93295355
+            it("has the same taker position size after removing liquidity if no one else trade", async () => {
+                const lowerTick = 50400
+                const upperTick = 50600
 
-            const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
-
-            expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("0.8"), 1)
-            expect(bobAccountInfo.takerOpenNotional).to.eq(parseEther("-121.932953549887475037"))
-            expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(parseEther("0.8"), 1)
-            expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(
-                parseEther("-121.932953549887475037"),
-            )
-
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
-                parseEther("0.8"),
-                1,
-            )
-            const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
-            expect(netQuoteBalance.add(fee)).to.eq(parseEther("-121.932953549887475037"))
-            expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
-                parseEther("-121.932953549887475037"),
-            )
-        })
-
-        it("force error, existing position size is not enough for adding liquidity", async () => {
-            // bob has only 1 base, thus cannot add liquidity using more than 1 base/ taker's position size
-            await expect(
-                clearingHouse.connect(bob).addLiquidity({
-                    baseToken: baseToken.address,
-                    base: parseEther("1.5"),
-                    quote: 0,
-                    lowerTick: "50400",
-                    upperTick: "50600",
-                    minBase: 0,
-                    minQuote: 0,
-                    useTakerBalance: true,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            ).to.be.revertedWith("CH_TBNE")
-        })
-
-        it("force error, existing taker quote is not enough for adding liquidity", async () => {
-            await b2qExactInput(fixture, bob, 2)
-
-            // bob has only -1 base and ? quote, thus cannot add liquidity using more than ? taker quote
-            await expect(
-                clearingHouse.connect(bob).addLiquidity({
-                    baseToken: baseToken.address,
-                    base: 0,
-                    quote: parseEther("10000"),
-                    lowerTick: "49800",
-                    upperTick: "50000",
-                    minBase: 0,
-                    minQuote: 0,
-                    useTakerBalance: true,
-                    deadline: ethers.constants.MaxUint256,
-                }),
-            ).to.be.revertedWith("CH_TQNE")
-        })
-
-        it("force error, cannot add liquidity within range", async () => {
-            // current tick: 50200
-            // bob has 1 base, cannot add liquidity within the price range
-            await expect(
-                clearingHouse.connect(bob).addLiquidity({
+                await clearingHouse.connect(bob).addLiquidity({
                     baseToken: baseToken.address,
                     base: parseEther("0.5"),
-                    quote: parseEther("50"),
-                    lowerTick: "50200",
-                    upperTick: "50600",
+                    quote: 0,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
                     minBase: 0,
                     minQuote: 0,
                     useTakerBalance: true,
                     deadline: ethers.constants.MaxUint256,
-                }),
-            ).to.be.revertedWith("CH_CALWRFTP")
+                })
+
+                const liquidity = (await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick))
+                    .liquidity
+                await expect(
+                    clearingHouse.connect(bob).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick,
+                        upperTick,
+                        liquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                )
+                    .to.emit(clearingHouse, "PositionChanged")
+                    .withArgs(
+                        bob.address,
+                        baseToken.address,
+                        parseEther("0.499999999999999999"), // exchangedPositionSize
+                        bobTakerQuote.div(2), // exchangedPositionNotional
+                        0, // fee
+                        bobTakerQuote, // openNotional
+                        "0", // realizedPnl
+                        Object, // sqrtPriceAfterX96
+                    )
+
+                expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                    parseEther("1"),
+                    1,
+                )
+
+                const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+                expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("1"), 1)
+                expect(bobAccountInfo.takerOpenNotional).to.eq(bobTakerQuote)
+                expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(bobBase, 1)
+                expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(bobQuote)
+
+                expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                    bobBase,
+                    1,
+                )
+                const [netQuoteBalance] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+                expect(netQuoteBalance).to.eq(bobQuote)
+                expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(bobQuote)
+            })
+
+            it("force error, existing taker base is not enough for adding liquidity", async () => {
+                // bob has only 1 base, thus cannot add liquidity using more than 1 base/ taker's position size
+                await expect(
+                    clearingHouse.connect(bob).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: parseEther("1.5"),
+                        quote: 0,
+                        lowerTick: "50400",
+                        upperTick: "50600",
+                        minBase: 0,
+                        minQuote: 0,
+                        useTakerBalance: true,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_TBNE")
+            })
+
+            it("force error, existing taker quote is not enough for adding liquidity", async () => {
+                await b2qExactInput(fixture, bob, 2)
+
+                // bob has only -1 base and ? quote, thus cannot add liquidity using more than ? taker quote
+                await expect(
+                    clearingHouse.connect(bob).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: 0,
+                        quote: parseEther("10000"),
+                        lowerTick: "49800",
+                        upperTick: "50000",
+                        minBase: 0,
+                        minQuote: 0,
+                        useTakerBalance: true,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_TQNE")
+            })
+
+            it("force error, cannot add liquidity within range", async () => {
+                // current tick: 50200
+                // bob has 1 base, cannot add liquidity within the price range
+                await expect(
+                    clearingHouse.connect(bob).addLiquidity({
+                        baseToken: baseToken.address,
+                        base: parseEther("0.5"),
+                        quote: parseEther("50"),
+                        lowerTick: "50200",
+                        upperTick: "50600",
+                        minBase: 0,
+                        minQuote: 0,
+                        useTakerBalance: true,
+                        deadline: ethers.constants.MaxUint256,
+                    }),
+                ).to.be.revertedWith("CH_CALWRFTP")
+            })
+
+            describe("someone trades after adding liquidity", () => {
+                beforeEach(async () => {
+                    // remove alice's liquidity to simplify tests
+                    const aliceLiquidity = (
+                        await orderBook.getOpenOrder(alice.address, baseToken.address, aliceLowerTick, aliceUpperTick)
+                    ).liquidity
+                    await removeOrder(fixture, alice, aliceLiquidity, aliceLowerTick, aliceUpperTick, baseToken.address)
+                })
+
+                it("adding liquidity using taker's base", async () => {
+                    const lowerTick = 50400
+                    const upperTick = 50600
+
+                    await expect(
+                        clearingHouse.connect(bob).addLiquidity({
+                            baseToken: baseToken.address,
+                            base: parseEther("0.5"),
+                            quote: 0,
+                            lowerTick: lowerTick,
+                            upperTick: upperTick,
+                            minBase: 0,
+                            minQuote: 0,
+                            useTakerBalance: true,
+                            deadline: ethers.constants.MaxUint256,
+                        }),
+                    )
+                        .to.emit(clearingHouse, "PositionChanged")
+                        .withArgs(
+                            bob.address,
+                            baseToken.address,
+                            // using 50% taker base to add liquidity
+                            parseEther("-0.5"), // exchangedPositionSize
+                            // move 50% taker quote debt to maker
+                            bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                            0, // fee
+                            bobTakerQuote.div(2), // openNotional
+                            "0", // realizedPnl
+                            Object, // sqrtPriceAfterX96
+                        )
+
+                    // alice long 0.1 base token
+                    await q2bExactOutput(fixture, alice, 0.1)
+
+                    const bobLiquidity = (
+                        await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick)
+                    ).liquidity
+
+                    const tx = await clearingHouse.connect(bob).removeLiquidity({
+                        baseToken: baseToken.address,
+                        lowerTick,
+                        upperTick,
+                        liquidity: bobLiquidity,
+                        minBase: 0,
+                        minQuote: 0,
+                        deadline: ethers.constants.MaxUint256,
+                    })
+
+                    await expect(tx).to.emit(clearingHouse, "LiquidityChanged").withArgs(
+                        bob.address,
+                        baseToken.address,
+                        quoteToken.address,
+                        lowerTick,
+                        upperTick,
+                        parseEther("-0.399999999999999999"), // ~= -(0.5 - 0.1 (taken by alice)) = -0.4
+                        parseEther("-15.473901654978787729"), // value from console.log
+                        bobLiquidity.mul(-1),
+                        parseEther("0.156302036918977653"), // value from console.log; as long as it's > 0, there are fees received
+                    )
+                    await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
+                        bob.address,
+                        baseToken.address,
+                        parseEther("0.399999999999999999"), // exchangedPositionSize
+                        parseEther("-60.988779581551447382"), // exchangedPositionNotional; value from console.log
+                        "0", // fee
+                        "-137451460818081682493", // openNotional; value from console.log
+                        "0", // realizedPnl
+                        Object, // sqrtPriceAfterX96
+                    )
+
+                    expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.9"),
+                        1,
+                    )
+
+                    // totalQuote = totalQuote(before) + quoteRemovedFromPool
+                    //            = -152.925362473060470222 + 15.473901654978787729
+                    //            = -137.451460818
+
+                    // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
+                    //            = -152.925362473060470222 / 2 + (-60.988779581551447382)
+                    //            = -137.451460818
+                    const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+                    expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("0.9"), 1)
+                    expect(bobAccountInfo.takerOpenNotional).to.eq(parseEther("-137.451460818081682493"))
+                    expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.9"),
+                        1,
+                    )
+                    expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(
+                        parseEther("-137.451460818081682493"),
+                    )
+
+                    expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.9"),
+                        1,
+                    )
+                    const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+                    expect(netQuoteBalance.add(fee)).to.eq(parseEther("-137.451460818081682493"))
+                    expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                        parseEther("-137.451460818081682493"),
+                    )
+                })
+
+                it("adding liquidity twice, one using taker's base and the second one without using taker position", async () => {
+                    const lowerTick = 50400
+                    const upperTick = 50600
+
+                    await expect(
+                        clearingHouse.connect(bob).addLiquidity({
+                            baseToken: baseToken.address,
+                            base: parseEther("0.5"),
+                            quote: "0",
+                            lowerTick: lowerTick,
+                            upperTick: upperTick,
+                            minBase: 0,
+                            minQuote: 0,
+                            useTakerBalance: true,
+                            deadline: ethers.constants.MaxUint256,
+                        }),
+                    )
+                        .to.emit(clearingHouse, "PositionChanged")
+                        .withArgs(
+                            bob.address,
+                            baseToken.address,
+                            parseEther("-0.5"), // exchangedPositionSize
+                            bobTakerQuote.div(2).mul(-1), // exchangedPositionNotional
+                            0, // fee
+                            bobTakerQuote.div(2), // openNotional
+                            "0", // realizedPnl
+                            Object, // sqrtPriceAfterX96
+                        )
+
+                    // alice long 0.1 base token
+                    await q2bExactOutput(fixture, alice, 0.1)
+
+                    // bob add liquidity w/o using taker position
+                    await expect(
+                        await clearingHouse.connect(bob).addLiquidity({
+                            baseToken: baseToken.address,
+                            base: parseEther("0.5"),
+                            quote: parseEther("19.342377068723484663"),
+                            lowerTick: lowerTick,
+                            upperTick: upperTick,
+                            minBase: 0,
+                            minQuote: 0,
+                            useTakerBalance: false,
+                            deadline: ethers.constants.MaxUint256,
+                        }),
+                    ).not.to.emit(clearingHouse, "PositionChanged") // since useTakerBalance: false
+                    // NOTE: Once we call ".not.", it will negate all assertions that follow in the chain.
+                    // ALWAYS put ".not" in the end of the chained operation, for instance:
+                    // to.emit(contract1, "LiquidityChanged").and.not.to.emit(contract2, "PositionChanged")
+
+                    // alice long 0.1 base token
+                    await q2bExactOutput(fixture, alice, 0.1)
+
+                    const bobLiquidity = (
+                        await orderBook.getOpenOrder(bob.address, baseToken.address, lowerTick, upperTick)
+                    ).liquidity
+
+                    await removeOrder(fixture, bob, bobLiquidity, lowerTick, upperTick, baseToken.address)
+
+                    // baseRemovedFromPool: 0.799999999999999999
+                    // quoteRemovedFromPool: 50.334785991896479848
+
+                    expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.8"),
+                        1,
+                    )
+
+                    // totalQuote = totalQuote(before) - quoteDebt + quoteRemovedFromPool
+                    //            = -152.925362473060470222 - 19.342377068723484663 + 50.334785991896479848
+                    //            = -121.93295355
+
+                    // takerQuote = takerQuote(before) * ratio to add liquidity + deltaTakerBase
+                    //            = takerQuote(before) * ratio to add liquidity + (quoteRemovedFromPool - (quoteDebt from taker + quoteDebt))
+                    //            = -152.925362473060470222*0.5 + (50.334785991896479848-(152.925362473060470222*0.5+19.342377068723484663))
+                    //            = -121.93295355
+
+                    const bobAccountInfo = await accountBalance.getAccountInfo(bob.address, baseToken.address)
+
+                    expect(bobAccountInfo.takerPositionSize).to.be.closeTo(parseEther("0.8"), 1)
+                    expect(bobAccountInfo.takerOpenNotional).to.eq(parseEther("-121.932953549887475037"))
+                    expect(await accountBalance.getBase(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.8"),
+                        1,
+                    )
+                    expect(await accountBalance.getQuote(bob.address, baseToken.address)).to.eq(
+                        parseEther("-121.932953549887475037"),
+                    )
+
+                    expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.be.closeTo(
+                        parseEther("0.8"),
+                        1,
+                    )
+                    const [netQuoteBalance, fee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
+                    expect(netQuoteBalance.add(fee)).to.eq(parseEther("-121.932953549887475037"))
+                    expect(await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)).to.eq(
+                        parseEther("-121.932953549887475037"),
+                    )
+                })
+            })
         })
     })
 
     describe("# OrderBook.getOpenOrderById", () => {
         beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226651", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226651)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            const initPrice = "151.373306858723226651"
+            await initMarket(fixture, initPrice)
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -1206,15 +1357,8 @@ describe("ClearingHouse addLiquidity", () => {
 
     describe("force error", () => {
         beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            const initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice)
         })
 
         it("add 0 liquidity will fail", async () => {
