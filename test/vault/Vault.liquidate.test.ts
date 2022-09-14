@@ -914,7 +914,7 @@ describe("Vault LiquidateCollateral", () => {
 
                 // alice still has bad debt after collateral liquidations
                 expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-                expect(await vault.getAccountValue(insuranceFund.address)).to.be.gt("0")
+                expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.gt("0")
             })
 
             it("do not settle bad debt if user still has non-settlement collateral after liquidation", async () => {
@@ -935,7 +935,7 @@ describe("Vault LiquidateCollateral", () => {
 
                 // alice still has bad debt
                 expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-                expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq(IFFee)
+                expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq(IFFee)
             })
 
             it("settle bad debt after last liquidation", async () => {
@@ -958,7 +958,7 @@ describe("Vault LiquidateCollateral", () => {
                         .liquidateCollateral(alice.address, xxx.address, parseUnits("1.1237", xxxDecimals), false),
                 ).not.emit(vault, "BadDebtSettled")
 
-                const IFBalanceBefore = await vault.getAccountValue(insuranceFund.address)
+                const IFSettlementTokenValueBefore = await vault.getSettlementTokenValue(insuranceFund.address)
 
                 // in last liquidation, settle bad debt
                 const badDebt = parseUnits("11269.339945", usdcDecimals)
@@ -979,8 +979,8 @@ describe("Vault LiquidateCollateral", () => {
                 // alice's account value should be zero now
                 expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
                 // IF's account value decreased
-                expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq(
-                    badDebt.mul("-1").add(IFBalanceBefore).add(IFFee),
+                expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq(
+                    badDebt.mul("-1").add(IFSettlementTokenValueBefore).add(IFFee),
                 )
             })
         })
