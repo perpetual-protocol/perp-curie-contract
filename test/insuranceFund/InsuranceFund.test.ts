@@ -28,10 +28,10 @@ describe("InsuranceFund Test", () => {
     describe("# repay()", () => {
         it("force error when IF account value is gt 0", async () => {
             await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("100"))
-            const accountValue = await vault.getAccountValue(insuranceFund.address)
-            expect(accountValue).to.be.gt("0")
+            const settlementTokenValue = await vault.getSettlementTokenValue(insuranceFund.address)
+            expect(settlementTokenValue).to.be.gt("0")
 
-            await expect(insuranceFund.repay()).to.be.revertedWith("IF_RWN")
+            await expect(insuranceFund.repay()).to.be.revertedWith("IF_RWNN")
         })
 
         it("repay when IF balance less than accountValue.abs()", async () => {

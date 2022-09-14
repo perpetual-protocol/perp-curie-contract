@@ -122,7 +122,7 @@ describe("Vault settleBadDebt", () => {
             // do not settle bad debt
             await expect(vault.settleBadDebt(alice.address)).not.emit(vault, "BadDebtSettled")
             expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("0")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq("0")
         })
 
         it("unrealized bad debt can not be settled when user has non-settlement collateral", async () => {
@@ -136,7 +136,7 @@ describe("Vault settleBadDebt", () => {
             // can not settle bad debt when user has non-settlement collateral
             await expect(vault.settleBadDebt(alice.address)).not.emit(vault, "BadDebtSettled")
             expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("0")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq("0")
         })
 
         it("trader has no bad debt", async () => {
@@ -147,7 +147,7 @@ describe("Vault settleBadDebt", () => {
             // no need to settle bad debt when user's account value > 0
             await expect(vault.settleBadDebt(alice.address)).not.emit(vault, "BadDebtSettled")
             expect(await vault.getAccountValue(alice.address)).to.be.gt("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("0")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq("0")
         })
 
         it("settle trader's bad debt", async () => {
@@ -162,7 +162,7 @@ describe("Vault settleBadDebt", () => {
                 .withArgs(alice.address, badDebt)
 
             expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq(aliceAccountValue)
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq(aliceAccountValue)
         })
     })
 })
