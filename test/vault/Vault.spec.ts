@@ -92,6 +92,12 @@ describe("Vault spec", () => {
         })
     })
 
+    describe("only receive Ether directly from WETH9", async () => {
+        it("force error, not from WETH9", async () => {
+            await expect(bob.sendTransaction({ to: vault.address, value: 1 })).to.be.revertedWith("V_SNW")
+        })
+    })
+
     describe("getFreeCollateral", () => {
         it("equals to total collateral value + locked collateral value (0)")
         it("equals to total collateral value + locked collateral value ( > 0)")
