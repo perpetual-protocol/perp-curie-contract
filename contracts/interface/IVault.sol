@@ -239,7 +239,7 @@ interface IVault {
     /// @return decimals The decimals of settlement token
     function decimals() external view returns (uint8 decimals);
 
-    /// @notice Get the borrowed settlement token amount from insurance fund
+    /// @notice (Deprecated) Get the borrowed settlement token amount from insurance fund
     /// @return debtAmount The debt amount (in settlement token's decimals)
     function getTotalDebt() external view returns (uint256 debtAmount);
 
