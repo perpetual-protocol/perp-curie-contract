@@ -213,6 +213,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return _accountMarketMap[trader][baseToken].takerOpenNotional;
     }
 
+    // @inheritdoc IAccountBalance
+    function getTotalOpenNotional(address trader, address baseToken) external view override returns (int256) {
+        // quote.pool[baseToken] + quoteBalance[baseToken]
+        (uint256 quoteInPool, ) =
+            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
+        int256 quoteBalance = getQuote(trader, baseToken);
+        return quoteInPool.toInt256().add(quoteBalance);
+    }
+
     /// @inheritdoc IAccountBalance
     function getTotalDebtValue(address trader) external view override returns (uint256) {
         int256 totalQuoteBalance;
@@ -368,15 +377,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function getTotalPositionValue(address trader, address baseToken) public view override returns (int256) {
         int256 positionSize = getTotalPositionSize(trader, baseToken);
         return _getPositionValue(baseToken, positionSize);
-    }
-
-    // @inheritdoc IAccountBalance
-    function getTotalOpenNotional(address trader, address baseToken) public view override returns (int256) {
-        // quote.pool[baseToken] + quoteBalance[baseToken]
-        (uint256 quoteInPool, ) =
-            IOrderBook(_orderBook).getTotalTokenAmountInPoolAndPendingFee(trader, baseToken, false);
-        int256 quoteBalance = getQuote(trader, baseToken);
-        return quoteInPool.toInt256().add(quoteBalance);
     }
 
     /// @inheritdoc IAccountBalance
