@@ -293,13 +293,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             return 0;
         }
 
+        // Liquidate the entire position if its value is small enough
+        // to prevent tiny positions left in the system
         int256 positionValue = _getPositionValue(baseToken, positionSize);
         if (positionValue.abs() <= _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE) {
             return positionSize;
         }
 
         // https://www.notion.so/perp/Backstop-LP-Spec-614b42798d4943768c2837bfe659524d#968996cadaec4c00ac60bd1da02ea8bb
-        // Liquidator can only take over partial position if margin ratio is  ≥ 3.125% (aka the half of mmRatio).
+        // Liquidator can only take over partial position if margin ratio is ≥ 3.125% (aka the half of mmRatio).
         // If margin ratio < 3.125%, liquidator can take over the entire position.
         //
         // threshold = mmRatio / 2 = 3.125%
@@ -307,7 +309,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         //    maxLiquidateRatio = MIN(1, 0.5 * totalAbsPositionValue / absPositionValue)
         // if marginRatio < threshold, then
         //    maxLiquidateRatio = 1
-        uint24 maxLiquidateRatio = 1e6;
+        uint24 maxLiquidateRatio = 1e6; // 100%
         if (accountValue >= marginRequirement.div(2)) {
             // maxLiquidateRatio = getTotalAbsPositionValue / ( getTotalPositionValueInMarket.abs * 2 )
             maxLiquidateRatio = FullMath
