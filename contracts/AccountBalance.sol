@@ -304,8 +304,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
         // Liquidate the entire position if its value is small enough
         // to prevent tiny positions left in the system
-        int256 positionValue = _getPositionValue(baseToken, positionSize);
-        if (positionValue.abs() <= _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE) {
+        uint256 positionValueAbs = _getPositionValue(baseToken, positionSize).abs();
+        if (positionValueAbs <= _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE) {
             return positionSize;
         }
 
@@ -322,7 +322,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         if (accountValue >= marginRequirement.div(2)) {
             // maxLiquidateRatio = getTotalAbsPositionValue / ( getTotalPositionValueInMarket.abs * 2 )
             maxLiquidateRatio = FullMath
-                .mulDiv(getTotalAbsPositionValue(trader), 1e6, getTotalPositionValue(trader, baseToken).abs().mul(2))
+                .mulDiv(getTotalAbsPositionValue(trader), 1e6, positionValueAbs.mul(2))
                 .toUint24();
             if (maxLiquidateRatio > 1e6) {
                 maxLiquidateRatio = 1e6;
