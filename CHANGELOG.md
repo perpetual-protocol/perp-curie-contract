@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [2.1.1] - TBD
+## [2.1.1] - 2022-09-21
 ### Changed
 - `AccountBalance.getLiquidatablePositionSize()` returns entire position size if the position value is less than _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE.
 
