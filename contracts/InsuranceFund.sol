@@ -38,13 +38,15 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         address vault = _borrower;
         address token = _token;
 
-        int256 accountValue = IVault(vault).getAccountValue(address(this));
+        int256 insuranceFundSettlementValue = IVault(vault).getSettlementTokenValue(address(this));
 
-        // IF_RWN: repay when negative
-        require(accountValue < 0, "IF_RWN");
+        // IF_RWNN: repay when non-negative
+        require(insuranceFundSettlementValue < 0, "IF_RWNN");
 
         uint256 tokenBalance = IERC20Upgradeable(token).balanceOf(address(this));
-        uint256 repaidAmount = tokenBalance >= accountValue.abs() ? accountValue.abs() : tokenBalance;
+        uint256 insuranceFundSettlementValueAbs = insuranceFundSettlementValue.abs();
+        uint256 repaidAmount =
+            tokenBalance >= insuranceFundSettlementValueAbs ? insuranceFundSettlementValueAbs : tokenBalance;
 
         IERC20Upgradeable(token).approve(vault, repaidAmount);
         IVault(vault).deposit(token, repaidAmount);

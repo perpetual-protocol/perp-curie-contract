@@ -61,7 +61,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
 
     /// @dev only used for unwrapping weth in withdrawETH
-    receive() external payable {}
+    receive() external payable {
+        // V_SNW: sender is not WETH9
+        require(_msgSender() == _WETH9, "V_SNW");
+    }
 
     function initialize(
         address insuranceFundArg,
@@ -710,6 +713,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address token,
         int256 amount
     ) internal {
+        if (amount == 0) {
+            return;
+        }
+
         int256 oldBalance = _balance[trader][token];
         int256 newBalance = oldBalance.add(amount);
         _balance[trader][token] = newBalance;
@@ -831,10 +838,15 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // return accountValueX10_18.sub(totalMarginRequirementX10_18.toInt256());
     }
 
-    function _getTotalCollateralValue(address trader) internal view returns (int256 totalCollateralValueX10_18) {
-        (int256 settlementTokenBalanceX10_18, ) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
+    function _getTotalCollateralValueAndUnrealizedPnl(address trader)
+        internal
+        view
+        returns (int256 totalCollateralValueX10_18, int256 unrealizedPnlX10_18)
+    {
+        int256 settlementTokenBalanceX10_18;
+        (settlementTokenBalanceX10_18, unrealizedPnlX10_18) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
         uint256 nonSettlementTokenValueX10_18 = _getNonSettlementTokenValue(trader);
-        return nonSettlementTokenValueX10_18.toInt256().add(settlementTokenBalanceX10_18);
+        return (nonSettlementTokenValueX10_18.toInt256().add(settlementTokenBalanceX10_18), unrealizedPnlX10_18);
     }
 
     /// @notice Get the specified trader's settlement token balance, including pending fee, funding payment,
@@ -948,9 +960,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         view
         returns (int256 accountValueX10_18, int256 totalCollateralValueX10_18)
     {
-        (, int256 unrealizedPnlX10_18, ) = IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
+        int256 unrealizedPnlX10_18;
 
-        totalCollateralValueX10_18 = _getTotalCollateralValue(trader);
+        (totalCollateralValueX10_18, unrealizedPnlX10_18) = _getTotalCollateralValueAndUnrealizedPnl(trader);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in 18 decimals
         accountValueX10_18 = totalCollateralValueX10_18.add(unrealizedPnlX10_18);
