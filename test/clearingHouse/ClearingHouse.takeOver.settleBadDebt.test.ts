@@ -185,7 +185,7 @@ describe("ClearingHouse liquidate", () => {
             ).not.emit(vault, "BadDebtSettled")
 
             expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.gte("0")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.gte("0")
         })
 
         it("do not settle bad debt if user still has position after liquidation", async () => {
@@ -198,7 +198,7 @@ describe("ClearingHouse liquidate", () => {
             ).not.emit(vault, "BadDebtSettled")
 
             expect(await vault.getAccountValue(alice.address)).to.be.lt("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.gte("0")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.gte("0")
         })
 
         it("settle bad debt after last liquidation", async () => {
@@ -217,9 +217,9 @@ describe("ClearingHouse liquidate", () => {
             // alice after takerOpenNotional = -90 + 80.94254820460266 = -9.057451795397341
             // alice after accountValue = 10 - 9.057451795397341 - 2.023563705115066(fee) = -1.0810155005124074
             // insuranceFund owedRealizedPnl = liquidationPenalty * 0.5 = 1011781852557533000 = 1.011781852557533
-            // insuranceFund accountValue = 1011781852557533000 / 1e12 - 1081016 = -69234.14744246693 => -69235 (round down) = 0.069235
+            // insuranceFund settlementTokenValue = 1011781852557533000 / 1e12 - 1081016 = -69234.14744246693 => -69235 (round down) = 0.069235
             expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("-69235")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq("-69235")
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1081016")
         })
 
@@ -238,8 +238,6 @@ describe("ClearingHouse liquidate", () => {
             await expect(
                 clearingHouse.connect(admin)["liquidate(address,address)"](alice.address, baseToken.address),
             ).to.not.emit(vault, "BadDebtSettled")
-
-            console.log(`${await clearingHouse.getAccountValue(alice.address)}`)
 
             // will emit event when liquidate collateral
             await expect(
@@ -261,9 +259,9 @@ describe("ClearingHouse liquidate", () => {
             // alice after accountValue = 10 - 9.057451795397341 - 2.023563705115066(fee) + 0.007 (collateral value) = -1.074016
             // insuranceFund liquidate collateral fee = 9000 * 0.03 = 270
             // insuranceFund owedRealizedPnl = liquidationPenalty * 0.5 = 1011781852557533000 = 1.011781852557533
-            // insuranceFund accountValue = 1011781852557533000 / 1e12 - 1072286 + 270 (liquidate collateral fee) = -60234.147442467 => -60235 (round down) = 0.060235
+            // insuranceFund settlementTokenValue = 1011781852557533000 / 1e12 - 1072286 + 270 (liquidate collateral fee) = -60234.147442467 => -60235 (round down) = 0.060235
             expect(await vault.getAccountValue(alice.address)).to.be.eq("0")
-            expect(await vault.getAccountValue(insuranceFund.address)).to.be.eq("-60235")
+            expect(await vault.getSettlementTokenValue(insuranceFund.address)).to.be.eq("-60235")
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1072016")
         })
     })
