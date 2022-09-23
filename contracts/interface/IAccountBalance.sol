@@ -178,8 +178,8 @@ interface IAccountBalance {
 
     /// @notice Check trader has open order in open/closed market.
     /// @param trader The address of trader
-    /// @return hasOrder True of false
-    function hasOrder(address trader) external view returns (bool hasOrder);
+    /// @return True of false
+    function hasOrder(address trader) external view returns (bool);
 
     /// @notice Get trader base amount
     /// @dev `base amount = takerPositionSize - orderBaseDebt`

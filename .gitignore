@@ -11,3 +11,5 @@ slither
 contracts/hardhat-dependency-compiler/*
 .openzeppelin/unknown-31337.json
 .env*
+forge-cache/
+out/

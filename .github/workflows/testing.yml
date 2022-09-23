@@ -84,3 +84,45 @@ jobs:
 
             - name: Run lint
               run: npm run lint
+
+    foundry-test:
+        name: Foundry Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+              with:
+                  submodules: recursive
+                  persist-credentials: false
+
+            - name: Get npm cache directory
+              id: npm-cache
+              run: |
+                echo "::set-output name=dir::$(npm config get cache)"
+            - uses: actions/cache@v2
+              with:
+                path: |
+                  ${{ steps.npm-cache.outputs.dir }}
+                  **/node_modules
+                key: ${{ github.job }}-${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+                restore-keys: |
+                  ${{ github.job }}-${{ runner.os }}-node-
+
+            - name: Use Node.js 16.x
+              uses: actions/setup-node@v3
+              with:
+                node-version: 16.x
+
+            - name: Install contract package dependencies
+              run: npm ci
+              
+            - name: Install Foundry
+              uses: foundry-rs/foundry-toolchain@v1
+              with:
+                version: nightly
+
+            - name: Run tests
+              run: npm run foundry-test
+
+            - name: Run snapshot
+              run: forge snapshot
+
