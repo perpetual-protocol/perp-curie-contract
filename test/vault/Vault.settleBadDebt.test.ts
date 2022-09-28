@@ -18,11 +18,10 @@ import {
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 
-describe("Vault settleBadDebt", () => {
+describe("Vault settleBadDebt (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -70,17 +69,8 @@ describe("Vault settleBadDebt", () => {
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            1000,
-        )
+        await initMarket(fixture, "151.373306858723226652", 10000, 0, 100000, baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-        // set a higher price limit for large orders
-        await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "100000")
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
