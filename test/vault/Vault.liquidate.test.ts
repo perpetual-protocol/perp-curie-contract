@@ -25,12 +25,10 @@ import {
     q2bExactInput,
     syncIndexToMarketPrice,
 } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 
-describe("Vault LiquidateCollateral", () => {
+describe("Vault liquidate test", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -78,14 +76,8 @@ describe("Vault LiquidateCollateral", () => {
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            getMaxTickRange(),
-        )
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // mint and add liquidity
@@ -105,7 +97,6 @@ describe("Vault LiquidateCollateral", () => {
         await addOrder(fixture, bob, 500, 1000000, 0, 150000)
 
         // Carol will liquidate Alice's position
-        await clearingHouseConfig.setBackstopLiquidityProvider(carol.address, true)
         const usdcAmount = parseUnits("10000", usdcDecimals)
         await usdc.mint(carol.address, usdcAmount)
         await usdc.connect(carol).approve(vault.address, usdcAmount)

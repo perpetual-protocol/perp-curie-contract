@@ -2,38 +2,20 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import {
-    BaseToken,
-    ClearingHouseConfig,
-    InsuranceFund,
-    MarketRegistry,
-    OrderBook,
-    TestAccountBalance,
-    TestClearingHouse,
-    TestERC20,
-    TestExchange,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
+import { BaseToken, TestClearingHouse, TestERC20, TestExchange, UniswapV3Pool, Vault } from "../../typechain"
 import { addOrder, b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse badDebt", () => {
-    const [admin, alice, bob, carol] = waffle.provider.getWallets()
+    const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
-    let orderBook: OrderBook
-    let accountBalance: TestAccountBalance
     let exchange: TestExchange
-    let insuranceFund: InsuranceFund
-    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
@@ -43,43 +25,24 @@ describe("ClearingHouse badDebt", () => {
 
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
-        const exFeeRatio = 1000 // 0.1%
 
         fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange as TestExchange
-        insuranceFund = fixture.insuranceFund
-        clearingHouseConfig = fixture.clearingHouseConfig
-        orderBook = fixture.orderBook
-        accountBalance = fixture.accountBalance as TestAccountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
 
+        const initPrice = "100"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, 1000)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
         })
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("100", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            uniFeeRatio,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-
-        // update config
-        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
-
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
+        lowerTick = minTick
+        upperTick = maxTick
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
         await initiateBothTimestamps(clearingHouse)

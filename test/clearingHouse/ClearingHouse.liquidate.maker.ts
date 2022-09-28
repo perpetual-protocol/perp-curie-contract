@@ -16,10 +16,9 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { encodePriceSqrt, filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
+import { filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -37,7 +36,6 @@ describe("ClearingHouse liquidate maker", () => {
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
-    let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
     let lowerTick: number
@@ -68,29 +66,19 @@ describe("ClearingHouse liquidate maker", () => {
         quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
-        pool = fixture.pool
         baseToken2 = fixture.baseToken2
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "10"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("10", 6), 0, 0, 0]
+            return [0, parseUnits(initPrice, 6), 0, 0, 0]
         })
 
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("10", "1"),
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
+        lowerTick = minTick
+        upperTick = maxTick
 
         // alice add v2 style liquidity
         await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -425,9 +413,8 @@ describe("ClearingHouse liquidate maker", () => {
 
         describe("multiple orders in different pools", () => {
             beforeEach(async () => {
-                await pool2.initialize(encodePriceSqrt("10", "1"))
-                await marketRegistry.addPool(baseToken2.address, "10000")
-                await exchange.setMaxTickCrossedWithinBlock(baseToken2.address, getMaxTickRange())
+                const initPrice = "10"
+                await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
                 await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
                 // alice add v2 style liquidity in pool2
@@ -706,15 +693,8 @@ describe("ClearingHouse liquidate maker", () => {
 
     describe("maker has multiple orders part 2", async () => {
         beforeEach(async () => {
-            await initAndAddPool(
-                fixture,
-                pool2,
-                baseToken2.address,
-                encodePriceSqrt("10", "1"),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            const initPrice = "10"
+            await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
             await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
             // alice add v2 style liquidity on pool2

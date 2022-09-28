@@ -11,16 +11,13 @@ import {
     TestClearingHouse,
     TestERC20,
     TestExchange,
-    UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
@@ -36,7 +33,6 @@ describe("ClearingHouse funding", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let mockedBaseAggregator: MockContract
-    let pool: UniswapV3Pool
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -52,21 +48,13 @@ describe("ClearingHouse funding", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
-        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "154.4310961"
+        await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("154", 6), 0, 0, 0]
         })
-
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("154.4310961", "1"), // price at 50400 == 154.4310961
-            10000,
-            getMaxTickRange(),
-        )
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))

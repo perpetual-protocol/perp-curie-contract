@@ -5,36 +5,22 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
+import { AccountBalance, BaseToken, OrderBook, QuoteToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity with fee", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let orderBook: OrderBook
     let accountBalance: AccountBalance
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
     let quoteToken: QuoteToken
-    let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let fixture: ClearingHouseFixture
 
@@ -48,12 +34,10 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         clearingHouse = _clearingHouseFixture.clearingHouse as TestClearingHouse
         orderBook = _clearingHouseFixture.orderBook
         accountBalance = _clearingHouseFixture.accountBalance
-        marketRegistry = _clearingHouseFixture.marketRegistry
         vault = _clearingHouseFixture.vault
         collateral = _clearingHouseFixture.USDC
         baseToken = _clearingHouseFixture.baseToken
         quoteToken = _clearingHouseFixture.quoteToken
-        pool = _clearingHouseFixture.pool
         mockedBaseAggregator = _clearingHouseFixture.mockedBaseAggregator
         fixture = _clearingHouseFixture
 
@@ -85,18 +69,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
     describe("remove zero liquidity", () => {
         describe("one maker; current price is in maker's range", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+                const initPrice = "151.3733069"
+                await initMarket(fixture, initPrice, undefined, 0)
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("151", 6), 0, 0, 0]
                 })
-                await initAndAddPool(
-                    fixture,
-                    pool,
-                    baseToken.address,
-                    encodePriceSqrt(151.3733069, 1),
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
 
                 const lowerTick = "50000"
                 const upperTick = "50200"
@@ -221,18 +198,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
 
             describe("initialized price = 148.3760629", () => {
                 beforeEach(async () => {
+                    const initPrice = "148.3760629"
+                    await initMarket(fixture, initPrice, undefined, 0)
                     mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                         return [0, parseUnits("148", 6), 0, 0, 0]
                     })
-                    await initAndAddPool(
-                        fixture,
-                        pool,
-                        baseToken.address,
-                        encodePriceSqrt(148.3760629, 1),
-                        10000,
-                        // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                        getMaxTickRange(),
-                    )
                 })
 
                 it("a trader swaps quote to base, thus the maker receives quote fee in Uniswap", async () => {
@@ -475,18 +445,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         // expect to have more tests
         describe("multi makers", () => {
             beforeEach(async () => {
+                const initPrice = "148.3760629"
+                await initMarket(fixture, initPrice, undefined, 0)
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("148", 6), 0, 0, 0]
                 })
-                await initAndAddPool(
-                    fixture,
-                    pool,
-                    baseToken.address,
-                    encodePriceSqrt(148.3760629, 1),
-                    10000,
-                    // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                    getMaxTickRange(),
-                )
             })
 
             it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
@@ -972,18 +935,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         const upperTick = "50200"
 
         it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
+            const initPrice = "151.3733069"
+            await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(151.3733069, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -1064,18 +1020,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         })
 
         it("two makers; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
+            const initPrice = "148.3760629"
+            await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("148", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(148.3760629, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
             const base = 0.000816820841
 
@@ -1234,22 +1183,14 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         let upperTick: number
 
         beforeEach(async () => {
+            const initPrice = "151.3733069"
+            const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            const tickSpacing = await pool.tickSpacing()
-            lowerTick = getMinTick(tickSpacing)
-            upperTick = getMaxTick(tickSpacing)
 
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt(151.3733069, 1),
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
+            lowerTick = minTick
+            upperTick = maxTick
         })
 
         it("maker should withdraw after multiple trader process", async () => {
