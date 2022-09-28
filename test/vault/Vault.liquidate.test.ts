@@ -28,7 +28,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 
-describe("Vault liquidate test", () => {
+describe("Vault liquidate test (assume zero fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: ClearingHouse
@@ -79,6 +79,9 @@ describe("Vault liquidate test", () => {
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
+        // set trading fee back to 0% for simplicity
+        await marketRegistry.setFeeRatio(fixture.baseToken.address, 0)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
