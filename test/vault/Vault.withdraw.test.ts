@@ -5,10 +5,8 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
-    BaseToken,
     ClearingHouse,
     CollateralManager,
-    MarketRegistry,
     TestAccountBalance,
     TestERC20,
     TestWETH9,
@@ -17,10 +15,9 @@ import {
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTickRange, IGNORABLE_DUST } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
+import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -35,8 +32,6 @@ describe("Vault withdraw test", () => {
     let accountBalance: AccountBalance | TestAccountBalance
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
-    let baseToken: BaseToken
-    let marketRegistry: MarketRegistry
     let mockedBaseAggregator: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
@@ -72,27 +67,15 @@ describe("Vault withdraw test", () => {
         accountBalance = fixture.accountBalance
         collateralManager = fixture.collateralManager
         pool = fixture.pool
-        baseToken = fixture.baseToken
-        marketRegistry = fixture.marketRegistry
         mockedBaseAggregator = fixture.mockedBaseAggregator
 
         usdcDecimals = await usdc.decimals()
 
+        const initPrice = "151.373306858723226652"
+        await initMarket(fixture, initPrice)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151.373306", 6), 0, 0, 0]
         })
-
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-
-        await marketRegistry.setFeeRatio(baseToken.address, 10000)
 
         wethPriceFeed.smocked.getPrice.will.return.with(parseEther("2500"))
         wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))

@@ -18,11 +18,10 @@ import {
     Vault,
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, filterLogs } from "../shared/utilities"
+import { filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -67,22 +66,21 @@ describe("Clearinghouse StopMarket", async () => {
         pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "151.3733069"
+        await initMarket(fixture, initPrice, undefined, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
 
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
         mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
 
-        await initAndAddPool(fixture, pool, baseToken.address, encodePriceSqrt("151.3733069", "1"), 10000, 1000)
-        await initAndAddPool(fixture, pool2, baseToken2.address, encodePriceSqrt("151.3733069", "1"), 10000, 1000)
+        lowerTick = minTick
+        upperTick = maxTick
 
         await clearingHouseConfig.setMaxFundingRate(1000000)
-
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
 
         // mint
         collateral.mint(alice.address, parseUnits("10000", collateralDecimals))

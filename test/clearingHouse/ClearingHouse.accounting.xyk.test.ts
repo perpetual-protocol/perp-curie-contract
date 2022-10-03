@@ -7,9 +7,7 @@ import { it } from "mocha"
 import {
     AccountBalance,
     BaseToken,
-    ClearingHouseConfig,
     InsuranceFund,
-    MarketRegistry,
     OrderBook,
     QuoteToken,
     TestClearingHouse,
@@ -26,11 +24,10 @@ import {
     q2bExactInput,
     removeAllOrders,
 } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -38,13 +35,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     const [admin, maker, taker, maker2, taker2, maker3, taker3] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let exchange: TestExchange
     let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
-    let clearingHouseConfig: ClearingHouseConfig
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: QuoteToken
@@ -67,37 +62,23 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
         accountBalance = fixture.accountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         insuranceFund = fixture.insuranceFund
-        clearingHouseConfig = fixture.clearingHouseConfig
         mockedBaseAggregator = fixture.mockedBaseAggregator
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "10"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("10", 6), 0, 0, 0]
+            return [0, parseUnits(initPrice, 6), 0, 0, 0]
         })
 
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
-
-        // update config
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("10", "1"),
-            uniFeeRatio,
-            getMaxTickRange(),
-        )
-
-        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
+        lowerTick = minTick
+        upperTick = maxTick
 
         // prepare collateral for maker
         makerCollateral = parseUnits("1000", collateralDecimals)

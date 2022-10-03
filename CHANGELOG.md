@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.2.1] - TBD
 - Add `InsuranceFund.getInsuranceFundCapacity()`
 
-## [2.2.0] - TBD
+## [2.2.0] - 2022-09-30
 ### Added
 - Add `Vault.settleBadDebt()`
 - Add `InsuranceFund.repay()`
@@ -18,12 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Remove `InsuranceFund.borrow()`
 
+## [2.1.1] - 2022-09-21
+### Changed
+- `AccountBalance.getLiquidatablePositionSize()` returns entire position size if the position value is less than _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE.
+
 ## [2.1.0] - 2022-08-16
-### Added 
+### Added
 - Add `Vault.withdrawAll()` to withdraw all free collateral(specified) from vault
 - Add `Vault.withdrawAllEther()` to withdraw all ETH from vault
 
-### Changed 
+### Changed
 - Update return parameter names in NatSpec
 
 ### Fixed

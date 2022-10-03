@@ -16,10 +16,9 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
+import { getMaxTick, getMinTick } from "../helper/number"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -77,31 +76,16 @@ describe("AccountBalance", () => {
 
     describe("getBaseTokens()", () => {
         beforeEach(async () => {
+            const initPrice = "151.373306858723226652"
+            await initMarket(fixture, initPrice)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool,
-                baseToken.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
 
+            await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
             mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-            await initAndAddPool(
-                fixture,
-                pool2,
-                baseToken2.address,
-                encodePriceSqrt("151.373306858723226652", "1"), // tick = 50200 (1.0001^50200 = 151.373306858723226652)
-                10000,
-                // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-                getMaxTickRange(),
-            )
         })
 
         it("alice add liquidity", async () => {

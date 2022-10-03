@@ -14,14 +14,12 @@ import {
     OrderBook,
     TestClearingHouse,
     TestERC20,
-    UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, filterLogs } from "../shared/utilities"
+import { filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
@@ -38,8 +36,6 @@ describe.skip("ClearingHouse accounting", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let pool: UniswapV3Pool
-    let tickSpacing: number
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
 
@@ -67,7 +63,6 @@ describe.skip("ClearingHouse accounting", () => {
         marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
@@ -104,27 +99,14 @@ describe.skip("ClearingHouse accounting", () => {
             return [0, parseUnits("100", 6), 0, 0, 0]
         })
 
-        tickSpacing = await pool.tickSpacing()
-        // add pool with 0.3% fee, set CH fee to 0.1%, IF fee ratio to 10%
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("100", "1"), // tick = 46000 (1.0001^46000 = 99.4614384055)
-            3000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
-        await marketRegistry.setFeeRatio(baseToken.address, 1000)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 1e5)
+        const initPrice = "100"
+        // add pool with 0.3% fee
+        let { maxTick, minTick } = await initMarket(fixture, initPrice, 1000)
 
         // prepare collateral for maker
         makerCollateralAmount = parseUnits("1000000", collateralDecimals)
         await collateral.mint(maker.address, makerCollateralAmount)
         await deposit(maker, vault, 1000000, collateral)
-
-        minTick = getMinTick(tickSpacing)
-        maxTick = getMaxTick(tickSpacing)
 
         // maker add a v2 style liquidity
         await clearingHouse.connect(maker).addLiquidity({

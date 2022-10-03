@@ -58,9 +58,9 @@ describe("ClearingHouse new market listing", () => {
         baseToken3 = _token0Fixture.baseToken
         mockedBaseAggregator3 = _token0Fixture.mockedAggregator
 
-        const uniFeeTier = 10000
+        const uniAndExFeeTier = 10000
         const ifFeeRatio = 100000
-        await fixture.uniV3Factory.createPool(baseToken3.address, quoteToken.address, uniFeeTier)
+        await fixture.uniV3Factory.createPool(baseToken3.address, quoteToken.address, uniAndExFeeTier)
         pool3Addr = await fixture.uniV3Factory.getPool(baseToken3.address, quoteToken.address, fixture.uniFeeTier)
 
         await baseToken3.addWhitelist(pool3Addr)
@@ -69,19 +69,25 @@ describe("ClearingHouse new market listing", () => {
         await baseToken3.mintMaximumTo(clearingHouse.address)
         await baseToken3.addWhitelist(clearingHouse.address)
 
+        const initPrice = "148"
         // initial baseToken market
-        await initMarket(fixture, 148, uniFeeTier, ifFeeRatio, 1000, baseToken.address, mockedBaseAggregator)
+        await initMarket(fixture, initPrice, uniAndExFeeTier, ifFeeRatio, 1000, baseToken.address)
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
             fixture,
-            148,
-            uniFeeTier,
+            initPrice,
+            uniAndExFeeTier,
             ifFeeRatio,
             0,
             baseToken3.address,
-            mockedBaseAggregator3,
         )
+        mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        })
 
         lowerTick = minTick
         upperTick = maxTick

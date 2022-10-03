@@ -16,13 +16,12 @@ import {
     Vault,
 } from "../../typechain"
 import { b2qExactOutput, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
+import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe("ClearingHouse liquidate", () => {
+describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let million: BigNumber
@@ -89,27 +88,11 @@ describe("ClearingHouse liquidate", () => {
         hundred = parseUnits("100", collateralDecimals)
 
         // initialize ETH pool
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("151.3733069", "1"),
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken.address)
         setPool1IndexPrice("151")
 
         // initialize BTC pool
-        await initAndAddPool(
-            fixture,
-            pool2,
-            baseToken2.address,
-            encodePriceSqrt("151.3733069", "1"),
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
         setPool2IndexPrice("151")
 
         // set weth as collateral

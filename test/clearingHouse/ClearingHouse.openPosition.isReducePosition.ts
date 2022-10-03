@@ -3,42 +3,22 @@ import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import {
-    AccountBalance,
-    BaseToken,
-    Exchange,
-    MarketRegistry,
-    OrderBook,
-    QuoteToken,
-    TestClearingHouse,
-    TestERC20,
-    UniswapV3Pool,
-    Vault,
-} from "../../typechain"
+import { AccountBalance, BaseToken, Exchange, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { addOrder, b2qExactInput, b2qExactOutput, q2bExactOutput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
-import { getMaxTick, getMaxTickRange, getMinTick } from "../helper/number"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse isIncreasePosition when trader is both of maker and taker", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let clearingHouse: TestClearingHouse
-    let marketRegistry: MarketRegistry
     let exchange: Exchange
-    let orderBook: OrderBook
     let accountBalance: AccountBalance
     let vault: Vault
     let collateral: TestERC20
-    let quoteToken: QuoteToken
     let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
-    let pool: UniswapV3Pool
-    let baseToken2: BaseToken
-    let mockedBaseAggregator2: MockContract
-    let pool2: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
     let collateralDecimals: number
@@ -47,38 +27,22 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        orderBook = fixture.orderBook
         exchange = fixture.exchange
         accountBalance = fixture.accountBalance
-        marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         collateral = fixture.USDC
-        quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
-        pool = fixture.pool
-        baseToken2 = fixture.baseToken2
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
-        pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
+        const initPrice = "10"
+        const { maxTick, minTick } = await initMarket(fixture, initPrice)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("10", 6), 0, 0, 0]
+            return [0, parseUnits(initPrice, 6), 0, 0, 0]
         })
 
-        const tickSpacing = await pool.tickSpacing()
-        lowerTick = getMinTick(tickSpacing)
-        upperTick = getMaxTick(tickSpacing)
-
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("10", "1"),
-            10000,
-            // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-            getMaxTickRange(),
-        )
+        lowerTick = minTick
+        upperTick = maxTick
 
         await collateral.mint(alice.address, parseUnits("3000", collateralDecimals))
         await deposit(alice, vault, 1000, collateral)
