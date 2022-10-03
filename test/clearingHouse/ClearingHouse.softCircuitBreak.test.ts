@@ -16,15 +16,10 @@ import {
     Vault,
 } from "../../typechain"
 import { q2bExactInput } from "../helper/clearingHouseHelper"
-import { initAndAddPool } from "../helper/marketHelper"
+import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange, priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
-import {
-    calculateLiquidatePositionSize,
-    encodePriceSqrt,
-    getMarginRatio,
-    syncIndexToMarketPrice,
-} from "../shared/utilities"
+import { calculateLiquidatePositionSize, getMarginRatio, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse softCircuitBreak", () => {
@@ -78,9 +73,12 @@ describe("ClearingHouse softCircuitBreak", () => {
     }
 
     beforeEach(async () => {
-        const uniFeeRatio = 10000 // 1%
-
-        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
+        fixture = await loadFixture(
+            createClearingHouseFixture(
+                true,
+                10000, // 1%
+            ),
+        )
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         exchange = fixture.exchange
         accountBalance = fixture.accountBalance as TestAccountBalance
@@ -95,14 +93,7 @@ describe("ClearingHouse softCircuitBreak", () => {
         collateralDecimals = await collateral.decimals()
 
         // initialize ETH pool
-        await initAndAddPool(
-            fixture,
-            pool,
-            baseToken.address,
-            encodePriceSqrt("1000", "1"),
-            uniFeeRatio,
-            getMaxTickRange(), // set maxTickCrossed as maximum tick range of pool by default, that means there is no over price when swap
-        )
+        await initMarket(fixture, "1000", 10000, 0, getMaxTickRange(), baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // mint collateral
