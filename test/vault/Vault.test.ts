@@ -231,33 +231,10 @@ describe("Vault test", () => {
             await expect(vault.connect(alice).withdraw(usdc.address, amount)).to.be.revertedWith("V_NEFC")
         })
 
-        describe("USDC collateral on Vault is not enough", () => {
-            it("borrow from insuranceFund", async () => {
-                await usdc.mint(insuranceFund.address, parseUnits("100", usdcDecimals))
-
-                const borrowedAmount = parseUnits("20", usdcDecimals)
-
-                // burn vault's balance to make it not enough to pay when withdrawing
-                const vaultBalance = await usdc.balanceOf(vault.address)
-                await usdc.burnWithoutApproval(vault.address, vaultBalance.sub(parseUnits("80", usdcDecimals)))
-
-                // need to borrow 20 USDC from insuranceFund
-                await expect(vault.connect(alice).withdraw(usdc.address, amount))
-                    .to.emit(insuranceFund, "Borrowed")
-                    .withArgs(vault.address, borrowedAmount)
-                    .to.emit(vault, "Withdrawn")
-                    .withArgs(usdc.address, alice.address, amount)
-
-                expect(await vault.getTotalDebt()).to.eq(borrowedAmount)
-                expect(await usdc.balanceOf(vault.address)).to.eq("0")
-                expect(await usdc.balanceOf(insuranceFund.address)).to.eq(parseUnits("80", usdcDecimals))
-            })
-        })
-
         it("with positive realized PnL", async () => {
             // alice open a long position
             await q2bExactInput(fixture, alice, 300, baseToken.address)
-            // bob long so alice has negative realized PnL after closing position
+            // bob long so alice has positive realized PnL after closing position
             await q2bExactInput(fixture, bob, 2000, baseToken.address)
             // realized PnL after closing:9.41576439
             await closePosition(fixture, alice)

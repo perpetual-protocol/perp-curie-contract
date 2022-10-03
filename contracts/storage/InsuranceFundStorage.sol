@@ -11,5 +11,6 @@ abstract contract InsuranceFundStorageV1 {
 
     // --------- ^^^^^^^^^ ---------
 
+    // _borrower is actually `Vault` address
     address internal _borrower;
 }

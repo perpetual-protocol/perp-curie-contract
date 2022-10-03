@@ -43,4 +43,8 @@ contract TestAccountBalance is AccountBalance {
     {
         return _getNetQuoteBalanceAndPendingFee(trader);
     }
+
+    function testModifyOwedRealizedPnl(address trader, int256 owedRealizedPnlDelta) external {
+        _modifyOwedRealizedPnl(trader, owedRealizedPnlDelta);
+    }
 }

@@ -359,11 +359,10 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
                 const accountValue = await clearingHouse.getAccountValue(user.address)
                 totalAccountValue = totalAccountValue.add(accountValue)
             }
-
-            const insuranceFreeCollateral = await vault.getFreeCollateral(insuranceFund.address)
+            const insuranceFundSettlementTokenValue = await vault.getSettlementTokenValue(insuranceFund.address)
 
             // rounding error in 6 decimals with 1wei
-            expect(totalAccountValue.div(1e12).add(insuranceFreeCollateral)).to.be.closeTo(
+            expect(totalAccountValue.div(1e12).add(insuranceFundSettlementTokenValue)).to.be.closeTo(
                 totalCollateralDeposited.sub(totalCollateralWithdrawn),
                 4,
             )

@@ -624,12 +624,12 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                     "-860296395212487075205",
                 )
 
-                // cannot liquidate since bob has no position
+                // cannot liquidate since bob's account has been settle after liquidation (badDebt happen when liquidate)
                 await expect(
                     clearingHouse
                         .connect(davis)
                         ["liquidate(address,address,int256)"](bob.address, baseToken.address, 1),
-                ).to.be.revertedWith("CH_PSZ")
+                ).to.be.revertedWith("CH_EAV")
             })
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
@@ -665,8 +665,8 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                     "-1870445489365554788980",
                 )
 
-                // bob still has owedRealizePnl which makes account value is not 0
-                expect(await clearingHouse.getAccountValue(bob.address)).not.eq("0")
+                // bob's account has been settle because there is bad debt when liquidate
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("0")
                 expect(await vault.getFreeCollateral(davis.address)).to.be.gt("0")
             })
 
@@ -713,8 +713,8 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                     "9915654343025783685",
                 )
 
-                // bob still has owedRealizePnl which makes account value is not 0
-                expect(await clearingHouse.getAccountValue(bob.address)).not.eq("0")
+                // bob's account has been settle because there is bad debt when liquidate
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("0")
                 expect(await vault.getFreeCollateral(davis.address)).to.be.gt("0")
             })
         })
@@ -1089,12 +1089,12 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                     "1145473027844889622914",
                 )
 
-                // cannot liquidate since bob has no position
+                // cannot liquidate since bob's account has been settle after liquidation (badDebt happen when liquidate)
                 await expect(
                     clearingHouse
                         .connect(davis)
                         ["liquidate(address,address,int256)"](bob.address, baseToken.address, 1),
-                ).to.be.revertedWith("CH_PSZ")
+                ).to.be.revertedWith("CH_EAV")
             })
         })
     })
