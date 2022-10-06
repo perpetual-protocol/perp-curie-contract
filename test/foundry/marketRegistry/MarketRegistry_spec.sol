@@ -3,6 +3,7 @@ pragma abicoder v2;
 
 import "forge-std/Test.sol";
 import "./BaseSetup.sol";
+import "../../../contracts/ClearingHouse.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
@@ -126,5 +127,101 @@ contract MarketRegistry_spec is BaseSetup {
         );
         vm.expectRevert(bytes("MR_CHBNE"));
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
+    }
+}
+
+contract MarketRegistry_setter is BaseSetup {
+    event ClearingHouseChanged(address indexed clearingHouse);
+    event FeeRatioChanged(address baseToken, uint24 feeRatio);
+    event InsuranceFundFeeRatioChanged(address baseToken, uint24 feeRatio);
+    event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
+
+    address nonOwnerAddress;
+
+    function setUp() public virtual override {
+        BaseSetup.setUp();
+        nonOwnerAddress = makeAddr("nonOwnerAddress");
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
+            abi.encode(100, 0, 0, 0, 0, 0, false)
+        );
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
+    }
+
+    function test_setClearingHouse_should_emit_event() public {
+        ClearingHouse clearingHouse2 = createClearingHouse();
+        vm.expectEmit(false, false, false, true);
+        emit ClearingHouseChanged(address(clearingHouse2));
+        marketRegistry.setClearingHouse(address(clearingHouse2));
+        assertEq(marketRegistry.getClearingHouse(), address(clearingHouse2));
+    }
+
+    function testCannot_setClearingHouse_if_called_by_non_owner() public {
+        ClearingHouse clearingHouse2 = createClearingHouse();
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setClearingHouse(address(clearingHouse2));
+    }
+
+    function test_setMaxOrdersPerMarket_should_emit_event() public {
+        vm.expectEmit(false, false, false, true);
+        emit MaxOrdersPerMarketChanged(1);
+        marketRegistry.setMaxOrdersPerMarket(1);
+        assertEq(uint256(marketRegistry.getMaxOrdersPerMarket()), 1);
+    }
+
+    function testCannot_setMaxOrdersPerMarket_if_called_by_non_owner() public {
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setMaxOrdersPerMarket(1);
+    }
+
+    function test_setFeeRatio_should_emit_event() public {
+        vm.expectEmit(false, false, false, true);
+        emit FeeRatioChanged(address(baseToken), 10000);
+        marketRegistry.setFeeRatio(address(baseToken), 10000);
+    }
+
+    function testCannot_setFeeRatio_if_called_by_non_owner() public {
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setFeeRatio(address(baseToken), 10000);
+    }
+
+    function testCannot_setFeeRatio_if_overflow() public {
+        uint24 twoHundredPercent = 2000000; // 200% in uint24
+        vm.expectRevert(bytes("MR_RO"));
+        marketRegistry.setFeeRatio(address(baseToken), twoHundredPercent);
+    }
+
+    function testCannot_setFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
+        BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
+        vm.expectRevert(bytes("MR_PNE"));
+        marketRegistry.setFeeRatio(address(baseToken2), 10000);
+    }
+
+    function test_setInsuranceFundFeeRatio_should_emit_event() public {
+        vm.expectEmit(false, false, false, true);
+        emit InsuranceFundFeeRatioChanged(address(baseToken), 10000);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 10000);
+    }
+
+    function testCannot_setInsuranceFundFeeRatio_if_called_by_non_owner() public {
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 10000);
+    }
+
+    function testCannot_setInsuranceFundFeeRatio_if_overflow() public {
+        uint24 twoHundredPercent = 2000000; // 200% in uint24
+        vm.expectRevert(bytes("MR_RO"));
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), twoHundredPercent);
+    }
+
+    function testCannot_setInsuranceFundFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
+        BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
+        vm.expectRevert(bytes("MR_PNE"));
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), 10000);
     }
 }
