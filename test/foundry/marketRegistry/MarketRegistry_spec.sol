@@ -14,7 +14,7 @@ contract MarketRegistry_spec is BaseSetup {
         BaseSetup.setUp();
     }
 
-    function test_add_pool_successfully_and_should_emit_event() public {
+    function test_addPool_should_emit_event() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -27,7 +27,7 @@ contract MarketRegistry_spec is BaseSetup {
         assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
     }
 
-    function test_add_multiple_pools_successfully_and_should_emit_events() public {
+    function test_add_multiple_pools_should_emit_events() public {
         // add first pool
         vm.mockCall(
             address(pool),
@@ -56,7 +56,7 @@ contract MarketRegistry_spec is BaseSetup {
         assertEq(marketRegistry.getPool(address(baseToken2)), address(pool2));
     }
 
-    function testCannot_add_pool_before_pool_is_initialized() public {
+    function testCannot_addPool_if_pool_is_not_initialized() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -66,7 +66,7 @@ contract MarketRegistry_spec is BaseSetup {
         marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_add_pool_if_pool_does_not_exist() public {
+    function testCannot_addPool_if_pool_does_not_exist() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.mockCall(
             address(uniswapV3Factory),
@@ -77,7 +77,7 @@ contract MarketRegistry_spec is BaseSetup {
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_add_pool_if_pool_already_exists_in_ClearingHouse() public {
+    function testCannot_addPool_if_pool_already_exists_in_ClearingHouse() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -89,7 +89,7 @@ contract MarketRegistry_spec is BaseSetup {
         marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_add_pool_with_same_base_quote_but_diff_uniswap_fee() public {
+    function testCannot_addPool_with_same_base_quote_but_diff_uniswap_fee() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -104,7 +104,7 @@ contract MarketRegistry_spec is BaseSetup {
         marketRegistry.addPool(address(baseToken), 10000);
     }
 
-    function testCannot_add_pool_if_base_address_is_greater_than_quote_address() public {
+    function testCannot_addPool_if_base_address_is_greater_than_quote_address() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), true);
         UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
         vm.mockCall(
@@ -116,7 +116,7 @@ contract MarketRegistry_spec is BaseSetup {
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_add_pool_if_clearingHouse_has_insufficient_base_token_balance() public {
+    function testCannot_addPool_if_clearingHouse_has_insufficient_base_token_balance() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), makeAddr("FAKE"), false);
         UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
         vm.mockCall(
