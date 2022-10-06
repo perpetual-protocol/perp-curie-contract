@@ -115,4 +115,16 @@ contract MarketRegistry_spec is BaseSetup {
         vm.expectRevert(bytes("MR_IB"));
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
     }
+
+    function testCannot_add_pool_if_clearingHouse_has_insufficient_base_token_balance() public {
+        BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), makeAddr("FAKE"), false);
+        UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
+        vm.mockCall(
+            address(pool2),
+            abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
+            abi.encode(100, 0, 0, 0, 0, 0, false)
+        );
+        vm.expectRevert(bytes("MR_CHBNE"));
+        marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
+    }
 }
