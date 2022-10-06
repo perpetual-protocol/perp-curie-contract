@@ -22,8 +22,8 @@ contract MarketRegistry_spec is BaseSetup {
         );
 
         vm.expectEmit(false, false, false, true);
-        emit PoolAdded(address(baseToken), POOL_FEE, address(pool));
-        marketRegistry.addPool(address(baseToken), POOL_FEE);
+        emit PoolAdded(address(baseToken), DEFAULT_POOL_FEE, address(pool));
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
     }
 
@@ -36,13 +36,13 @@ contract MarketRegistry_spec is BaseSetup {
         );
 
         vm.expectEmit(false, false, false, true);
-        emit PoolAdded(address(baseToken), POOL_FEE, address(pool));
-        marketRegistry.addPool(address(baseToken), POOL_FEE);
+        emit PoolAdded(address(baseToken), DEFAULT_POOL_FEE, address(pool));
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
 
         // create another token and pool
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse));
-        UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken);
+        UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
 
         // add second pool
         vm.mockCall(
@@ -51,8 +51,8 @@ contract MarketRegistry_spec is BaseSetup {
             abi.encode(100, 0, 0, 0, 0, 0, false)
         );
         vm.expectEmit(false, false, false, true);
-        emit PoolAdded(address(baseToken2), POOL_FEE, address(pool2));
-        marketRegistry.addPool(address(baseToken2), POOL_FEE);
+        emit PoolAdded(address(baseToken2), DEFAULT_POOL_FEE, address(pool2));
+        marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken2)), address(pool2));
     }
 
@@ -63,7 +63,7 @@ contract MarketRegistry_spec is BaseSetup {
             abi.encode(0, 0, 0, 0, 0, 0, false)
         );
         vm.expectRevert(bytes("MR_PNI"));
-        marketRegistry.addPool(address(baseToken), POOL_FEE);
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
     }
 
     function testCannot_add_pool_if_pool_does_not_exist() public {
@@ -74,6 +74,33 @@ contract MarketRegistry_spec is BaseSetup {
             abi.encode(0)
         );
         vm.expectRevert(bytes("MR_NEP"));
-        marketRegistry.addPool(address(baseToken2), POOL_FEE);
+        marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
+    }
+
+    function testCannot_add_pool_if_pool_already_exists_in_ClearingHouse() public {
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
+            abi.encode(100, 0, 0, 0, 0, 0, false)
+        );
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
+        // should be failed if try to add poll again
+        vm.expectRevert(bytes("MR_EP"));
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
+    }
+
+    function testCannot_add_pool_with_same_base_quote_but_diff_uniswap_fee() public {
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
+            abi.encode(100, 0, 0, 0, 0, 0, false)
+        );
+        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
+
+        // create another uniswapPool with different fee
+        createUniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, 10000);
+
+        vm.expectRevert(bytes("MR_EP"));
+        marketRegistry.addPool(address(baseToken), 10000);
     }
 }

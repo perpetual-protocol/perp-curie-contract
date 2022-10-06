@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 contract BaseSetup is Test {
     string constant BASE_TOKEN_NAME = "vETH";
     string constant QUOTE_TOKEN_NAME = "vUSD";
-    uint24 constant POOL_FEE = 3000;
+    uint24 constant DEFAULT_POOL_FEE = 3000;
     address internal PRICE_FEED = makeAddr("PRICE_FEED");
     MarketRegistry internal marketRegistry;
     ClearingHouse internal clearingHouse;
@@ -29,7 +29,7 @@ contract BaseSetup is Test {
         clearingHouse = createClearingHouse();
         marketRegistry = createMarketRegistry(address(uniswapV3Factory), address(quoteToken), address(clearingHouse));
         baseToken = createBaseToken(BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse));
-        pool = createUniswapV3Pool(uniswapV3Factory, baseToken, quoteToken);
+        pool = createUniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, DEFAULT_POOL_FEE);
     }
 
     function createQuoteToken() internal returns (QuoteToken) {
@@ -70,9 +70,10 @@ contract BaseSetup is Test {
     function createUniswapV3Pool(
         UniswapV3Factory uniswapV3Factory,
         BaseToken baseToken,
-        QuoteToken quoteToken
+        QuoteToken quoteToken,
+        uint24 fee
     ) internal returns (UniswapV3Pool) {
-        address poolAddress = uniswapV3Factory.createPool(address(baseToken), address(quoteToken), POOL_FEE);
+        address poolAddress = uniswapV3Factory.createPool(address(baseToken), address(quoteToken), fee);
         baseToken.addWhitelist(poolAddress);
         quoteToken.addWhitelist(poolAddress);
         return UniswapV3Pool(poolAddress);
