@@ -28,7 +28,7 @@ contract BaseSetup is Test {
         quoteToken = createQuoteToken();
         clearingHouse = createClearingHouse();
         marketRegistry = createMarketRegistry(address(uniswapV3Factory), address(quoteToken), address(clearingHouse));
-        baseToken = createBaseToken(BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse));
+        baseToken = createBaseToken(BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse), false);
         pool = createUniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, DEFAULT_POOL_FEE);
     }
 
@@ -48,10 +48,11 @@ contract BaseSetup is Test {
     function createBaseToken(
         string memory tokenName,
         address quoteToken,
-        address clearingHouse
+        address clearingHouse,
+        bool largerThan
     ) internal returns (BaseToken) {
         BaseToken baseToken;
-        while (address(baseToken) == address(0) || quoteToken < address(baseToken)) {
+        while (address(baseToken) == address(0) || (largerThan != (quoteToken < address(baseToken)))) {
             baseToken = new BaseToken();
         }
         // NOTE: put faked code on price feed address, must have contract code to make mockCall
