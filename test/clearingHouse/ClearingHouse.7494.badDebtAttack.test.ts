@@ -184,8 +184,8 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await testNoProfit(true)
     })
 
-    it("end price $1.7", async () => {
-        await manipulatePrice(1.7)
+    it("end price $1.44 (spread 10%-ish)", async () => {
+        await manipulatePrice(1.44)
         // account 2 can not add liquidity
         await testBlockBadDebtAttack()
     })
