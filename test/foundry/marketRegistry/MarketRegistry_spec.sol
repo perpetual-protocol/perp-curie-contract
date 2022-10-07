@@ -8,7 +8,7 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
 
-contract MarketRegistry_spec is BaseSetup {
+contract MarketRegistry_addPool is BaseSetup {
     event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
 
     function setUp() public virtual override {
