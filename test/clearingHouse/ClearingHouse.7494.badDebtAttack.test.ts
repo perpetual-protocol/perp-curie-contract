@@ -170,21 +170,14 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         // console.log(`profit: ${formatUnits(profit, collateralDecimals)}`)
     }
 
-    it("end price $1.43 (spread 10%)", async () => {
-        await manipulatePrice(1.43)
+    it("end price $1.4 (spread near 10%)", async () => {
+        await manipulatePrice(1.4)
         // account 2 has no bad debt
         // account 1 should have no profit
         await testNoProfit(false)
     })
 
-    it("end price $1.53 (spread 20%)", async () => {
-        await manipulatePrice(1.53)
-        // account 2 has bad debt
-        // account 1 should have no profit
-        await testNoProfit(true)
-    })
-
-    it("end price $1.44 (spread 10%-ish)", async () => {
+    it("end price $1.44 (spread more than 10%)", async () => {
         await manipulatePrice(1.44)
         // account 2 can not add liquidity
         await testBlockBadDebtAttack()
