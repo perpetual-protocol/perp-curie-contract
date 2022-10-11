@@ -100,6 +100,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         const usdcAmount = parseUnits("10000", usdcDecimals)
         await usdc.mint(carol.address, usdcAmount)
         await usdc.connect(carol).approve(vault.address, usdcAmount)
+
+        // increase insuranceFund capacity
+        await usdc.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     describe("# isLiquidatable", async () => {

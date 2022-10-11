@@ -138,6 +138,9 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         // set blockTimestamp
         await clearingHouse.setBlockTimestamp(blockTimeStamp)
+
+        // increase insuranceFund capacity
+        await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     it("force error, trader has no position", async () => {

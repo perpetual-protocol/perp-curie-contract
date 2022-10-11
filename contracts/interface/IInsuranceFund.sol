@@ -19,4 +19,8 @@ interface IInsuranceFund {
     /// @notice Get borrower(`Vault`) address
     /// @return vault The address of `Vault`
     function getBorrower() external view returns (address vault);
+
+    /// @notice Get `InsuranceFund` capacity
+    /// @return capacityX10_S The capacity value (settlementTokenValue + walletBalance) in settlement token's decimals
+    function getInsuranceFundCapacity() external view returns (int256 capacityX10_S);
 }

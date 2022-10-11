@@ -22,6 +22,7 @@ import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IDelegateApproval } from "./interface/IDelegateApproval.sol";
@@ -104,25 +105,25 @@ contract ClearingHouse is
         address insuranceFundArg
     ) public initializer {
         // CH_VANC: Vault address is not contract
-        require(vaultArg.isContract(), "CH_VANC");
+        _isContract(vaultArg, "CH_VANC");
         // CH_QANC: QuoteToken address is not contract
-        require(quoteTokenArg.isContract(), "CH_QANC");
+        _isContract(quoteTokenArg, "CH_QANC");
         // CH_QDN18: QuoteToken decimals is not 18
         require(IERC20Metadata(quoteTokenArg).decimals() == 18, "CH_QDN18");
         // CH_UANC: UniV3Factory address is not contract
-        require(uniV3FactoryArg.isContract(), "CH_UANC");
+        _isContract(uniV3FactoryArg, "CH_UANC");
         // ClearingHouseConfig address is not contract
-        require(clearingHouseConfigArg.isContract(), "CH_CCNC");
+        _isContract(clearingHouseConfigArg, "CH_CCNC");
         // AccountBalance is not contract
-        require(accountBalanceArg.isContract(), "CH_ABNC");
+        _isContract(accountBalanceArg, "CH_ABNC");
         // CH_ENC: Exchange is not contract
-        require(exchangeArg.isContract(), "CH_ENC");
+        _isContract(exchangeArg, "CH_ENC");
         // CH_IFANC: InsuranceFund address is not contract
-        require(insuranceFundArg.isContract(), "CH_IFANC");
+        _isContract(insuranceFundArg, "CH_IFANC");
 
         address orderBookArg = IExchange(exchangeArg).getOrderBook();
         // orderBook is not contract
-        require(orderBookArg.isContract(), "CH_OBNC");
+        _isContract(orderBookArg, "CH_OBNC");
 
         __ReentrancyGuard_init();
         __OwnerPausable_init();
@@ -690,6 +691,8 @@ contract ClearingHouse is
         uint256 liquidationPenalty = liquidatedPositionNotional.abs().mulRatio(_getLiquidationPenaltyRatio());
         _modifyOwedRealizedPnl(trader, liquidationPenalty.neg256());
 
+        address insuranceFund = _insuranceFund;
+
         // if there is bad debt, liquidation fees all go to liquidator; otherwise, split between liquidator & IF
         uint256 liquidationFeeToLiquidator = liquidationPenalty.div(2);
         uint256 liquidationFeeToIF;
@@ -697,9 +700,25 @@ contract ClearingHouse is
             liquidationFeeToLiquidator = liquidationPenalty;
         } else {
             liquidationFeeToIF = liquidationPenalty.sub(liquidationFeeToLiquidator);
+            _modifyOwedRealizedPnl(insuranceFund, liquidationFeeToIF.toInt256());
         }
 
-        _modifyOwedRealizedPnl(_insuranceFund, liquidationFeeToIF.toInt256());
+        // assume there is no longer any unsettled bad debt in the system
+        // (so that true IF capacity = accountValue(IF) + USDC.balanceOf(IF))
+        // if trader's account value becomes negative, the amount is the bad debt IF must have enough capacity to cover
+        {
+            int256 accountValueAfterLiquidationX10_18 = getAccountValue(trader);
+
+            if (accountValueAfterLiquidationX10_18 < 0) {
+                int256 insuranceFundCapacityX10_18 =
+                    IInsuranceFund(insuranceFund).getInsuranceFundCapacity().parseSettlementToken(
+                        _settlementTokenDecimals
+                    );
+
+                // CH_IIC: insufficient insuranceFund capacity
+                require(insuranceFundCapacityX10_18 >= accountValueAfterLiquidationX10_18.neg256(), "CH_IIC");
+            }
+        }
 
         // liquidator opens a position with liquidationFeeToLiquidator as a discount
         // liquidator's openNotional = -liquidatedPositionNotional + liquidationFeeToLiquidator
@@ -1157,6 +1176,10 @@ contract ClearingHouse is
     function _checkMarketOpen(address baseToken) internal view {
         // CH_BC: Market not opened
         require(IBaseToken(baseToken).isOpen(), "CH_MNO");
+    }
+
+    function _isContract(address contractArg, string memory errorMsg) internal view {
+        require(contractArg.isContract(), errorMsg);
     }
 
     //

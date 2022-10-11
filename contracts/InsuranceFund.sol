@@ -3,9 +3,11 @@ pragma solidity 0.7.6;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
@@ -14,7 +16,9 @@ import { IVault } from "./interface/IVault.sol";
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
+    using SignedSafeMathUpgradeable for int256;
     using PerpMath for int256;
+    using PerpSafeCast for uint256;
 
     function initialize(address tokenArg) external initializer {
         // token address is not contract
@@ -56,6 +60,10 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         emit Repaid(repaidAmount, tokenBalanceAfterRepaid);
     }
 
+    //
+    // EXTERNAL VIEW
+    //
+
     /// @inheritdoc IInsuranceFund
     function getToken() external view override returns (address) {
         return _token;
@@ -64,5 +72,19 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     /// @inheritdoc IInsuranceFund
     function getBorrower() external view override returns (address) {
         return _borrower;
+    }
+
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @inheritdoc IInsuranceFund
+    function getInsuranceFundCapacity() public view override returns (int256) {
+        address vault = _borrower;
+        address token = _token;
+
+        int256 insuranceFundSettlementTokenValueX10_S = IVault(vault).getSettlementTokenValue(address(this));
+        int256 insuranceFundWalletBalanceX10_S = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
+        return insuranceFundSettlementTokenValueX10_S.add(insuranceFundWalletBalanceX10_S);
     }
 }
