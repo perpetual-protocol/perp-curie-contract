@@ -5,16 +5,22 @@ interface IInsuranceFund {
     /// @param borrower The address of the borrower
     event BorrowerChanged(address borrower);
 
-    /// @notice If bad debt happened, `Vault` contract will borrow from `InsuranceFund` contract
-    /// @dev Borrower must be set by owner
-    /// @param amount Borrow amount, must be less than `InsuranceFund` balance
-    function borrow(uint256 amount) external;
+    /// @param repaidAmount Repaid amount of the token
+    /// @param tokenBalanceAfterRepaid InsuranceFund's token balance after repay
+    event Repaid(uint256 repaidAmount, uint256 tokenBalanceAfterRepaid);
+
+    /// @notice If insurance has negative accountValue of vault, will deposit amount to vault
+    function repay() external;
 
     /// @notice Get settlement token address
     /// @return token The address of settlement token
     function getToken() external view returns (address token);
 
-    /// @notice Get valid borrower
-    /// @return borrower Should be equal to vault address
-    function getBorrower() external view returns (address borrower);
+    /// @notice Get borrower(`Vault`) address
+    /// @return vault The address of `Vault`
+    function getBorrower() external view returns (address vault);
+
+    /// @notice Get `InsuranceFund` capacity
+    /// @return capacityX10_S The capacity value (settlementTokenValue + walletBalance) in settlement token's decimals
+    function getInsuranceFundCapacity() external view returns (int256 capacityX10_S);
 }

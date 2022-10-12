@@ -61,7 +61,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     //
 
     /// @dev only used for unwrapping weth in withdrawETH
-    receive() external payable {}
+    receive() external payable {
+        // V_SNW: sender is not WETH9
+        require(_msgSender() == _WETH9, "V_SNW");
+    }
 
     function initialize(
         address insuranceFundArg,
@@ -554,6 +557,39 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return (maxRepaidSettlementX10_S, maxLiquidatableCollateral);
     }
 
+    /// @inheritdoc IVault
+    /// @dev will only settle the bad debt when trader didn't have position and non-settlement collateral
+    function settleBadDebt(address trader) public override {
+        // V_CSI: can't settle insuranceFund
+        require(trader != _insuranceFund, "V_CSI");
+
+        // trader has position or trader has non-settlement collateral
+        if (
+            IAccountBalance(_accountBalance).getBaseTokens(trader).length != 0 ||
+            _collateralTokensMap[trader].length != 0
+        ) {
+            return;
+        }
+
+        // assume trader has no position and no non-settlement collateral
+        // so accountValue = settlement token balance
+        (int256 accountValueX10_18, ) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
+        int256 accountValueX10_S = accountValueX10_18.formatSettlementToken(_decimals);
+
+        if (accountValueX10_S >= 0) {
+            return;
+        }
+
+        // settle bad debt for trader
+        int256 badDebt = accountValueX10_S.neg256();
+        address settlementToken = _settlementToken; // SLOAD gas saving
+        _modifyBalance(_insuranceFund, settlementToken, accountValueX10_S);
+        _modifyBalance(trader, settlementToken, badDebt);
+
+        uint256 absBadDebt = badDebt.toUint256();
+        emit BadDebtSettled(trader, absBadDebt);
+    }
+
     //
     // INTERNAL NON-VIEW
     //
@@ -642,14 +678,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         int256 deltaBalance = amount.toInt256().neg256();
         if (token == _settlementToken) {
-            // borrow settlement token from insurance fund if the token balance in Vault is not enough
-            uint256 vaultBalanceX10_S = IERC20Metadata(token).balanceOf(address(this));
-            if (vaultBalanceX10_S < amount) {
-                uint256 borrowedAmountX10_S = amount - vaultBalanceX10_S;
-                IInsuranceFund(_insuranceFund).borrow(borrowedAmountX10_S);
-                _totalDebt += borrowedAmountX10_S;
-            }
-
             // settle both the withdrawn amount and owedRealizedPnl to collateral
             int256 owedRealizedPnlX10_18 = IAccountBalance(_accountBalance).settleOwedRealizedPnl(to);
             deltaBalance = deltaBalance.add(owedRealizedPnlX10_18.formatSettlementToken(_decimals));
@@ -685,6 +713,10 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         address token,
         int256 amount
     ) internal {
+        if (amount == 0) {
+            return;
+        }
+
         int256 oldBalance = _balance[trader][token];
         int256 newBalance = oldBalance.add(amount);
         _balance[trader][token] = newBalance;
@@ -760,6 +792,8 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             insuranceFundFeeX10_S,
             discountRatio
         );
+
+        settleBadDebt(trader);
     }
 
     //
@@ -804,10 +838,15 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         // return accountValueX10_18.sub(totalMarginRequirementX10_18.toInt256());
     }
 
-    function _getTotalCollateralValue(address trader) internal view returns (int256 totalCollateralValueX10_18) {
-        (int256 settlementTokenBalanceX10_18, ) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
+    function _getTotalCollateralValueAndUnrealizedPnl(address trader)
+        internal
+        view
+        returns (int256 totalCollateralValueX10_18, int256 unrealizedPnlX10_18)
+    {
+        int256 settlementTokenBalanceX10_18;
+        (settlementTokenBalanceX10_18, unrealizedPnlX10_18) = _getSettlementTokenBalanceAndUnrealizedPnl(trader);
         uint256 nonSettlementTokenValueX10_18 = _getNonSettlementTokenValue(trader);
-        return nonSettlementTokenValueX10_18.toInt256().add(settlementTokenBalanceX10_18);
+        return (nonSettlementTokenValueX10_18.toInt256().add(settlementTokenBalanceX10_18), unrealizedPnlX10_18);
     }
 
     /// @notice Get the specified trader's settlement token balance, including pending fee, funding payment,
@@ -921,9 +960,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         view
         returns (int256 accountValueX10_18, int256 totalCollateralValueX10_18)
     {
-        (, int256 unrealizedPnlX10_18, ) = IAccountBalance(_accountBalance).getPnlAndPendingFee(trader);
+        int256 unrealizedPnlX10_18;
 
-        totalCollateralValueX10_18 = _getTotalCollateralValue(trader);
+        (totalCollateralValueX10_18, unrealizedPnlX10_18) = _getTotalCollateralValueAndUnrealizedPnl(trader);
 
         // accountValue = totalCollateralValue + totalUnrealizedPnl, in 18 decimals
         accountValueX10_18 = totalCollateralValueX10_18.add(unrealizedPnlX10_18);
