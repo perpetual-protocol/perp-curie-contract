@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.2.2] - 2022-10-13
+### Chnaged
+- Change `_MAX_PRICE_SPREAD_RATIO` from 20% to 10%
+
 ## [2.2.1] - 2022-10-11
 - Add `InsuranceFund.getInsuranceFundCapacity()`
 
