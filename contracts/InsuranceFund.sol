@@ -3,17 +3,22 @@ pragma solidity 0.7.6;
 
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { InsuranceFundStorageV1 } from "./storage/InsuranceFundStorage.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
+import { IVault } from "./interface/IVault.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausable, InsuranceFundStorageV1 {
     using AddressUpgradeable for address;
-
-    event Borrowed(address borrower, uint256 amount);
+    using SignedSafeMathUpgradeable for int256;
+    using PerpMath for int256;
+    using PerpSafeCast for uint256;
 
     function initialize(address tokenArg) external initializer {
         // token address is not contract
@@ -33,16 +38,31 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     }
 
     /// @inheritdoc IInsuranceFund
-    function borrow(uint256 amount) external override nonReentrant whenNotPaused {
-        // IF_OB: only borrower
-        require(_msgSender() == _borrower, "IF_OB");
-        // IF_NEB: not enough balance
-        require(IERC20Upgradeable(_token).balanceOf(address(this)) >= amount, "IF_NEB");
+    function repay() external override nonReentrant whenNotPaused {
+        address vault = _borrower;
+        address token = _token;
 
-        SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(_token), _borrower, amount);
+        int256 insuranceFundSettlementValue = IVault(vault).getSettlementTokenValue(address(this));
 
-        emit Borrowed(_borrower, amount);
+        // IF_RWNN: repay when non-negative
+        require(insuranceFundSettlementValue < 0, "IF_RWNN");
+
+        uint256 tokenBalance = IERC20Upgradeable(token).balanceOf(address(this));
+        uint256 insuranceFundSettlementValueAbs = insuranceFundSettlementValue.abs();
+        uint256 repaidAmount =
+            tokenBalance >= insuranceFundSettlementValueAbs ? insuranceFundSettlementValueAbs : tokenBalance;
+
+        IERC20Upgradeable(token).approve(vault, repaidAmount);
+        IVault(vault).deposit(token, repaidAmount);
+
+        uint256 tokenBalanceAfterRepaid = IERC20Upgradeable(token).balanceOf(address(this));
+
+        emit Repaid(repaidAmount, tokenBalanceAfterRepaid);
     }
+
+    //
+    // EXTERNAL VIEW
+    //
 
     /// @inheritdoc IInsuranceFund
     function getToken() external view override returns (address) {
@@ -52,5 +72,19 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     /// @inheritdoc IInsuranceFund
     function getBorrower() external view override returns (address) {
         return _borrower;
+    }
+
+    //
+    // PUBLIC VIEW
+    //
+
+    /// @inheritdoc IInsuranceFund
+    function getInsuranceFundCapacity() public view override returns (int256) {
+        address vault = _borrower;
+        address token = _token;
+
+        int256 insuranceFundSettlementTokenValueX10_S = IVault(vault).getSettlementTokenValue(address(this));
+        int256 insuranceFundWalletBalanceX10_S = IERC20Upgradeable(token).balanceOf(address(this)).toInt256();
+        return insuranceFundSettlementTokenValueX10_S.add(insuranceFundWalletBalanceX10_S);
     }
 }

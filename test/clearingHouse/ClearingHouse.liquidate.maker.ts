@@ -8,6 +8,7 @@ import {
     BaseToken,
     ClearingHouseConfig,
     Exchange,
+    InsuranceFund,
     MarketRegistry,
     OrderBook,
     QuoteToken,
@@ -31,6 +32,7 @@ describe("ClearingHouse liquidate maker", () => {
     let orderBook: OrderBook
     let vault: Vault
     let clearingHouseConfig: ClearingHouseConfig
+    let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let quoteToken: QuoteToken
     let baseToken: BaseToken
@@ -62,6 +64,7 @@ describe("ClearingHouse liquidate maker", () => {
         marketRegistry = fixture.marketRegistry
         vault = fixture.vault
         clearingHouseConfig = fixture.clearingHouseConfig
+        insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
@@ -111,6 +114,9 @@ describe("ClearingHouse liquidate maker", () => {
         })
         // davis needs fun to be a liquidator
         await mintAndDeposit(fixture, davis, 100000)
+
+        // increase insuranceFund capacity
+        await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
     })
 
     it("force fail, maker still has liquidity", async () => {
