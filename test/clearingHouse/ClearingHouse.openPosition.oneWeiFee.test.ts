@@ -36,12 +36,13 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
     let pool: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let collateralDecimals: number
-    const lowerTick: number = 0
-    const upperTick: number = 100000
 
     beforeEach(async () => {
         const exFeeRatio = 10000 // 1%
         const uniFeeRatio = 10000 // 1%
+
+        // const exFeeRatio = 1000 // 0.1% in production
+        // const uniFeeRatio = 3000 // 0.3% in production
 
         fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
@@ -59,7 +60,9 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.373306858723226652"
-        await initMarket(fixture, initPrice, exFeeRatio, 0)
+        const marketTicks = await initMarket(fixture, initPrice, exFeeRatio, 0)
+        const lowerTick = marketTicks.minTick
+        const upperTick = marketTicks.maxTick
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
