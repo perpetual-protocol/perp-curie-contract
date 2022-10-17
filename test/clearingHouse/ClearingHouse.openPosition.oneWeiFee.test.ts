@@ -40,7 +40,10 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
     const upperTick: number = 100000
 
     beforeEach(async () => {
-        fixture = await loadFixture(createClearingHouseFixture())
+        const exFeeRatio = 10000 // 1%
+        const uniFeeRatio = 10000 // 1%
+
+        fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         accountBalance = fixture.accountBalance as TestAccountBalance
@@ -56,7 +59,7 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.373306858723226652"
-        await initMarket(fixture, initPrice, undefined, 0)
+        await initMarket(fixture, initPrice, exFeeRatio, 0)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
@@ -105,20 +108,28 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
                 expect(response.quote).to.be.eq(parseEther("1000"))
             })
 
-            // FIXME: actual response.quote = 1000 + 1 wei
-            it("long exact input", async () => {
+            // FIXME: Q2B exact input 1000, but response.quote = 1000 + 1 wei
+            it.only("long exact input", async () => {
                 const response = await clearingHouse.connect(taker).callStatic.openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
                     amount: parseEther("1000"),
+                    // amount: "1280383806188353801279",
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
                 expect(response.quote).to.be.eq(parseEther("1000"))
+                // expect(response.quote).to.be.eq("1280383806188353801279")
                 // AssertionError: Expected "1000000000000000000001" to be equal 1000000000000000000000
+                // exchangedPositionNotional
+                // -990000000000000000000
+                // fee
+                // 10000000000000000001
+                // quote
+                // -1000000000000000000001
             })
         })
 
