@@ -295,9 +295,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             taker.address, // trader
             baseToken.address, // baseToken
             "9082643876716065096", // exchangedPositionSize
-            "-99900000000000000000", // exchangedPositionNotional
+            "-99899999999999999999", // exchangedPositionNotional
             "100000000000000001", // fee
-            "-100000000000000000001", // openNotional
+            "-100000000000000000000", // openNotional
             "0", // realizedPnl
             "275570539067715219511427190085", // sqrtPriceAfterX96
         )
@@ -310,7 +310,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             "99899999999999999978", // exchangedPositionNotional
             "99900000000000001", // fee
             "0", // openNotional
-            "-199900000000000024", // realizedPnl
+            "-199900000000000023", // realizedPnl
             "250541448375047931191432615077", // sqrtPriceAfterX96
         )
 
@@ -640,6 +640,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker remove liquidity
             await removeAllOrders(fixture, maker)
 
+            await mintAndDeposit(fixture, maker, 10000)
+
             // maker add liquidity, current tick 23027
             await addOrder(fixture, maker, 10, 1000, 22000, 24000)
 
@@ -649,12 +651,22 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             })
             // prepare collateral
             await mintAndDeposit(fixture, taker, 1000)
+            console.log(0)
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
+            const freeCollateral = await vault.getFreeCollateral(taker.address)
+            console.log(`freeCollateral: ${freeCollateral}`)
             await q2bExactInput(fixture, taker, 2000)
+            console.log(1)
+            // original exchangedPositionNotional : -104985016869112504903
+            // fixed exchangedPositionNotional:     -1999894909893023911405
+
+            // liquidity 2000 usd
+            // original exchangedPositionNotional:  -104985016869112504903
+            // fixed exchangedPositionNotional:     -1999894909893023911405
 
             // failed to swap again
             await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
-
+            console.log(2)
             // maker's fee are collected
             const fee = (
                 await clearingHouse.connect(maker).callStatic.removeLiquidity({

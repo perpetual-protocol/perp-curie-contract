@@ -19,7 +19,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
-describe.only("ClearingHouse openPosition oneWeiFee", () => {
+describe("ClearingHouse openPosition oneWeiFee", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -38,11 +38,11 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        const exFeeRatio = 10000 // 1%
-        const uniFeeRatio = 10000 // 1%
+        // const exFeeRatio = 10000 // 1%
+        // const uniFeeRatio = 10000 // 1%
 
-        // const exFeeRatio = 1000 // 0.1% in production
-        // const uniFeeRatio = 3000 // 0.3% in production
+        const exFeeRatio = 7000 // 0.1% in production
+        const uniFeeRatio = 3000 // 0.3% in production
 
         fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
         clearingHouse = fixture.clearingHouse as TestClearingHouse
@@ -112,20 +112,20 @@ describe.only("ClearingHouse openPosition oneWeiFee", () => {
             })
 
             // FIXME: Q2B exact input 1000, but response.quote = 1000 + 1 wei
-            it.only("long exact input", async () => {
+            it("long exact input", async () => {
                 const response = await clearingHouse.connect(taker).callStatic.openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: parseEther("1000"),
-                    // amount: "1280383806188353801279",
+                    // amount: parseEther("1000"),
+                    amount: "1280383806188353801279",
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                expect(response.quote).to.be.eq(parseEther("1000"))
-                // expect(response.quote).to.be.eq("1280383806188353801279")
+                // expect(response.quote).to.be.eq(parseEther("1000"))
+                expect(response.quote).to.be.eq("1280383806188353801279")
                 // AssertionError: Expected "1000000000000000000001" to be equal 1000000000000000000000
                 // exchangedPositionNotional
                 // -990000000000000000000
