@@ -26,8 +26,8 @@ import {
     syncIndexToMarketPrice,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { deposit } from "../helper/token"
 import { getMaxTickRange } from "../helper/number"
+import { deposit } from "../helper/token"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -398,9 +398,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await weth.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
                 // repaid amount: 1000 - 30(insuranceFundFee) = 970
-                // alice's usdc debt = 5000.000001 - 970 = 4030.000001
+                // alice's usdc debt = 5000.000000 - 970 = 4030.000000
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-4030.000001", usdcDecimals),
+                    parseUnits("-4030.000000", usdcDecimals),
                 )
                 // alice's weth balance: 1 - 0.370370370370370371 = 0.62962963
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
@@ -461,9 +461,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await weth.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
                 // repaid amount: 2577.319587 - 77.31958761(insuranceFundFee) = 2500
-                // alice's usdc debt = 5000.000001 - 2500 = 2500.000001
+                // alice's usdc debt = 5000.000000 - 2500 = 2500.000000
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-2500.000001", usdcDecimals),
+                    parseUnits("-2500.000000", usdcDecimals),
                 )
                 // alice's weth balance: 1 - 0.95456281 = 0.04543719
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
@@ -525,9 +525,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await wbtc.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
                 // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
-                // alice's usdc debt = 5000.000001 - 793.349523 = 4206.650478
+                // alice's usdc debt = 5000.000000 - 793.349523 = 4206.650477
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-4206.650478", usdcDecimals),
+                    parseUnits("-4206.650477", usdcDecimals),
                 )
                 // alice's wbtc balance: 0.02355323 - 0.02355323 = 0
                 expect(await vault.getBalanceByToken(alice.address, wbtc.address)).to.be.eq(
@@ -586,9 +586,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await xxx.balanceOf(carol.address)).to.be.eq(liquidatedAmount)
 
                 // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
-                // alice's usdc debt = 5000.000001 - 99.20111 = 4900.798891
+                // alice's usdc debt = 5000.000000 - 99.20111 = 4900.798890
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-4900.798891", usdcDecimals),
+                    parseUnits("-4900.798890", usdcDecimals),
                 )
                 // alice's xxx balance: 1.1237 - 1.1237 = 0
                 expect(await vault.getBalanceByToken(alice.address, xxx.address)).to.be.eq(parseUnits("0", xxxDecimals))
@@ -656,7 +656,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 // repaid amount: 1350 - 40.5(insuranceFundFee) = 1309.5
                 // alice's usdc debt = 5000 - 1309.5 = 3690.5
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-3690.500001", usdcDecimals),
+                    parseUnits("-3690.500000", usdcDecimals),
                 )
                 // alice's weth balance: 1 - 0.5 = 0.5
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
@@ -718,9 +718,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await weth.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
                 // repaid amount: 2577.319587 - 77.319587(insuranceFundFee) = 2500
-                // alice's usdc debt = 5000.000001 - 2500 = 2500.000001
+                // alice's usdc debt = 5000.000000 - 2500 = 2500.000000
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-2500.000001", usdcDecimals),
+                    parseUnits("-2500.000000", usdcDecimals),
                 )
                 // alice's weth balance: 1 - 0.95456281 = 0.04543719
                 expect(await vault.getBalanceByToken(alice.address, weth.address)).to.be.eq(
@@ -783,9 +783,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await wbtc.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
                 // repaid amount: 817.886106 - 24.536583(insuranceFundFee) = 793.349523
-                // alice's usdc debt = 5000.000001 - 793.349523 = 4206.650478
+                // alice's usdc debt = 5000.000000 - 793.349523 = 4206.650477
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-4206.650478", usdcDecimals),
+                    parseUnits("-4206.650477", usdcDecimals),
                 )
                 // alice's wbtc balance: 0.02355323 - 0.02355323 = 0
                 expect(await vault.getBalanceByToken(alice.address, wbtc.address)).to.be.eq(
@@ -844,9 +844,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 expect(await xxx.balanceOf(carol.address)).to.be.eq(maxLiquidatableCollateral)
 
                 // repaid amount: 102.269185 - 3.068075(insuranceFundFee) = 99.20111
-                // alice's usdc debt = 5000.000001 - 99.20111 = 4900.798891
+                // alice's usdc debt = 5000.000000 - 99.20111 = 4900.798890
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("-4900.798891", usdcDecimals),
+                    parseUnits("-4900.798890", usdcDecimals),
                 )
                 // alice's xxx balance: 1.1237 - 1.1237 = 0
                 expect(await vault.getBalanceByToken(alice.address, xxx.address)).to.be.eq(parseUnits("0", xxxDecimals))
