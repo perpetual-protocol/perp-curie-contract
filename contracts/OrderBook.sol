@@ -23,6 +23,7 @@ import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { OrderBookStorageV1 } from "./storage/OrderBookStorage.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
+import "hardhat/console.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract OrderBook is
@@ -161,6 +162,14 @@ contract OrderBook is
                     globalFundingGrowth: params.fundingGrowthGlobal
                 })
             );
+        console.log("orderBook params.base");
+        console.log(params.base);
+        console.log("orderBook params.quote");
+        console.log(params.quote);
+        console.log("orderBook response.base");
+        console.log(response.base);
+        console.log("orderBook response.quote");
+        console.log(response.quote);
 
         return
             AddLiquidityResponse({

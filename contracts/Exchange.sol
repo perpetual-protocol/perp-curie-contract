@@ -507,9 +507,13 @@ contract Exchange is
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
-            exchangedPositionNotional = SwapMath
-                .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
-                .neg256();
+            if (params.isExactInput && response.quote == scaledAmountForUniswapV3PoolSwap) {
+                exchangedPositionNotional = params.amount.sub(replayResponse.fee).toInt256().neg256();
+            } else {
+                exchangedPositionNotional = SwapMath
+                    .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
+                    .neg256();
+            }
         }
 
         console.log("exchangedPositionNotional");
@@ -518,6 +522,8 @@ contract Exchange is
         console.log(replayResponse.fee);
         console.log("quote");
         console.logInt(exchangedPositionNotional.sub(replayResponse.fee.toInt256()));
+        console.log("response.quote");
+        console.log(response.quote);
 
         // update the timestamp of the first tx in this market
         if (_firstTradedTimestampMap[params.baseToken] == 0) {
