@@ -502,11 +502,19 @@ contract Exchange is
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
 
-            // NOTE: scaledAmountForUniswapV3PoolSwap is the amount of quote token to be swapped input.
-            //       response.quote is the actual amount of quote token swapped.
-            //       as long as liquidity is enough, the both value is the same,
-            //       otherwise, response.quote < scaledAmountForUniswapV3PoolSwap.
+            // scaledAmountForUniswapV3PoolSwap is the amount of quote token to swap (input),
+            // response.quote is the actual amount of quote token swapped (output).
+            // as long as liquidity is enough, they would be equal.
+            // otherwise, response.quote < scaledAmountForUniswapV3PoolSwap
+            // which also means response.quote < exact input amount.
             if (params.isExactInput && response.quote == scaledAmountForUniswapV3PoolSwap) {
+                // NOTE: replayResponse.fee might have an extra charge of 1 wei, for instance:
+                // Q2B exact input amount 1000000000000000000000 with fee ratio 1%,
+                // replayResponse.fee is actually 10000000000000000001 (1000 * 1% + 1 wei),
+                // and quote = exchangedPositionNotional - replayResponse.fee = -1000000000000000000001
+                // which is not matched with exact input 1000000000000000000000
+                // we modify exchangedPositionNotional here to make sure
+                // quote = exchangedPositionNotional - replayResponse.fee = exact input
                 exchangedPositionNotional = params.amount.sub(replayResponse.fee).toInt256().neg256();
             } else {
                 exchangedPositionNotional = SwapMath

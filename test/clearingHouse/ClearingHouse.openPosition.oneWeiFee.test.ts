@@ -41,7 +41,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         // const exFeeRatio = 10000 // 1%
         // const uniFeeRatio = 10000 // 1%
 
-        const exFeeRatio = 7000 // 0.1% in production
+        const exFeeRatio = 1000 // 0.1% in production
         const uniFeeRatio = 3000 // 0.3% in production
 
         fixture = await loadFixture(createClearingHouseFixture(true, uniFeeRatio))
@@ -111,7 +111,6 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
                 expect(response.quote).to.be.eq(parseEther("1000"))
             })
 
-            // FIXME: Q2B exact input 1000, but response.quote = 1000 + 1 wei
             it("long exact input", async () => {
                 const response = await clearingHouse.connect(taker).callStatic.openPosition({
                     baseToken: baseToken.address,
@@ -126,13 +125,6 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
                 })
                 // expect(response.quote).to.be.eq(parseEther("1000"))
                 expect(response.quote).to.be.eq("1280383806188353801279")
-                // AssertionError: Expected "1000000000000000000001" to be equal 1000000000000000000000
-                // exchangedPositionNotional
-                // -990000000000000000000
-                // fee
-                // 10000000000000000001
-                // quote
-                // -1000000000000000000001
             })
         })
 
