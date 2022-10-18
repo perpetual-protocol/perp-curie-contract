@@ -27,7 +27,6 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
-import "hardhat/console.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
@@ -450,11 +449,6 @@ contract Exchange is
                 marketInfo.uniswapFeeRatio
             );
 
-        console.log("scaledAmountForUniswapV3PoolSwap");
-        console.log(scaledAmountForUniswapV3PoolSwap);
-        console.log("signedScaledAmountForReplaySwap");
-        console.logInt(signedScaledAmountForReplaySwap);
-
         (Funding.Growth memory fundingGrowthGlobal, , ) = _getFundingGrowthGlobalAndTwaps(params.baseToken);
         // simulate the swap to calculate the fees charged in exchange
         IOrderBook.ReplaySwapResponse memory replayResponse =
@@ -507,6 +501,11 @@ contract Exchange is
         } else {
             // long: exchangedPositionSize >= 0 && exchangedPositionNotional <= 0
             exchangedPositionSize = response.base.toInt256();
+
+            // NOTE: scaledAmountForUniswapV3PoolSwap is the amount of quote token to be swapped input.
+            //       response.quote is the actual amount of quote token swapped.
+            //       as long as liquidity is enough, the both value is the same,
+            //       otherwise, response.quote < scaledAmountForUniswapV3PoolSwap.
             if (params.isExactInput && response.quote == scaledAmountForUniswapV3PoolSwap) {
                 exchangedPositionNotional = params.amount.sub(replayResponse.fee).toInt256().neg256();
             } else {
@@ -515,15 +514,6 @@ contract Exchange is
                     .neg256();
             }
         }
-
-        console.log("exchangedPositionNotional");
-        console.logInt(exchangedPositionNotional);
-        console.log("fee");
-        console.log(replayResponse.fee);
-        console.log("quote");
-        console.logInt(exchangedPositionNotional.sub(replayResponse.fee.toInt256()));
-        console.log("response.quote");
-        console.log(response.quote);
 
         // update the timestamp of the first tx in this market
         if (_firstTradedTimestampMap[params.baseToken] == 0) {
