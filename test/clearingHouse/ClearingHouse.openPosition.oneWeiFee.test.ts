@@ -38,9 +38,6 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
     let collateralDecimals: number
 
     beforeEach(async () => {
-        // const exFeeRatio = 10000 // 1%
-        // const uniFeeRatio = 10000 // 1%
-
         const exFeeRatio = 1000 // 0.1% in production
         const uniFeeRatio = 3000 // 0.3% in production
 
@@ -117,14 +114,26 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    // amount: parseEther("1000"),
                     amount: "1280383806188353801279",
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                // expect(response.quote).to.be.eq(parseEther("1000"))
                 expect(response.quote).to.be.eq("1280383806188353801279")
+            })
+
+            it("long exact input with 1000", async () => {
+                const response = await clearingHouse.connect(taker).callStatic.openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1000"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                expect(response.quote).to.be.eq(parseEther("1000"))
             })
         })
 

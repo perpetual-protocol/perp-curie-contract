@@ -352,7 +352,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
         describe("# liquidateCollateral by settlement token", async () => {
             beforeEach(async () => {
-                // usdc debt: 5000.000001
+                // usdc debt: 5000.000000
                 // max liquidatable value: 2577.319587
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("0", 6), 0, 0, 0]
