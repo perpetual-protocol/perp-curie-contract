@@ -653,16 +653,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await mintAndDeposit(fixture, taker, 1000)
 
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
-            const freeCollateral = await vault.getFreeCollateral(taker.address)
-
             await q2bExactInput(fixture, taker, 2000)
-
-            // original exchangedPositionNotional : -104985016869112504903
-            // fixed exchangedPositionNotional:     -1999894909893023911405
-
-            // liquidity 2000 usd
-            // original exchangedPositionNotional:  -104985016869112504903
-            // fixed exchangedPositionNotional:     -1999894909893023911405
 
             // failed to swap again
             await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
