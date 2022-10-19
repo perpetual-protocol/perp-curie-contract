@@ -652,6 +652,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // prepare collateral
             await mintAndDeposit(fixture, taker, 1000)
 
+            // there is only around 1000 USD in the pool
             // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
             await q2bExactInput(fixture, taker, 2000)
 
