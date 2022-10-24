@@ -1012,9 +1012,9 @@ describe("ClearingHouse customized fee", () => {
                     taker.address,
                     baseToken.address,
                     "11729654997396309954", // exchangedPositionSize
-                    parseEther("-1980"), // exchangedPositionNotional
+                    parseEther("-1979.999999999999999998"), // exchangedPositionNotional
                     totalFee, // fee
-                    "-2000000000000000000002", // openNotional
+                    "-2000000000000000000000", // openNotional
                     parseEther("0"), // realizedPnl
                     "1115547388545533386227414561311",
                 )
