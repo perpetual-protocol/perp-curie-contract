@@ -17,5 +17,5 @@ jobs:
       - run: |
           git config --global user.name "dev"
           git config --global user.email "dev@perp.com"
-          git remote add internal "https://perpetual-protocol:${GH_PERSONAL_ACCESS_TOKEN}@github.com/perpetual-protocol/perp-lushan.git"
+          git remote add internal "git@github.com:perpetual-protocol/perp-lushan.git"
           git push --set-upstream internal main
