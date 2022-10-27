@@ -1,0 +1,68 @@
+name: Publish A Private NPM package
+on:
+  push:
+    tags:
+      - pv*
+
+jobs:
+  # only publish private npm package on private repo: perp-lushan
+  publish-private-npm-package:
+    if: ${{ github.repository == 'perpetual-protocol/perp-lushan' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ${{ steps.npm-cache.outputs.dir }}
+            **/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@perpetual-protocol'
+
+      - name: Assert git tag and package version
+        run: |
+          VERSION_IN_PKG=$(npm pkg get version | sed 's/"//g')
+          VERSION_IN_GIT_TAG=${GITHUB_REF_NAME:2}
+          if [ $VERSION_IN_PKG != $VERSION_IN_GIT_TAG ]; then echo "not match" && exit 1; else echo 0; fi
+
+      - name: Install contract dependencies
+        run: npm ci
+        env:
+          CI: true
+
+      - name: Build contract package
+        run: npm run build
+        env:
+          CI: true
+
+
+      - name: Publish npm package
+        run: |
+          npm pkg set name="@perpetual-protocol/lushan"
+          npm pkg set repository.url="https://github.com/perpetual-protocol/perp-lushan.git"
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: "npm package @perpetual-protocol/lushan@${{ github.event.inputs.version }} ${{github.ref}} released on github package"
