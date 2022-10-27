@@ -10,9 +10,12 @@ jobs:
     if: ${{ github.repository == 'perpetual-protocol/perp-curie-contract' }}
     runs-on: ubuntu-latest
     steps:
+      - uses: webfactory/ssh-agent@v0.6.0
+        with:
+          ssh-private-key: ${{ secrets.PERP_LUSHAN_DEPLOY_PRIVATE_KEY }}
+
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0
       - run: |
           git config --global user.name "dev"
