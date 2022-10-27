@@ -1,0 +1,21 @@
+name: Sync
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  public-to-internal:
+    if: ${{ github.repository == 'perpetual-protocol/perp-curie-contract' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          fetch-depth: 0
+      - run: |
+          git config --global user.name "dev"
+          git config --global user.email "dev@perp.com"
+          git remote add internal "https://perpetual-protocol:${GH_PERSONAL_ACCESS_TOKEN}@github.com/perpetual-protocol/perp-lushan.git"
+          git push --set-upstream internal main
