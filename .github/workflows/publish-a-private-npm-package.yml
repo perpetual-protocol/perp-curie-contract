@@ -5,7 +5,9 @@ on:
       - pv*
 
 jobs:
+  # only publish private npm package on private repo: perp-lushan
   publish-private-npm-package:
+    if: ${{ github.repository == 'perpetual-protocol/perp-lushan' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
