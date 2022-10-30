@@ -131,12 +131,13 @@ contract MarketRegistry_addPool is BaseSetup {
 }
 
 contract MarketRegistry_setter is BaseSetup {
+    uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
+    address public nonOwnerAddress;
+
     event ClearingHouseChanged(address indexed clearingHouse);
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
     event InsuranceFundFeeRatioChanged(address baseToken, uint24 feeRatio);
     event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
-
-    address nonOwnerAddress;
 
     function setUp() public virtual override {
         BaseSetup.setUp();
@@ -164,11 +165,11 @@ contract MarketRegistry_setter is BaseSetup {
         marketRegistry.setClearingHouse(address(clearingHouse2));
     }
 
-    function test_setMaxOrdersPerMarket_should_emit_event() public {
+    function test_setMaxOrdersPerMarket_should_emit_event(uint8 maxOrdersPerMarket) public {
         vm.expectEmit(false, false, false, true);
-        emit MaxOrdersPerMarketChanged(1);
-        marketRegistry.setMaxOrdersPerMarket(1);
-        assertEq(uint256(marketRegistry.getMaxOrdersPerMarket()), 1);
+        emit MaxOrdersPerMarketChanged(maxOrdersPerMarket);
+        marketRegistry.setMaxOrdersPerMarket(maxOrdersPerMarket);
+        assertEq(uint256(marketRegistry.getMaxOrdersPerMarket()), maxOrdersPerMarket);
     }
 
     function testCannot_setMaxOrdersPerMarket_if_called_by_non_owner() public {
@@ -177,51 +178,53 @@ contract MarketRegistry_setter is BaseSetup {
         marketRegistry.setMaxOrdersPerMarket(1);
     }
 
-    function test_setFeeRatio_should_emit_event() public {
+    function test_setFeeRatio_should_emit_event(uint24 feeRatio) public {
+        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectEmit(false, false, false, true);
-        emit FeeRatioChanged(address(baseToken), 10000);
-        marketRegistry.setFeeRatio(address(baseToken), 10000);
+        emit FeeRatioChanged(address(baseToken), feeRatio);
+        marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
     function testCannot_setFeeRatio_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
-        marketRegistry.setFeeRatio(address(baseToken), 10000);
+        marketRegistry.setFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
 
-    function testCannot_setFeeRatio_if_overflow() public {
-        uint24 twoHundredPercent = 2000000; // 200% in uint24
+    function testCannot_setFeeRatio_if_overflow(uint24 feeRatio) public {
+        vm.assume(feeRatio > _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectRevert(bytes("MR_RO"));
-        marketRegistry.setFeeRatio(address(baseToken), twoHundredPercent);
+        marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
     function testCannot_setFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.expectRevert(bytes("MR_PNE"));
-        marketRegistry.setFeeRatio(address(baseToken2), 10000);
+        marketRegistry.setFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);
     }
 
-    function test_setInsuranceFundFeeRatio_should_emit_event() public {
+    function test_setInsuranceFundFeeRatio_should_emit_event(uint24 feeRatio) public {
+        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectEmit(false, false, false, true);
-        emit InsuranceFundFeeRatioChanged(address(baseToken), 10000);
-        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 10000);
+        emit InsuranceFundFeeRatioChanged(address(baseToken), feeRatio);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), feeRatio);
     }
 
     function testCannot_setInsuranceFundFeeRatio_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
-        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 10000);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
 
-    function testCannot_setInsuranceFundFeeRatio_if_overflow() public {
-        uint24 twoHundredPercent = 2000000; // 200% in uint24
+    function testCannot_setInsuranceFundFeeRatio_if_overflow(uint24 feeRatio) public {
+        vm.assume(feeRatio > _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectRevert(bytes("MR_RO"));
-        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), twoHundredPercent);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken), feeRatio);
     }
 
     function testCannot_setInsuranceFundFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.expectRevert(bytes("MR_PNE"));
-        marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), 10000);
+        marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);
     }
 }
