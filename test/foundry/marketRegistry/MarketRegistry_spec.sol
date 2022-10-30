@@ -16,19 +16,6 @@ contract MarketRegistry_addPool is BaseSetup {
     }
 
     function test_addPool_should_emit_event() public {
-        vm.mockCall(
-            address(pool),
-            abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
-            abi.encode(100, 0, 0, 0, 0, 0, false)
-        );
-
-        vm.expectEmit(false, false, false, true);
-        emit PoolAdded(address(baseToken), DEFAULT_POOL_FEE, address(pool));
-        marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
-        assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
-    }
-
-    function test_add_multiple_pools_should_emit_events() public {
         // add first pool
         vm.mockCall(
             address(pool),
