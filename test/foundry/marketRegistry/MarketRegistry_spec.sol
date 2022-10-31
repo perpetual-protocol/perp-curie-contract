@@ -2,7 +2,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import "forge-std/Test.sol";
-import "./BaseSetup.sol";
+import "../BaseSetup.sol";
 import "../../../contracts/ClearingHouse.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
