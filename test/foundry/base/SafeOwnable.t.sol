@@ -3,22 +3,22 @@ pragma solidity 0.7.6;
 import "forge-std/Test.sol";
 import "../../../contracts/base/SafeOwnable.sol";
 
-contract SafeOwnable_impl is SafeOwnable {
+contract SafeOwnableImplAbstract is SafeOwnable {
     function initialize() external initializer {
         __SafeOwnable_init();
     }
 }
 
-contract SafeOwnable_spec is Test {
+contract SafeOwnableTest is Test {
     address private constant _ZERO_ADDRESS = address(0);
 
-    SafeOwnable_impl public safeOwnable;
+    SafeOwnableImplAbstract public safeOwnable;
     address public nonOwnerAddress;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     function setUp() public {
-        safeOwnable = new SafeOwnable_impl();
+        safeOwnable = new SafeOwnableImplAbstract();
         safeOwnable.initialize();
         nonOwnerAddress = makeAddr("nonOwnerAddress");
     }
