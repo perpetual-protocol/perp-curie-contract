@@ -10,30 +10,30 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";
 import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-contract BaseSetup is Test {
-    string constant BASE_TOKEN_NAME = "vETH";
-    string constant QUOTE_TOKEN_NAME = "vUSD";
-    uint24 constant DEFAULT_POOL_FEE = 3000;
-    address internal PRICE_FEED = makeAddr("PRICE_FEED");
-    MarketRegistry internal marketRegistry;
-    ClearingHouse internal clearingHouse;
-    UniswapV3Factory internal uniswapV3Factory;
-    UniswapV3Pool internal pool;
-    BaseToken internal baseToken;
-    QuoteToken internal quoteToken;
+contract Setup is Test {
+    string internal constant _BASE_TOKEN_NAME = "vETH";
+    string internal constant _QUOTE_TOKEN_NAME = "vUSD";
+    uint24 internal constant _DEFAULT_POOL_FEE = 3000;
+    address internal _PRICE_FEED = makeAddr("_PRICE_FEED");
+    MarketRegistry public marketRegistry;
+    ClearingHouse public clearingHouse;
+    UniswapV3Factory public uniswapV3Factory;
+    UniswapV3Pool public pool;
+    BaseToken public baseToken;
+    QuoteToken public quoteToken;
 
     function setUp() public virtual {
-        uniswapV3Factory = createUniswapV3Factory();
-        quoteToken = createQuoteToken();
-        clearingHouse = createClearingHouse();
-        marketRegistry = createMarketRegistry(address(uniswapV3Factory), address(quoteToken), address(clearingHouse));
-        baseToken = createBaseToken(BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse), false);
-        pool = createUniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, DEFAULT_POOL_FEE);
+        uniswapV3Factory = _create_UniswapV3Factory();
+        quoteToken = _create_QuoteToken();
+        clearingHouse = _create_ClearingHouse();
+        marketRegistry = _create_MarketRegistry(address(uniswapV3Factory), address(quoteToken), address(clearingHouse));
+        baseToken = _create_BaseToken(_BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse), false);
+        pool = _create_UniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, _DEFAULT_POOL_FEE);
     }
 
-    function createQuoteToken() internal returns (QuoteToken) {
+    function _create_QuoteToken() internal returns (QuoteToken) {
         QuoteToken quoteToken = new QuoteToken();
-        quoteToken.initialize(QUOTE_TOKEN_NAME, QUOTE_TOKEN_NAME);
+        quoteToken.initialize(_QUOTE_TOKEN_NAME, _QUOTE_TOKEN_NAME);
         vm.mockCall(address(quoteToken), abi.encodeWithSelector(ERC20Upgradeable.decimals.selector), abi.encode(18));
         vm.mockCall(
             address(quoteToken),
@@ -44,7 +44,7 @@ contract BaseSetup is Test {
         return quoteToken;
     }
 
-    function createBaseToken(
+    function _create_BaseToken(
         string memory tokenName,
         address quoteToken,
         address clearingHouse,
@@ -55,19 +55,19 @@ contract BaseSetup is Test {
             baseToken = new BaseToken();
         }
         // NOTE: put faked code on price feed address, must have contract code to make mockCall
-        vm.etch(PRICE_FEED, "PRICE_FEED");
-        vm.mockCall(PRICE_FEED, abi.encodeWithSelector(IPriceFeed.decimals.selector), abi.encode(18));
-        baseToken.initialize(tokenName, tokenName, PRICE_FEED);
+        vm.etch(_PRICE_FEED, "_PRICE_FEED");
+        vm.mockCall(_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.decimals.selector), abi.encode(18));
+        baseToken.initialize(tokenName, tokenName, _PRICE_FEED);
         baseToken.mintMaximumTo(clearingHouse);
         baseToken.addWhitelist(clearingHouse);
         return baseToken;
     }
 
-    function createUniswapV3Factory() internal returns (UniswapV3Factory) {
+    function _create_UniswapV3Factory() internal returns (UniswapV3Factory) {
         return new UniswapV3Factory();
     }
 
-    function createUniswapV3Pool(
+    function _create_UniswapV3Pool(
         UniswapV3Factory uniswapV3Factory,
         BaseToken baseToken,
         QuoteToken quoteToken,
@@ -79,7 +79,7 @@ contract BaseSetup is Test {
         return UniswapV3Pool(poolAddress);
     }
 
-    function createMarketRegistry(
+    function _create_MarketRegistry(
         address uniswapV3Factory,
         address quoteToken,
         address clearingHouse
@@ -90,7 +90,7 @@ contract BaseSetup is Test {
         return marketRegistry;
     }
 
-    function createClearingHouse() internal returns (ClearingHouse) {
+    function _create_ClearingHouse() internal returns (ClearingHouse) {
         return new ClearingHouse();
     }
 }
