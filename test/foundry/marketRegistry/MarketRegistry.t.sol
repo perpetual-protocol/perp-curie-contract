@@ -4,13 +4,12 @@ pragma abicoder v2;
 import "forge-std/Test.sol";
 import "../BaseSetup.sol";
 import "../../../contracts/ClearingHouse.sol";
+import "../interface/IMarketRegistryEvent.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
 
-contract MarketRegistryAddPoolTest is BaseSetup {
-    event PoolAdded(address indexed baseToken, uint24 indexed feeRatio, address indexed pool);
-
+contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
     function setUp() public virtual override {
         BaseSetup.setUp();
     }
@@ -117,14 +116,9 @@ contract MarketRegistryAddPoolTest is BaseSetup {
     }
 }
 
-contract MarketRegistrySetterTest is BaseSetup {
+contract MarketRegistrySetterTest is IMarketRegistryEvent, BaseSetup {
     uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
     address public nonOwnerAddress;
-
-    event ClearingHouseChanged(address indexed clearingHouse);
-    event FeeRatioChanged(address baseToken, uint24 feeRatio);
-    event InsuranceFundFeeRatioChanged(address baseToken, uint24 feeRatio);
-    event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
 
     function setUp() public virtual override {
         BaseSetup.setUp();
