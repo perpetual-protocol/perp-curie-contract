@@ -43,7 +43,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         assertEq(marketRegistry.getPool(address(baseToken2)), address(pool2));
     }
 
-    function testCannot_addPool_if_pool_is_not_initialized() public {
+    function test_revert_addPool_if_pool_is_not_initialized() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -53,7 +53,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_addPool_if_pool_does_not_exist() public {
+    function test_revert_addPool_if_pool_does_not_exist() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.mockCall(
             address(uniswapV3Factory),
@@ -64,7 +64,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_addPool_if_pool_already_exists_in_ClearingHouse() public {
+    function test_revert_addPool_if_pool_already_exists_in_ClearingHouse() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -76,7 +76,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.addPool(address(baseToken), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_addPool_with_same_base_quote_but_diff_uniswap_fee() public {
+    function test_revert_addPool_with_same_base_quote_but_diff_uniswap_fee() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -91,7 +91,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.addPool(address(baseToken), 10000);
     }
 
-    function testCannot_addPool_if_base_address_is_greater_than_quote_address() public {
+    function test_revert_addPool_if_base_address_is_greater_than_quote_address() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), true);
         UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
         vm.mockCall(
@@ -103,7 +103,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.addPool(address(baseToken2), DEFAULT_POOL_FEE);
     }
 
-    function testCannot_addPool_if_clearingHouse_has_insufficient_base_token_balance() public {
+    function test_revert_addPool_if_clearingHouse_has_insufficient_base_token_balance() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), makeAddr("FAKE"), false);
         UniswapV3Pool pool2 = createUniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, DEFAULT_POOL_FEE);
         vm.mockCall(
@@ -139,7 +139,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, BaseSetup {
         assertEq(marketRegistry.getClearingHouse(), address(clearingHouse2));
     }
 
-    function testCannot_setClearingHouse_if_called_by_non_owner() public {
+    function test_revert_setClearingHouse_if_called_by_non_owner() public {
         ClearingHouse clearingHouse2 = createClearingHouse();
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
@@ -153,7 +153,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, BaseSetup {
         assertEq(uint256(marketRegistry.getMaxOrdersPerMarket()), maxOrdersPerMarket);
     }
 
-    function testCannot_setMaxOrdersPerMarket_if_called_by_non_owner() public {
+    function test_revert_setMaxOrdersPerMarket_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setMaxOrdersPerMarket(1);
@@ -166,19 +166,19 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
-    function testCannot_setFeeRatio_if_called_by_non_owner() public {
+    function test_revert_setFeeRatio_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
 
-    function testCannot_setFeeRatio_if_overflow(uint24 feeRatio) public {
+    function test_revert_setFeeRatio_if_overflow(uint24 feeRatio) public {
         vm.assume(feeRatio > _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectRevert(bytes("MR_RO"));
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
-    function testCannot_setFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
+    function test_revert_setFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.expectRevert(bytes("MR_PNE"));
         marketRegistry.setFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);
@@ -191,19 +191,19 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, BaseSetup {
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), feeRatio);
     }
 
-    function testCannot_setInsuranceFundFeeRatio_if_called_by_non_owner() public {
+    function test_revert_setInsuranceFundFeeRatio_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
 
-    function testCannot_setInsuranceFundFeeRatio_if_overflow(uint24 feeRatio) public {
+    function test_revert_setInsuranceFundFeeRatio_if_overflow(uint24 feeRatio) public {
         vm.assume(feeRatio > _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectRevert(bytes("MR_RO"));
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), feeRatio);
     }
 
-    function testCannot_setInsuranceFundFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
+    function test_revert_setInsuranceFundFeeRatio_if_pool_does_not_exist_in_ClearingHouse() public {
         BaseToken baseToken2 = createBaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.expectRevert(bytes("MR_PNE"));
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);

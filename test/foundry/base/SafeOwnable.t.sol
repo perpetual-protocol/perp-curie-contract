@@ -22,7 +22,7 @@ contract SafeOwnableTest is ISafeOwnableEvent, Test {
         nonOwnerAddress = makeAddr("nonOwnerAddress");
     }
 
-    function testCannot_onlyOwner() public {
+    function test_revert_onlyOwner() public {
         vm.startPrank(nonOwnerAddress);
 
         vm.expectRevert(bytes("SO_CNO"));
@@ -46,17 +46,17 @@ contract SafeOwnableTest is ISafeOwnableEvent, Test {
         assertEq(safeOwnable.candidate(), nonOwnerAddress);
     }
 
-    function testCannot_setOwner_candidate_is_zero_address() public {
+    function test_revert_setOwner_candidate_is_zero_address() public {
         vm.expectRevert(bytes("SO_NW0"));
         safeOwnable.setOwner(_ZERO_ADDRESS);
     }
 
-    function testCannot_setOwner_candidate_is_already_owner() public {
+    function test_revert_setOwner_candidate_is_already_owner() public {
         vm.expectRevert(bytes("SO_SAO"));
         safeOwnable.setOwner(address(this));
     }
 
-    function testCannot_setOwner_candidate_is_already_candidate() public {
+    function test_revert_setOwner_candidate_is_already_candidate() public {
         _set_nonOwnerAddress_as_candidate();
 
         vm.expectRevert(bytes("SO_SAC"));
@@ -75,12 +75,12 @@ contract SafeOwnableTest is ISafeOwnableEvent, Test {
         assertEq(safeOwnable.candidate(), _ZERO_ADDRESS);
     }
 
-    function testCannot_updateOwner_candidate_is_zero_address() public {
+    function test_revert_updateOwner_candidate_is_zero_address() public {
         vm.expectRevert(bytes("SO_C0"));
         safeOwnable.updateOwner();
     }
 
-    function testCannot_updateOwner_caller_is_not_candidate() public {
+    function test_revert_updateOwner_caller_is_not_candidate() public {
         _set_nonOwnerAddress_as_candidate();
 
         vm.expectRevert(bytes("SO_CNC"));
