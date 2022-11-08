@@ -1,9 +1,9 @@
 import "forge-std/Test.sol";
-import "../../contracts/MarketRegistry.sol";
-import "../../contracts/ClearingHouse.sol";
-import "../../contracts/QuoteToken.sol";
-import "../../contracts/BaseToken.sol";
-import "../../contracts/VirtualToken.sol";
+import "../../../contracts/MarketRegistry.sol";
+import "../../../contracts/ClearingHouse.sol";
+import "../../../contracts/QuoteToken.sol";
+import "../../../contracts/BaseToken.sol";
+import "../../../contracts/VirtualToken.sol";
 import "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
 import "@uniswap/v3-core/contracts/UniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";

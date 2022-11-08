@@ -2,7 +2,7 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import "forge-std/Test.sol";
-import "../Setup.sol";
+import "../helper/Setup.sol";
 import "../../../contracts/ClearingHouse.sol";
 import "../interface/IMarketRegistryEvent.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
