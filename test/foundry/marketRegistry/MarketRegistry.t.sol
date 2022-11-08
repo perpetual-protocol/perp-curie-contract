@@ -22,7 +22,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
             abi.encode(100, 0, 0, 0, 0, 0, false)
         );
 
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
         emit PoolAdded(address(baseToken), _DEFAULT_POOL_FEE, address(pool));
         marketRegistry.addPool(address(baseToken), _DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
@@ -37,7 +37,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
             abi.encode(100, 0, 0, 0, 0, 0, false)
         );
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
         emit PoolAdded(address(baseToken2), _DEFAULT_POOL_FEE, address(pool2));
         marketRegistry.addPool(address(baseToken2), _DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken2)), address(pool2));
@@ -133,7 +133,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
 
     function test_setClearingHouse_should_emit_event() public {
         ClearingHouse clearingHouse2 = _create_ClearingHouse();
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(true, false, false, true, address(marketRegistry));
         emit ClearingHouseChanged(address(clearingHouse2));
         marketRegistry.setClearingHouse(address(clearingHouse2));
         assertEq(marketRegistry.getClearingHouse(), address(clearingHouse2));
@@ -147,7 +147,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
     }
 
     function test_setMaxOrdersPerMarket_should_emit_event(uint8 maxOrdersPerMarket) public {
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarket);
         marketRegistry.setMaxOrdersPerMarket(maxOrdersPerMarket);
         assertEq(uint256(marketRegistry.getMaxOrdersPerMarket()), maxOrdersPerMarket);
@@ -161,7 +161,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
 
     function test_setFeeRatio_should_emit_event(uint24 feeRatio) public {
         vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
         emit FeeRatioChanged(address(baseToken), feeRatio);
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
@@ -186,7 +186,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
 
     function test_setInsuranceFundFeeRatio_should_emit_event(uint24 feeRatio) public {
         vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
         emit InsuranceFundFeeRatioChanged(address(baseToken), feeRatio);
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), feeRatio);
     }

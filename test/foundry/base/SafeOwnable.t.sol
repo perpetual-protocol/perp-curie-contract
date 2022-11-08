@@ -33,7 +33,7 @@ contract SafeOwnableTest is ISafeOwnableEvent, Test {
     }
 
     function test_renounceOwnership_should_emit_event() public {
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(true, true, false, true, address(safeOwnable));
         emit OwnershipTransferred(address(this), _ZERO_ADDRESS);
         safeOwnable.renounceOwnership();
 
@@ -66,7 +66,7 @@ contract SafeOwnableTest is ISafeOwnableEvent, Test {
     function test_updateOwner_should_emit_event() public {
         _set_nonOwnerAddress_as_candidate();
 
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit(true, true, false, true, address(safeOwnable));
         emit OwnershipTransferred(address(this), nonOwnerAddress);
         vm.prank(nonOwnerAddress);
         safeOwnable.updateOwner();
