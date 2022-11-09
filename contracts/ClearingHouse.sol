@@ -523,6 +523,8 @@ contract ClearingHouse is
 
         emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, closedPrice);
 
+        IVault(_vault).settleBadDebt(trader);
+
         return (positionSize.abs(), positionNotional.abs());
     }
 

@@ -20,6 +20,7 @@ import {
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { withdrawAll } from "../helper/vaultHelper"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -767,6 +768,37 @@ describe("Clearinghouse StopMarket", async () => {
 
                 expect(totalPositionNotional).to.be.eq("0")
                 expect(totalRealizedPnl).to.be.closeTo("0", 2)
+            })
+        })
+
+        describe("settleBadDebt", async () => {
+            beforeEach(async () => {
+                await withdrawAll(fixture, bob)
+                await deposit(bob, vault, 10, collateral)
+
+                await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
+                // bob open notional: -15.336664251894505922
+
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 1)
+            })
+
+            it("quitMarket settleBadDebt", async () => {
+                // check: bob account value should be negative
+                // positionNotional = 0.1
+                // collateral + positionNotional + openNotional
+                // 10 + 0.1 + (-15.336664251894505922) = -5.23666425
+                expect(await vault.getAccountValue(bob.address)).eq("-5236674")
+                // check: IF account value should be 0
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
+                // call quitMarket
+                expect(await clearingHouse.quitMarket(bob.address, baseToken.address))
+                    .to.emit(vault, "BadDebtSettled")
+                    .withArgs(bob.address, "5236674")
+                // check: bob account value should 0
+                expect(await vault.getAccountValue(bob.address)).eq("0")
+                // check: IF account value should be negative
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236674")
             })
         })
     })
