@@ -11,7 +11,7 @@ import { IUniswapV3SwapCallback } from "@uniswap/v3-core/contracts/interfaces/ca
 import { BlockContext } from "./base/BlockContext.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { SwapMath } from "./lib/SwapMath.sol";
+import { SwapMath as PerpSwapMath } from "./lib/SwapMath.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -411,7 +411,7 @@ contract Exchange is
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
-            SwapMath.calcScaledAmountForSwaps(
+            PerpSwapMath.calcScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
@@ -441,7 +441,7 @@ contract Exchange is
         IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
-            SwapMath.calcScaledAmountForSwaps(
+            PerpSwapMath.calcScaledAmountForSwaps(
                 params.isBaseToQuote,
                 params.isExactInput,
                 params.amount,
@@ -492,7 +492,7 @@ contract Exchange is
         int256 exchangedPositionNotional;
         if (params.isBaseToQuote) {
             // short: exchangedPositionSize <= 0 && exchangedPositionNotional >= 0
-            exchangedPositionSize = SwapMath
+            exchangedPositionSize = PerpSwapMath
                 .calcAmountScaledByFeeRatio(response.base, marketInfo.uniswapFeeRatio, false)
                 .neg256();
             // due to base to quote fee, exchangedPositionNotional contains the fee
@@ -517,7 +517,7 @@ contract Exchange is
                 // quote = exchangedPositionNotional - replayResponse.fee = exact input
                 exchangedPositionNotional = params.amount.sub(replayResponse.fee).toInt256().neg256();
             } else {
-                exchangedPositionNotional = SwapMath
+                exchangedPositionNotional = PerpSwapMath
                     .calcAmountScaledByFeeRatio(response.quote, marketInfo.uniswapFeeRatio, false)
                     .neg256();
             }

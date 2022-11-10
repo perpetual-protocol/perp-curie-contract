@@ -12,7 +12,9 @@ import {
     IERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import { TransferHelper } from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {
+    TransferHelper as PeripheryTransferHelper
+} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
@@ -703,7 +705,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         _settleAndDecreaseBalance(to, WETH9, amount);
 
         IWETH9(WETH9).withdraw(amount);
-        TransferHelper.safeTransferETH(to, amount);
+        PeripheryTransferHelper.safeTransferETH(to, amount);
         emit Withdrawn(WETH9, to, amount);
     }
 

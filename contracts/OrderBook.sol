@@ -16,7 +16,7 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpFixedPoint96 } from "./lib/PerpFixedPoint96.sol";
 import { Funding } from "./lib/Funding.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { Tick } from "./lib/Tick.sol";
+import { Tick as PerpTick } from "./lib/Tick.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
@@ -42,7 +42,7 @@ contract OrderBook is
     using PerpSafeCast for uint256;
     using PerpSafeCast for uint128;
     using PerpSafeCast for int256;
-    using Tick for mapping(int24 => Tick.GrowthInfo);
+    using PerpTick for mapping(int24 => PerpTick.GrowthInfo);
 
     //
     // STRUCT
@@ -100,7 +100,7 @@ contract OrderBook is
         _requireOnlyClearingHouse();
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         uint256 feeGrowthGlobalX128 = _feeGrowthGlobalX128Map[params.baseToken];
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+        mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
         UniswapV3Broker.AddLiquidityResponse memory response;
 
         {
@@ -125,7 +125,7 @@ contract OrderBook is
                 tickMap.initialize(
                     params.lowerTick,
                     currentTick,
-                    Tick.GrowthInfo(
+                    PerpTick.GrowthInfo(
                         feeGrowthGlobalX128,
                         params.fundingGrowthGlobal.twPremiumX96,
                         params.fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
@@ -136,7 +136,7 @@ contract OrderBook is
                 tickMap.initialize(
                     params.upperTick,
                     currentTick,
-                    Tick.GrowthInfo(
+                    PerpTick.GrowthInfo(
                         feeGrowthGlobalX128,
                         params.fundingGrowthGlobal.twPremiumX96,
                         params.fundingGrowthGlobal.twPremiumDivBySqrtPriceX96
@@ -203,7 +203,7 @@ contract OrderBook is
         _requireOnlyExchange();
 
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
@@ -211,7 +211,7 @@ contract OrderBook is
         (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIdLength; i++) {
             OpenOrder.Info storage order = _openOrderMap[orderIds[i]];
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+            PerpTick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
@@ -350,12 +350,12 @@ contract OrderBook is
                 if (step.isNextTickInitialized) {
                     if (params.shouldUpdateState) {
                         // update the tick if it has been initialized
-                        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+                        mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
                         // according to the above updating logic,
                         // if isBaseToQuote, state.feeGrowthGlobalX128 will be updated; else, will never be updated
                         tickMap.cross(
                             step.nextTick,
-                            Tick.GrowthInfo({
+                            PerpTick.GrowthInfo({
                                 feeX128: swapState.feeGrowthGlobalX128,
                                 twPremiumX96: params.globalFundingGrowth.twPremiumX96,
                                 twPremiumDivBySqrtPriceX96: params.globalFundingGrowth.twPremiumDivBySqrtPriceX96
@@ -454,14 +454,14 @@ contract OrderBook is
         Funding.Growth memory fundingGrowthGlobal
     ) external view override returns (int256 liquidityCoefficientInFundingPayment) {
         bytes32[] memory orderIds = _openOrderIdsMap[trader][baseToken];
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         address pool = IMarketRegistry(_marketRegistry).getPool(baseToken);
 
         // funding of liquidity coefficient
         (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(pool);
         for (uint256 i = 0; i < orderIds.length; i++) {
             OpenOrder.Info memory order = _openOrderMap[orderIds[i]];
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+            PerpTick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     order.lowerTick,
                     order.upperTick,
@@ -634,8 +634,8 @@ contract OrderBook is
             openOrder.upperTick = params.upperTick;
 
             (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(params.pool);
-            mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
-            Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
+            mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[params.baseToken];
+            PerpTick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo =
                 tickMap.getAllFundingGrowth(
                     openOrder.lowerTick,
                     openOrder.upperTick,
@@ -753,7 +753,7 @@ contract OrderBook is
         returns (uint256 pendingFee, uint256 feeGrowthInsideX128)
     {
         (, int24 tick, , , , , ) = UniswapV3Broker.getSlot0(IMarketRegistry(_marketRegistry).getPool(baseToken));
-        mapping(int24 => Tick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
+        mapping(int24 => PerpTick.GrowthInfo) storage tickMap = _growthOutsideTickMap[baseToken];
         feeGrowthInsideX128 = tickMap.getFeeGrowthInsideX128(
             order.lowerTick,
             order.upperTick,

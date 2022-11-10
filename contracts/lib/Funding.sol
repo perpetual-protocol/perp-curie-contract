@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.6;
 
-import { Tick } from "./Tick.sol";
+import { Tick as PerpTick } from "./Tick.sol";
 import { PerpMath } from "./PerpMath.sol";
 import { OpenOrder } from "./OpenOrder.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
@@ -62,7 +62,7 @@ library Funding {
     /// @return liquidityCoefficientInFundingPayment the funding payment of an order/liquidity
     function calcLiquidityCoefficientInFundingPaymentByOrder(
         OpenOrder.Info memory order,
-        Tick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
+        PerpTick.FundingGrowthRangeInfo memory fundingGrowthRangeInfo
     ) internal pure returns (int256) {
         uint160 sqrtPriceX96AtUpperTick = TickMath.getSqrtRatioAtTick(order.upperTick);
 
