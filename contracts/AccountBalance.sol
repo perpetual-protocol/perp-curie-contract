@@ -38,6 +38,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     uint256 internal constant _DUST = 10 wei;
     uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
+    uint32 internal _movingAverageInterval = 10 minutes;
 
     //
     // EXTERNAL NON-VIEW
@@ -419,7 +420,35 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function getMarkPrice(address baseToken) public view override returns (uint256) {
         // TODO: median of (market price, market twap, moving average)
 
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        uint32 twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
+
+        if (_marketRegistry == address(0)) {
+            return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        }
+
+        uint256 marketPrice = _getMarketPrice(baseToken, 0);
+        uint256 marketTwap = _getMarketPrice(baseToken, twapInterval);
+        int256 premium =
+            _getMarketPrice(baseToken, _movingAverageInterval).toInt256().sub(
+                IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
+            );
+        uint256 markPriceMovingAverage = IIndexPrice(baseToken).getIndexPrice(0).toInt256().add(premium).toUint256();
+
+        // find median
+        uint256 avg = marketPrice.add(marketTwap).add(markPriceMovingAverage).div(3);
+        uint256[3] memory prices = [marketPrice, marketTwap, markPriceMovingAverage];
+
+        uint256 median = type(uint256).max;
+        uint256 minDiff = type(uint256).max;
+        for (uint256 i; i < prices.length; i++) {
+            uint256 diff = prices[i] > avg ? prices[i] - avg : avg - prices[i];
+            if (diff < minDiff) {
+                median = prices[i];
+                minDiff = diff;
+            }
+        }
+
+        return median;
     }
 
     //
@@ -507,8 +536,12 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : getMarkPrice(baseToken);
     }
 
-    function _getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
+    function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return
+            UniswapV3Broker
+                .getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval)
+                .formatSqrtPriceX96ToPriceX96()
+                .formatX96ToX10_18();
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
