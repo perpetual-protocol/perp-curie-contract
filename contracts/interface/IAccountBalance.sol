@@ -232,4 +232,9 @@ interface IAccountBalance {
         address baseToken,
         int256 accountValue
     ) external view returns (int256);
+
+    /// @notice Get mark price of baseToken market
+    /// @param baseToken The address of baseToken
+    /// @return price The mark price of baseToken market
+    function getMarkPrice(address baseToken) external view returns (uint256);
 }

@@ -401,7 +401,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
                 .toInt256();
     }
 
+    /// @inheritdoc IAccountBalance
+    function getMarkPrice(address baseToken) public view override returns (uint256) {
+        // TODO: median of (market price, market twap, moving average)
+        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+    }
+
     //
+
     // INTERNAL NON-VIEW
     //
     function _modifyTakerBalance(
@@ -482,10 +489,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
-        return
-            IBaseToken(baseToken).isClosed()
-                ? IBaseToken(baseToken).getClosedPrice()
-                : IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : getMarkPrice(baseToken);
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
