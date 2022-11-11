@@ -14,12 +14,14 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
+import { AccountBalanceStorageV2, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
+import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
+contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV2 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
@@ -59,6 +61,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(vaultArg.isContract(), "AB_VNC");
         _vault = vaultArg;
         emit VaultChanged(vaultArg);
+    }
+
+    function setMarketRegistry(address marketRegistryArg) external onlyOwner {
+        // market registry address is not contract
+        require(marketRegistryArg.isContract(), "AB_MRNC");
+        _marketRegistry = marketRegistryArg;
+        emit MarketRegistryChanged(marketRegistryArg);
     }
 
     /// @inheritdoc IAccountBalance
@@ -191,6 +200,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getVault() external view override returns (address) {
         return _vault;
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getMarketRegistry() external view override returns (address) {
+        return _marketRegistry;
     }
 
     /// @inheritdoc IAccountBalance
@@ -404,6 +418,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getMarkPrice(address baseToken) public view override returns (uint256) {
         // TODO: median of (market price, market twap, moving average)
+
         return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
     }
 
@@ -490,6 +505,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
         return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : getMarkPrice(baseToken);
+    }
+
+    function _getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools

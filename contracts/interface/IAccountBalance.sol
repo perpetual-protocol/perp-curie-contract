@@ -8,6 +8,9 @@ interface IAccountBalance {
     /// @param vault The address of the vault contract
     event VaultChanged(address indexed vault);
 
+    /// @param marketRegistry The address of the marketRegistry contract
+    event MarketRegistryChanged(address indexed marketRegistry);
+
     /// @dev Emit whenever a trader's `owedRealizedPnl` is updated
     /// @param trader The address of the trader
     /// @param amount The amount changed
@@ -120,6 +123,10 @@ interface IAccountBalance {
     /// @notice Get `Vault` address
     /// @return vault The address of Vault
     function getVault() external view returns (address vault);
+
+    /// @notice Get `MarketRegistry` address
+    /// @return marketRegistry The address of MarketRegistry
+    function getMarketRegistry() external view returns (address marketRegistry);
 
     /// @notice Get trader registered baseTokens
     /// @param trader The address of trader
