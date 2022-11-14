@@ -6,13 +6,14 @@ import "../../../contracts/MarketRegistry.sol";
 import "../../../contracts/ClearingHouse.sol";
 import "../../../contracts/ClearingHouseConfig.sol";
 import "../../../contracts/AccountBalance.sol";
+import "../../../contracts/OrderBook.sol";
 import "../../../contracts/QuoteToken.sol";
 import "../../../contracts/BaseToken.sol";
 import "../../../contracts/VirtualToken.sol";
-import "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
-import "@uniswap/v3-core/contracts/UniswapV3Factory.sol";
-import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { UniswapV3Factory } from "@uniswap/v3-core/contracts/UniswapV3Factory.sol";
+import { UniswapV3Pool } from "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 contract Setup is Test {
     string internal constant _BASE_TOKEN_NAME = "vETH";
@@ -25,7 +26,7 @@ contract Setup is Test {
     UniswapV3Pool public pool;
     BaseToken public baseToken;
     QuoteToken public quoteToken;
-    // OrderBook public orderBook;
+    OrderBook public orderBook;
     ClearingHouseConfig public clearingHouseConfig;
     AccountBalance public accountBalance;
 
@@ -37,12 +38,12 @@ contract Setup is Test {
         baseToken = _create_BaseToken(_BASE_TOKEN_NAME, address(quoteToken), address(clearingHouse), false);
         pool = _create_UniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, _DEFAULT_POOL_FEE);
         clearingHouseConfig = _create_ClearingHouseConfig();
-        // orderBook = _create_OrderBook(address(marketRegistry));
-        // accountBalance = _create_AccountBalance(
-        //     address(clearingHouseConfig),
-        //     address(orderBook),
-        //     address(clearingHouse)
-        // );
+        orderBook = _create_OrderBook(address(marketRegistry));
+        accountBalance = _create_AccountBalance(
+            address(clearingHouseConfig),
+            address(orderBook),
+            address(clearingHouse)
+        );
     }
 
     function _create_QuoteToken() internal returns (QuoteToken) {
@@ -112,20 +113,20 @@ contract Setup is Test {
         return new ClearingHouseConfig();
     }
 
-    // function _create_OrderBook(address marketRegistry) internal returns (OrderBook) {
-    //     OrderBook orderBook = new OrderBook();
-    //     orderBook.initialize(marketRegistryArg);
-    //     return orderBook;
-    // }
+    function _create_OrderBook(address marketRegistry) internal returns (OrderBook) {
+        OrderBook orderBook = new OrderBook();
+        orderBook.initialize(marketRegistry);
+        return orderBook;
+    }
 
-    // function _create_AccountBalance(
-    //     address clearingHouseConfig,
-    //     address orderBook,
-    //     address clearingHouse
-    // ) internal returns (AccountBalance) {
-    //     AccountBalance accountBalance = new AccountBalance();
-    //     accountBalance.initialize(clearingHouseConfig, orderBook);
-    //     accountBalance.setClearingHouse(clearingHouse);
-    //     return accountBalance;
-    // }
+    function _create_AccountBalance(
+        address clearingHouseConfig,
+        address orderBook,
+        address clearingHouse
+    ) internal returns (AccountBalance) {
+        AccountBalance accountBalance = new AccountBalance();
+        accountBalance.initialize(clearingHouseConfig, orderBook);
+        accountBalance.setClearingHouse(clearingHouse);
+        return accountBalance;
+    }
 }
