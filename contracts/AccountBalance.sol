@@ -38,6 +38,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     uint256 internal constant _DUST = 10 wei;
     uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
+    uint32 internal _marketTwapInterval = 15 minutes;
     uint32 internal _movingAverageInterval = 10 minutes;
 
     //
@@ -418,16 +419,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     /// @inheritdoc IAccountBalance
     function getMarkPrice(address baseToken) public view override returns (uint256) {
-        // TODO: median of (market price, market twap, moving average)
-
-        uint32 twapInterval = IClearingHouseConfig(_clearingHouseConfig).getTwapInterval();
-
+        // For backward compatible, return index twap when not switch to mark price yet
         if (_marketRegistry == address(0)) {
-            return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+            return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
-        uint256 marketTwap = _getMarketPrice(baseToken, twapInterval);
+        uint256 marketTwap = _getMarketPrice(baseToken, _marketTwapInterval);
         int256 premium =
             _getMarketPrice(baseToken, _movingAverageInterval).toInt256().sub(
                 IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
