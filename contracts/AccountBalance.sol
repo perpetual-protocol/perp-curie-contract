@@ -433,22 +433,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
                 IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
             );
         uint256 markPriceMovingAverage = IIndexPrice(baseToken).getIndexPrice(0).toInt256().add(premium).toUint256();
-
-        // find median
-        uint256 avg = marketPrice.add(marketTwap).add(markPriceMovingAverage).div(3);
-        uint256[3] memory prices = [marketPrice, marketTwap, markPriceMovingAverage];
-
-        uint256 median = type(uint256).max;
-        uint256 minDiff = type(uint256).max;
-        for (uint256 i; i < prices.length; i++) {
-            uint256 diff = prices[i] > avg ? prices[i] - avg : avg - prices[i];
-            if (diff < minDiff) {
-                median = prices[i];
-                minDiff = diff;
-            }
-        }
-
-        return median;
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, markPriceMovingAverage);
     }
 
     //

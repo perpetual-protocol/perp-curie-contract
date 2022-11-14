@@ -98,4 +98,20 @@ library PerpMath {
 
         return result;
     }
+
+    function findMedianOfThree(
+        uint256 v1,
+        uint256 v2,
+        uint256 v3
+    ) internal pure returns (uint256) {
+        uint256[3] memory values = [v1, v2, v3];
+        for (uint256 i; i < 2; i++) {
+            for (uint256 j; j < 2 - i; j++) {
+                if (values[j] > values[j + 1]) {
+                    (values[j], values[j + 1]) = (values[j + 1], values[j]);
+                }
+            }
+        }
+        return values[1];
+    }
 }
