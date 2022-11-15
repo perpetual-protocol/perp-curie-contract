@@ -110,7 +110,9 @@ contract Setup is Test {
     }
 
     function _create_ClearingHouseConfig() internal returns (ClearingHouseConfig) {
-        return new ClearingHouseConfig();
+        ClearingHouseConfig clearingHouseConfig = new ClearingHouseConfig();
+        clearingHouseConfig.initialize();
+        return clearingHouseConfig;
     }
 
     function _create_OrderBook(address marketRegistry) internal returns (OrderBook) {

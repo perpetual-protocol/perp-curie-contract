@@ -11,14 +11,14 @@ contract AccountBalanceTest is Setup {
     }
 
     function test_getMarkPrice_should_return_index_twap_if_marketRegistry_not_set() public {
-        // uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
-        // // mock index twap
-        // uint256 indexTwap = 100;
-        // vm.mockCall(
-        //     address(baseToken),
-        //     abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, abi.encode(indexTwapInterval)),
-        //     abi.encode(indexTwap)
-        // );
-        // assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
+        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
+        // mock index twap
+        uint256 indexTwap = 100;
+        vm.mockCall(
+            address(baseToken),
+            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, indexTwapInterval),
+            abi.encode(indexTwap)
+        );
+        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 }
