@@ -38,8 +38,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     uint256 internal constant _DUST = 10 wei;
     uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
-    uint32 internal _marketTwapInterval = 15 minutes;
-    uint32 internal _movingAverageInterval = 10 minutes;
+    // TODO: might need to move to storage and can set on-demand
+    uint32 internal _marketTwapInterval = 30 minutes;
+    uint32 internal _movingAverageInterval = 15 minutes;
 
     //
     // EXTERNAL NON-VIEW
