@@ -44,6 +44,8 @@ contract AccountBalanceTest is Setup {
     function test_getMarkPrice_should_return_moving_average_price_if_marketRegistry_is_set() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
 
+        // TODO: refactor mock code statements
+
         // mock current market price, price = 100
         uint256 sqrtPrice = 10;
         uint160 sqrtPriceX96 = _toUint160(sqrtPrice.mul(FixedPoint96.Q96));
@@ -53,7 +55,7 @@ contract AccountBalanceTest is Setup {
             abi.encode(sqrtPriceX96, 0, 0, 0, 0, 0, false)
         );
 
-        // mock market twap(30min): 95
+        // mock market twap(30min): price = 95
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = _marketTwapInterval;
         secondsAgos[1] = 0;
@@ -72,7 +74,7 @@ contract AccountBalanceTest is Setup {
             abi.encode(tickCumulatives, secondsPerLiquidityCumulativeX128s)
         );
 
-        // mock moving average: index + premium(15min)
+        // mock moving average: index + premium(15min), price = 97
         // 100 + (-3) = 97
         vm.mockCall(
             address(baseToken),
@@ -80,6 +82,7 @@ contract AccountBalanceTest is Setup {
             abi.encode(100 * (10**18))
         );
 
+        // mock market twap(15m): price = 95
         uint32[] memory secondsAgos2 = new uint32[](2);
         secondsAgos2[0] = _movingAverageInterval;
         secondsAgos2[1] = 0;
@@ -96,6 +99,7 @@ contract AccountBalanceTest is Setup {
             abi.encode(tickCumulatives2, secondsPerLiquidityCumulativeX128s)
         );
 
+        // mock index twap(15m), price = 98
         vm.mockCall(
             address(baseToken),
             abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, _movingAverageInterval),
@@ -103,7 +107,7 @@ contract AccountBalanceTest is Setup {
         );
 
         uint256 result = accountBalance.getMarkPrice(address(baseToken));
-        assertApproxEqAbs(result, 97 * (10**18), 10**17); // result should be 97 +/- 0.1
+        assertApproxEqAbs(result, 97 * (10**18), 10**17); // result should be 97 +/- 0.1, due to tick math
     }
 
     function _toUint160(uint256 value) internal pure returns (uint160 returnValue) {
