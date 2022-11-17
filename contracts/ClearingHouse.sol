@@ -511,19 +511,29 @@ contract ClearingHouse is
     function quitMarket(address trader, address baseToken) external override returns (uint256 base, uint256 quote) {
         // CH_MNC: Market not closed
         require(IBaseToken(baseToken).isClosed(), "CH_MNC");
-        // CH_HOICM: Has order in closed market
-        require(_getOpenOrderIds(trader, baseToken).length == 0, "CH_HOICM");
-
-        int256 positionSize = _getTakerPositionSafe(trader, baseToken);
 
         _settleFunding(trader, baseToken);
+
+        bytes32[] memory orderIds = _getOpenOrderIds(trader, baseToken);
+
+        // remove all orders in internal function
+        if (orderIds.length > 0) {
+            _removeAllLiquidity(trader, baseToken, orderIds);
+        }
+
+        int256 positionSize = _getTakerPosition(trader, baseToken);
+
+        // if position is 0, no need to do settlement accounting
+        if (positionSize == 0) {
+            return (0, 0);
+        }
 
         (int256 positionNotional, int256 openNotional, int256 realizedPnl, uint256 closedPrice) =
             IAccountBalance(_accountBalance).settlePositionInClosedMarket(trader, baseToken);
 
         emit PositionClosed(trader, baseToken, positionSize, positionNotional, openNotional, realizedPnl, closedPrice);
 
-        IVault(_vault).settleBadDebt(trader);
+        _settleBadDebt(trader);
 
         return (positionSize.abs(), positionNotional.abs());
     }
@@ -748,7 +758,7 @@ contract ClearingHouse is
             liquidator
         );
 
-        IVault(_vault).settleBadDebt(trader);
+        _settleBadDebt(trader);
     }
 
     /// @dev Calculate how much profit/loss we should realize,
@@ -820,6 +830,15 @@ contract ClearingHouse is
         // must settle funding first
         _settleFunding(maker, baseToken);
 
+        // remove all orders in internal function
+        _removeAllLiquidity(maker, baseToken, orderIds);
+    }
+
+    function _removeAllLiquidity(
+        address maker,
+        address baseToken,
+        bytes32[] memory orderIds
+    ) internal {
         IOrderBook.RemoveLiquidityResponse memory removeLiquidityResponse;
 
         uint256 length = orderIds.length;
@@ -1087,6 +1106,10 @@ contract ClearingHouse is
         }
     }
 
+    function _settleBadDebt(address trader) internal {
+        IVault(_vault).settleBadDebt(trader);
+    }
+
     //
     // INTERNAL VIEW
     //
@@ -1106,10 +1129,14 @@ contract ClearingHouse is
     }
 
     function _getTakerPositionSafe(address trader, address baseToken) internal view returns (int256) {
-        int256 takerPositionSize = IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
+        int256 takerPositionSize = _getTakerPosition(trader, baseToken);
         // CH_PSZ: position size is zero
         require(takerPositionSize != 0, "CH_PSZ");
         return takerPositionSize;
+    }
+
+    function _getTakerPosition(address trader, address baseToken) internal view returns (int256) {
+        return IAccountBalance(_accountBalance).getTakerPositionSize(trader, baseToken);
     }
 
     function _getFreeCollateralByRatio(address trader, uint24 ratio) internal view returns (int256) {
@@ -1176,7 +1203,7 @@ contract ClearingHouse is
     }
 
     function _checkMarketOpen(address baseToken) internal view {
-        // CH_BC: Market not opened
+        // CH_MNO: Market not opened
         require(IBaseToken(baseToken).isOpen(), "CH_MNO");
     }
 
