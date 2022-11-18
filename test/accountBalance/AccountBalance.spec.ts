@@ -1,8 +1,3 @@
-import { MockContract } from "@eth-optimism/smock"
-import { parseEther } from "@ethersproject/units"
-import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
-import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
     BaseToken,
@@ -16,9 +11,16 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { initMarket } from "../helper/marketHelper"
+import { ethers, waffle } from "hardhat"
 import { getMaxTick, getMinTick } from "../helper/number"
+
+import { MockContract } from "@eth-optimism/smock"
 import { deposit } from "../helper/token"
+import { expect } from "chai"
+import { forwardBothTimestamps } from "../shared/time"
+import { initMarket } from "../helper/marketHelper"
+import { parseEther } from "@ethersproject/units"
+import { parseUnits } from "ethers/lib/utils"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -86,6 +88,9 @@ describe("AccountBalance", () => {
             mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
+
+            // In order to calculate mark price, we need market twap (30m) and market twap (15m)
+            await forwardBothTimestamps(clearingHouse, 2000)
         })
 
         it("alice add liquidity", async () => {
