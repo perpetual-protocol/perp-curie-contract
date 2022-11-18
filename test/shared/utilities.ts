@@ -1,12 +1,15 @@
-import { MockContract } from "@eth-optimism/smock"
-import { LogDescription } from "@ethersproject/abi"
-import { TransactionReceipt } from "@ethersproject/abstract-provider"
-import bn from "bignumber.js"
 import { BaseContract, BigNumber, BigNumberish } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
 import { BaseToken, Exchange, UniswapV3Pool, VirtualToken } from "../../typechain"
 
+import { LogDescription } from "@ethersproject/abi"
+import { MockContract } from "@eth-optimism/smock"
+import { TransactionReceipt } from "@ethersproject/abstract-provider"
+import bn from "bignumber.js"
+import { parseUnits } from "ethers/lib/utils"
+
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
+
+export const DECIMAL_PLACES_18 = BigNumber.from((10 ** 18).toString())
 
 export function encodePriceSqrt(reserve1: BigNumberish, reserve0: BigNumberish): BigNumber {
     return BigNumber.from(

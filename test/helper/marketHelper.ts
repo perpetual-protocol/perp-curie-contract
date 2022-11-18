@@ -1,8 +1,9 @@
+import { getMaxTick, getMaxTickRange, getMinTick } from "./number"
+
 import { BigNumberish } from "ethers"
-import { ethers } from "hardhat"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
 import { encodePriceSqrt } from "../shared/utilities"
-import { getMaxTick, getMaxTickRange, getMinTick } from "./number"
+import { ethers } from "hardhat"
 
 // 1. uniFeeRatio comes from createClearingHouseFixture()
 // 2. for tests irrelevant to fees, we often skip the assignments of exFeeRatio & ifFeeRatio

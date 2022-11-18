@@ -1,6 +1,3 @@
-import { MockContract, smockit } from "@eth-optimism/smock"
-import { parseEther, parseUnits } from "ethers/lib/utils"
-import { ethers } from "hardhat"
 import {
     AccountBalance,
     BaseToken,
@@ -21,10 +18,14 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
+import { MockContract, smockit } from "@eth-optimism/smock"
+import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import { parseEther, parseUnits } from "ethers/lib/utils"
+
 import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
-import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import { ethers } from "hardhat"
 
 export interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
@@ -157,6 +158,7 @@ export function createClearingHouseFixture(
         await orderBook.setExchange(exchange.address)
 
         await accountBalance.initialize(clearingHouseConfig.address, orderBook.address)
+        await accountBalance.setMarketRegistry(marketRegistry.address)
 
         // deploy vault
         const vaultFactory = await ethers.getContractFactory("TestVault")
