@@ -6,11 +6,12 @@ import "forge-std/console.sol";
 import "../helper/Setup.sol";
 import "../../../contracts/interface/IIndexPrice.sol";
 import "../../../contracts/interface/IBaseToken.sol";
+import "../interface/IAccountBalanceEvent.sol";
 import { IUniswapV3PoolState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import { IUniswapV3PoolDerivedState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolDerivedState.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 
-contract AccountBalanceTest is Setup {
+contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     using SafeMathUpgradeable for uint256;
 
     uint32 internal constant _marketTwapInterval = 30 minutes;
@@ -28,7 +29,14 @@ contract AccountBalanceTest is Setup {
         marketRegistry.addPool(address(baseToken), pool.fee());
     }
 
-    // TODO: test setter
+    function test_setMarketRegistry_should_emit_event() public {
+        vm.expectEmit(true, false, false, true, address(accountBalance));
+        emit MarketRegistryChanged(address(marketRegistry));
+
+        accountBalance.setMarketRegistry(address(marketRegistry));
+
+        assertEq(accountBalance.getMarketRegistry(), address(marketRegistry));
+    }
 
     function test_getMarkPrice_should_return_index_twap_if_marketRegistry_not_set() public {
         uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
