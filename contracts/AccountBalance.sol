@@ -421,7 +421,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getMarkPrice(address baseToken) public view override returns (uint256) {
         // For backward compatible, return index twap when not switch to mark price yet
-        if (_marketRegistry == address(0)) {
+        if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
             return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         }
 

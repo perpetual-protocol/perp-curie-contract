@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../helper/Setup.sol";
 import "../../../contracts/interface/IIndexPrice.sol";
+import "../../../contracts/interface/IBaseToken.sol";
 import { IUniswapV3PoolState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import { IUniswapV3PoolDerivedState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolDerivedState.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
@@ -41,8 +42,30 @@ contract AccountBalanceTest is Setup {
         assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 
+    function test_getMarkPrice_should_return_index_twap_if_market_is_not_open() public {
+        accountBalance.setMarketRegistry(address(marketRegistry));
+
+        // mock baseToken is not open
+        vm.mockCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector), abi.encode(false));
+
+        // mock baseToken index twap
+        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
+        uint256 indexTwap = 100;
+        vm.mockCall(
+            address(baseToken),
+            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, indexTwapInterval),
+            abi.encode(indexTwap)
+        );
+
+        vm.expectCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector));
+        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
+    }
+
     function test_getMarkPrice_should_return_moving_average_price_if_marketRegistry_is_set() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
+
+        // mock baseToken is open
+        vm.mockCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector), abi.encode(true));
 
         // TODO: refactor mock code statements
 
