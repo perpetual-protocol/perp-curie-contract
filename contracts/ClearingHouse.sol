@@ -1122,10 +1122,6 @@ contract ClearingHouse is
         return IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader);
     }
 
-    function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-    }
-
     function _getLiquidationPenaltyRatio() internal view returns (uint24) {
         return IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio();
     }
@@ -1160,7 +1156,10 @@ contract ClearingHouse is
 
         int256 liquidatedPositionSize = positionSizeToBeLiquidated.neg256();
         int256 liquidatedPositionNotional =
-            positionSizeToBeLiquidated.mulDiv(_getIndexPrice(baseToken).toInt256(), 1e18);
+            positionSizeToBeLiquidated.mulDiv(
+                IAccountBalance(_accountBalance).getMarkPrice(baseToken).toInt256(),
+                1e18
+            );
 
         return (liquidatedPositionSize, liquidatedPositionNotional);
     }

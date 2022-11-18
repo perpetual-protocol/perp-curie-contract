@@ -509,11 +509,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _getPositionValue(address baseToken, int256 positionSize) internal view returns (int256) {
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = _getReferencePrice(baseToken);
-        // both positionSize & indexTwap are in 10^18 already
+        uint256 price = _getReferencePrice(baseToken);
+        // both positionSize & price are in 10^18 already
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
-        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
+        return positionSize.mulDiv(price.toInt256(), 1e18);
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
