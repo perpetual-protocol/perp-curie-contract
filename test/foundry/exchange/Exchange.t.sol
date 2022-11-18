@@ -77,19 +77,19 @@ contract ExchangePriceBandSwapTest is Setup {
     function test_spreadAfterSwap_in_priceBand_when_spreadBeforeSwap_in_priceBand() external {
         vm.prank(address(trader));
 
-        (uint256 base, uint256 quote) =
-            clearingHouse.openPosition(
-                IClearingHouse.OpenPositionParams({
-                    baseToken: address(baseToken),
-                    isBaseToQuote: false,
-                    isExactInput: true,
-                    amount: 100 ether,
-                    oppositeAmountBound: 0,
-                    deadline: block.timestamp + 1000,
-                    sqrtPriceLimitX96: 0,
-                    referralCode: ""
-                })
-            );
+        //        (uint256 base, uint256 quote) =
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp + 1000,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
 
         vm.stopPrank();
     }

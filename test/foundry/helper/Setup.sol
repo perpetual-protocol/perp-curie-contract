@@ -48,7 +48,7 @@ contract Setup is Test, DeployConfig {
         // Cores
         clearingHouseConfig = _create_ClearingHouseConfig();
         quoteToken = _create_QuoteToken();
-        marketRegistry = _create_MarketRegistry(address(uniswapV3Factory), address(quoteToken), address(clearingHouse));
+        marketRegistry = _create_MarketRegistry(address(uniswapV3Factory), address(quoteToken));
         insuranceFund = _create_InsuranceFund(address(usdc));
         orderBook = _create_OrderBook(address(marketRegistry));
         exchange = _create_Exchange(address(marketRegistry), address(orderBook), address(clearingHouseConfig));
@@ -93,26 +93,26 @@ contract Setup is Test, DeployConfig {
     }
 
     function _create_QuoteToken() internal returns (QuoteToken) {
-        QuoteToken quoteToken = new QuoteToken();
-        quoteToken.initialize(_QUOTE_TOKEN_NAME, _QUOTE_TOKEN_NAME);
-        return quoteToken;
+        QuoteToken newQuoteToken = new QuoteToken();
+        newQuoteToken.initialize(_QUOTE_TOKEN_NAME, _QUOTE_TOKEN_NAME);
+        return newQuoteToken;
     }
 
     function _create_BaseToken(
         string memory tokenName,
-        address quoteToken,
+        address quoteTokenArg,
         address baseTokenPriceFeed,
         bool largerThan
     ) internal returns (BaseToken) {
-        BaseToken baseToken;
-        while (address(baseToken) == address(0) || (largerThan != (quoteToken < address(baseToken)))) {
-            baseToken = new BaseToken();
+        BaseToken newBaseToken;
+        while (address(newBaseToken) == address(0) || (largerThan != (quoteTokenArg < address(newBaseToken)))) {
+            newBaseToken = new BaseToken();
         }
         // NOTE: put faked code on price feed address, must have contract code to make mockCall
         vm.etch(baseTokenPriceFeed, "_PRICE_FEED");
         vm.mockCall(baseTokenPriceFeed, abi.encodeWithSelector(IPriceFeed.decimals.selector), abi.encode(8));
-        baseToken.initialize(tokenName, tokenName, baseTokenPriceFeed);
-        return baseToken;
+        newBaseToken.initialize(tokenName, tokenName, baseTokenPriceFeed);
+        return newBaseToken;
     }
 
     function _create_UniswapV3Factory() internal returns (IUniswapV3Factory) {
@@ -125,25 +125,24 @@ contract Setup is Test, DeployConfig {
     }
 
     function _create_UniswapV3Pool(
-        IUniswapV3Factory uniswapV3Factory,
-        BaseToken baseToken,
-        QuoteToken quoteToken,
+        IUniswapV3Factory uniswapV3FactoryArg,
+        BaseToken baseTokenArg,
+        QuoteToken quoteTokenArg,
         uint24 fee
     ) internal returns (IUniswapV3Pool) {
-        address poolAddress = uniswapV3Factory.createPool(address(baseToken), address(quoteToken), fee);
-        baseToken.addWhitelist(poolAddress);
-        quoteToken.addWhitelist(poolAddress);
+        address poolAddress = uniswapV3FactoryArg.createPool(address(baseTokenArg), address(quoteTokenArg), fee);
+        baseTokenArg.addWhitelist(poolAddress);
+        quoteTokenArg.addWhitelist(poolAddress);
         return IUniswapV3Pool(poolAddress);
     }
 
-    function _create_MarketRegistry(
-        address uniswapV3Factory,
-        address quoteToken,
-        address clearingHouse
-    ) internal returns (MarketRegistry) {
-        MarketRegistry marketRegistry = new MarketRegistry();
-        marketRegistry.initialize(uniswapV3Factory, quoteToken);
-        return marketRegistry;
+    function _create_MarketRegistry(address uniswapV3FactoryArg, address quoteTokenArg)
+        internal
+        returns (MarketRegistry)
+    {
+        MarketRegistry newMarketRegistry = new MarketRegistry();
+        newMarketRegistry.initialize(uniswapV3FactoryArg, quoteTokenArg);
+        return newMarketRegistry;
     }
 
     function _create_Exchange(
@@ -161,15 +160,15 @@ contract Setup is Test, DeployConfig {
     }
 
     function _create_OrderBook(address marketRegistryArg) internal returns (OrderBook) {
-        OrderBook orderBook = new OrderBook();
-        orderBook.initialize(marketRegistryArg);
-        return orderBook;
+        OrderBook newOrderBook = new OrderBook();
+        newOrderBook.initialize(marketRegistryArg);
+        return newOrderBook;
     }
 
     function _create_ClearingHouseConfig() internal returns (ClearingHouseConfig) {
-        ClearingHouseConfig clearingHouseConfig = new ClearingHouseConfig();
-        clearingHouseConfig.initialize();
-        return clearingHouseConfig;
+        ClearingHouseConfig newClearingHouseConfig = new ClearingHouseConfig();
+        newClearingHouseConfig.initialize();
+        return newClearingHouseConfig;
     }
 
     function _create_ClearingHouse(
@@ -181,8 +180,8 @@ contract Setup is Test, DeployConfig {
         address accountBalanceArg,
         address insuranceFundArg
     ) internal returns (ClearingHouse) {
-        ClearingHouse clearingHouse = new ClearingHouse();
-        clearingHouse.initialize(
+        ClearingHouse newClearingHouse = new ClearingHouse();
+        newClearingHouse.initialize(
             clearingHouseConfigArg,
             vaultArg,
             quoteTokenArg,
@@ -191,23 +190,23 @@ contract Setup is Test, DeployConfig {
             accountBalanceArg,
             insuranceFundArg
         );
-        return clearingHouse;
+        return newClearingHouse;
     }
 
     function _create_InsuranceFund(address usdcArg) internal returns (InsuranceFund) {
-        InsuranceFund insuranceFund = new InsuranceFund();
-        insuranceFund.initialize(usdcArg);
+        InsuranceFund newInsuranceFund = new InsuranceFund();
+        newInsuranceFund.initialize(usdcArg);
 
-        return insuranceFund;
+        return newInsuranceFund;
     }
 
-    function _create_AccountBalance(address clearingHouseConfig, address orderBookArg)
+    function _create_AccountBalance(address clearingHouseConfigArg, address orderBookArg)
         internal
         returns (AccountBalance)
     {
-        AccountBalance accountBalance = new AccountBalance();
-        accountBalance.initialize(clearingHouseConfig, orderBookArg);
-        return accountBalance;
+        AccountBalance newAccountBalance = new AccountBalance();
+        newAccountBalance.initialize(clearingHouseConfigArg, orderBookArg);
+        return newAccountBalance;
     }
 
     function _create_Vault(
@@ -216,9 +215,9 @@ contract Setup is Test, DeployConfig {
         address accountBalanceArg,
         address exchangeArg
     ) internal returns (Vault) {
-        Vault vault = new Vault();
-        vault.initialize(insuranceFundArg, clearingHouseConfigArg, accountBalanceArg, exchangeArg);
-        return vault;
+        Vault newVault = new Vault();
+        newVault.initialize(insuranceFundArg, clearingHouseConfigArg, accountBalanceArg, exchangeArg);
+        return newVault;
     }
 
     function _create_TestERC20(
