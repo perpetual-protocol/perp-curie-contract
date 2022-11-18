@@ -1,7 +1,9 @@
+pragma solidity 0.7.6;
+pragma abicoder v2;
+
 import "forge-std/Test.sol";
 import "../../../contracts/MarketRegistry.sol";
 import "../../../contracts/ClearingHouse.sol";
-import "../../../contracts/Exchange.sol";
 import "../../../contracts/OrderBook.sol";
 import "../../../contracts/ClearingHouseConfig.sol";
 import "../../../contracts/InsuranceFund.sol";
@@ -12,11 +14,12 @@ import "../../../contracts/BaseToken.sol";
 import "../../../contracts/VirtualToken.sol";
 import "../../../contracts/test/TestERC20.sol";
 import "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
-import "@uniswap/v3-core/contracts/UniswapV3Factory.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";
-import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "./DeployConfig.sol";
+import "../interface/ITestExchange.sol";
 
 contract Setup is Test, DeployConfig {
     address internal _BASE_TOKEN_PRICE_FEED = makeAddr("_BASE_TOKEN_PRICE_FEED");
@@ -27,11 +30,11 @@ contract Setup is Test, DeployConfig {
     InsuranceFund public insuranceFund;
     AccountBalance public accountBalance;
     OrderBook public orderBook;
-    Exchange public exchange;
+    ITestExchange public exchange;
     Vault public vault;
-    UniswapV3Factory public uniswapV3Factory;
-    UniswapV3Pool public pool;
-    UniswapV3Pool public pool2;
+    IUniswapV3Factory public uniswapV3Factory;
+    IUniswapV3Pool public pool;
+    IUniswapV3Pool public pool2;
     BaseToken public baseToken;
     BaseToken public baseToken2;
     QuoteToken public quoteToken;
@@ -112,20 +115,25 @@ contract Setup is Test, DeployConfig {
         return baseToken;
     }
 
-    function _create_UniswapV3Factory() internal returns (UniswapV3Factory) {
-        return new UniswapV3Factory();
+    function _create_UniswapV3Factory() internal returns (IUniswapV3Factory) {
+        bytes memory bytecode = abi.encodePacked(vm.getCode("UniswapV3Factory.sol:UniswapV3Factory"));
+        address anotherAddress;
+        assembly {
+            anotherAddress := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        return IUniswapV3Factory(anotherAddress);
     }
 
     function _create_UniswapV3Pool(
-        UniswapV3Factory uniswapV3Factory,
+        IUniswapV3Factory uniswapV3Factory,
         BaseToken baseToken,
         QuoteToken quoteToken,
         uint24 fee
-    ) internal returns (UniswapV3Pool) {
+    ) internal returns (IUniswapV3Pool) {
         address poolAddress = uniswapV3Factory.createPool(address(baseToken), address(quoteToken), fee);
         baseToken.addWhitelist(poolAddress);
         quoteToken.addWhitelist(poolAddress);
-        return UniswapV3Pool(poolAddress);
+        return IUniswapV3Pool(poolAddress);
     }
 
     function _create_MarketRegistry(
@@ -142,10 +150,14 @@ contract Setup is Test, DeployConfig {
         address marketRegistryArg,
         address orderBookArg,
         address clearingHouseConfigArg
-    ) internal returns (Exchange) {
-        Exchange exchange = new Exchange();
-        exchange.initialize(marketRegistryArg, orderBookArg, clearingHouseConfigArg);
-        return exchange;
+    ) internal returns (ITestExchange) {
+        bytes memory bytecode = abi.encodePacked(vm.getCode("Exchange.sol:Exchange"));
+        address exchangeAddress;
+        assembly {
+            exchangeAddress := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        ITestExchange(exchangeAddress).initialize(marketRegistryArg, orderBookArg, clearingHouseConfigArg);
+        return ITestExchange(exchangeAddress);
     }
 
     function _create_OrderBook(address marketRegistryArg) internal returns (OrderBook) {

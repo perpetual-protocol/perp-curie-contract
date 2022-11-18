@@ -7,7 +7,7 @@ import "../../../contracts/ClearingHouse.sol";
 import "../interface/IMarketRegistryEvent.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
-import "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     function setUp() public virtual override {
@@ -91,7 +91,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
         BaseToken baseToken2 =
             _create_BaseToken(_BASE_TOKEN_2_NAME, address(quoteToken), _BASE_TOKEN_2_PRICE_FEED, true);
         baseToken2.mintMaximumTo(address(clearingHouse));
-        UniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
+        IUniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
         vm.mockCall(
             address(pool2),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -103,7 +103,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
 
     function test_revert_addPool_if_clearingHouse_has_insufficient_base_token_balance() public {
         BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), makeAddr("FAKE"), false);
-        UniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
+        IUniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
         vm.mockCall(
             address(pool2),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
