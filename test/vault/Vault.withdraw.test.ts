@@ -14,17 +14,11 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    closePosition,
-    q2bExactInput,
-    removeAllOrders,
-    syncIndexToMarketPrice,
-    syncMarkPriceToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()

@@ -18,17 +18,11 @@ import {
 } from "../../typechain"
 import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    b2qExactOutput,
-    closePosition,
-    q2bExactInput,
-    syncIndexToMarketPrice,
-    syncMarkPriceToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -80,6 +74,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)

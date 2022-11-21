@@ -17,14 +17,10 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    q2bExactInput,
-    syncIndexToMarketPrice,
-    syncMarkPriceToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault settleBadDebt (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()

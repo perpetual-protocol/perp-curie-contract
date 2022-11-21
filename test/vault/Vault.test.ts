@@ -13,17 +13,11 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    b2qExactOutput,
-    closePosition,
-    q2bExactInput,
-    syncIndexToMarketPrice,
-    syncMarkPriceToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()

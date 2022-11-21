@@ -15,10 +15,11 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { b2qExactOutput, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
+import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {

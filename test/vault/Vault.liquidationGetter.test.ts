@@ -4,14 +4,10 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    q2bExactInput,
-    syncIndexToMarketPrice,
-    syncMarkPriceToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
