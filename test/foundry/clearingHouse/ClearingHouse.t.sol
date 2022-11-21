@@ -8,7 +8,7 @@ import "../../../contracts/interface/IClearingHouse.sol";
 import "../../../contracts/BaseToken.sol";
 import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
 
-contract ExchangePriceBandSwapTest is Setup {
+contract ClearingHouseTest is Setup {
     uint256 traderPrivateKey = uint256(1);
     uint256 makerPrivateKey = uint256(2);
     address trader = vm.addr(traderPrivateKey);
@@ -74,16 +74,15 @@ contract ExchangePriceBandSwapTest is Setup {
         // mock price oracle
     }
 
-    function test_spreadAfterSwap_in_priceBand_when_spreadBeforeSwap_in_priceBand() external {
+    function test_open_position_example() external {
         vm.prank(address(trader));
 
-        //        (uint256 base, uint256 quote) =
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
-                isBaseToQuote: false,
+                isBaseToQuote: true,
                 isExactInput: true,
-                amount: 100 ether,
+                amount: 1 ether,
                 oppositeAmountBound: 0,
                 deadline: block.timestamp + 1000,
                 sqrtPriceLimitX96: 0,
@@ -92,5 +91,8 @@ contract ExchangePriceBandSwapTest is Setup {
         );
 
         vm.stopPrank();
+
+        int256 positionSize = accountBalance.getTakerPositionSize(address(trader), address(baseToken));
+        assertEq(positionSize, -1 ether);
     }
 }
