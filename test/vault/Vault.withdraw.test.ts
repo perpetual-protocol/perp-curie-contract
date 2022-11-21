@@ -4,7 +4,7 @@ import { BigNumber, Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
+    BaseToken,
     ClearingHouse,
     CollateralManager,
     TestAccountBalance,
@@ -14,7 +14,14 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
+import {
+    addOrder,
+    closePosition,
+    q2bExactInput,
+    removeAllOrders,
+    syncIndexToMarketPrice,
+    syncMarkPriceToMarketPrice,
+} from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
@@ -29,9 +36,10 @@ describe("Vault withdraw test", () => {
     let wbtcPriceFeed: MockContract
     let wethPriceFeed: MockContract
     let clearingHouse: ClearingHouse
-    let accountBalance: AccountBalance | TestAccountBalance
+    let accountBalance: TestAccountBalance
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
+    let baseToken: BaseToken
     let mockedBaseAggregator: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
@@ -64,18 +72,18 @@ describe("Vault withdraw test", () => {
         wethPriceFeed = fixture.mockedWethPriceFeed
         wbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         collateralManager = fixture.collateralManager
         pool = fixture.pool
+        baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151.373306", 6), 0, 0, 0]
-        })
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         wethPriceFeed.smocked.getPrice.will.return.with(parseEther("2500"))
         wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
