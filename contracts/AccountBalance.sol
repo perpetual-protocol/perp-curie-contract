@@ -349,6 +349,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return positionSize.mulRatio(maxLiquidateRatio);
     }
 
+    /// @inheritdoc IAccountBalance
+    function getMarkPrice(address baseToken) external view override returns (uint256) {
+        return _getMarkPrice(baseToken);
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -416,23 +421,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             getTotalAbsPositionValue(trader)
                 .mulRatio(IClearingHouseConfig(_clearingHouseConfig).getMmRatio())
                 .toInt256();
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getMarkPrice(address baseToken) public view override returns (uint256) {
-        // For backward compatible, return index twap when not switch to mark price yet
-        if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
-            return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        }
-
-        uint256 marketPrice = _getMarketPrice(baseToken, 0);
-        uint256 marketTwap = _getMarketPrice(baseToken, _marketTwapInterval);
-        int256 premium =
-            _getMarketPrice(baseToken, _movingAverageInterval).toInt256().sub(
-                IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
-            );
-        uint256 markPriceMovingAverage = IIndexPrice(baseToken).getIndexPrice(0).toInt256().add(premium).toUint256();
-        return PerpMath.findMedianOfThree(marketPrice, marketTwap, markPriceMovingAverage);
     }
 
     //
@@ -517,7 +505,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
-        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : getMarkPrice(baseToken);
+        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : _getMarkPrice(baseToken);
     }
 
     function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
@@ -550,6 +538,22 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
 
         return (netQuoteBalance, pendingFee);
+    }
+
+    function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
+        // For backward compatible, return index twap when not switch to mark price yet
+        if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
+            return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        }
+
+        uint256 marketPrice = _getMarketPrice(baseToken, 0);
+        uint256 marketTwap = _getMarketPrice(baseToken, _marketTwapInterval);
+        int256 premium =
+            _getMarketPrice(baseToken, _movingAverageInterval).toInt256().sub(
+                IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
+            );
+        uint256 markPriceMovingAverage = IIndexPrice(baseToken).getIndexPrice(0).toInt256().add(premium).toUint256();
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, markPriceMovingAverage);
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
