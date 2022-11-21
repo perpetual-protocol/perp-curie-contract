@@ -3,7 +3,7 @@ import { LogDescription } from "@ethersproject/abi"
 import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import { BigNumberish, ContractTransaction, ethers, Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
-import { ClearingHouse, OrderBook, UniswapV3Pool } from "../../typechain"
+import { ClearingHouse, OrderBook, TestAccountBalance, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
 import { formatSqrtPriceX96ToPrice } from "../shared/utilities"
 
@@ -204,4 +204,15 @@ export async function syncIndexToMarketPrice(aggregator: MockContract, pool: Uni
     aggregator.smocked.latestRoundData.will.return.with(async () => {
         return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
     })
+}
+
+export async function syncMarkPriceToMarketPrice(
+    accountBalance: TestAccountBalance,
+    baseToken: string,
+    pool: UniswapV3Pool,
+) {
+    const slot0 = await pool.slot0()
+    const sqrtPrice = slot0.sqrtPriceX96
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice, 18)
+    await accountBalance.mockMarkPrice(baseToken, parseEther(price))
 }
