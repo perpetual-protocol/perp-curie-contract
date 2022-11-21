@@ -19,6 +19,7 @@ import {
     closePosition,
     q2bExactInput,
     syncIndexToMarketPrice,
+    syncMarkPriceToMarketPrice,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
@@ -63,6 +64,7 @@ describe("Vault test", () => {
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // set a higher price limit for large orders
@@ -117,6 +119,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("200", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
             await forwardBothTimestamps(clearingHouse, 360)
 
             expect(await vault.getBalanceByToken(alice.address, usdc.address)).to.be.eq(
@@ -276,6 +279,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("200", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
             await forwardBothTimestamps(clearingHouse, 360)
             // pending funding payment: -0.16422554
 
@@ -304,6 +308,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
                 // funding payment: 0.786847
@@ -317,6 +322,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 150 * 18.88437579 - 3000 = -167.3436315
                 // funding payment: 1.0395235
@@ -330,6 +336,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
                 // funding payment: -1.3210218
@@ -348,6 +355,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -371,6 +379,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -392,6 +401,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -416,6 +426,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
                 // funding payment: -0.786847
@@ -429,6 +440,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
                 // funding payment: -1.3158838
@@ -447,6 +459,7 @@ describe("Vault test", () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -478,6 +491,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
             // funding payment: 0.80214883
@@ -493,6 +507,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
             // funding payment: -1.35194469
@@ -513,6 +528,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -536,6 +552,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -557,6 +574,7 @@ describe("Vault test", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
