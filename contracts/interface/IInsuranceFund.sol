@@ -55,7 +55,7 @@ interface IInsuranceFund {
     /// @return capacityX10_S The capacity value (settlementTokenValue + walletBalance) in settlement token's decimals
     function getInsuranceFundCapacity() external view returns (int256 capacityX10_S);
 
-    /// @notice Get insurance threshold
+    /// @notice Get insurance threshold, this value is for fee distribution
     /// @return threshold The threshold number
     function getThreshold() external view returns (uint256 threshold);
 

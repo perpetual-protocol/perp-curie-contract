@@ -88,10 +88,6 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         emit Repaid(repaidAmount, tokenBalanceAfterRepaid);
     }
 
-    //
-    // EXTERNAL VIEW
-    //
-
     /// @inheritdoc IInsuranceFund
     function distributeFee() external override nonReentrant whenNotPaused returns (uint256) {
         address vault = _borrower;
@@ -122,8 +118,6 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
             // this should always work since IF would have at least `surplus` USDC by now
             SafeERC20Upgradeable.safeTransfer(IERC20Upgradeable(token), surplusBeneficiary, surplus);
 
-            ISurplusBeneficiary(surplusBeneficiary).dispatch();
-
             emit FeeDistributed(
                 surplus,
                 insuranceFundCapacity.toUint256(),
@@ -133,6 +127,10 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         }
         return surplus;
     }
+
+    //
+    // EXTERNAL VIEW
+    //
 
     /// @inheritdoc IInsuranceFund
     function getToken() external view override returns (address) {
