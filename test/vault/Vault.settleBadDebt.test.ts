@@ -17,7 +17,12 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
+import {
+    addOrder,
+    q2bExactInput,
+    syncIndexToMarketPrice,
+    syncMarkPriceToMarketPrice,
+} from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 
@@ -71,6 +76,7 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, 100000, baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
