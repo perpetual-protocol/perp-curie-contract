@@ -1,14 +1,14 @@
+import { parseEther, parseUnits } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { DECIMAL_PLACES_18, syncIndexToMarketPrice } from "../shared/utilities"
-import { ethers, waffle } from "hardhat"
-import { parseEther, parseUnits } from "ethers/lib/utils"
 
 import { MockContract } from "@eth-optimism/smock"
-import { deposit } from "../helper/token"
 import { expect } from "chai"
-import { forwardBothTimestamps } from "../shared/time"
 import { initMarket } from "../helper/marketHelper"
+import { deposit } from "../helper/token"
+import { forwardBothTimestamps } from "../shared/time"
 
 describe("AccountBalance.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -52,9 +52,6 @@ describe("AccountBalance.getTotalPositionValue", () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
-            // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-            await forwardBothTimestamps(clearingHouse, 2000)
         })
 
         // see more desc in getTotalPositionSize test
@@ -225,9 +222,6 @@ describe("AccountBalance.getTotalPositionValue", () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
-        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-        await forwardBothTimestamps(clearingHouse, 2000)
 
         const lowerTick = "50000"
         const middleTick = "50200"

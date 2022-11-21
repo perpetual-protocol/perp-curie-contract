@@ -29,7 +29,6 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { forwardBothTimestamps } from "../shared/time"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -80,8 +79,6 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         wbtcDecimals = await wbtc.decimals()
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
-        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-        await forwardBothTimestamps(clearingHouse, 2000)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // mint and add liquidity

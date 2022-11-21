@@ -55,8 +55,6 @@ describe("Vault getFreeCollateral", () => {
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-        await forwardBothTimestamps(clearingHouse, 2000)
         mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
             return [0, parseUnits("151", 6), 0, 0, 0]
         })
