@@ -19,7 +19,8 @@ import {
 import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { forwardBothTimestamps } from "../shared/time"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
@@ -1268,13 +1269,19 @@ describe("ClearingHouse openPosition", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
+                // {
+                //     indexPrice: '151.0',
+                //     markPrice: '151.373306858723226651',
+                //     marketPrice: '157.458567281999000245'
+                // }
+
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = (-2) + (2) = 0
-                // positionValue = (0.013077866441492721 - 0.013077866441492721 + 0.000380470405593868) * 100 = 0.03804704056
-                // unrealizedPnL = positionValue + openNotional = 0.03804704056 + 0 = 0.03804704056
+                // positionValue = (0.013077866441492721 - 0.013077866441492721 + 0.000380470405593868) * 151.373306858723226651 = 0.05759306346
+                // unrealizedPnL = positionValue + openNotional = 0.05759306346 + 0 = 0.05759306346
                 // total debt = 2
                 // fee = 2 * 0.01 = 0.02
                 // free collateral = min(collateral + fee, account value) - total debt * imRatio
-                // free collateral = min(100 + 0.02, 100+0.03804704056) - (2) * 0.1
+                // free collateral = min(100 + 0.02, 100+0.05759306346) - (2) * 0.1
                 //                 = 100.02 - (2) * 0.1
                 //                 = 99.82
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
@@ -1297,6 +1304,10 @@ describe("ClearingHouse openPosition", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
+
+                // To fixed market twap and ignore founding payment
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await forwardBothTimestamps(clearingHouse, 1800)
 
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()
                 // openNotional = 2
@@ -1351,17 +1362,24 @@ describe("ClearingHouse openPosition", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
+                // {
+                //     indexPrice: '151.0',
+                //     markPrice: '151.312772670283486817',
+                //     marketPrice: '146.88860454062238813'
+                // }
+
+                // realizedPnL = -0.000001209503724417
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
-                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 151 = -0.982438320124068
-                // unrealizedPnL = positionValue + openNotional = -0.982438320124068 + 1 = 0.017561679875932046
-                // total debt = 0.013348304809274554 * 151 = 2.0155940262004575
+                // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 151.312772670283486817 = -0.9844732861
+                // unrealizedPnL = positionValue + openNotional = -0.9844732861 + 1 = 0.0155267139
+                // total debt = 0.013348304809274554 * 151.312772670283486817 = 2.0197690111 // 2.019769011139412365
                 // fee = 1 / 0.99 * 0.01 = 0.0101010101
                 // free collateral = min(collateral + fee, account value) - total debt * imRatio
-                // free collateral = min(100+0.0101010101, 100+0.017561679875932046) - (2.0155940262004575) * 0.1
-                //                 = 100 + 0.0101010101 - (2.0155940262004575) * 0.1
-                //                 = 99.80854160747995
+                // free collateral = min(100+0.0101010101-0.000001209503724417, 100+0.0101010101-0.000001209503724417+0.0155267139) - (2.019769011139412365) * 0.1
+                //                 = 100 + 0.010101010101010101-0.000001209503724417 - (2.019769011139412365) * 0.1
+                //                 = 99.8081228995
                 freeCollateral = (await vault.getFreeCollateral(taker.address)).toString()
-                expect(freeCollateral).to.be.eq(parseUnits("99.808541", collateralDecimals))
+                expect(freeCollateral).to.be.eq(parseUnits("99.808122", collateralDecimals))
             })
 
             it("add other market liquidity below the current tick", async () => {
