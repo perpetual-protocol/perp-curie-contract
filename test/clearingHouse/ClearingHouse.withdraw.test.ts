@@ -69,9 +69,8 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("taker swap and then withdraw maker's free collateral", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            // mock mark price to make free collateral easier
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
             // prepare collateral for bob
             await collateral.mint(bob.address, parseUnits("100", collateralDecimals))
             await deposit(bob, vault, 100, collateral)
@@ -254,9 +253,8 @@ describe("ClearingHouse withdraw", () => {
         })
 
         it("maker withdraw after adding liquidity", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            // mock mark price to make free collateral easier
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
             // free collateral = max(min(collateral, accountValue) - imReq, 0)
             //                 = max(min(collateral, accountValue) - max(totalAbsPositionValue, quoteDebtValue + totalBaseDebtValue) * imRatio, 0)
             //                 = max(min(20000, 20000) - max(0, 330.3092180998 * 100 + 50000) * 0.1, 0)
@@ -355,9 +353,8 @@ describe("ClearingHouse withdraw", () => {
                 sqrtPriceLimitX96: 0,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("110", 6), 0, 0, 0]
-            })
+            // mock mark price to make free collateral easier
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("110"))
 
             // conservative config:
             //   freeCollateral = max(min(collateral, accountValue) - imReq, 0)
@@ -392,9 +389,7 @@ describe("ClearingHouse withdraw", () => {
             })
 
             // simulate broken price oracle
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("999999999", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("999999999"))
 
             // 65.2726375819(positionSize) * 999999999 = 65,272,637,516.627365 > 50,000,000,000
             expect(await vault.getFreeCollateral(bob.address)).to.lt(parseUnits("50000000000", collateralDecimals))
