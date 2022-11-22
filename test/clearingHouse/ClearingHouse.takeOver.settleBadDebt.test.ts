@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber, BigNumberish } from "ethers"
+import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -19,7 +19,8 @@ import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { initiateBothTimestamps } from "../shared/time"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {
@@ -47,20 +48,6 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
-    const oracleDecimals = 6
-    const blockTimeStamp = 1
-
-    function setPool1IndexPrice(price: BigNumberish) {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
-        })
-    }
-
-    function setPool2IndexPrice(price: BigNumberish) {
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
-        })
-    }
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -88,13 +75,16 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         million = parseUnits("1000000", collateralDecimals)
         hundred = parseUnits("100", collateralDecimals)
 
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        await initiateBothTimestamps(clearingHouse)
+
         // initialize ETH pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken.address)
-        setPool1IndexPrice("151")
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // initialize BTC pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
-        setPool2IndexPrice("151")
+        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
 
         // set weth as collateral
         wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
@@ -136,14 +126,12 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
-
-        // set blockTimestamp
-        await clearingHouse.setBlockTimestamp(blockTimeStamp)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // mock mark price to make account value calculation easier
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
     })
 
     describe("settle bad debt", () => {
@@ -153,14 +141,13 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             // alice long 90 usd
             await q2bExactInput(fixture, alice, 90)
 
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
+            await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
             // bob short 12000 usd
             await b2qExactOutput(fixture, bob, 12000)
         })
 
         it("do not settle bad debt if user has non-settlement collateral after liquidation", async () => {
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
             await deposit(alice, vault, 0.001, weth)
 
@@ -175,7 +162,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         it("do not settle bad debt if user still has position after liquidation", async () => {
             await q2bExactInput(fixture, alice, 1, baseToken2.address)
 
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
             await expect(
                 clearingHouse.connect(admin)["liquidate(address,address)"](alice.address, baseToken.address),
@@ -186,7 +173,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         })
 
         it("settle bad debt after last liquidation", async () => {
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
             await expect(clearingHouse.connect(admin)["liquidate(address,address)"](alice.address, baseToken.address))
                 .to.emit(vault, "BadDebtSettled")
@@ -216,7 +203,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             const wbtcDecimal = await wbtc.decimals()
             await vault.connect(alice).deposit(wbtc.address, parseUnits("0.0001", wbtcDecimal))
 
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
             // not emit event because alice still has wbtc collateral
             await expect(
