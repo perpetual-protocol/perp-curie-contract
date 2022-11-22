@@ -222,11 +222,13 @@ describe("Clearinghouse StopMarket", async () => {
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("200", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
 
                 // set a lower price to have loss on baseToken2 market
-                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("50", 6), 0, 0, 0]
                 })
+                await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50"))
 
                 await forwardBothTimestamps(clearingHouse, 100)
 
@@ -513,11 +515,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 // closedMarketPositionSize: 0.065271988421256964, closedMarketQuoteBalance: -10
-                // accountValue: 10055.128040, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
-                // freeCollateral = 10055.128040 - 1 = 10054.128040
+                // accountValue: 10055.156296, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
+                // freeCollateral = 10055.156296 - 1 = 10054.156296
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralAfter).to.be.closeTo(
-                    parseUnits("10054.128040", collateralDecimals),
+                    parseUnits("10054.156296", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
@@ -532,18 +534,16 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 100, baseToken2.address)
 
                 // make profit on baseToken market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("200", 6), 0, 0, 0]
-                })
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
 
                 await pauseMarket(baseToken2)
                 await closeMarket(baseToken2, 50)
 
-                // accountValue: 9935.120694, totalCollateralValue: 10000
-                // freeCollateral = 9935.120694 - 11 = 9924.120694
+                // accountValue: 9935.119792, totalCollateralValue: 10000
+                // freeCollateral = 9935.119792 - 11 = 9924.119792
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9924.120694", collateralDecimals),
+                    parseUnits("9924.119792", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
@@ -551,11 +551,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(bob.address, baseToken2.address)
 
                 // closedMarketPositionSize: 0.6413142475, closedMarketQuoteBalance: -100
-                // accountValue: 9935.066296, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.066296
-                // freeCollateral = 9932.066296 - 1 = 9931.066296
+                // accountValue: 9935.119792, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.065712
+                // freeCollateral = 9932.065712 - 1 = 9931.065712
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralAfter).to.be.closeTo(
-                    parseUnits("9931.066296", collateralDecimals),
+                    parseUnits("9931.065712", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
                 await vault.connect(bob).withdrawAll(collateral.address)
@@ -840,9 +840,7 @@ describe("Clearinghouse StopMarket", async () => {
             await pauseMarket(baseToken2)
 
             // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("0.000001"))
 
             // Bob's free collateral should be 0 if his position is underwater
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
@@ -872,9 +870,7 @@ describe("Clearinghouse StopMarket", async () => {
             await closeMarket(baseToken2, 0.0001)
 
             // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("0.000001"))
 
             // Bob's free collateral should be 0 if his position is underwater
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
