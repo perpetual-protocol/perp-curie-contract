@@ -568,19 +568,21 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         it("funding-induced liquidation", async () => {
             // maker add liquidity
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
-
             // taker open
             await q2bExactInput(fixture, taker, 150)
 
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
             // set index price to let taker pay funding fee
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("4", 6), 0, 0, 0]
             })
 
-            // taker pays funding
-            while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
-                await forwardBothTimestamps(clearingHouse, 3000)
+            // taker is not bankruptcy yet, even he has loss
+            expect(await clearingHouse.getAccountValue(taker.address)).to.be.gt(0)
 
+            // taker pays funding until bankrupt
+            while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
+                await forwardBothTimestamps(clearingHouse, 8 * 60 * 60)
                 await clearingHouse.connect(taker).settleAllFunding(taker.address)
             }
 
