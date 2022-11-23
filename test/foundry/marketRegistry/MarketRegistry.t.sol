@@ -27,10 +27,6 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
         marketRegistry.addPool(address(baseToken), _DEFAULT_POOL_FEE);
         assertEq(marketRegistry.getPool(address(baseToken)), address(pool));
 
-        // create another token and pool
-        BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
-        UniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
-
         // add second pool
         vm.mockCall(
             address(pool2),
@@ -54,7 +50,6 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     }
 
     function test_revert_addPool_if_pool_does_not_exist() public {
-        BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.mockCall(
             address(uniswapV3Factory),
             abi.encodeWithSelector(IUniswapV3Factory.getPool.selector),
@@ -92,8 +87,11 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     }
 
     function test_revert_addPool_if_base_address_is_greater_than_quote_address() public {
-        BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), address(clearingHouse), true);
-        UniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
+        // test different base and quote address order, so we re-create token2 and init
+        BaseToken baseToken2 =
+            _create_BaseToken(_BASE_TOKEN_2_NAME, address(quoteToken), _BASE_TOKEN_2_PRICE_FEED, true);
+        baseToken2.mintMaximumTo(address(clearingHouse));
+        IUniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
         vm.mockCall(
             address(pool2),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -105,7 +103,7 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
 
     function test_revert_addPool_if_clearingHouse_has_insufficient_base_token_balance() public {
         BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), makeAddr("FAKE"), false);
-        UniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
+        IUniswapV3Pool pool2 = _create_UniswapV3Pool(uniswapV3Factory, baseToken2, quoteToken, _DEFAULT_POOL_FEE);
         vm.mockCall(
             address(pool2),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
@@ -132,7 +130,16 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
     }
 
     function test_setClearingHouse_should_emit_event() public {
-        ClearingHouse clearingHouse2 = _create_ClearingHouse();
+        ClearingHouse clearingHouse2 =
+            _create_ClearingHouse(
+                address(clearingHouseConfig),
+                address(vault),
+                address(quoteToken),
+                address(uniswapV3Factory),
+                address(exchange),
+                address(accountBalance),
+                address(insuranceFund)
+            );
         vm.expectEmit(true, false, false, true, address(marketRegistry));
         emit ClearingHouseChanged(address(clearingHouse2));
         marketRegistry.setClearingHouse(address(clearingHouse2));
@@ -140,7 +147,16 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
     }
 
     function test_revert_setClearingHouse_if_called_by_non_owner() public {
-        ClearingHouse clearingHouse2 = _create_ClearingHouse();
+        ClearingHouse clearingHouse2 =
+            _create_ClearingHouse(
+                address(clearingHouseConfig),
+                address(vault),
+                address(quoteToken),
+                address(uniswapV3Factory),
+                address(exchange),
+                address(accountBalance),
+                address(insuranceFund)
+            );
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setClearingHouse(address(clearingHouse2));

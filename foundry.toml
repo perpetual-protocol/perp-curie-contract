@@ -5,5 +5,6 @@ libs = ['node_modules', 'lib']
 test = 'test/foundry'
 cache_path = 'forge-cache'
 no_match_path = 'contracts/test/*'
+fs_permissions = [{ access = "read", path = "./out"}]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
