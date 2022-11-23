@@ -4,7 +4,7 @@ import { BigNumberish } from "ethers"
 import { ethers } from "hardhat"
 import { TestClearingHouse } from "../../typechain"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
-import { forwardBothTimestamps } from "../shared/time"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
 
 // 1. uniFeeRatio comes from createClearingHouseFixture()
@@ -17,6 +17,7 @@ export async function initMarket(
     ifFeeRatio: BigNumberish = 100000, // 10%
     maxTickCrossedWithinBlock: number = getMaxTickRange(),
     baseToken: string = fixture.baseToken.address,
+    isForwardTimestamp: boolean = true,
 ): Promise<{ minTick: number; maxTick: number }> {
     const poolAddr = await fixture.uniV3Factory.getPool(baseToken, fixture.quoteToken.address, fixture.uniFeeTier)
 
@@ -37,8 +38,12 @@ export async function initMarket(
         await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
     }
 
-    // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-    await forwardBothTimestamps(fixture.clearingHouse as TestClearingHouse, 2000)
+    if (isForwardTimestamp) {
+        const clearingHouse = fixture.clearingHouse as TestClearingHouse
+        await initiateBothTimestamps(clearingHouse)
+        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
+        await forwardBothTimestamps(clearingHouse, 2000)
+    }
 
     const tickSpacing = await uniPool.tickSpacing()
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }

@@ -42,8 +42,6 @@ describe("ClearingHouse softCircuitBreak", () => {
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
-    const oracleDecimals = 6
-    const blockTimeStamp = 1
 
     async function mockPool1MarkPrice(price: BigNumberish) {
         await accountBalance.mockMarkPrice(baseToken.address, parseEther(price.toString()))
@@ -76,9 +74,6 @@ describe("ClearingHouse softCircuitBreak", () => {
         mockedBaseAggregator = fixture.mockedBaseAggregator
         mockedBaseAggregator2 = fixture.mockedBaseAggregator2
         collateralDecimals = await collateral.decimals()
-
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
 
         // initialize ETH pool
         await initMarket(fixture, "1000", 10000, 0, getMaxTickRange(), baseToken.address)

@@ -75,9 +75,6 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         million = parseUnits("1000000", collateralDecimals)
         hundred = parseUnits("100", collateralDecimals)
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // initialize ETH pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
