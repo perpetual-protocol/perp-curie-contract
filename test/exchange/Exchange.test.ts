@@ -2,12 +2,11 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { forwardBothTimestamps } from "../shared/time"
 import { syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Exchange complicated test", () => {
@@ -32,9 +31,6 @@ describe("Exchange complicated test", () => {
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-
-        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-        await forwardBothTimestamps(fixture.clearingHouse as TestClearingHouse, 2000)
 
         // taker mint
         await usdc.mint(taker.address, parseUnits("10000000", usdcDecimals))

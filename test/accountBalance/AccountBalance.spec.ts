@@ -20,7 +20,6 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { forwardBothTimestamps } from "../shared/time"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -88,9 +87,6 @@ describe("AccountBalance", () => {
             mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("151", 6), 0, 0, 0]
             })
-
-            // In order to calculate mark price, we need market twap (30m) and market twap (15m)
-            await forwardBothTimestamps(clearingHouse, 2000)
         })
 
         it("alice add liquidity", async () => {
