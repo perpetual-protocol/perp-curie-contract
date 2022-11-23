@@ -67,9 +67,6 @@ describe("Vault getFreeCollateral", () => {
         wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
         wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("5", await wbtc.decimals()))
@@ -89,6 +86,10 @@ describe("Vault getFreeCollateral", () => {
             useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("# getFreeCollateral", () => {

@@ -52,9 +52,6 @@ describe("ClearingHouse badDebt", () => {
         lowerTick = minTick
         upperTick = maxTick
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // prepare collateral for alice
         const decimals = await collateral.decimals()
         await collateral.mint(alice.address, parseUnits("100000", decimals))
@@ -70,6 +67,10 @@ describe("ClearingHouse badDebt", () => {
 
         // alice add liquidity
         await addOrder(fixture, alice, "500", "50000", lowerTick, upperTick, false)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("close/reduce position when bad debt", () => {

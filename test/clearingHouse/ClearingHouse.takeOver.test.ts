@@ -135,6 +135,9 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

@@ -132,6 +132,10 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("settle bad debt", () => {

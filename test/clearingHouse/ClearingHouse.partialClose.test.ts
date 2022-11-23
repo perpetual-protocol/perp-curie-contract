@@ -89,6 +89,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

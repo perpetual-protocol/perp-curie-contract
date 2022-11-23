@@ -96,11 +96,12 @@ describe("Clearinghouse StopMarket", async () => {
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken.address)
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     async function pauseMarket(baseToken: BaseToken) {

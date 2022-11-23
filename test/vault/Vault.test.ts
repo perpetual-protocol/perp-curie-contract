@@ -81,6 +81,7 @@ describe("Vault test", () => {
         await addOrder(fixture, bob, 500, 1000000, 0, 150000)
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

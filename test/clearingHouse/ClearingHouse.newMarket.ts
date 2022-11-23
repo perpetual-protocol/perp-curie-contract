@@ -93,9 +93,6 @@ describe("ClearingHouse new market listing", () => {
         lowerTick = minTick
         upperTick = maxTick
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
 
@@ -110,6 +107,10 @@ describe("ClearingHouse new market listing", () => {
 
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("list new market but not enable to trade", () => {

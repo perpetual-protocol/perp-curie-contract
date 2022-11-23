@@ -67,6 +67,7 @@ describe("ClearingHouse funding", () => {
         await deposit(carol, vault, 1000, collateral)
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

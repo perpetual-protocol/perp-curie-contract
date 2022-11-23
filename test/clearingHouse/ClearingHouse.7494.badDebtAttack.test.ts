@@ -59,6 +59,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await addOrder(fixture, maker, 1500000, 500000, minTick, maxTick)
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

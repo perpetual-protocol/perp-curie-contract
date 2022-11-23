@@ -127,11 +127,12 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         await collateral.mint(taker3.address, takerCollateral)
         await deposit(taker3, vault, 100, collateral)
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     function takerLongExactInput(amount): Promise<ContractTransaction> {
