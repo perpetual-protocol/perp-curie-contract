@@ -21,7 +21,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } f
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { filterLogs } from "../shared/utilities"
+import { filterLogs, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -503,7 +503,10 @@ describe("Clearinghouse StopMarket", async () => {
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 1000)
 
-                // accountValue: 10055.1280557316, totalCollateralValue: 10000
+                // mock mark price on market 2 to make freeCollateral calculation won't be changed by market twap
+                await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
+
+                // accountValue: 10055.191509, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
@@ -516,11 +519,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 // closedMarketPositionSize: 0.065271988421256964, closedMarketQuoteBalance: -10
-                // accountValue: 10055.156296, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
-                // freeCollateral = 10055.156296 - 1 = 10054.156296
+                // accountValue: 10055.191508, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
+                // freeCollateral = 10055.191508 - 1 = 10054.191508
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralAfter).to.be.closeTo(
-                    parseUnits("10054.156296", collateralDecimals),
+                    parseUnits("10054.191508", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
