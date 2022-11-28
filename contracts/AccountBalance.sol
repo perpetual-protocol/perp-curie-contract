@@ -40,7 +40,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
     // TODO: might need to move to storage and can set on-demand
     uint32 internal _marketTwapInterval = 30 minutes;
-    uint32 internal _movingAverageInterval = 15 minutes;
+    uint32 internal _premiumInterval = 15 minutes;
 
     //
     // EXTERNAL NON-VIEW
@@ -508,14 +508,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : _getMarkPrice(baseToken);
     }
 
-    function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
-        return
-            UniswapV3Broker
-                .getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval)
-                .formatSqrtPriceX96ToPriceX96()
-                .formatX96ToX10_18();
-    }
-
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
     function _getNetQuoteBalanceAndPendingFee(address trader)
         internal
@@ -541,19 +533,33 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
-        // For backward compatible, return index twap when not switch to mark price yet
+        // Use index twap:
+        //   1. For backward compatible, returns index twap when not switch to mark price yet.
+        //   2. For paused market, returns index twap as mark price.
         if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
-            return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+            return _getIndexPrice(baseToken, IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
         uint256 marketTwap = _getMarketPrice(baseToken, _marketTwapInterval);
         int256 premium =
-            _getMarketPrice(baseToken, _movingAverageInterval).toInt256().sub(
-                IIndexPrice(baseToken).getIndexPrice(_movingAverageInterval).toInt256()
+            _getMarketPrice(baseToken, _premiumInterval).toInt256().sub(
+                _getIndexPrice(baseToken, _premiumInterval).toInt256()
             );
-        uint256 markPriceMovingAverage = IIndexPrice(baseToken).getIndexPrice(0).toInt256().add(premium).toUint256();
-        return PerpMath.findMedianOfThree(marketPrice, marketTwap, markPriceMovingAverage);
+        uint256 indexPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexPremium);
+    }
+
+    function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return
+            UniswapV3Broker
+                .getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval)
+                .formatSqrtPriceX96ToPriceX96()
+                .formatX96ToX10_18();
+    }
+
+    function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(twapInterval);
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
