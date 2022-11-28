@@ -5,6 +5,7 @@ pragma abicoder v2;
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
+import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 
@@ -104,14 +105,6 @@ library PerpMath {
         uint256 v2,
         uint256 v3
     ) internal pure returns (uint256) {
-        uint256[3] memory values = [v1, v2, v3];
-        for (uint256 i; i < 2; i++) {
-            for (uint256 j; j < 2 - i; j++) {
-                if (values[j] > values[j + 1]) {
-                    (values[j], values[j + 1]) = (values[j + 1], values[j]);
-                }
-            }
-        }
-        return values[1];
+        return MathUpgradeable.max(MathUpgradeable.min(v1, v2), MathUpgradeable.min(MathUpgradeable.max(v1, v2), v3));
     }
 }
