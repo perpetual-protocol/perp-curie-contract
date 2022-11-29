@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
@@ -81,19 +81,22 @@ describe("ClearingHouse badDebt", () => {
                 // bob position size: 7.866265610482054835
                 await q2bExactInput(fixture, bob, "800", baseToken.address)
 
-                // To ignore founding payment
+                // To ignore funding payment
                 await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+
                 // bob long base token for a 30 mins to manipulate mark price
                 await forwardBothTimestamps(clearingHouse, 1800)
                 // carol short base token that causing bob has bad debt(if he close his position)
                 await b2qExactInput(fixture, carol, "5000", baseToken.address)
 
-                // markPrice: 103.199929556499904188
+                // markPrice: 103.220570574410499733
                 // marketPrice: 0.828815379024741938
 
-                // bob's account value is greater than 0 bc it's calculated by index price
-                // bob's account value: 100 + 7.866265610482054835 * 103.199929556499904188 - 800 = 111.7980568745
-                expect(await clearingHouse.getAccountValue(bob.address)).to.be.gt("0")
+                // position pnl: 7.866265610482054835 * 103.220570574410499733 - 800 = 11.9604246038
+                // pendingFunding: -0.000291449334489317
+                // bob's account value: 100 + 0.000291449334489317 + 11.9604246038 = 111.9607160531
+                // bob's account value should be greater than 0 because it's calculated by mark price
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq(parseEther("111.960716"))
 
                 // to avoid over maxTickCrossedPerBlock
                 await forwardBothTimestamps(clearingHouse, 5)
@@ -129,7 +132,7 @@ describe("ClearingHouse badDebt", () => {
             it("can reduce when not resulting bad debt and has enough collateral", async () => {
                 // bob short 0.1 ETH to reduce position
                 // exchanged notional: 0.083
-                // bob's realized PnL: 0.083 - 0.05/7.866 * 800 = -10.087
+                // bob's realized PnL: 0.083 - 0.1/7.866 * 800 = -10.087
                 // bob's unrealized PnL: 7.766 * 101.025123697070076996 + (-800 + 0.083 + 10.087) = -5.2688893686
                 // bob's account value: 100 -10.087 -5.2688893686 = 84.6441106314 (no bad debt)
                 // bob's free collateral: 100 -10.087 -5.2688893686 - (800 - 0.083 - 10.087) * 10% = 5.6611106314 > 0

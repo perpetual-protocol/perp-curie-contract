@@ -1305,7 +1305,7 @@ describe("ClearingHouse openPosition", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
-                // To fixed market twap and ignore founding payment
+                // To fixed market twap and ignore funding payment
                 await syncIndexToMarketPrice(mockedBaseAggregator, pool)
                 await forwardBothTimestamps(clearingHouse, 1800)
 
@@ -1426,7 +1426,7 @@ describe("ClearingHouse openPosition", () => {
                 //     marketPrice: '146.8886045406224'
                 // }
 
-                // foundingPayment = 0.000001209503724417 (from market1)
+                // fundingPayment = 0.000001209503724417 (from market1)
                 // realizePnl = 0.0
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
                 // positionValue1 = (-0.013348304809274554)* 151.312772670283486817 = -2.0197690111
