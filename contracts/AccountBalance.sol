@@ -546,8 +546,8 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             _getMarketPrice(baseToken, _premiumInterval).toInt256().sub(
                 _getIndexPrice(baseToken, _premiumInterval).toInt256()
             );
-        uint256 indexPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
-        return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexPremium);
+        uint256 indexWithPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexWithPremium);
     }
 
     function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
