@@ -255,7 +255,6 @@ describe("ClearingHouse new market listing", () => {
 
             // drop baseToken mark price
             await b2qExactOutput(fixture, alice, 10000, baseToken.address)
-            // await b2qExactOutput(fixture, alice, 10000, baseToken3.address)
             await forwardBothTimestamps(clearingHouse, 1800)
             await closePosition(fixture, alice, 0, baseToken.address)
             // For market 1:
