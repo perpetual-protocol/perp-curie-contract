@@ -799,7 +799,7 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         describe("quitMarket with remove orders", async () => {
-            describe("multiple order in closed market when has position", () => {
+            describe("multiple orders and a position in a closed market", () => {
                 beforeEach(async () => {
                     const tickSpacing = await pool.tickSpacing()
 
@@ -821,7 +821,7 @@ describe("Clearinghouse StopMarket", async () => {
                     await closeMarket(baseToken, 1)
                 })
 
-                it("should be able to removeAllOrders in closed market via quitMarket", async () => {
+                it("should be able to removeAllOrders in a closed market via quitMarket", async () => {
                     // alice open orders in baseToken market
                     expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(2)
                     // alice open orders in baseToken2 market
@@ -835,7 +835,7 @@ describe("Clearinghouse StopMarket", async () => {
                 })
             })
 
-            describe("multiple order in closed market when has no position", () => {
+            describe("multiple orders and without a position in a closed market", () => {
                 beforeEach(async () => {
                     const tickSpacing = await pool.tickSpacing()
 
@@ -855,7 +855,7 @@ describe("Clearinghouse StopMarket", async () => {
                     await closeMarket(baseToken, 1)
                 })
 
-                it("should be able to removeAllOrders in closed market via quitMarket", async () => {
+                it("should be able to removeAllOrders in a closed market via quitMarket", async () => {
                     // alice open orders in baseToken market
                     expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(2)
                     // alice open orders in baseToken2 market
