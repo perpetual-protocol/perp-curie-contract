@@ -276,7 +276,7 @@ interface IClearingHouse {
     /// @param baseToken The address of baseToken
     function cancelAllExcessOrders(address maker, address baseToken) external;
 
-    /// @notice Close all positions of a trader in the closed market
+    /// @notice Close all positions and remove all liquidities of a trader in the closed market
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return base The amount of base token that is closed
