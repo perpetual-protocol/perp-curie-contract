@@ -120,6 +120,9 @@ jobs:
               with:
                 version: nightly
 
+            - name: Build Uniswap in foundry for testing
+              run: npm run foundry-build-uniswap
+
             - name: Run tests
               run: npm run foundry-test
 

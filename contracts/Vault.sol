@@ -446,7 +446,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
 
         if (
             settlementTokenDebtX10_18.formatSettlementToken(_decimals) >
-            ICollateralManager(_collateralManager).getDebtThreshold()
+            ICollateralManager(_collateralManager).getDebtThresholdByTrader(trader)
         ) {
             return true;
         }
