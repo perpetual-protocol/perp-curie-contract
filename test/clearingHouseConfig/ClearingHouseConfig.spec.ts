@@ -40,7 +40,6 @@ describe("ClearingHouseConfig Spec", () => {
         })
 
         it("setTwapInterval", async () => {
-            await expect(clearingHouseConfig.setTwapInterval(0)).to.be.revertedWith("CHC_ITI")
             await expect(clearingHouseConfig.connect(alice).setTwapInterval(3600)).to.be.revertedWith("SO_CNO")
             await expect(clearingHouseConfig.setTwapInterval(3600))
                 .to.emit(clearingHouseConfig, "TwapIntervalChanged")
