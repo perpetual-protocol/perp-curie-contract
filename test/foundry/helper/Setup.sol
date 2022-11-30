@@ -14,8 +14,6 @@ import "../../../contracts/BaseToken.sol";
 import "../../../contracts/VirtualToken.sol";
 import "../../../contracts/test/TestERC20.sol";
 import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
-// import { UniswapV3Factory } from "@uniswap/v3-core/contracts/UniswapV3Factory.sol";
-// import { UniswapV3Pool } from "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3PoolDeployer } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
