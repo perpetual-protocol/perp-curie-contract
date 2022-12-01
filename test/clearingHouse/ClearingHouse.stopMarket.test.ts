@@ -196,51 +196,96 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         describe("check free collateral", async () => {
-            it("bob as a taker and has profit", async () => {
+            it("bob as a taker and has profit, free collateral should be equal with before paused market", async () => {
+                // Test scenario:
+                //   1. bob has long positions both on market1 and market2
+                //   2. Make bob has profit on market1
+                //   3. Pause market1
+                // Expected:
+                //   1. freeCollateral should not changed expect founding payment after pause market1.
+
                 // take a long position on baseToken2 with 10 quoteToken
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
+                // mock mark price to make bob has profit on market1
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("1000"))
+
+                // accountValue: 10055.1280557316, totalCollateralValue: 10000
+                // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
+                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
+                const pendingFundingPaymentBefore = await exchange.getAllPendingFundingPayment(bob.address)
+                expect(freeCollateralBefore).to.be.eq(
+                    parseUnits("9998", collateralDecimals).sub(pendingFundingPaymentBefore.div(1e12)),
+                )
+
+                // mock index price for pausing market
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("1000", 6), 0, 0, 0]
                 })
                 await pauseMarket(baseToken)
 
-                // accountValue: 10055.1280557316, totalCollateralValue: 10000
-                // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
-                const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
-                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9998", collateralDecimals).sub(pendingFundingPayment.div(1e12)),
+                const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
+                    bob.address,
+                    baseToken.address,
+                )
+                const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
+                expect(freeCollateralAfter).to.be.closeTo(
+                    freeCollateralBefore.sub(pendingFundingPaymentAfter.div(1e12)),
                     parseUnits("0.001", collateralDecimals).toNumber(), // there is some imprecision
                 )
             })
 
-            it("bob as a taker and has loss", async () => {
-                // bob takes a long position on baseToken2 with 100 quoteToken
-                await q2bExactInput(fixture, bob, 100, baseToken2.address)
+            it("bob as a taker and has loss, free collateral should be equal with before paused market", async () => {
+                // Test scenario:
+                //   1. bob has long positions both on market1 and market2
+                //   2. Make bob has profit on market1
+                //   3. Make bob has larger loss on market2
+                //   3. Pause market2
+                // Expected:
+                //   1. freeCollateral should not changed expect founding payment after pause market2.
+
+                // bob takes a long position on baseToken2 with 10 quoteToken
+                await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // make profit on baseToken market
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("200", 6), 0, 0, 0]
                 })
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                // For market1
+                //   openNotional: -10.0
+                //   positionValue: 13.0543976842513928
+                //   unrealizedPnl: 3.0543976842513928
 
-                // set a lower price to have loss on baseToken2 market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                // make loss on baseToken2 market
+                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("50", 6), 0, 0, 0]
                 })
                 await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50"))
+                // For market2
+                //   openNotional: -10.0
+                //   positionValue2: 3.263599421062848
+                //   unrealizedPnl: -6.7364005789371518
 
-                await forwardBothTimestamps(clearingHouse, 100)
+                // accountValue(no funding): 10000 + 3.0543976842513928 - 6.7364005789371518 = 9996.3179971053
+                // totalCollateralValue: 10000
+                // freeCollateral = 9996.3179971053 - 20(quote debt) * 0.1 = 9994.3179971053
+                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
+                const pendingFundingPaymentBefore = await exchange.getAllPendingFundingPayment(bob.address)
+                expect(freeCollateralBefore).to.be.eq(
+                    parseUnits("9994.317997", collateralDecimals).sub(pendingFundingPaymentBefore.div(1e12)),
+                )
 
                 await pauseMarket(baseToken2)
 
-                // accountValue: 9935.119361, totalCollateralValue: 10000
-                // freeCollateral = 9935.119361 - 110(quote debt) * 0.1 = 9924.119361
-                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9924.119361", collateralDecimals),
-                    parseUnits("0.15", collateralDecimals).toNumber(), // there is some imprecision
+                const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
+                    bob.address,
+                    baseToken.address,
+                )
+                const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
+                expect(freeCollateralAfter).to.be.closeTo(
+                    freeCollateralBefore.sub(pendingFundingPaymentAfter.div(1e12)),
+                    parseUnits("0.001", collateralDecimals).toNumber(), // there is some imprecision
                 )
             })
         })
