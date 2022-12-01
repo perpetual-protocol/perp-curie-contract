@@ -1,7 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
-import bn from "bignumber.js"
 import { expect } from "chai"
-import { BigNumberish, Wallet } from "ethers"
+import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -20,7 +19,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange, priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { getMarginRatio, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse softCircuitBreak", () => {
@@ -45,14 +44,6 @@ describe("ClearingHouse softCircuitBreak", () => {
 
     async function mockPool1MarkPrice(price: BigNumberish) {
         await accountBalance.mockMarkPrice(baseToken.address, parseEther(price.toString()))
-    }
-
-    async function _getMarginRatio(trader: Wallet) {
-        const accountValue = await clearingHouse.getAccountValue(trader.address)
-        const totalPositionValue = await accountBalance.getTotalAbsPositionValue(trader.address)
-        const marginRatio = accountValue.lte(0) ? new bn(0) : getMarginRatio(accountValue, totalPositionValue)
-
-        return marginRatio
     }
 
     beforeEach(async () => {
@@ -127,11 +118,17 @@ describe("ClearingHouse softCircuitBreak", () => {
 
             // mint usdc to insuranceFund wallet
             await collateral.mint(insuranceFund.address, parseUnits("100", 6))
+            const ifCapacityBefore = await insuranceFund.getInsuranceFundCapacity()
 
             // after liquidation, trader's accountValue: -77.813129
             await expect(
                 clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address),
             ).emit(clearingHouse, "PositionLiquidated")
+
+            const accountValue = await clearingHouse.getAccountValue(bob.address)
+            expect(accountValue).to.be.eq("0")
+            const ifCapacityAfter = await insuranceFund.getInsuranceFundCapacity()
+            expect(ifCapacityAfter).to.be.lt(ifCapacityBefore)
         })
 
         it("trader has negative accountValue but insuranceFund capacity can't cover that", async () => {
