@@ -300,10 +300,14 @@ describe("Vault test", () => {
             })
 
             it("trader has negative unrealized pnl and usdc debt", async () => {
+                // mock mark price to make trader has loss
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
                 // funding payment: 0.786847
@@ -314,10 +318,14 @@ describe("Vault test", () => {
             })
 
             it("trader has negative unrealized pnl and doesn't have usdc debt", async () => {
+                // mock mark price to make trader has loss
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("150", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
+
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 150 * 18.88437579 - 3000 = -167.3436315
                 // funding payment: 1.0395235
@@ -328,10 +336,14 @@ describe("Vault test", () => {
             })
 
             it("trader has positive unrealized pnl", async () => {
+                // mock mark price to make trader has profit
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
                 // funding payment: -1.3210218
@@ -345,12 +357,15 @@ describe("Vault test", () => {
                 await addOrder(fixture, alice, 10, 2000, 0, 150000)
                 // bob swap, alice get maker fee
                 await q2bExactInput(fixture, bob, 3000, baseToken.address)
-
                 // market price: 175.63239005
+
+                // mock mark price to make trader has profit
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -371,10 +386,13 @@ describe("Vault test", () => {
                 // bob long, so alice can have positive realized PnL after closing position
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
+                // mock mark price to make trader has profit
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -393,10 +411,13 @@ describe("Vault test", () => {
                 // bob short, so alice can have negative realized PnL after closing position
                 await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
+                // mock mark price to make trader has loss
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -418,10 +439,14 @@ describe("Vault test", () => {
             })
 
             it("trader has negative unrealized pnl and usdc debt", async () => {
+                // mock mark price to make trader has loss
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("100", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
                 // funding payment: -0.786847
@@ -432,10 +457,14 @@ describe("Vault test", () => {
             })
 
             it("trader has positive unrealized pnl", async () => {
+                // mock mark price to make trader has profit
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
                 await forwardBothTimestamps(clearingHouse, 360)
                 // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
                 // funding payment: -1.3158838
@@ -451,10 +480,14 @@ describe("Vault test", () => {
                 await q2bExactInput(fixture, bob, 3000, baseToken.address)
 
                 // market price: 175.63239005
+
+                // mock mark price to make trader has profit
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
+                // mock index price to calculate founding payment
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                     return [0, parseUnits("180", 6), 0, 0, 0]
                 })
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -483,10 +516,13 @@ describe("Vault test", () => {
         })
 
         it("trader has negative unrealized pnl", async () => {
+            // mock mark price to make trader has loss
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+            // mock index price to calculate founding payment
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100", 6), 0, 0, 0]
             })
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
             // funding payment: 0.80214883
@@ -499,10 +535,13 @@ describe("Vault test", () => {
         })
 
         it("trader has positive unrealized pnl", async () => {
+            // mock mark price to make trader has profit
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            // mock index price to calculate founding payment
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
             // funding payment: -1.35194469
@@ -520,10 +559,13 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, bob, 3000, baseToken.address)
 
             // market price: 175.63239005
+
+            // mock mark price to make trader has profit
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            // mock index price to calculate founding payment
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -544,10 +586,12 @@ describe("Vault test", () => {
             // bob long, so alice can have positive realized PnL after closing position
             await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
+            // mock mark price to make trader has profit
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            // mock index price to calculate founding payment
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -566,10 +610,12 @@ describe("Vault test", () => {
             // bob short, so alice can have negative realized PnL after closing position
             await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
+            // mock mark price to make trader has losee
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            // mock index price to calculate founding payment
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("180", 6), 0, 0, 0]
             })
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
