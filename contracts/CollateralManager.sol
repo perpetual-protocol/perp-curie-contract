@@ -5,7 +5,7 @@ pragma abicoder v2;
 import { OwnerPausable } from "./base/OwnerPausable.sol";
 import { CollateralManagerStorageV1 } from "./storage/CollateralManagerStorage.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { IPriceFeedDispatcher } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 import { Collateral } from "./lib/Collateral.sol";
 import { ICollateralManager } from "./interface/ICollateralManager.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
@@ -197,13 +197,13 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
     /// @inheritdoc ICollateralManager
     function getPriceFeedDecimals(address token) external view override returns (uint8) {
         _requireIsCollateral(token);
-        return IPriceFeed(_collateralConfigMap[token].priceFeed).decimals();
+        return IPriceFeedDispatcher(_collateralConfigMap[token].priceFeed).decimals();
     }
 
     /// @inheritdoc ICollateralManager
     function getPrice(address token, uint256 interval) external view override returns (uint256) {
         _requireIsCollateral(token);
-        return IPriceFeed(_collateralConfigMap[token].priceFeed).getPrice(interval);
+        return IPriceFeedDispatcher(_collateralConfigMap[token].priceFeed).getDispatchedPrice(interval);
     }
 
     function getMaxCollateralTokensPerAccount() external view override returns (uint8) {

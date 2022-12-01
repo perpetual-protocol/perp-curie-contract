@@ -1,11 +1,12 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
+import { BandPriceFeed, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
-    chainlinkPriceFeed: ChainlinkPriceFeedV2
+    chainlinkPriceFeedV3: ChainlinkPriceFeedV3
+    priceFeedDispatcher: PriceFeedDispatcher
     mockedAggregator: MockContract
     bandPriceFeed: BandPriceFeed
     mockedStdReference: MockContract
@@ -23,11 +24,20 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
 
     const cacheTwapInterval = 15 * 60
 
-    const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
-    const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
+    const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
+    const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
         mockedAggregator.address,
+        40 * 60, // 40 mins
+        1e5, // 10%
+        10, // 10s
         cacheTwapInterval,
-    )) as ChainlinkPriceFeedV2
+    )) as ChainlinkPriceFeedV3
+
+    const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
+    const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
+        ethers.constants.AddressZero,
+        chainlinkPriceFeedV3.address,
+    )) as PriceFeedDispatcher
 
     // BandPriceFeed
     const stdReferenceFactory = await ethers.getContractFactory("TestStdReference")
@@ -44,7 +54,7 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
 
     const baseTokenFactory = await ethers.getContractFactory("BaseToken")
     const baseToken = (await baseTokenFactory.deploy()) as BaseToken
-    await baseToken.initialize("RandomTestToken0", "RandomTestToken0", chainlinkPriceFeed.address)
+    await baseToken.initialize("RandomTestToken0", "RandomTestToken0", priceFeedDispatcher.address)
 
-    return { baseToken, chainlinkPriceFeed, mockedAggregator, bandPriceFeed, mockedStdReference }
+    return { baseToken, chainlinkPriceFeedV3, priceFeedDispatcher, mockedAggregator, bandPriceFeed, mockedStdReference }
 }

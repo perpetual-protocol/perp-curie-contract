@@ -4,7 +4,7 @@ import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
+import { BandPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
@@ -12,7 +12,7 @@ describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
-    let chainlinkPriceFeed: ChainlinkPriceFeedV2
+    let priceFeedDispatcher: PriceFeedDispatcher
     let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
     let bandPriceFeed: BandPriceFeed
     let mockedStdReference: MockContract // used by BandPriceFeed
@@ -32,7 +32,7 @@ describe("BaseToken", async () => {
         mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
             return chainlinkRoundData[chainlinkRoundData.length - 1]
         })
-        await chainlinkPriceFeed.update()
+        await priceFeedDispatcher.dispatchPrice(15 * 60)
     }
 
     beforeEach(async () => {
@@ -40,7 +40,7 @@ describe("BaseToken", async () => {
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
         bandPriceFeed = _fixture.bandPriceFeed
-        chainlinkPriceFeed = _fixture.chainlinkPriceFeed
+        priceFeedDispatcher = _fixture.priceFeedDispatcher
         mockedStdReference = _fixture.mockedStdReference
 
         // `base` = now - _interval
@@ -89,8 +89,9 @@ describe("BaseToken", async () => {
     })
 
     describe("twap", () => {
-        it("twap price", async () => {
+        it.only("twap price", async () => {
             const price = await baseToken.getIndexPrice(45)
+            console.log(price.toString())
             expect(price).to.eq(parseEther("405"))
         })
 
