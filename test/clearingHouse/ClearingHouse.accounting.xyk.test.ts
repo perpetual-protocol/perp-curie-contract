@@ -577,8 +577,9 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
                 return [0, parseUnits("4", 6), 0, 0, 0]
             })
 
-            // taker is not bankruptcy yet, even he has loss
-            expect(await clearingHouse.getAccountValue(taker.address)).to.be.gt(0)
+            // taker is not liquidatable yet, even he has loss
+            const marginRequirement = await accountBalance.getMarginRequirementForLiquidation(taker.address)
+            expect(await clearingHouse.getAccountValue(taker.address)).to.be.gt(marginRequirement)
 
             // taker pays funding until bankrupt
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
