@@ -32,33 +32,33 @@ describe("InsuranceFund Spec", () => {
         await expect(insuranceFund.initialize(admin.address)).to.be.revertedWith("IF_TNC")
     })
 
-    describe("borrower", () => {
-        it("force error, not admin set borrower", async () => {
-            await expect(insuranceFund.connect(alice).setBorrower(vault.address)).to.be.revertedWith("SO_CNO")
+    describe("vault", () => {
+        it("force error, not admin set vault", async () => {
+            await expect(insuranceFund.connect(alice).setVault(vault.address)).to.be.revertedWith("SO_CNO")
         })
 
-        it("force error, setBorrower but borrower is not a contract", async () => {
-            await expect(insuranceFund.setBorrower(admin.address)).to.revertedWith("IF_BNC")
+        it("force error, setVault but vault is not a contract", async () => {
+            await expect(insuranceFund.setVault(admin.address)).to.revertedWith("IF_VNC")
         })
 
-        it("set borrower and emit event", async () => {
-            await expect(insuranceFund.setBorrower(vault.address))
-                .to.emit(insuranceFund, "BorrowerChanged")
+        it("set vault and emit event", async () => {
+            await expect(insuranceFund.setVault(vault.address))
+                .to.emit(insuranceFund, "VaultChanged")
                 .withArgs(vault.address)
         })
 
-        it("force error, setBorrower but borrower is not a contract", async () => {
-            await expect(insuranceFund.setBorrower(admin.address)).to.revertedWith("IF_BNC")
+        it("force error, setVault but vault is not a contract", async () => {
+            await expect(insuranceFund.setVault(admin.address)).to.revertedWith("IF_VNC")
         })
 
-        it("set borrower and emit event", async () => {
-            await expect(insuranceFund.setBorrower(vault.address))
-                .to.emit(insuranceFund, "BorrowerChanged")
+        it("set vault and emit event", async () => {
+            await expect(insuranceFund.setVault(vault.address))
+                .to.emit(insuranceFund, "VaultChanged")
                 .withArgs(vault.address)
         })
     })
 
-    describe("# threshold and distributeFee()", () => {
+    describe("# distributionThreshold and distributeFee()", () => {
         let mockSurplusBeneficiary: MockContract
 
         beforeEach(async () => {
@@ -74,8 +74,8 @@ describe("InsuranceFund Spec", () => {
                 ).to.be.revertedWith("SO_CNO")
             })
 
-            it("force error, not admin set threshold", async () => {
-                await expect(insuranceFund.connect(alice).setThreshold("1")).to.be.revertedWith("SO_CNO")
+            it("force error, not admin set distributionThreshold", async () => {
+                await expect(insuranceFund.connect(alice).setDistributionThreshold("1")).to.be.revertedWith("SO_CNO")
             })
 
             it("force error when surplusBeneficiary is not a contract", async () => {
@@ -96,36 +96,36 @@ describe("InsuranceFund Spec", () => {
                     .withArgs(mockSurplusBeneficiary.address)
             })
 
-            it("set threshold and emit event", async () => {
-                await expect(insuranceFund.setThreshold(parseUnits("100", usdcDecimals)))
-                    .to.be.emit(insuranceFund, "ThresholdChanged")
+            it("set distribution threshold and emit event", async () => {
+                await expect(insuranceFund.setDistributionThreshold(parseUnits("100", usdcDecimals)))
+                    .to.be.emit(insuranceFund, "DistributionThresholdChanged")
                     .withArgs(parseUnits("100", usdcDecimals))
             })
         })
 
-        describe("threshold is not set", () => {
+        describe("distributionThreshold is not set", () => {
             it("force error on distributeFee()", async () => {
                 await insuranceFund.setSurplusBeneficiary(mockSurplusBeneficiary.address)
-                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_TEZ")
+                await expect(insuranceFund.distributeFee()).to.be.revertedWith("IF_DTEZ")
             })
         })
 
-        describe("threshold is set", () => {
+        describe("distributionThreshold is set", () => {
             beforeEach(async () => {
-                await insuranceFund.setThreshold(parseUnits("100000", usdcDecimals))
+                await insuranceFund.setDistributionThreshold(parseUnits("100000", usdcDecimals))
                 await insuranceFund.setSurplusBeneficiary(mockSurplusBeneficiary.address)
             })
 
             // case #1a
-            it("will not emit event when threshold is not met (positive capacity)", async () => {
+            it("will not emit event when distributionThreshold is not met (positive capacity)", async () => {
                 // insuranceFund capacity: 1000
-                // 1000 < 100000(threshold)
+                // 1000 < 100000(distributionThreshold)
                 await usdc.mint(insuranceFund.address, parseUnits("1000", usdcDecimals))
 
                 // will not emit FeeDistributed event because surplus is zero
                 await expect(insuranceFund.distributeFee()).to.be.not.emit(insuranceFund, "FeeDistributed")
 
-                // 1000 + 100 < 100000(threshold)
+                // 1000 + 100 < 100000(distributionThreshold)
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("100", usdcDecimals))
 
                 // will not emit FeeDistributed event because surplus is zero
@@ -133,9 +133,9 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #1b
-            it("will not emit event when threshold is not met (negative capacity)", async () => {
+            it("will not emit event when distributionThreshold is not met (negative capacity)", async () => {
                 // insuranceFund capacity: 200000 - 500000
-                // -300000 < 100000(threshold)
+                // -300000 < 100000(distributionThreshold)
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
                 await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-500000"))
 
@@ -144,9 +144,9 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #2a
-            it("will not emit event when threshold is met but surplus is zero", async () => {
+            it("will not emit event when distributionThreshold is met but surplus is zero", async () => {
                 // insuranceFund capacity: 200000
-                // 200000 > 100000(threshold) but freeCollateral is zero
+                // 200000 > 100000(distributionThreshold) but freeCollateral is zero
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
 
                 // will not emit FeeDistributed event because surplus is zero
@@ -154,9 +154,9 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #2b
-            it("will not emit event when threshold is met (negative account value) but surplus is zero", async () => {
+            it("will not emit event when distributionThreshold is met (negative account value) but surplus is zero", async () => {
                 // insuranceFund capacity: 200000 - 50000
-                // 150000 > 100000(threshold) but freeCollateral is zero
+                // 150000 > 100000(distributionThreshold) but freeCollateral is zero
                 await usdc.mint(insuranceFund.address, parseUnits("200000", usdcDecimals))
                 await accountBalance.testModifyOwedRealizedPnl(insuranceFund.address, parseEther("-50000"))
 
@@ -165,17 +165,17 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #3
-            it("distributeFee when insuranceFund earned fees, has no balance in wallet, surplus is dictated by threshold", async () => {
+            it("distributeFee when insuranceFund earned fees, has no balance in wallet, surplus is dictated by distributionThreshold", async () => {
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
                 // insuranceFund capacity: 200000 + 0(usdc balance)
-                // overThreshold = max(200000 - 100000, 0) = 100000
+                // overDistributionThreshold = max(200000 - 100000, 0) = 100000
                 // surplus = min(100000, 200000) = 100000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("100000", usdcDecimals), // surplus
                     parseUnits("200000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
-                    parseUnits("100000", usdcDecimals), // threshold
+                    parseUnits("100000", usdcDecimals), // distributionThreshold
                 )
 
                 const surplusBeneficiaryUsdcBalance = await usdc.balanceOf(mockSurplusBeneficiary.address)
@@ -183,18 +183,18 @@ describe("InsuranceFund Spec", () => {
             })
 
             // case #4
-            it("distributeFee when insuranceFund earned fees, has little balance in wallet, surplus is dictated by threshold", async () => {
+            it("distributeFee when insuranceFund earned fees, has little balance in wallet, surplus is dictated by distributionThreshold", async () => {
                 await usdc.mint(insuranceFund.address, parseUnits("50000", usdcDecimals))
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
                 // insuranceFund capacity: 200000 + 50000(usdc balance)
-                // overThreshold = max(250000 - 100000, 0) = 150000
+                // overDistributionThreshold = max(250000 - 100000, 0) = 150000
                 // surplus = min(150000, 200000) = 150000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("150000", usdcDecimals), // surplus
                     parseUnits("250000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
-                    parseUnits("100000", usdcDecimals), // threshold
+                    parseUnits("100000", usdcDecimals), // distributionThreshold
                 )
 
                 const surplusBeneficiaryUsdcBalance = await usdc.balanceOf(mockSurplusBeneficiary.address)
@@ -207,13 +207,13 @@ describe("InsuranceFund Spec", () => {
                 await vault.depositFor(insuranceFund.address, usdc.address, parseUnits("200000", usdcDecimals))
 
                 // insuranceFund capacity: 200000 + 200000(usdc balance)
-                // overThreshold = max(400000 - 100000, 0) = 300000
+                // overDistributionThreshold = max(400000 - 100000, 0) = 300000
                 // surplus = min(300000, 200000) = 200000
                 await expect(insuranceFund.distributeFee()).to.be.emit(insuranceFund, "FeeDistributed").withArgs(
                     parseUnits("200000", usdcDecimals), // surplus
                     parseUnits("400000", usdcDecimals), // insuranceFundCapacity
                     parseUnits("200000", usdcDecimals), // insuranceFundFreeCollateral
-                    parseUnits("100000", usdcDecimals), // threshold
+                    parseUnits("100000", usdcDecimals), // distributionThreshold
                 )
 
                 const surplusBeneficiaryUsdcBalance = await usdc.balanceOf(mockSurplusBeneficiary.address)
