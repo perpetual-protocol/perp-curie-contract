@@ -18,5 +18,5 @@ abstract contract InsuranceFundStorageV2 is InsuranceFundStorageV1 {
     address internal _surplusBeneficiary;
 
     // decimal is the same as the settlement token
-    uint256 internal _threshold;
+    uint256 internal _distributionThreshold;
 }

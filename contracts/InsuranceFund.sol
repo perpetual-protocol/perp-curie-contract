@@ -42,14 +42,6 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         _token = tokenArg;
     }
 
-    /// @dev Deprecated function, will be removed in the next release
-    function setBorrower(address borrowerArg) external onlyOwner {
-        // borrower is not a contract
-        require(borrowerArg.isContract(), "IF_BNC");
-        _vault = borrowerArg;
-        emit BorrowerChanged(borrowerArg);
-    }
-
     function setVault(address vaultArg) external onlyOwner {
         // vault is not a contract
         require(vaultArg.isContract(), "IF_VNC");
@@ -57,9 +49,9 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         emit VaultChanged(vaultArg);
     }
 
-    function setThreshold(uint256 threshold) external onlyOwner {
-        _threshold = threshold;
-        emit ThresholdChanged(threshold);
+    function setDistributionThreshold(uint256 distributionThreshold) external onlyOwner {
+        _distributionThreshold = distributionThreshold;
+        emit DistributionThresholdChanged(distributionThreshold);
     }
 
     function setSurplusBeneficiary(address surplusBeneficiary) external onlyOwner {
@@ -101,24 +93,25 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         address vault = _vault;
         address token = _token;
         address surplusBeneficiary = _surplusBeneficiary;
-        int256 threshold = _threshold.toInt256();
+        int256 distributionThreshold = _distributionThreshold.toInt256();
 
         // IF_SNS: surplusBeneficiary not yet set
         require(surplusBeneficiary != address(0), "IF_SNS");
 
-        // IF_TEZ: threshold is equal to zero
-        require(threshold > 0, "IF_TEZ");
+        // IF_DTEZ: distributionThreshold is equal to zero
+        require(distributionThreshold > 0, "IF_DTEZ");
 
         int256 insuranceFundFreeCollateral = IVault(vault).getFreeCollateralByToken(address(this), token).toInt256();
 
         int256 insuranceFundCapacity = getInsuranceFundCapacity();
 
-        // We check IF's capacity against the threshold, which means if someone sends
-        // settlement collaterals to IF, it will increase IF's capacity and might help it meet the threshold.
-        // However, since only settlement collateral can be counted as surplus, in certain circumstances you may find
-        // that IF cannot distribute fee because it has zero surplus even though its capacity has met the threshold.
-        int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
-        uint256 surplus = PerpMath.min(overThreshold, insuranceFundFreeCollateral).toUint256();
+        // We check IF's capacity against the distribution threshold, which means if someone sends
+        // settlement collaterals to IF, it will increase IF's capacity and might help it meet the
+        // distribution threshold. However, since only settlement collateral can be counted as surplus,
+        // in certain circumstances you may find that IF cannot distribute fee because it has zero
+        // surplus even though its capacity has met the distribution threshold.
+        int256 overDistributionThreshold = PerpMath.max(insuranceFundCapacity.sub(distributionThreshold), 0);
+        uint256 surplus = PerpMath.min(overDistributionThreshold, insuranceFundFreeCollateral).toUint256();
 
         if (surplus > 0) {
             // this should always work since surplus <= insuranceFundFreeCollateral
@@ -130,7 +123,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
                 surplus,
                 insuranceFundCapacity.toUint256(),
                 insuranceFundFreeCollateral.toUint256(),
-                threshold.toUint256()
+                distributionThreshold.toUint256()
             );
         }
         return surplus;
@@ -156,8 +149,8 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
     }
 
     /// @inheritdoc IInsuranceFund
-    function getThreshold() external view override returns (uint256) {
-        return _threshold;
+    function getDistributionThreshold() external view override returns (uint256) {
+        return _distributionThreshold;
     }
 
     /// @inheritdoc IInsuranceFund
