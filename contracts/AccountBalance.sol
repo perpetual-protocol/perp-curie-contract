@@ -38,9 +38,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     uint256 internal constant _DUST = 10 wei;
     uint256 internal constant _MIN_PARTIAL_LIQUIDATE_POSITION_VALUE = 100e18 wei; // 100 USD in decimal 18
-    // TODO: might need to move to storage and can set on-demand
-    uint32 internal _marketTwapInterval = 30 minutes;
-    uint32 internal _premiumInterval = 15 minutes;
 
     //
     // EXTERNAL NON-VIEW
@@ -533,18 +530,21 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
+        IClearingHouseConfig chConfig = IClearingHouseConfig(_clearingHouseConfig);
+
         // Use index twap:
         //   1. For backward compatible, returns index twap when not switch to mark price yet.
         //   2. For paused market, returns index twap as mark price.
         if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
-            return _getIndexPrice(baseToken, IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+            return _getIndexPrice(baseToken, chConfig.getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
-        uint256 marketTwap = _getMarketPrice(baseToken, _marketTwapInterval);
+        uint256 marketTwap = _getMarketPrice(baseToken, chConfig.getMarkPriceMarketTwapInterval());
+        uint32 premiumInterval = chConfig.getMarkPricePremiumInterval();
         int256 premium =
-            _getMarketPrice(baseToken, _premiumInterval).toInt256().sub(
-                _getIndexPrice(baseToken, _premiumInterval).toInt256()
+            _getMarketPrice(baseToken, premiumInterval).toInt256().sub(
+                _getIndexPrice(baseToken, premiumInterval).toInt256()
             );
         uint256 indexWithPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
         return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexWithPremium);

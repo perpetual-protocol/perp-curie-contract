@@ -17,7 +17,7 @@ interface IClearingHouseConfig {
     /// @return partialCloseRatio Partial close ratio
     function getPartialCloseRatio() external view returns (uint24 partialCloseRatio);
 
-    /// @return twapInterval TwapInterval for funding and prices (mark & index) calculations
+    /// @return twapInterval TwapInterval for funding and prices (market & index) calculations
     function getTwapInterval() external view returns (uint32 twapInterval);
 
     /// @return settlementTokenBalanceCap Max value of settlement token balance
@@ -28,4 +28,10 @@ interface IClearingHouseConfig {
 
     /// @return isBackstopLiquidityProvider is backstop liquidity provider
     function isBackstopLiquidityProvider(address account) external view returns (bool isBackstopLiquidityProvider);
+
+    /// @return markPriceMarketTwapInterval MarkPriceMarketTwapInterval for mark price calculations
+    function getMarkPriceMarketTwapInterval() external view returns (uint32 markPriceMarketTwapInterval);
+
+    /// @return markPricePremiumInterval MarkPricePremiumInterval for mark price calculations
+    function getMarkPricePremiumInterval() external view returns (uint32 markPricePremiumInterval);
 }

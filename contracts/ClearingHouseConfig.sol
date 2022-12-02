@@ -2,11 +2,11 @@
 pragma solidity 0.7.6;
 
 import { SafeOwnable } from "./base/SafeOwnable.sol";
-import { ClearingHouseConfigStorageV2 } from "./storage/ClearingHouseConfigStorage.sol";
+import { ClearingHouseConfigStorageV3 } from "./storage/ClearingHouseConfigStorage.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV2 {
+contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV3 {
     //
     // EVENT
     //
@@ -17,6 +17,8 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     event SettlementTokenBalanceCapChanged(uint256 cap);
     event MaxFundingRateChanged(uint24 rate);
     event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
+    event MarkPriceMarketTwapIntervalChanged(uint32 twapInterval);
+    event MarkPricePremiumIntervalChanged(uint32 premiumInterval);
 
     //
     // MODIFIER
@@ -90,6 +92,22 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit BackstopLiquidityProviderChanged(account, isProvider);
     }
 
+    function setMarkPriceMarketTwapInterval(uint32 twapIntervalArg) external onlyOwner {
+        // CHC_IMPMTI: invalid mark price market twap interval
+        require(twapIntervalArg != 0, "CHC_IMPMTI");
+
+        _markPriceMarketTwapInterval = twapIntervalArg;
+        emit MarkPriceMarketTwapIntervalChanged(twapIntervalArg);
+    }
+
+    function setMarkPricePremiumInterval(uint32 premiumIntervalArg) external onlyOwner {
+        // CHC_IMPPI: invalid mark price premium interval
+        require(premiumIntervalArg != 0, "CHC_IMPPI");
+
+        _markPricePremiumInterval = premiumIntervalArg;
+        emit MarkPricePremiumIntervalChanged(premiumIntervalArg);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -137,5 +155,15 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function isBackstopLiquidityProvider(address account) external view override returns (bool) {
         return _backstopLiquidityProviderMap[account];
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getMarkPriceMarketTwapInterval() external view override returns (uint32) {
+        return _markPriceMarketTwapInterval;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    function getMarkPricePremiumInterval() external view override returns (uint32) {
+        return _markPricePremiumInterval;
     }
 }
