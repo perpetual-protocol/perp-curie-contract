@@ -33,7 +33,7 @@
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "hardhat test",
     "parallel-test": "hardhat test --parallel",
-    "foundry-test": "forge test -vvv",
+    "foundry-test": "forge test",
     "foundry-build-uniswap": "forge build --contracts node_modules/@uniswap/v3-core/contracts/UniswapV3Factory.sol",
     "build": "npm run typechain && hardhat compile",
     "prepare": "husky install",
