@@ -42,11 +42,19 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         _token = tokenArg;
     }
 
+    /// @dev Deprecated function, will be removed in the next release
     function setBorrower(address borrowerArg) external onlyOwner {
         // borrower is not a contract
         require(borrowerArg.isContract(), "IF_BNC");
-        _borrower = borrowerArg;
+        _vault = borrowerArg;
         emit BorrowerChanged(borrowerArg);
+    }
+
+    function setVault(address vaultArg) external onlyOwner {
+        // vault is not a contract
+        require(vaultArg.isContract(), "IF_VNC");
+        _vault = vaultArg;
+        emit VaultChanged(vaultArg);
     }
 
     function setThreshold(uint256 threshold) external onlyOwner {
@@ -67,7 +75,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     /// @inheritdoc IInsuranceFund
     function repay() external override nonReentrant whenNotPaused {
-        address vault = _borrower;
+        address vault = _vault;
         address token = _token;
 
         int256 insuranceFundSettlementValue = IVault(vault).getSettlementTokenValue(address(this));
@@ -90,7 +98,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     /// @inheritdoc IInsuranceFund
     function distributeFee() external override nonReentrant whenNotPaused returns (uint256) {
-        address vault = _borrower;
+        address vault = _vault;
         address token = _token;
         address surplusBeneficiary = _surplusBeneficiary;
         int256 threshold = _threshold.toInt256();
@@ -106,7 +114,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
         int256 insuranceFundCapacity = getInsuranceFundCapacity();
 
         // We check IF's capacity against the threshold, which means if someone sends
-        // non-settlement collaterals to IF, it will increase IF's capacity and might help it meet the threshold.
+        // settlement collaterals to IF, it will increase IF's capacity and might help it meet the threshold.
         // However, since only settlement collateral can be counted as surplus, in certain circumstances you may find
         // that IF cannot distribute fee because it has zero surplus even though its capacity has met the threshold.
         int256 overThreshold = PerpMath.max(insuranceFundCapacity.sub(threshold), 0);
@@ -139,7 +147,12 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     /// @inheritdoc IInsuranceFund
     function getBorrower() external view override returns (address) {
-        return _borrower;
+        return _vault;
+    }
+
+    /// @inheritdoc IInsuranceFund
+    function getVault() external view override returns (address) {
+        return _vault;
     }
 
     /// @inheritdoc IInsuranceFund
@@ -158,7 +171,7 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuardUpgradeable, OwnerPausa
 
     /// @inheritdoc IInsuranceFund
     function getInsuranceFundCapacity() public view override returns (int256) {
-        address vault = _borrower;
+        address vault = _vault;
         address token = _token;
 
         int256 insuranceFundSettlementTokenValueX10_S = IVault(vault).getSettlementTokenValue(address(this));

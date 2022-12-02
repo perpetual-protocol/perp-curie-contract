@@ -32,28 +32,28 @@ describe("InsuranceFund Spec", () => {
         await expect(insuranceFund.initialize(admin.address)).to.be.revertedWith("IF_TNC")
     })
 
-    describe("borrower", () => {
-        it("force error, not admin set borrower", async () => {
-            await expect(insuranceFund.connect(alice).setBorrower(vault.address)).to.be.revertedWith("SO_CNO")
+    describe("vault", () => {
+        it("force error, not admin set vault", async () => {
+            await expect(insuranceFund.connect(alice).setVault(vault.address)).to.be.revertedWith("SO_CNO")
         })
 
-        it("force error, setBorrower but borrower is not a contract", async () => {
-            await expect(insuranceFund.setBorrower(admin.address)).to.revertedWith("IF_BNC")
+        it("force error, setVault but vault is not a contract", async () => {
+            await expect(insuranceFund.setVault(admin.address)).to.revertedWith("IF_VNC")
         })
 
-        it("set borrower and emit event", async () => {
-            await expect(insuranceFund.setBorrower(vault.address))
-                .to.emit(insuranceFund, "BorrowerChanged")
+        it("set vault and emit event", async () => {
+            await expect(insuranceFund.setVault(vault.address))
+                .to.emit(insuranceFund, "VaultChanged")
                 .withArgs(vault.address)
         })
 
-        it("force error, setBorrower but borrower is not a contract", async () => {
-            await expect(insuranceFund.setBorrower(admin.address)).to.revertedWith("IF_BNC")
+        it("force error, setVault but vault is not a contract", async () => {
+            await expect(insuranceFund.setVault(admin.address)).to.revertedWith("IF_VNC")
         })
 
-        it("set borrower and emit event", async () => {
-            await expect(insuranceFund.setBorrower(vault.address))
-                .to.emit(insuranceFund, "BorrowerChanged")
+        it("set vault and emit event", async () => {
+            await expect(insuranceFund.setVault(vault.address))
+                .to.emit(insuranceFund, "VaultChanged")
                 .withArgs(vault.address)
         })
     })

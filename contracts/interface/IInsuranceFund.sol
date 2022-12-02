@@ -3,10 +3,13 @@ pragma solidity 0.7.6;
 
 interface IInsuranceFund {
     /// @param borrower The address of the borrower (actually is `Vault` address)
-    /// @dev In the previous version `Vault` used to "borrow" from IF by calling `IF.borrow()`.
-    ///      We have since removed the behavior but kept the variable name "borrower" for
-    ///      backward-compatibility
+    /// @dev (Deprecated function, will be removed in the next release), In the previous version `Vault`
+    ///      used to "borrow" from IF by calling `IF.borrow()`. We have since removed the behavior but
+    ///      kept the variable name "borrower" for backward-compatibility
     event BorrowerChanged(address borrower);
+
+    /// @param vault The address of the vault
+    event VaultChanged(address vault);
 
     /// @param repaidAmount Repaid amount of the token
     /// @param tokenBalanceAfterRepaid InsuranceFund's token balance after repay
@@ -47,9 +50,13 @@ interface IInsuranceFund {
     /// @return token The address of settlement token
     function getToken() external view returns (address token);
 
-    /// @notice Get borrower(`Vault`) address
+    /// @notice (Deprecated function, will be removed in the next release), Get borrower(`Vault`) address
     /// @return vault The address of `Vault`
     function getBorrower() external view returns (address vault);
+
+    /// @notice Get `Vault` address
+    /// @return vault The address of `Vault`
+    function getVault() external view returns (address vault);
 
     /// @notice Get `InsuranceFund` capacity
     /// @return capacityX10_S The capacity value (settlementTokenValue + walletBalance) in settlement token's decimals

@@ -11,13 +11,12 @@ abstract contract InsuranceFundStorageV1 {
 
     // --------- ^^^^^^^^^ ---------
 
-    // _borrower is actually `Vault` address
-    address internal _borrower;
+    address internal _vault;
 }
 
 abstract contract InsuranceFundStorageV2 is InsuranceFundStorageV1 {
     address internal _surplusBeneficiary;
 
-    // decimal is same as settlement token
+    // decimal is the same as the settlement token
     uint256 internal _threshold;
 }
