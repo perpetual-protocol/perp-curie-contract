@@ -45,6 +45,8 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         _maxFundingRate = 0.1e6; // max funding rate, 10% in decimal 6
         _twapInterval = 15 minutes;
         _settlementTokenBalanceCap = 0;
+        _markPriceMarketTwapInterval = 30 minutes;
+        _markPricePremiumInterval = 15 minutes;
     }
 
     function setLiquidationPenaltyRatio(uint24 liquidationPenaltyRatioArg)

@@ -531,17 +531,18 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
         IClearingHouseConfig chConfig = IClearingHouseConfig(_clearingHouseConfig);
+        uint32 marketTwapInterval = chConfig.getMarkPriceMarketTwapInterval();
+        uint32 premiumInterval = chConfig.getMarkPricePremiumInterval();
 
         // Use index twap:
         //   1. For backward compatible, returns index twap when not switch to mark price yet.
         //   2. For paused market, returns index twap as mark price.
-        if (_marketRegistry == address(0) || !IBaseToken(baseToken).isOpen()) {
+        if (!_isEnableMarkPrice(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
             return _getIndexPrice(baseToken, chConfig.getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
-        uint256 marketTwap = _getMarketPrice(baseToken, chConfig.getMarkPriceMarketTwapInterval());
-        uint32 premiumInterval = chConfig.getMarkPricePremiumInterval();
+        uint256 marketTwap = _getMarketPrice(baseToken, marketTwapInterval);
         int256 premium =
             _getMarketPrice(baseToken, premiumInterval).toInt256().sub(
                 _getIndexPrice(baseToken, premiumInterval).toInt256()
@@ -560,6 +561,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+    }
+
+    function _isEnableMarkPrice(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
+        // sanity check params for mark price
+        if (_marketRegistry == address(0) || marketTwapInterval == 0 || premiumInterval == 0) {
+            return false;
+        }
+        return true;
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
