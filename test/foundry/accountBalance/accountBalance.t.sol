@@ -2,7 +2,6 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 import "../helper/Setup.sol";
 import "../../../contracts/interface/IIndexPrice.sol";
 import "../../../contracts/interface/IBaseToken.sol";
@@ -13,9 +12,6 @@ import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.
 
 contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     using SafeMathUpgradeable for uint256;
-
-    uint32 internal constant _marketTwapInterval = 30 minutes;
-    uint32 internal constant _movingAverageInterval = 15 minutes;
 
     function setUp() public virtual override {
         Setup.setUp();
@@ -39,14 +35,39 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     }
 
     function test_getMarkPrice_should_return_index_twap_if_marketRegistry_not_set() public {
-        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
         // mock index twap
+        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
         uint256 indexTwap = 100;
-        vm.mockCall(
-            address(baseToken),
-            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, indexTwapInterval),
-            abi.encode(indexTwap)
-        );
+        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
+
+        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
+    }
+
+    function test_getMarkPrice_should_return_index_twap_if_market_twap_interval_is_zero() public {
+        accountBalance.setMarketRegistry(address(marketRegistry));
+
+        // mock market twap interval is zero
+        _mockMarkPriceMarketTwapInterval(0);
+
+        // mock index twap
+        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
+        uint256 indexTwap = 100;
+        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
+
+        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
+    }
+
+    function test_getMarkPrice_should_return_index_twap_if_premium_interval_is_zero() public {
+        accountBalance.setMarketRegistry(address(marketRegistry));
+
+        // mock premium interval is zero
+        _mockMarkPricePremiumInterval(0);
+
+        // mock index twap
+        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
+        uint256 indexTwap = 100;
+        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
+
         assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 
@@ -59,43 +80,94 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         // mock baseToken index twap
         uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
         uint256 indexTwap = 100;
-        vm.mockCall(
-            address(baseToken),
-            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, indexTwapInterval),
-            abi.encode(indexTwap)
-        );
+        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
 
         vm.expectCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector));
         assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 
-    function test_getMarkPrice_should_return_moving_average_price_if_marketRegistry_is_set() public {
+    function test_getMarkPrice_should_return_index_price_with_premium_if_enable_mark_price() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
 
-        // mock baseToken is open
-        vm.mockCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector), abi.encode(true));
-
-        // TODO: refactor mock code statements
+        uint32 marketTwapInterval = clearingHouseConfig.getMarkPriceMarketTwapInterval();
+        uint32 premiumInterval = clearingHouseConfig.getMarkPricePremiumInterval();
 
         // mock current market price, price = 100
         uint256 sqrtPrice = 10;
+        _mockMarketPrice(address(pool), sqrtPrice);
+
+        // mock market twap(30min): price = 95, tick = 45541
+        _mockMarketTwap(address(pool), marketTwapInterval, 45541);
+
+        // mock moving average: index + premium(15min), price = 97
+        // 100 + (-3) = 97
+        // mock index price: 100
+        _mockIndexTwap(address(baseToken), 0, 100 * (10**18));
+
+        // mock market twap(15m): price = 95, tick = 45541
+        _mockMarketTwap(address(pool), premiumInterval, 45541);
+
+        // mock index twap(15m), price = 98
+        _mockIndexTwap(address(baseToken), premiumInterval, 98 * (10**18));
+
+        uint256 result = accountBalance.getMarkPrice(address(baseToken));
+        // median[100, 95, 97] = 97
+        assertApproxEqAbs(result, 97 * (10**18), 10**15); // result should be 97 +/- 0.001, due to tick math
+    }
+
+    function _toUint160(uint256 value) internal pure returns (uint160 returnValue) {
+        require(((returnValue = uint160(value)) == value), "SafeCast: value doesn't fit in 160 bits");
+    }
+
+    function _mockMarkPriceMarketTwapInterval(uint32 interval) internal {
+        vm.mockCall(
+            address(clearingHouseConfig),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceMarketTwapInterval.selector),
+            abi.encode(interval)
+        );
+    }
+
+    function _mockMarkPricePremiumInterval(uint32 interval) internal {
+        vm.mockCall(
+            address(clearingHouseConfig),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPricePremiumInterval.selector),
+            abi.encode(interval)
+        );
+    }
+
+    function _mockIndexTwap(
+        address baseToken,
+        uint32 interval,
+        uint256 price
+    ) internal {
+        vm.mockCall(baseToken, abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, interval), abi.encode(price));
+    }
+
+    function _mockMarketPrice(address pool, uint256 sqrtPrice) internal {
         uint160 sqrtPriceX96 = _toUint160(sqrtPrice.mul(FixedPoint96.Q96));
         vm.mockCall(
-            address(pool),
+            pool,
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
             abi.encode(sqrtPriceX96, 0, 0, 0, 0, 0, false)
         );
+    }
 
-        // mock market twap(30min): price = 95
+    function _mockMarketTwap(
+        address pool,
+        uint32 interval,
+        int56 tick
+    ) internal {
         uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = _marketTwapInterval;
+        secondsAgos[0] = interval;
         secondsAgos[1] = 0;
 
-        // Price: |---- 90 (10min)---|---- 95 (10min)---|---- 100 (10min)---|
-        // Tick:  |-- 45000 (10min)--|-- 45541 (10min)--|-- 46054 (10min) --|
+        // Ex: interval = 30m, tick = 95
+        // Price: |---- 95 (10min)---|---- 95 (10min)---|---- 95 (10min)----|
+        // Tick:  |-- 45541 (10min)--|-- 45541 (10min)--|-- 45541 (10min) --|
+
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
-        tickCumulatives[1] = 81957000;
+        tickCumulatives[1] = tick * interval;
 
         uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2); // dummy
 
@@ -104,44 +176,5 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
             abi.encodeWithSelector(IUniswapV3PoolDerivedState.observe.selector, secondsAgos),
             abi.encode(tickCumulatives, secondsPerLiquidityCumulativeX128s)
         );
-
-        // mock moving average: index + premium(15min), price = 97
-        // 100 + (-3) = 97
-        vm.mockCall(
-            address(baseToken),
-            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, 0),
-            abi.encode(100 * (10**18))
-        );
-
-        // mock market twap(15m): price = 95
-        uint32[] memory secondsAgos2 = new uint32[](2);
-        secondsAgos2[0] = _movingAverageInterval;
-        secondsAgos2[1] = 0;
-
-        // Price: |---- 90 (5min)---|---- 95 (5min)---|---- 100 (5min)---|
-        // Tick:  |-- 45000 (5min)--|-- 45541 (5min)--|-- 46054 (5min) --|
-        int56[] memory tickCumulatives2 = new int56[](2);
-        tickCumulatives2[0] = 0;
-        tickCumulatives2[1] = 40978500;
-
-        vm.mockCall(
-            address(pool),
-            abi.encodeWithSelector(IUniswapV3PoolDerivedState.observe.selector, secondsAgos2),
-            abi.encode(tickCumulatives2, secondsPerLiquidityCumulativeX128s)
-        );
-
-        // mock index twap(15m), price = 98
-        vm.mockCall(
-            address(baseToken),
-            abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, _movingAverageInterval),
-            abi.encode(98 * (10**18))
-        );
-
-        uint256 result = accountBalance.getMarkPrice(address(baseToken));
-        assertApproxEqAbs(result, 97 * (10**18), 10**17); // result should be 97 +/- 0.1, due to tick math
-    }
-
-    function _toUint160(uint256 value) internal pure returns (uint160 returnValue) {
-        require(((returnValue = uint160(value)) == value), "SafeCast: value doesn't fit in 160 bits");
     }
 }
