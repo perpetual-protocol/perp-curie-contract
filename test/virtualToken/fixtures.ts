@@ -11,7 +11,6 @@ interface BaseTokenFixture {
 }
 
 export async function baseTokenFixture(): Promise<BaseTokenFixture> {
-    // ChainlinkPriceFeedV2
     const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
     const aggregator = await aggregatorFactory.deploy()
     const mockedAggregator = await smockit(aggregator)

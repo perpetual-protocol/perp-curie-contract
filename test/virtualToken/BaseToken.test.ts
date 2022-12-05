@@ -12,7 +12,7 @@ describe("BaseToken", async () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
     let priceFeedDispatcher: PriceFeedDispatcher
-    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
+    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV3
     let currentTime: number
     let chainlinkRoundData: any[]
     const closedPrice = parseEther("200")

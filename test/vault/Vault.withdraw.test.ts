@@ -63,8 +63,8 @@ describe("Vault withdraw test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeed = fixture.mockedWethPriceFeed
-        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
+        wethPriceFeed = fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeed = fixture.mockedWbtcPriceFeedDispatcher
         clearingHouse = fixture.clearingHouse
         accountBalance = fixture.accountBalance as TestAccountBalance
         collateralManager = fixture.collateralManager
@@ -79,8 +79,8 @@ describe("Vault withdraw test", () => {
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("2500"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
+        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("2500"))
+        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
 
         // alice mint collateral tokens
         await usdc.mint(alice.address, parseUnits("100000", usdcDecimals))
